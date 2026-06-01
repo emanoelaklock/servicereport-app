@@ -9,7 +9,7 @@
    não do cache do SW.
 ═══════════════════════════════════════════════ */
 
-const CACHE = 'sr-shell-v1'
+const CACHE = 'sr-shell-v2'
 
 const SHELL = [
   'index.html',
@@ -22,6 +22,7 @@ const SHELL = [
   'js/supabase-client.js',
   'js/auth.js',
   'js/sidebar.js',
+  'js/db-local.js',
   'manifest.webmanifest',
   'assets/icon.svg',
 ]
