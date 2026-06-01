@@ -22,6 +22,12 @@
     const b = SYNC_BADGE[s] || { cls: 's-sc', txt: s || '—' }
     return `<span class="badge ${b.cls}"><span class="dot"></span>${esc(b.txt)}</span>`
   }
+  const STATUS_BADGE = {
+    'Em andamento': 's-ct', 'Pausa': 's-ai', 'Concluído': 's-en', 'Concluído com Pendências': 's-rm',
+  }
+  const statusBadge = (s) => s
+    ? `<span class="badge ${STATUS_BADGE[s] || 's-sc'}"><span class="dot"></span>${esc(s)}</span>`
+    : '<span class="dim">—</span>'
 
   async function init() {
     const p = new URLSearchParams(location.search).get('filtro')
@@ -38,7 +44,7 @@
   async function carregar() {
     const sb = getSupabase()
     const { data, error } = await sb.from('tarefas')
-      .select('id,cliente_nome,tecnico_nome,data_tarefa,sync_status,relatorio_completo,pendencias,faturado,data_faturamento,numero_nota,assinatura_url,respostas,tipos_servico(nome)')
+      .select('id,cliente_nome,tecnico_nome,data_tarefa,status,sync_status,relatorio_completo,pendencias,faturado,data_faturamento,numero_nota,assinatura_url,respostas,tipos_servico(nome)')
       .order('data_tarefa', { ascending: false, nullsFirst: false }).limit(500)
     if (error) { toast('Erro ao carregar: ' + error.message, 'err'); cache = [] }
     else cache = data || []
@@ -47,7 +53,7 @@
 
   function filtrar(rows) {
     if (filtro === 'faturar') return rows.filter(r => !r.faturado && r.relatorio_completo)
-    if (filtro === 'pendencia') return rows.filter(r => !r.relatorio_completo)
+    if (filtro === 'pendencia') return rows.filter(r => r.status === 'Concluído com Pendências')
     return rows
   }
 
@@ -55,7 +61,7 @@
     const rows = filtrar(cache)
     const tb = document.getElementById('tbody-rel')
     if (!rows.length) {
-      tb.innerHTML = '<tr><td colspan="7" class="dim" style="text-align:center;padding:24px">Nenhuma RAT para este filtro.</td></tr>'
+      tb.innerHTML = '<tr><td colspan="8" class="dim" style="text-align:center;padding:24px">Nenhuma RAT para este filtro.</td></tr>'
       return
     }
     tb.innerHTML = rows.map(r => `
@@ -63,6 +69,7 @@
         <td>${fdt(r.data_tarefa, { withTime: true })}</td>
         <td>${esc(r.cliente_nome || '—')}</td>
         <td>${esc(r.tipos_servico && r.tipos_servico.nome || '—')}</td>
+        <td>${statusBadge(r.status)}</td>
         <td>${r.relatorio_completo ? '<span class="badge s-en"><span class="dot"></span>Completo</span>' : '<span class="badge s-ai"><span class="dot"></span>Pendente</span>'}</td>
         <td>${syncBadge(r.sync_status)}</td>
         <td>${r.faturado ? `<span class="badge s-en"><span class="dot"></span>${esc(r.numero_nota || 'Faturada')}</span>` : '<span class="dim">—</span>'}</td>

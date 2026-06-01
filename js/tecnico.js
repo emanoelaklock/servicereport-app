@@ -102,7 +102,7 @@
           ${badge(r.sync_status)}
         </div>
         <div class="rat-meta">
-          <span>${esc(r.tipo_servico_nome || '—')}</span>
+          <span>${esc(r.tipo_servico_nome || '—')}${r.status ? ' · ' + esc(r.status) : ''}</span>
           <span>${fdt(r.criado_em, { withTime: true })}</span>
         </div>
       </div>`).join('')
@@ -122,6 +122,7 @@
     cur = { client_uuid: rat.client_uuid, campos: [] }
     document.getElementById('f-cliente').value = ''
     document.getElementById('f-tipo').value = ''
+    document.getElementById('f-status').value = 'Em andamento'
     document.getElementById('campos-container').innerHTML = ''
     document.getElementById('form-titulo').textContent = 'Nova RAT'
     mostrar('form')
@@ -134,6 +135,7 @@
     document.getElementById('form-titulo').textContent = 'Editar RAT'
     document.getElementById('f-cliente').value = rat.cliente_id || ''
     document.getElementById('f-tipo').value = rat.tipo_servico_id || ''
+    document.getElementById('f-status').value = rat.status || 'Em andamento'
     await onTipoChange()
     // repopula respostas
     if (rat.respostas) {
@@ -326,6 +328,7 @@
       formulario_id: tipo?.formulario_id || null,
       tecnico_id: tecnico.id,
       tecnico_nome: tecnico.nome,
+      status: document.getElementById('f-status').value,
       data_tarefa: new Date().toISOString(),
       respostas,
       questionario_ok: faltando.length === 0,

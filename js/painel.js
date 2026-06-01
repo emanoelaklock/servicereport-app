@@ -27,7 +27,7 @@
 
     const [hojeC, pendC, fatC, fatHojeC] = await Promise.all([
       cont(sb.from('tarefas').select('*', { count: 'exact', head: true }).gte('data_tarefa', isoHoje)),
-      cont(sb.from('tarefas').select('*', { count: 'exact', head: true }).eq('relatorio_completo', false)),
+      cont(sb.from('tarefas').select('*', { count: 'exact', head: true }).eq('status', 'Concluído com Pendências')),
       cont(sb.from('tarefas').select('*', { count: 'exact', head: true }).eq('faturado', false).eq('relatorio_completo', true)),
       cont(sb.from('tarefas').select('*', { count: 'exact', head: true }).eq('faturado', true).gte('data_faturamento', isoHoje)),
     ])
