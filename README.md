@@ -40,9 +40,11 @@ js/sidebar.js         sidebar Bold + nav Service Report (adaptado)  ✅
 js/supabase-client.js init único do Supabase (Traders Apps)  ✅
 js/db-local.js        IndexedDB (RATs + fotos + eventos)  ✅
 js/tecnico.js         formulário de RAT (app de campo)  ✅
-js/sync.js            sincronização Supabase + sync_eventos — passo 5
+js/sync.js            sincronização Supabase + Storage + sync_eventos  ✅
 assets/icon.svg       ícone do app
 ```
+
+Storage: bucket privado **`rat-anexos`** (fotos/assinaturas) com policies por perfil — técnico só acessa objetos sob sua própria pasta (`<auth.uid>/...`). `tarefas.recebido_em` é carimbado por trigger no servidor (ACK que vira `confirmado`).
 
 Dados de exemplo no banco (marcados **TESTE**): `Cliente Exemplo (TESTE)` e `Formulário de exemplo (TESTE)` (campos texto/seleção/número/foto/assinatura) ligado ao tipo `Manutencao corretiva`.
 
@@ -54,7 +56,7 @@ Padrão de carregamento das páginas (igual ao inventário): `theme.css` → `@s
 - PWA instalável com shell offline (service worker na raiz).
 
 ### Próximos passos (fatia 1)
-5. Sincronização Supabase + `sync_eventos` (→ `confirmado`) · 6. Contadores do painel · 7. Lista de relatórios + Faturar.
+6. Contadores do painel diário · 7. Lista de relatórios + botão Faturar.
 
 ### Setup / teste
 Servir a raiz por HTTP (service worker e módulos não funcionam em `file://`). Ex.: `npx serve` ou `python -m http.server`, depois abrir `login.html`. Criar um usuário no Supabase Auth do projeto Traders Apps e a linha correspondente em `usuarios` (`id` = auth uid, `role` = `admin`/`gestor_axis`/`tecnico_campo`).

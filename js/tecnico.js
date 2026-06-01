@@ -301,6 +301,8 @@
     cur = null; sig = null
     mostrar('lista')
     await renderLista()
+    // Tenta sincronizar imediatamente se houver conexão (passo 5).
+    if (window.SyncEngine && navigator.onLine) window.SyncEngine.syncAll()
   }
 
   async function cancelar() {
@@ -316,5 +318,5 @@
     await renderLista()
   }
 
-  window.TecnicoApp = { init }
+  window.TecnicoApp = { init, refresh: renderLista }
 })()

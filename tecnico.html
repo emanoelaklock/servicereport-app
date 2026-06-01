@@ -14,6 +14,7 @@
 <script src="js/supabase-client.js"></script>
 <script src="js/auth.js"></script>
 <script src="js/db-local.js"></script>
+<script src="js/sync.js"></script>
 <script src="js/tecnico.js"></script>
 <style>
   body{display:block;background:var(--bg)}
@@ -90,7 +91,10 @@
       <div id="view-lista">
         <div class="lista-head">
           <h2>Minhas RATs</h2>
-          <button class="btn btn-p" id="btn-nova">+ Nova RAT</button>
+          <div style="display:flex;gap:8px">
+            <button class="btn" id="btn-sync" title="Sincronizar">↻ Sincronizar</button>
+            <button class="btn btn-p" id="btn-nova">+ Nova RAT</button>
+          </div>
         </div>
         <div id="lista-rats"></div>
       </div>
@@ -138,9 +142,18 @@
   window.addEventListener('online', pintarRede)
   window.addEventListener('offline', pintarRede)
 
+  // Atualiza a lista e avisa quando uma rodada de sync termina.
+  window.onSyncDone = ({ ok, fail }) => {
+    if (window.TecnicoApp) TecnicoApp.refresh()
+    if (ok) toast(`${ok} RAT(s) sincronizada(s).`, 'ok')
+    if (fail) toast(`${fail} RAT(s) com erro de envio.`, 'err')
+  }
+
   async function onPostLogin() {
     pintarRede()
     await TecnicoApp.init()
+    document.getElementById('btn-sync').onclick = () => SyncEngine.syncAll()
+    SyncEngine.start()
   }
 
   initAuth()
