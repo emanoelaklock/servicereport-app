@@ -11,6 +11,15 @@
 <script src="js/supabase-client.js"></script>
 <script src="js/auth.js"></script>
 <script src="js/sidebar.js"></script>
+<script src="js/relatorios.js"></script>
+<style>
+  .chip-filtro{cursor:pointer}
+  .det-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:8px}
+  .det-item{background:var(--sur2);border:1px solid var(--bd);border-radius:8px;padding:8px 10px}
+  .det-fotos{display:flex;flex-wrap:wrap;gap:8px;margin-top:6px}
+  .det-fotos img{width:84px;height:84px;object-fit:cover;border-radius:8px;border:1px solid var(--bd)}
+  .det-sig{margin-top:6px;max-width:100%;border:1px solid var(--bd);border-radius:8px;background:#fff}
+</style>
 </head>
 <body>
 
@@ -22,12 +31,20 @@
       <span class="topbar-title">Relatórios</span>
     </div>
     <div class="content">
+      <div class="chips">
+        <span class="chip chip-filtro" data-f="todas">Todas</span>
+        <span class="chip chip-filtro" data-f="faturar">A faturar</span>
+        <span class="chip chip-filtro" data-f="pendencia">Com pendência</span>
+      </div>
       <div class="tcard">
         <div class="twrap">
           <table>
-            <thead><tr><th>Data</th><th>Cliente</th><th>Tipo</th><th>Preenchimento</th><th>Sync</th><th></th></tr></thead>
+            <thead><tr>
+              <th>Data</th><th>Cliente</th><th>Tipo</th>
+              <th>Preenchimento</th><th>Sync</th><th>Faturamento</th><th>Ações</th>
+            </tr></thead>
             <tbody id="tbody-rel">
-              <tr><td colspan="6" class="dim" style="text-align:center;padding:24px">Lista + botão Faturar chegam no passo 7 (fatia 1).</td></tr>
+              <tr><td colspan="7" class="dim" style="text-align:center;padding:24px">Carregando…</td></tr>
             </tbody>
           </table>
         </div>
@@ -36,11 +53,37 @@
   </div>
 </div>
 
+<!-- Modal: Ver detalhe -->
+<div class="mback" id="modal-ver">
+  <div class="modal">
+    <div class="mh"><span class="mt">Detalhe da RAT</span><button class="mx" onclick="RelatoriosApp.fechar('modal-ver')">✕</button></div>
+    <div class="mb" id="ver-body"></div>
+  </div>
+</div>
+
+<!-- Modal: Faturar -->
+<div class="mback" id="modal-faturar">
+  <div class="modal">
+    <div class="mh"><span class="mt">Faturar RAT</span><button class="mx" onclick="RelatoriosApp.fechar('modal-faturar')">✕</button></div>
+    <div class="mb">
+      <div class="fg"><label>Número da nota (opcional)</label><input type="text" id="f-nota" placeholder="Ex.: 12345"/></div>
+      <p class="dim">Marca a RAT como faturada e registra a data de faturamento.</p>
+    </div>
+    <div class="mf">
+      <button class="btn" onclick="RelatoriosApp.fechar('modal-faturar')">Cancelar</button>
+      <button class="btn btn-g" onclick="RelatoriosApp.confirmarFaturar()">Confirmar faturamento</button>
+    </div>
+  </div>
+</div>
+
 <div class="tc" id="tc"></div>
 
 <script>
   window.PAGE_ALLOWED = ['admin', 'gestor_axis']
-  async function onPostLogin() { renderSidebar('relatorios') }
+  async function onPostLogin() {
+    renderSidebar('relatorios')
+    await RelatoriosApp.init()
+  }
   renderSidebar('relatorios')
   initAuth()
 </script>

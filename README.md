@@ -55,8 +55,11 @@ Padrão de carregamento das páginas (igual ao inventário): `theme.css` → `@s
 - Login + sessão + roteamento por `usuarios.role` operando.
 - PWA instalável com shell offline (service worker na raiz).
 
-### Próximos passos (fatia 1)
-6. Contadores do painel diário · 7. Lista de relatórios + botão Faturar.
+### Fatia 1 — completa
+Passos 1–7 concluídos: fundação, PWA/offline shell, IndexedDB local-first, formulário de RAT, sincronização + Storage, painel diário com contadores reais e tela de Relatórios (lista + filtros + detalhe com fotos via signed URL + **Faturar**). Critérios de aceite (criar offline → persiste → confirma ao reconectar → some de "a faturar" ao faturar) cobertos pelo fluxo.
+
+### Fora da fatia 1 (próximas)
+Integração Omie (clientes/produtos/OS), conciliação na tela, efeitos de inventário por tipo de serviço (`equipamentos_axis`), contratos, background sync e polimento.
 
 ### Setup / teste
 Servir a raiz por HTTP (service worker e módulos não funcionam em `file://`). Ex.: `npx serve` ou `python -m http.server`, depois abrir `login.html`. Criar um usuário no Supabase Auth do projeto Traders Apps e a linha correspondente em `usuarios` (`id` = auth uid, `role` = `admin`/`gestor_axis`/`tecnico_campo`).

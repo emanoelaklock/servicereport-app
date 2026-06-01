@@ -11,6 +11,12 @@
 <script src="js/supabase-client.js"></script>
 <script src="js/auth.js"></script>
 <script src="js/sidebar.js"></script>
+<script src="js/painel.js"></script>
+<style>
+  .rec-row{display:grid;grid-template-columns:1fr auto auto auto;gap:12px;align-items:center;padding:10px 0;border-top:1px solid var(--bd);font-size:13px}
+  .rec-row:first-child{border-top:none}
+  .rec-cli{font-weight:500;color:var(--tx);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+</style>
 </head>
 <body>
 
@@ -23,14 +29,14 @@
     </div>
     <div class="content">
       <div class="dash-grid">
-        <div class="stat-card"><div class="stat-label">Tarefas hoje</div><div class="stat-val" id="kpi-hoje">—</div><div class="stat-sub">RATs criadas hoje</div></div>
-        <div class="stat-card"><div class="stat-label">Com pendência</div><div class="stat-val" id="kpi-pend">—</div><div class="stat-sub">relatório incompleto</div></div>
-        <div class="stat-card"><div class="stat-label">A faturar</div><div class="stat-val" id="kpi-faturar">—</div><div class="stat-sub">concluídas não faturadas</div></div>
-        <div class="stat-card"><div class="stat-label">Na fila de envio</div><div class="stat-val" id="kpi-sync">—</div><div class="stat-sub">aguardando sincronização</div></div>
+        <div class="stat-card" onclick="location.href='relatorios.html'"><div class="stat-label">Tarefas hoje</div><div class="stat-val" id="kpi-hoje">—</div><div class="stat-sub">RATs com data de hoje</div></div>
+        <div class="stat-card" onclick="location.href='relatorios.html?filtro=pendencia'"><div class="stat-label">Com pendência</div><div class="stat-val" id="kpi-pend">—</div><div class="stat-sub">relatório incompleto</div></div>
+        <div class="stat-card" onclick="location.href='relatorios.html?filtro=faturar'"><div class="stat-label">A faturar</div><div class="stat-val" id="kpi-faturar">—</div><div class="stat-sub">completas não faturadas</div></div>
+        <div class="stat-card"><div class="stat-label">Faturadas hoje</div><div class="stat-val" id="kpi-fat-hoje">—</div><div class="stat-sub">com nota lançada hoje</div></div>
       </div>
       <div class="dash-card-full">
-        <div class="dash-card-title">Painel diário</div>
-        <p class="dim">Contadores e listas detalhadas chegam no passo 6 (fatia 1). Esta é a fundação: login, perfil e navegação Bold já operando.</p>
+        <div class="dash-card-title">Últimas RATs</div>
+        <div id="recentes"></div>
       </div>
     </div>
   </div>
@@ -43,11 +49,7 @@
   window.PAGE_ALLOWED = ['admin', 'gestor_axis']
   async function onPostLogin() {
     renderSidebar('painel')
-    // Placeholder de contadores (passo 6 conecta de verdade)
-    document.getElementById('kpi-hoje').textContent = '0'
-    document.getElementById('kpi-pend').textContent = '0'
-    document.getElementById('kpi-faturar').textContent = '0'
-    document.getElementById('kpi-sync').textContent = '0'
+    await PainelApp.init()
   }
   renderSidebar('painel')
   initAuth()
