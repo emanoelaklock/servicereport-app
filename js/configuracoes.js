@@ -22,17 +22,26 @@
   let editUserId = null
   const ROLES = ['admin', 'gestor_axis', 'tecnico_campo']
 
+  function mostrarSecao(sec) {
+    const map = { usuarios: 'card-usuarios', formularios: 'sec-formularios', tipos: 'sec-tipos' }
+    document.querySelectorAll('.cfg-section').forEach(el => { el.style.display = 'none' })
+    const el = document.getElementById(map[sec]); if (el) el.style.display = ''
+    document.querySelectorAll('.cfg-tab').forEach(t => t.classList.toggle('on', t.dataset.sec === sec))
+  }
+
   async function init() {
     await carregar()
     document.getElementById('btn-novo-form').onclick = () => abrirForm(null)
     document.getElementById('btn-novo-tipo').onclick = () => abrirTipo(null)
     document.getElementById('btn-add-campo').onclick = () => addCampoRow()
-    // Usuários — somente admin
-    if (typeof PERFIL !== 'undefined' && PERFIL === 'admin') {
-      document.getElementById('card-usuarios').style.display = ''
+    document.querySelectorAll('.cfg-tab').forEach(t => { t.onclick = () => mostrarSecao(t.dataset.sec) })
+    const isAdmin = (typeof PERFIL !== 'undefined' && PERFIL === 'admin')
+    if (isAdmin) {
+      document.getElementById('tab-usuarios').style.display = ''
       document.getElementById('btn-novo-user').onclick = () => abrirUsuario(null)
       await carregarUsuarios()
     }
+    mostrarSecao(isAdmin ? 'usuarios' : 'formularios')
   }
 
   async function carregar() {

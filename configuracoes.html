@@ -14,6 +14,10 @@
 <script src="js/configuracoes.js"></script>
 <style>
   .cfg-card{margin-bottom:20px}
+  .cfg-tabs{display:flex;gap:4px;border-bottom:1px solid var(--bd);margin-bottom:18px}
+  .cfg-tab{background:none;border:none;border-bottom:2px solid transparent;padding:10px 14px;font:inherit;font-size:14px;font-weight:600;color:var(--tx3);cursor:pointer;margin-bottom:-1px}
+  .cfg-tab:hover{color:var(--tx2)}
+  .cfg-tab.on{color:var(--ac);border-bottom-color:var(--ac)}
   .cfg-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:12px}
   .cfg-head h2{font-size:15px;font-weight:600;color:var(--tx)}
   .modal.lg{max-width:640px}
@@ -33,8 +37,14 @@
     <div class="topbar"><span class="topbar-title">Configurações</span></div>
     <div class="content">
 
+      <div class="cfg-tabs">
+        <button class="cfg-tab" data-sec="usuarios" id="tab-usuarios" style="display:none">Usuários</button>
+        <button class="cfg-tab on" data-sec="formularios">Formulários</button>
+        <button class="cfg-tab" data-sec="tipos">Tipos de Serviço</button>
+      </div>
+
       <!-- Usuários (admin) -->
-      <div class="cfg-card" id="card-usuarios" style="display:none">
+      <div class="cfg-card cfg-section" id="card-usuarios" style="display:none">
         <div class="cfg-head">
           <h2>Usuários</h2>
           <button class="btn btn-p" id="btn-novo-user">+ Novo usuário</button>
@@ -46,7 +56,7 @@
       </div>
 
       <!-- Formulários -->
-      <div class="cfg-card">
+      <div class="cfg-card cfg-section" id="sec-formularios">
         <div class="cfg-head">
           <h2>Formulários (questionários)</h2>
           <button class="btn btn-p" id="btn-novo-form">+ Novo formulário</button>
@@ -58,7 +68,7 @@
       </div>
 
       <!-- Tipos de serviço -->
-      <div class="cfg-card">
+      <div class="cfg-card cfg-section" id="sec-tipos" style="display:none">
         <div class="cfg-head">
           <h2>Tipos de serviço</h2>
           <button class="btn btn-p" id="btn-novo-tipo">+ Novo tipo</button>
