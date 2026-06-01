@@ -18,11 +18,21 @@
     .replace(/[^\x20-\x7e]/g, '').replace(/[^a-z0-9]+/g, '_')
     .replace(/^_+|_+$/g, '').slice(0, 40) || 'campo'
 
+  let usuarios = []
+  let editUserId = null
+  const ROLES = ['admin', 'gestor_axis', 'tecnico_campo']
+
   async function init() {
     await carregar()
     document.getElementById('btn-novo-form').onclick = () => abrirForm(null)
     document.getElementById('btn-novo-tipo').onclick = () => abrirTipo(null)
     document.getElementById('btn-add-campo').onclick = () => addCampoRow()
+    // Usuários — somente admin
+    if (typeof PERFIL !== 'undefined' && PERFIL === 'admin') {
+      document.getElementById('card-usuarios').style.display = ''
+      document.getElementById('btn-novo-user').onclick = () => abrirUsuario(null)
+      await carregarUsuarios()
+    }
   }
 
   async function carregar() {
@@ -172,8 +182,92 @@
     await carregar()
   }
 
+  // ───────────────────── Usuários (admin) ─────────────────────
+  // Criação de login e reset de senha vão pela Edge Function (service_role);
+  // edição de papel/ativo/nome é UPDATE direto (RLS usuarios_admin_update).
+  async function chamarFn(body) {
+    const { data, error } = await getSupabase().functions.invoke('manage-users', { body })
+    if (error) {
+      let msg = error.message
+      try { const j = await error.context.json(); if (j && j.error) msg = j.error } catch (_) {}
+      throw new Error(msg)
+    }
+    if (data && data.error) throw new Error(data.error)
+    return data
+  }
+
+  async function carregarUsuarios() {
+    const { data, error } = await getSupabase().from('usuarios').select('id,nome,email,role,ativo').order('nome')
+    usuarios = error ? [] : (data || [])
+    if (error) toast('Erro ao carregar usuários: ' + error.message, 'err')
+    renderUsuarios()
+  }
+
+  function renderUsuarios() {
+    const tb = document.getElementById('tbody-user')
+    if (!usuarios.length) { tb.innerHTML = '<tr><td colspan="5" class="dim" style="text-align:center;padding:20px">Nenhum usuário.</td></tr>'; return }
+    tb.innerHTML = usuarios.map(u => `
+      <tr>
+        <td>${esc(u.nome || '—')}</td>
+        <td>${esc(u.email || '—')}</td>
+        <td>${esc(ROLE_LABEL[u.role] || u.role)}</td>
+        <td>${u.ativo ? '<span class="badge s-en"><span class="dot"></span>Ativo</span>' : '<span class="dim">Inativo</span>'}</td>
+        <td><div class="acts" style="opacity:1"><button class="ab ab-v" data-edit="${esc(u.id)}">Editar</button></div></td>
+      </tr>`).join('')
+    tb.querySelectorAll('[data-edit]').forEach(b => b.onclick = () => abrirUsuario(b.dataset.edit))
+  }
+
+  function abrirUsuario(id) {
+    editUserId = id
+    const u = id ? usuarios.find(x => x.id === id) : null
+    document.getElementById('user-titulo').textContent = id ? 'Editar usuário' : 'Novo usuário'
+    const em = document.getElementById('cu-email')
+    em.value = u ? (u.email || '') : ''
+    em.readOnly = !!id
+    document.getElementById('cu-nome').value = u ? (u.nome || '') : ''
+    document.getElementById('cu-role').innerHTML = ROLES.map(r => `<option value="${r}"${u && u.role === r ? ' selected' : ''}>${esc(ROLE_LABEL[r] || r)}</option>`).join('')
+    document.getElementById('cu-ativo').checked = u ? !!u.ativo : true
+    document.getElementById('cu-senha').value = ''
+    document.getElementById('cu-senha-label').textContent = id ? 'Nova senha (opcional)' : 'Senha'
+    document.getElementById('btn-excluir-user').style.display = id ? '' : 'none'
+    abrir('modal-user')
+  }
+
+  async function salvarUsuario() {
+    const email = document.getElementById('cu-email').value.trim()
+    const nome = document.getElementById('cu-nome').value.trim()
+    const role = document.getElementById('cu-role').value
+    const ativo = document.getElementById('cu-ativo').checked
+    const senha = document.getElementById('cu-senha').value
+    if (!nome) return toast('Informe o nome.', 'err')
+    if (!ROLES.includes(role)) return toast('Papel inválido.', 'err')
+    try {
+      if (!editUserId) {
+        if (!email || !senha) return toast('E-mail e senha são obrigatórios.', 'err')
+        await chamarFn({ action: 'create', email, senha, nome, role })
+        toast('Usuário criado.', 'ok')
+      } else {
+        const { error } = await getSupabase().from('usuarios').update({ nome, role, ativo }).eq('id', editUserId)
+        if (error) throw error
+        if (senha) await chamarFn({ action: 'reset_password', user_id: editUserId, senha })
+        toast('Usuário atualizado.', 'ok')
+      }
+      fechar('modal-user'); await carregarUsuarios()
+    } catch (e) { toast('Erro: ' + e.message, 'err') }
+  }
+
+  async function excluirUsuario() {
+    if (!editUserId) return
+    if (!confirm('Excluir este usuário? Esta ação não pode ser desfeita.')) return
+    try {
+      await chamarFn({ action: 'delete', user_id: editUserId })
+      toast('Usuário excluído.', 'ok')
+      fechar('modal-user'); await carregarUsuarios()
+    } catch (e) { toast('Erro: ' + e.message, 'err') }
+  }
+
   const abrir = (id) => document.getElementById(id).classList.add('open')
   const fechar = (id) => document.getElementById(id).classList.remove('open')
 
-  window.ConfigApp = { init, salvarForm, salvarTipo, fechar }
+  window.ConfigApp = { init, salvarForm, salvarTipo, salvarUsuario, excluirUsuario, fechar }
 })()

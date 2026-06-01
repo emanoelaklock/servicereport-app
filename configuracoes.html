@@ -33,6 +33,18 @@
     <div class="topbar"><span class="topbar-title">Configurações</span></div>
     <div class="content">
 
+      <!-- Usuários (admin) -->
+      <div class="cfg-card" id="card-usuarios" style="display:none">
+        <div class="cfg-head">
+          <h2>Usuários</h2>
+          <button class="btn btn-p" id="btn-novo-user">+ Novo usuário</button>
+        </div>
+        <div class="tcard"><div class="twrap"><table>
+          <thead><tr><th>Nome</th><th>E-mail</th><th>Papel</th><th>Status</th><th>Ações</th></tr></thead>
+          <tbody id="tbody-user"><tr><td colspan="5" class="dim" style="text-align:center;padding:20px">Carregando…</td></tr></tbody>
+        </table></div></div>
+      </div>
+
       <!-- Formulários -->
       <div class="cfg-card">
         <div class="cfg-head">
@@ -95,6 +107,25 @@
     <div class="mf">
       <button class="btn" onclick="ConfigApp.fechar('modal-tipo')">Cancelar</button>
       <button class="btn btn-p" onclick="ConfigApp.salvarTipo()">Salvar tipo</button>
+    </div>
+  </div>
+</div>
+
+<!-- Modal: Usuário -->
+<div class="mback" id="modal-user">
+  <div class="modal">
+    <div class="mh"><span class="mt" id="user-titulo">Novo usuário</span><button class="mx" onclick="ConfigApp.fechar('modal-user')">✕</button></div>
+    <div class="mb">
+      <div class="fg"><label>E-mail</label><input type="email" id="cu-email" placeholder="nome@tsrv.com.br"></div>
+      <div class="fg"><label>Nome</label><input type="text" id="cu-nome" placeholder="Nome completo"></div>
+      <div class="fg"><label>Papel</label><select id="cu-role"></select></div>
+      <label class="cb-obrig-l"><input type="checkbox" id="cu-ativo" checked> Ativo</label>
+      <div class="fg"><label id="cu-senha-label">Senha</label><input type="text" id="cu-senha" placeholder="senha"></div>
+    </div>
+    <div class="mf">
+      <button class="btn" id="btn-excluir-user" style="display:none;margin-right:auto;color:var(--re);border-color:var(--re)" onclick="ConfigApp.excluirUsuario()">Excluir</button>
+      <button class="btn" onclick="ConfigApp.fechar('modal-user')">Cancelar</button>
+      <button class="btn btn-p" onclick="ConfigApp.salvarUsuario()">Salvar</button>
     </div>
   </div>
 </div>
