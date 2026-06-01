@@ -18,6 +18,9 @@
   let cur = null            // RAT em edição: { client_uuid, campos: [] }
   let sig = null            // controlador do canvas de assinatura
 
+  // Título-case: "marcelo oliveira" -> "Marcelo Oliveira"
+  const tcase = (s) => String(s || '').toLowerCase().replace(/(^|[\s\-'])\p{L}/gu, m => m.toUpperCase())
+
   // ─────────────────────────── Init ───────────────────────────
   async function init() {
     const { data: { user } } = await getSupabase().auth.getUser()
@@ -178,7 +181,8 @@
     } else if (c.tipo === 'texto_longo') {
       wrap.innerHTML = `${label}<textarea class="ta-longo" data-campo="${esc(c.id)}" data-tipo="texto_longo" placeholder="…"></textarea>`
     } else if (c.tipo === 'data') {
-      wrap.innerHTML = `${label}<input type="date" data-campo="${esc(c.id)}" data-tipo="data"/>`
+      const hoje = new Date().toISOString().slice(0, 10)
+      wrap.innerHTML = `${label}<input type="date" value="${hoje}" data-campo="${esc(c.id)}" data-tipo="data"/>`
     } else if (c.tipo === 'hora') {
       wrap.innerHTML = `${label}<input type="time" data-campo="${esc(c.id)}" data-tipo="hora"/>`
     } else if (c.tipo === 'numero') {
@@ -187,10 +191,10 @@
       const ops = (c.opcoes || []).map(o => `<option value="${esc(o)}">${esc(o)}</option>`).join('')
       wrap.innerHTML = `${label}<select data-campo="${esc(c.id)}" data-tipo="selecao"><option value="">Selecione…</option>${ops}</select>`
     } else if (c.tipo === 'tecnico') {
-      const ops = (ref.tecnicos || []).map(t => `<option value="${esc(t.nome)}"${t.nome === tecnico.nome ? ' selected' : ''}>${esc(t.nome)}</option>`).join('')
+      const ops = (ref.tecnicos || []).map(t => { const n = tcase(t.nome); return `<option value="${esc(n)}"${n === tcase(tecnico.nome) ? ' selected' : ''}>${esc(n)}</option>` }).join('')
       wrap.innerHTML = `${label}<select data-campo="${esc(c.id)}" data-tipo="tecnico"><option value="">Selecione…</option>${ops}</select>`
     } else if (c.tipo === 'tecnicos') {
-      const checks = (ref.tecnicos || []).map(t => `<label><input type="checkbox" data-multi="${esc(c.id)}" value="${esc(t.nome)}"> ${esc(t.nome)}</label>`).join('')
+      const checks = (ref.tecnicos || []).map(t => { const n = tcase(t.nome); return `<label><input type="checkbox" data-multi="${esc(c.id)}" value="${esc(n)}"> ${esc(n)}</label>` }).join('')
       wrap.innerHTML = `${label}<div class="multi-chk">${checks || '<span class="dim">Nenhum técnico cadastrado</span>'}</div>`
     } else if (c.tipo === 'foto') {
       wrap.innerHTML = `${label}
