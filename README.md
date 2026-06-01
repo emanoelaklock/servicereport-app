@@ -58,6 +58,9 @@ Padrão de carregamento das páginas (igual ao inventário): `theme.css` → `@s
 ### Fatia 1 — completa
 Passos 1–7 concluídos: fundação, PWA/offline shell, IndexedDB local-first, formulário de RAT, sincronização + Storage, painel diário com contadores reais e tela de Relatórios (lista + filtros + detalhe com fotos via signed URL + **Faturar**). Critérios de aceite (criar offline → persiste → confirma ao reconectar → some de "a faturar" ao faturar) cobertos pelo fluxo.
 
+### Configurações (construtor de questionários)
+`configuracoes.html` (admin/gestor): cria/edita **formulários** (perguntas com tipo `texto`/`numero`/`selecao`/`foto`/`assinatura`, obrigatoriedade e opções) e **tipos de serviço** (vínculo com formulário + efeito de inventário). Um questionário = uma linha em `formulario_modelos`; ligá-lo a um `tipos_servico` faz o app de campo carregá-lo ao escolher aquele tipo.
+
 ### Fora da fatia 1 (próximas)
 Integração Omie (clientes/produtos/OS), conciliação na tela, efeitos de inventário por tipo de serviço (`equipamentos_axis`), contratos, background sync e polimento.
 
