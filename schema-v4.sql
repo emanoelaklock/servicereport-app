@@ -246,7 +246,7 @@ insert into tipos_servico (nome, efeito_inventario) values
   ('Manutenção corretiva',     'nenhum'),
   ('Manutenção preventiva',    'nenhum'),
   ('Contrato',                 'nenhum'),
-  ('Sport',                    'nenhum'),
+  ('Spot',                     'nenhum'),
   ('Orçamento',                'nenhum'),
   ('Instalação nova',          'marcar_locado'),
   ('Retirada / desinstalação', 'devolver_estoque')
