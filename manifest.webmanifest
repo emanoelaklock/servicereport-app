@@ -1,0 +1,14 @@
+{
+  "name": "Service Report — Técnico",
+  "short_name": "Service Report",
+  "description": "Relatório de Atendimento Técnico (RAT) — app de campo offline-first.",
+  "start_url": "tecnico.html",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#F4F6FA",
+  "theme_color": "#1B2A4A",
+  "icons": [
+    { "src": "assets/icon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any maskable" }
+  ]
+}

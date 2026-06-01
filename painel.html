@@ -1,0 +1,56 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Painel — Service Report</title>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="css/theme.css">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="js/utils.js"></script>
+<script src="js/supabase-client.js"></script>
+<script src="js/auth.js"></script>
+<script src="js/sidebar.js"></script>
+</head>
+<body>
+
+<div id="sidebar-container"></div>
+
+<div class="main">
+  <div id="app-screen" style="display:none">
+    <div class="topbar">
+      <span class="topbar-title">Painel diário</span>
+    </div>
+    <div class="content">
+      <div class="dash-grid">
+        <div class="stat-card"><div class="stat-label">Tarefas hoje</div><div class="stat-val" id="kpi-hoje">—</div><div class="stat-sub">RATs criadas hoje</div></div>
+        <div class="stat-card"><div class="stat-label">Com pendência</div><div class="stat-val" id="kpi-pend">—</div><div class="stat-sub">relatório incompleto</div></div>
+        <div class="stat-card"><div class="stat-label">A faturar</div><div class="stat-val" id="kpi-faturar">—</div><div class="stat-sub">concluídas não faturadas</div></div>
+        <div class="stat-card"><div class="stat-label">Na fila de envio</div><div class="stat-val" id="kpi-sync">—</div><div class="stat-sub">aguardando sincronização</div></div>
+      </div>
+      <div class="dash-card-full">
+        <div class="dash-card-title">Painel diário</div>
+        <p class="dim">Contadores e listas detalhadas chegam no passo 6 (fatia 1). Esta é a fundação: login, perfil e navegação Bold já operando.</p>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="tc" id="tc"></div>
+
+<script>
+  // Apenas back-office acessa o portal.
+  window.PAGE_ALLOWED = ['admin', 'gestor_axis']
+  async function onPostLogin() {
+    renderSidebar('painel')
+    // Placeholder de contadores (passo 6 conecta de verdade)
+    document.getElementById('kpi-hoje').textContent = '0'
+    document.getElementById('kpi-pend').textContent = '0'
+    document.getElementById('kpi-faturar').textContent = '0'
+    document.getElementById('kpi-sync').textContent = '0'
+  }
+  renderSidebar('painel')
+  initAuth()
+</script>
+</body>
+</html>
