@@ -232,6 +232,14 @@
     return (await listarFotos(client_uuid)).filter(f => !f.enviada)
   }
 
+  // Atualiza a legenda de uma foto (editável no app de campo).
+  async function atualizarLegendaFoto(id, legenda) {
+    return tx([ST_FOTOS], 'readwrite', (t) => {
+      const s = t.objectStore(ST_FOTOS)
+      reqP(s.get(id)).then((cur) => { if (cur) s.put({ ...cur, legenda: legenda || null }) })
+    })
+  }
+
   // ── Eventos: leitura/baixa pelo sync.js ──
   async function listarEventos({ client_uuid, pendentes } = {}) {
     const d = await db()
@@ -253,7 +261,7 @@
     STATUS, TRANSICOES,
     deviceId, uuid,
     novoRat, salvarRat, obterRat, listarRats, definirStatus, removerRat,
-    adicionarFoto, listarFotos, removerFoto, marcarFotoEnviada, fotosPendentes,
+    adicionarFoto, listarFotos, removerFoto, marcarFotoEnviada, fotosPendentes, atualizarLegendaFoto,
     listarEventos, marcarEventoEnviado,
   }
 })()

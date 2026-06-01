@@ -87,13 +87,16 @@
         `<div class="det-item"><div class="dim" style="font-size:11px;text-transform:uppercase;letter-spacing:.05em">${esc(k)}</div><div>${esc(String(v))}</div></div>`).join('') + '</div>'
     }
 
-    // fotos (signed URLs)
+    // fotos (signed URLs) com legenda
     const { data: fotos } = await sb.from('relatorio_fotos').select('url,legenda').eq('tarefa_id', id)
-    const paths = (fotos || []).map(f => f.url).filter(Boolean)
-    if (paths.length) {
-      const { data: signed } = await sb.storage.from('rat-anexos').createSignedUrls(paths, 3600)
+    const comUrl = (fotos || []).filter(f => f.url)
+    if (comUrl.length) {
+      const legPorPath = {}; comUrl.forEach(f => { legPorPath[f.url] = f.legenda })
+      const { data: signed } = await sb.storage.from('rat-anexos').createSignedUrls(comUrl.map(f => f.url), 3600)
       html += '<div class="dim" style="margin-top:12px">Fotos</div><div class="det-fotos">' +
-        (signed || []).map(s => s.signedUrl ? `<a href="${s.signedUrl}" target="_blank"><img src="${s.signedUrl}" alt=""></a>` : '').join('') + '</div>'
+        (signed || []).map(s => s.signedUrl
+          ? `<figure class="det-foto"><a href="${s.signedUrl}" target="_blank"><img src="${s.signedUrl}" alt=""></a>${legPorPath[s.path] ? `<figcaption>${esc(legPorPath[s.path])}</figcaption>` : ''}</figure>`
+          : '').join('') + '</div>'
     }
     // assinatura
     if (r.assinatura_url) {

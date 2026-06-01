@@ -165,7 +165,13 @@
     const label = `<label>${esc(c.label)}${req}</label>`
 
     if (c.tipo === 'texto') {
-      wrap.innerHTML = `${label}<textarea data-campo="${esc(c.id)}" data-tipo="texto" placeholder="…"></textarea>`
+      wrap.innerHTML = `${label}<input type="text" data-campo="${esc(c.id)}" data-tipo="texto"/>`
+    } else if (c.tipo === 'texto_longo') {
+      wrap.innerHTML = `${label}<textarea class="ta-longo" data-campo="${esc(c.id)}" data-tipo="texto_longo" placeholder="…"></textarea>`
+    } else if (c.tipo === 'data') {
+      wrap.innerHTML = `${label}<input type="date" data-campo="${esc(c.id)}" data-tipo="data"/>`
+    } else if (c.tipo === 'hora') {
+      wrap.innerHTML = `${label}<input type="time" data-campo="${esc(c.id)}" data-tipo="hora"/>`
     } else if (c.tipo === 'numero') {
       wrap.innerHTML = `${label}<input type="number" inputmode="decimal" data-campo="${esc(c.id)}" data-tipo="numero"/>`
     } else if (c.tipo === 'selecao') {
@@ -202,7 +208,7 @@
     const files = Array.from(fileList || [])
     for (const f of files) {
       if (!f.type.startsWith('image/')) continue
-      await D().adicionarFoto(cur.client_uuid, f, f.name)
+      await D().adicionarFoto(cur.client_uuid, f, null)   // legenda preenchida depois, por foto
     }
     await refreshThumbs()
   }
@@ -212,10 +218,16 @@
     const fotos = await D().listarFotos(cur.client_uuid)
     box.innerHTML = fotos.map(f => {
       const src = f.url || URL.createObjectURL(f.blob)
-      return `<div class="thumb"><img src="${src}" alt=""><button type="button" class="thumb-x" data-id="${esc(f.id)}">×</button></div>`
+      return `<div class="thumb-card">
+        <div class="thumb"><img src="${src}" alt=""><button type="button" class="thumb-x" data-id="${esc(f.id)}">×</button></div>
+        <input type="text" class="thumb-leg" data-legid="${esc(f.id)}" placeholder="Legenda" value="${esc(f.legenda || '')}">
+      </div>`
     }).join('')
     box.querySelectorAll('.thumb-x').forEach(b => {
       b.onclick = async (e) => { e.stopPropagation(); await D().removerFoto(b.dataset.id); await refreshThumbs() }
+    })
+    box.querySelectorAll('.thumb-leg').forEach(inp => {
+      inp.onchange = () => D().atualizarLegendaFoto(inp.dataset.legid, inp.value.trim())
     })
   }
 
