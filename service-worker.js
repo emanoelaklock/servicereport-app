@@ -9,7 +9,7 @@
    não do cache do SW.
 ═══════════════════════════════════════════════ */
 
-const CACHE = 'sr-shell-v6'
+const CACHE = 'sr-shell-v7'
 
 const SHELL = [
   'index.html',
@@ -63,18 +63,25 @@ self.addEventListener('fetch', (event) => {
   if (url.hostname.endsWith('supabase.co')) return
 
   // Same-origin: cache-first com atualização em background.
+  // IMPORTANTE: nunca cachear/servir resposta REDIRECIONADA — o browser recusa
+  // usá-la numa navegação (causa ERR_FAILED). Só guarda respostas 'basic' ok.
   if (url.origin === self.location.origin) {
     event.respondWith((async () => {
       const cached = await caches.match(req)
       const fetchAndCache = fetch(req).then(res => {
-        if (res && res.ok) caches.open(CACHE).then(c => c.put(req, res.clone()))
+        if (res && res.ok && !res.redirected && res.type === 'basic') {
+          caches.open(CACHE).then(c => c.put(req, res.clone()))
+        }
         return res
       }).catch(() => null)
-      if (cached) { fetchAndCache; return cached }
+      if (cached && !cached.redirected) { fetchAndCache; return cached }
       const fresh = await fetchAndCache
       if (fresh) return fresh
-      // Offline e sem cache: cai para o shell do app de campo.
-      if (req.mode === 'navigate') return (await caches.match('tecnico.html')) || Response.error()
+      // Offline e sem cache: cai para o shell do app de campo (se não-redirecionado).
+      if (req.mode === 'navigate') {
+        const fb = await caches.match('tecnico.html')
+        return (fb && !fb.redirected) ? fb : Response.error()
+      }
       return Response.error()
     })())
     return
