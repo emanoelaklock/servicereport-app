@@ -44,7 +44,7 @@
   async function carregar() {
     const sb = getSupabase()
     const { data, error } = await sb.from('tarefas')
-      .select('id,cliente_nome,tecnico_nome,data_tarefa,status,sync_status,relatorio_completo,pendencias,faturado,data_faturamento,numero_nota,assinatura_url,respostas,tipos_servico(nome)')
+      .select('id,cliente_nome,tecnico_nome,data_tarefa,status,sync_status,relatorio_completo,pendencias,faturado,data_faturamento,numero_nota,assinatura_url,respostas,tempo_trabalhado,tipos_servico(nome)')
       .order('data_tarefa', { ascending: false, nullsFirst: false }).limit(500)
     if (error) { toast('Erro ao carregar: ' + error.message, 'err'); cache = [] }
     else cache = data || []
@@ -86,8 +86,10 @@
   async function abrirVer(id) {
     const r = cache.find(x => x.id === id); if (!r) return
     const sb = getSupabase()
+    const fmtMin = (t) => (t == null) ? '—' : `${Math.floor(t / 60)}h ${String(t % 60).padStart(2, '0')}min`
     let html = `<div style="margin-bottom:12px"><b style="font-size:15px">${esc(r.cliente_nome || '—')}</b> · ${esc(r.tipos_servico && r.tipos_servico.nome || '—')}
-      <div class="dim" style="margin-top:2px">Técnico: ${esc(r.tecnico_nome || '—')} · ${fdt(r.data_tarefa, { withTime: true })}</div></div>`
+      <div class="dim" style="margin-top:2px">Técnico: ${esc(r.tecnico_nome || '—')} · ${fdt(r.data_tarefa, { withTime: true })}</div>
+      <div class="dim" style="margin-top:2px">Status: ${esc(r.status || '—')} · Tempo trabalhado: ${fmtMin(r.tempo_trabalhado)}</div></div>`
 
     if (r.respostas && Object.keys(r.respostas).length) {
       html += '<div class="det-grid">' + Object.entries(r.respostas).map(([k, v]) =>

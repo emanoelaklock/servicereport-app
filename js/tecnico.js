@@ -153,6 +153,7 @@
         }
       }
     }
+    atualizarTempo()
     mostrar('form')
   }
 
@@ -170,6 +171,10 @@
     // ativar assinatura, se houver
     const sc = cont.querySelector('canvas.sig-pad')
     if (sc) { sig = initSignature(sc); sig.resize() }
+    // recalcula tempo trabalhado ao alterar qualquer campo
+    cont.oninput = atualizarTempo
+    cont.onchange = atualizarTempo
+    atualizarTempo()
     // thumbnails de fotos existentes
     await refreshThumbs()
   }
@@ -282,6 +287,33 @@
   }
 
   // ─────────────────────────── Salvar ───────────────────────────
+  // Tempo trabalhado: Sim → (final retorno − inicial ida); Não → (término − início);
+  // sempre menos almoço e pausa (min). Resultado em minutos (>= 0).
+  const minutosDe = (hhmm) => {
+    if (!hhmm) return null
+    const [h, m] = String(hhmm).split(':').map(Number)
+    if (isNaN(h) || isNaN(m)) return null
+    return h * 60 + m
+  }
+  function calcTempo() {
+    const val = (id) => { const el = document.querySelector(`[data-campo="${CSS.escape(id)}"]`); return el ? el.value : '' }
+    const desloc = val('deslocamento')
+    let ini, fim
+    if (desloc === 'Sim') { ini = val('desloc_inicial_ida'); fim = val('desloc_final_retorno') }
+    else if (desloc === 'Não') { ini = val('hora_inicio'); fim = val('hora_termino') }
+    else return null
+    const a = minutosDe(ini), b = minutosDe(fim)
+    if (a == null || b == null) return null
+    const almoco = Number(val('tempo_almoco')) || 0
+    const pausa = Number(val('tempo_pausa')) || 0
+    const t = b - a - almoco - pausa
+    return t < 0 ? 0 : t
+  }
+  const fmtMin = (t) => t == null ? '—' : `${Math.floor(t / 60)}h ${String(t % 60).padStart(2, '0')}min`
+  function atualizarTempo() {
+    const el = document.getElementById('f-tempo'); if (el) el.value = fmtMin(calcTempo())
+  }
+
   function coletarRespostas() {
     const respostas = {}
     let faltando = []
@@ -334,6 +366,7 @@
       tecnico_id: tecnico.id,
       tecnico_nome: tecnico.nome,
       status: document.getElementById('f-status').value,
+      tempo_trabalhado: calcTempo(),
       data_tarefa: new Date().toISOString(),
       respostas,
       questionario_ok: faltando.length === 0,

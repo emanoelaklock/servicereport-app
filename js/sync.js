@@ -23,7 +23,7 @@
     'cliente_nome', 'tecnico_nome', 'data_tarefa', 'status', 'valor',
     'checkin_lat', 'checkin_lng', 'assinatura_url', 'respostas',
     'tem_foto', 'tem_assinatura', 'questionario_ok', 'pendencias',
-    'sync_status', 'device_id', 'os_omie', 'observacoes',
+    'sync_status', 'device_id', 'os_omie', 'observacoes', 'tempo_trabalhado',
   ]
 
   function dataURLparaBlob(dataURL) {
