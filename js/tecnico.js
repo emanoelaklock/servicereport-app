@@ -13,7 +13,7 @@
   const D = () => window.DBLocal
   const REF_KEY = 'sr_ref_v1'
 
-  let ref = { clientes: [], tipos: [], formularios: {}, tecnicos: [], veiculos: [] }   // formularios: { [id]: {nome,campos} }
+  let ref = { clientes: [], tipos: [], formularios: {}, tecnicos: [], veiculos: [], produtos: [] }   // formularios: { [id]: {nome,campos} }
   let tecnico = { id: null, nome: null }
   let cur = null            // RAT em edição: { client_uuid, campos: [] }
   let sig = null            // controlador do canvas de assinatura
@@ -47,12 +47,13 @@
   async function carregarRef() {
     try {
       const sb = getSupabase()
-      const [cli, tip, forms, tec, veic] = await Promise.all([
+      const [cli, tip, forms, tec, veic, prod] = await Promise.all([
         sb.from('clientes').select('id,nome,documento').order('nome'),
         sb.from('tipos_servico').select('id,nome,formulario_id,ativo').eq('ativo', true).order('nome'),
         sb.from('formulario_modelos').select('id,nome,campos').eq('ativo', true),
         sb.from('usuarios').select('id,nome').eq('role', 'tecnico_campo').eq('ativo', true).order('nome'),
         sb.from('veiculos').select('id,modelo,placa,ativo').eq('ativo', true).order('modelo'),
+        sb.from('produtos').select('id,codigo,descricao,unidade,ativo').eq('ativo', true).order('descricao'),
       ])
       if (cli.error || tip.error || forms.error) throw (cli.error || tip.error || forms.error)
       ref.clientes = cli.data || []
@@ -61,6 +62,7 @@
       ;(forms.data || []).forEach(f => { ref.formularios[f.id] = f })
       ref.tecnicos = tec.error ? [] : (tec.data || [])
       ref.veiculos = veic.error ? [] : (veic.data || [])
+      ref.produtos = prod.error ? [] : (prod.data || [])
       localStorage.setItem(REF_KEY, JSON.stringify(ref))
     } catch (e) {
       const cache = localStorage.getItem(REF_KEY)
@@ -208,6 +210,18 @@
     } else if (c.tipo === 'veiculo') {
       const ops = (ref.veiculos || []).map(v => { const lbl = `${v.modelo || ''} (${v.placa || ''})`; return `<option value="${esc(lbl)}">${esc(lbl)}</option>` }).join('')
       wrap.innerHTML = `${label}<select data-campo="${esc(c.id)}" data-tipo="veiculo"><option value="">Selecione…</option>${ops}</select>`
+    } else if (c.tipo === 'produtos') {
+      const ops = (ref.produtos || []).map(p => `<option value="${esc(p.id)}">${esc((p.codigo ? p.codigo + ' - ' : '') + (p.descricao || ''))}</option>`).join('')
+      wrap.innerHTML = `${label}
+        <div class="prod-box">
+          <div class="prod-add">
+            <select id="prod-sel"><option value="">Produto…</option>${ops}</select>
+            <input type="number" id="prod-qtd" inputmode="decimal" placeholder="Qtd" min="0" step="any">
+            <button type="button" class="btn btn-sm" id="prod-add-btn">+ Add</button>
+          </div>
+          <div class="prod-list" id="prod-list"></div>
+        </div>`
+      setTimeout(() => { const b = document.getElementById('prod-add-btn'); if (b) b.onclick = adicionarMaterialUI; refreshMateriais() }, 0)
     } else if (c.tipo === 'foto') {
       wrap.innerHTML = `${label}
         <div class="foto-box">
@@ -260,6 +274,35 @@
     box.querySelectorAll('.thumb-leg').forEach(inp => {
       inp.onchange = () => D().atualizarLegendaFoto(inp.dataset.legid, inp.value.trim())
     })
+  }
+
+  // ── Produtos utilizados (materiais, origem 'usado') ──
+  async function adicionarMaterialUI() {
+    const sel = document.getElementById('prod-sel')
+    const qtdEl = document.getElementById('prod-qtd')
+    const pid = sel.value
+    const qtd = Number(qtdEl.value)
+    if (!pid) return toast('Selecione um produto.', 'err')
+    if (!qtd || qtd <= 0) return toast('Informe a quantidade.', 'err')
+    const p = (ref.produtos || []).find(x => x.id === pid)
+    await D().adicionarMaterial(cur.client_uuid, {
+      produto_id: pid, codigo_produto: p ? p.codigo : null, descricao: p ? p.descricao : null,
+      unidade: p ? p.unidade : null, quantidade: qtd,
+    })
+    sel.value = ''; qtdEl.value = ''
+    await refreshMateriais()
+  }
+  async function refreshMateriais() {
+    const box = document.getElementById('prod-list')
+    if (!box) return
+    const mats = await D().listarMateriais(cur.client_uuid)
+    if (!mats.length) { box.innerHTML = '<span class="dim">Nenhum produto adicionado.</span>'; return }
+    box.innerHTML = mats.map(m => `<div class="prod-item">
+      <span>${esc(m.descricao || m.codigo_produto || '—')}</span>
+      <span class="prod-qtd">${m.quantidade}${m.unidade ? ' ' + esc(m.unidade) : ''}</span>
+      <button type="button" class="thumb-x" data-mid="${esc(m.id)}">×</button>
+    </div>`).join('')
+    box.querySelectorAll('[data-mid]').forEach(b => { b.onclick = async () => { await D().removerMaterial(b.dataset.mid); await refreshMateriais() } })
   }
 
   // ───────────────────── Assinatura (canvas) ─────────────────────
@@ -318,7 +361,7 @@
     const respostas = {}
     let faltando = []
     for (const c of cur.campos) {
-      if (c.tipo === 'foto' || c.tipo === 'assinatura') continue
+      if (c.tipo === 'foto' || c.tipo === 'assinatura' || c.tipo === 'produtos') continue
       let v = ''
       if (c.tipo === 'tecnicos') {
         v = Array.from(document.querySelectorAll(`[data-multi="${CSS.escape(c.id)}"]:checked`)).map(x => x.value).join(', ')
@@ -348,6 +391,8 @@
     const fotos = await D().listarFotos(cur.client_uuid)
     if (faltando.length) return toast('Preencha: ' + faltando.join(', '), 'err')
     if (fotoObrig && fotos.length === 0) return toast('Anexe ao menos uma foto.', 'err')
+    const produtosObrig = cur.campos.some(c => c.tipo === 'produtos' && c.obrigatorio)
+    if (produtosObrig && (await D().listarMateriais(cur.client_uuid)).length === 0) return toast('Adicione ao menos um produto.', 'err')
 
     let assinatura_local = null
     const temAssinatura = sig && !sig.isEmpty()

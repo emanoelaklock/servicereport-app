@@ -9,10 +9,11 @@
 ═══════════════════════════════════════════════ */
 (function () {
   const DB_NAME = 'service_report'
-  const DB_VERSION = 1
+  const DB_VERSION = 2
   const ST_RATS = 'rats'
   const ST_FOTOS = 'fotos'
   const ST_EVENTOS = 'eventos'
+  const ST_MATERIAIS = 'materiais'
 
   // ── Estados de sincronização (brief) ──
   const STATUS = {
@@ -74,6 +75,10 @@
           const s = d.createObjectStore(ST_EVENTOS, { keyPath: 'id' })
           s.createIndex('client_uuid', 'client_uuid', { unique: false })
           s.createIndex('enviado', 'enviado', { unique: false })
+        }
+        if (!d.objectStoreNames.contains(ST_MATERIAIS)) {
+          const s = d.createObjectStore(ST_MATERIAIS, { keyPath: 'id' })
+          s.createIndex('rat_uuid', 'rat_uuid', { unique: false })
         }
       }
       req.onsuccess = () => resolve(req.result)
@@ -184,13 +189,36 @@
   }
 
   async function removerRat(client_uuid) {
-    return tx([ST_RATS, ST_FOTOS, ST_EVENTOS], 'readwrite', (t) => {
+    return tx([ST_RATS, ST_FOTOS, ST_EVENTOS, ST_MATERIAIS], 'readwrite', (t) => {
       t.objectStore(ST_RATS).delete(client_uuid)
       const fi = t.objectStore(ST_FOTOS).index('rat_uuid')
       reqP(fi.getAllKeys(client_uuid)).then(keys => keys.forEach(k => t.objectStore(ST_FOTOS).delete(k)))
       const ei = t.objectStore(ST_EVENTOS).index('client_uuid')
       reqP(ei.getAllKeys(client_uuid)).then(keys => keys.forEach(k => t.objectStore(ST_EVENTOS).delete(k)))
+      const mi = t.objectStore(ST_MATERIAIS).index('rat_uuid')
+      reqP(mi.getAllKeys(client_uuid)).then(keys => keys.forEach(k => t.objectStore(ST_MATERIAIS).delete(k)))
     })
+  }
+
+  // ── Materiais utilizados (catálogo de produtos) ──
+  async function adicionarMaterial(client_uuid, m) {
+    const reg = {
+      id: uuid(), rat_uuid: client_uuid,
+      produto_id: m.produto_id || null, codigo_produto: m.codigo_produto || null,
+      descricao: m.descricao || null, unidade: m.unidade || null,
+      quantidade: Number(m.quantidade) || 0, criado_em: agora(),
+    }
+    await tx([ST_MATERIAIS], 'readwrite', (t) => { t.objectStore(ST_MATERIAIS).add(reg) })
+    return reg.id
+  }
+  async function listarMateriais(client_uuid) {
+    const d = await db()
+    const idx = d.transaction(ST_MATERIAIS).objectStore(ST_MATERIAIS).index('rat_uuid')
+    const arr = await reqP(idx.getAll(client_uuid))
+    return arr.sort((a, b) => (a.criado_em || '').localeCompare(b.criado_em || ''))
+  }
+  async function removerMaterial(id) {
+    return tx([ST_MATERIAIS], 'readwrite', (t) => t.objectStore(ST_MATERIAIS).delete(id))
   }
 
   // ── Fotos (blobs guardados offline) ──
@@ -262,6 +290,7 @@
     deviceId, uuid,
     novoRat, salvarRat, obterRat, listarRats, definirStatus, removerRat,
     adicionarFoto, listarFotos, removerFoto, marcarFotoEnviada, fotosPendentes, atualizarLegendaFoto,
+    adicionarMaterial, listarMateriais, removerMaterial,
     listarEventos, marcarEventoEnviado,
   }
 })()

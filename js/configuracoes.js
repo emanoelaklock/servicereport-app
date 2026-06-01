@@ -11,7 +11,7 @@
   let editFormId = null   // id do formulário em edição (null = novo)
   let editTipoId = null
 
-  const TIPOS_CAMPO = ['texto', 'texto_longo', 'numero', 'data', 'hora', 'selecao', 'tecnico', 'tecnicos', 'veiculo', 'foto', 'assinatura']
+  const TIPOS_CAMPO = ['texto', 'texto_longo', 'numero', 'data', 'hora', 'selecao', 'tecnico', 'tecnicos', 'veiculo', 'produtos', 'foto', 'assinatura']
   let veiculos = []
   let editVeicId = null
   const EFEITOS = ['nenhum', 'marcar_locado', 'devolver_estoque', 'marcar_manutencao']

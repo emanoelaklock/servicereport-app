@@ -81,6 +81,18 @@
       if (rf.error) throw rf.error
     }
 
+    // 4b) materiais utilizados (idempotente: id = id local do material)
+    const mats = await D().listarMateriais(rat.client_uuid)
+    if (mats.length) {
+      const mrows = mats.map(m => ({
+        id: m.id, origem: 'usado', tarefa_id: tarefaId,
+        produto_id: m.produto_id || null, codigo_produto: m.codigo_produto || null,
+        descricao: m.descricao || null, quantidade: m.quantidade || 0,
+      }))
+      const mr = await sb.from('materiais').upsert(mrows, { onConflict: 'id' })
+      if (mr.error) throw mr.error
+    }
+
     // 5) ACK do servidor: recebido_em carimbado → confirmado
     if (ups.data.recebido_em) {
       await D().salvarRat(rat.client_uuid, { recebido_em: ups.data.recebido_em, assinatura_url })

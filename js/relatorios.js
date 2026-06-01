@@ -96,6 +96,13 @@
         `<div class="det-item"><div class="dim" style="font-size:11px;text-transform:uppercase;letter-spacing:.05em">${esc(k)}</div><div>${esc(String(v))}</div></div>`).join('') + '</div>'
     }
 
+    // produtos utilizados
+    const { data: mats } = await sb.from('materiais').select('descricao,codigo_produto,quantidade').eq('tarefa_id', id).eq('origem', 'usado')
+    if (mats && mats.length) {
+      html += '<div class="dim" style="margin-top:12px">Produtos utilizados</div><div class="det-prod">' +
+        mats.map(m => `<div>${esc(m.descricao || m.codigo_produto || '—')} — <b>${esc(String(m.quantidade))}</b></div>`).join('') + '</div>'
+    }
+
     // fotos (signed URLs) com legenda
     const { data: fotos } = await sb.from('relatorio_fotos').select('url,legenda').eq('tarefa_id', id)
     const comUrl = (fotos || []).filter(f => f.url)
