@@ -13,7 +13,7 @@
   const D = () => window.DBLocal
   const REF_KEY = 'sr_ref_v1'
 
-  let ref = { clientes: [], tipos: [], formularios: {} }   // formularios: { [id]: {nome,campos} }
+  let ref = { clientes: [], tipos: [], formularios: {}, tecnicos: [] }   // formularios: { [id]: {nome,campos} }
   let tecnico = { id: null, nome: null }
   let cur = null            // RAT em edição: { client_uuid, campos: [] }
   let sig = null            // controlador do canvas de assinatura
@@ -44,16 +44,18 @@
   async function carregarRef() {
     try {
       const sb = getSupabase()
-      const [cli, tip, forms] = await Promise.all([
+      const [cli, tip, forms, tec] = await Promise.all([
         sb.from('clientes').select('id,nome,documento').order('nome'),
         sb.from('tipos_servico').select('id,nome,formulario_id,ativo').eq('ativo', true).order('nome'),
         sb.from('formulario_modelos').select('id,nome,campos').eq('ativo', true),
+        sb.from('usuarios').select('id,nome').eq('role', 'tecnico_campo').eq('ativo', true).order('nome'),
       ])
       if (cli.error || tip.error || forms.error) throw (cli.error || tip.error || forms.error)
       ref.clientes = cli.data || []
       ref.tipos = tip.data || []
       ref.formularios = {}
       ;(forms.data || []).forEach(f => { ref.formularios[f.id] = f })
+      ref.tecnicos = tec.error ? [] : (tec.data || [])
       localStorage.setItem(REF_KEY, JSON.stringify(ref))
     } catch (e) {
       const cache = localStorage.getItem(REF_KEY)
@@ -132,9 +134,16 @@
     await onTipoChange()
     // repopula respostas
     if (rat.respostas) {
-      for (const [k, v] of Object.entries(rat.respostas)) {
-        const el = document.querySelector(`[data-campo="${CSS.escape(k)}"]`)
-        if (el) el.value = v
+      for (const c of cur.campos) {
+        const v = rat.respostas[c.id]
+        if (v == null) continue
+        if (c.tipo === 'tecnicos') {
+          const sel = new Set(String(v).split(',').map(s => s.trim()))
+          document.querySelectorAll(`[data-multi="${CSS.escape(c.id)}"]`).forEach(chk => { chk.checked = sel.has(chk.value) })
+        } else {
+          const el = document.querySelector(`[data-campo="${CSS.escape(c.id)}"]`)
+          if (el) el.value = v
+        }
       }
     }
     mostrar('form')
@@ -177,6 +186,12 @@
     } else if (c.tipo === 'selecao') {
       const ops = (c.opcoes || []).map(o => `<option value="${esc(o)}">${esc(o)}</option>`).join('')
       wrap.innerHTML = `${label}<select data-campo="${esc(c.id)}" data-tipo="selecao"><option value="">Selecione…</option>${ops}</select>`
+    } else if (c.tipo === 'tecnico') {
+      const ops = (ref.tecnicos || []).map(t => `<option value="${esc(t.nome)}"${t.nome === tecnico.nome ? ' selected' : ''}>${esc(t.nome)}</option>`).join('')
+      wrap.innerHTML = `${label}<select data-campo="${esc(c.id)}" data-tipo="tecnico"><option value="">Selecione…</option>${ops}</select>`
+    } else if (c.tipo === 'tecnicos') {
+      const checks = (ref.tecnicos || []).map(t => `<label><input type="checkbox" data-multi="${esc(c.id)}" value="${esc(t.nome)}"> ${esc(t.nome)}</label>`).join('')
+      wrap.innerHTML = `${label}<div class="multi-chk">${checks || '<span class="dim">Nenhum técnico cadastrado</span>'}</div>`
     } else if (c.tipo === 'foto') {
       wrap.innerHTML = `${label}
         <div class="foto-box">
@@ -261,8 +276,13 @@
     let faltando = []
     for (const c of cur.campos) {
       if (c.tipo === 'foto' || c.tipo === 'assinatura') continue
-      const el = document.querySelector(`[data-campo="${CSS.escape(c.id)}"]`)
-      const v = el ? String(el.value || '').trim() : ''
+      let v = ''
+      if (c.tipo === 'tecnicos') {
+        v = Array.from(document.querySelectorAll(`[data-multi="${CSS.escape(c.id)}"]:checked`)).map(x => x.value).join(', ')
+      } else {
+        const el = document.querySelector(`[data-campo="${CSS.escape(c.id)}"]`)
+        v = el ? String(el.value || '').trim() : ''
+      }
       if (c.obrigatorio && !v) faltando.push(c.label)
       if (v) respostas[c.id] = v
     }
