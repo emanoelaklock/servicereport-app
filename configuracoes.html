@@ -41,6 +41,7 @@
         <button class="cfg-tab" data-sec="usuarios" id="tab-usuarios" style="display:none">Usuários</button>
         <button class="cfg-tab on" data-sec="formularios">Formulários</button>
         <button class="cfg-tab" data-sec="tipos">Tipos de Serviço</button>
+        <button class="cfg-tab" data-sec="veiculos">Veículos</button>
       </div>
 
       <!-- Usuários (admin) -->
@@ -79,6 +80,18 @@
         </table></div></div>
       </div>
 
+      <!-- Veículos -->
+      <div class="cfg-card cfg-section" id="sec-veiculos" style="display:none">
+        <div class="cfg-head">
+          <h2>Veículos</h2>
+          <button class="btn btn-p" id="btn-novo-veic">+ Novo veículo</button>
+        </div>
+        <div class="tcard"><div class="twrap"><table>
+          <thead><tr><th>Modelo</th><th>Placa</th><th>Status</th><th>Ações</th></tr></thead>
+          <tbody id="tbody-veic"><tr><td colspan="4" class="dim" style="text-align:center;padding:20px">Carregando…</td></tr></tbody>
+        </table></div></div>
+      </div>
+
     </div>
   </div>
 </div>
@@ -95,7 +108,7 @@
         <div id="campos-build" style="margin-top:6px"></div>
         <button type="button" class="btn btn-sm" id="btn-add-campo">+ Adicionar campo</button>
       </div>
-      <p class="dim">Tipos: <b>texto</b>, <b>texto_longo</b> (multilinha), <b>numero</b>, <b>data</b>, <b>hora</b>, <b>selecao</b> (opções separadas por vírgula), <b>tecnico</b>/<b>tecnicos</b> (seleção única/múltipla de técnicos cadastrados), <b>foto</b> (múltiplas, com legenda), <b>assinatura</b>.</p>
+      <p class="dim">Tipos: <b>texto</b>, <b>texto_longo</b> (multilinha), <b>numero</b>, <b>data</b>, <b>hora</b>, <b>selecao</b> (opções separadas por vírgula), <b>tecnico</b>/<b>tecnicos</b> (seleção única/múltipla de técnicos cadastrados), <b>veiculo</b> (dropdown do cadastro de veículos), <b>foto</b> (múltiplas, com legenda), <b>assinatura</b>.</p>
     </div>
     <div class="mf">
       <button class="btn" onclick="ConfigApp.fechar('modal-form')">Cancelar</button>
@@ -117,6 +130,22 @@
     <div class="mf">
       <button class="btn" onclick="ConfigApp.fechar('modal-tipo')">Cancelar</button>
       <button class="btn btn-p" onclick="ConfigApp.salvarTipo()">Salvar tipo</button>
+    </div>
+  </div>
+</div>
+
+<!-- Modal: Veículo -->
+<div class="mback" id="modal-veic">
+  <div class="modal">
+    <div class="mh"><span class="mt" id="veic-titulo">Novo veículo</span><button class="mx" onclick="ConfigApp.fechar('modal-veic')">✕</button></div>
+    <div class="mb">
+      <div class="fg"><label>Modelo</label><input type="text" id="cv-modelo" placeholder="Ex.: Fox"></div>
+      <div class="fg"><label>Placa</label><input type="text" id="cv-placa" placeholder="Ex.: QHA6921"></div>
+      <label class="cb-obrig-l"><input type="checkbox" id="cv-ativo" checked> Ativo</label>
+    </div>
+    <div class="mf">
+      <button class="btn" onclick="ConfigApp.fechar('modal-veic')">Cancelar</button>
+      <button class="btn btn-p" onclick="ConfigApp.salvarVeiculo()">Salvar</button>
     </div>
   </div>
 </div>

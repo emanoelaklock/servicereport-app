@@ -13,7 +13,7 @@
   const D = () => window.DBLocal
   const REF_KEY = 'sr_ref_v1'
 
-  let ref = { clientes: [], tipos: [], formularios: {}, tecnicos: [] }   // formularios: { [id]: {nome,campos} }
+  let ref = { clientes: [], tipos: [], formularios: {}, tecnicos: [], veiculos: [] }   // formularios: { [id]: {nome,campos} }
   let tecnico = { id: null, nome: null }
   let cur = null            // RAT em edição: { client_uuid, campos: [] }
   let sig = null            // controlador do canvas de assinatura
@@ -47,11 +47,12 @@
   async function carregarRef() {
     try {
       const sb = getSupabase()
-      const [cli, tip, forms, tec] = await Promise.all([
+      const [cli, tip, forms, tec, veic] = await Promise.all([
         sb.from('clientes').select('id,nome,documento').order('nome'),
         sb.from('tipos_servico').select('id,nome,formulario_id,ativo').eq('ativo', true).order('nome'),
         sb.from('formulario_modelos').select('id,nome,campos').eq('ativo', true),
         sb.from('usuarios').select('id,nome').eq('role', 'tecnico_campo').eq('ativo', true).order('nome'),
+        sb.from('veiculos').select('id,modelo,placa,ativo').eq('ativo', true).order('modelo'),
       ])
       if (cli.error || tip.error || forms.error) throw (cli.error || tip.error || forms.error)
       ref.clientes = cli.data || []
@@ -59,6 +60,7 @@
       ref.formularios = {}
       ;(forms.data || []).forEach(f => { ref.formularios[f.id] = f })
       ref.tecnicos = tec.error ? [] : (tec.data || [])
+      ref.veiculos = veic.error ? [] : (veic.data || [])
       localStorage.setItem(REF_KEY, JSON.stringify(ref))
     } catch (e) {
       const cache = localStorage.getItem(REF_KEY)
@@ -198,6 +200,9 @@
     } else if (c.tipo === 'tecnicos') {
       const checks = (ref.tecnicos || []).map(t => { const n = tcase(t.nome); return `<label><input type="checkbox" data-multi="${esc(c.id)}" value="${esc(n)}"> ${esc(n)}</label>` }).join('')
       wrap.innerHTML = `${label}<div class="multi-chk">${checks || '<span class="dim">Nenhum técnico cadastrado</span>'}</div>`
+    } else if (c.tipo === 'veiculo') {
+      const ops = (ref.veiculos || []).map(v => { const lbl = `${v.modelo || ''} (${v.placa || ''})`; return `<option value="${esc(lbl)}">${esc(lbl)}</option>` }).join('')
+      wrap.innerHTML = `${label}<select data-campo="${esc(c.id)}" data-tipo="veiculo"><option value="">Selecione…</option>${ops}</select>`
     } else if (c.tipo === 'foto') {
       wrap.innerHTML = `${label}
         <div class="foto-box">

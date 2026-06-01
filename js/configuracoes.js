@@ -11,7 +11,9 @@
   let editFormId = null   // id do formulário em edição (null = novo)
   let editTipoId = null
 
-  const TIPOS_CAMPO = ['texto', 'texto_longo', 'numero', 'data', 'hora', 'selecao', 'tecnico', 'tecnicos', 'foto', 'assinatura']
+  const TIPOS_CAMPO = ['texto', 'texto_longo', 'numero', 'data', 'hora', 'selecao', 'tecnico', 'tecnicos', 'veiculo', 'foto', 'assinatura']
+  let veiculos = []
+  let editVeicId = null
   const EFEITOS = ['nenhum', 'marcar_locado', 'devolver_estoque', 'marcar_manutencao']
 
   const slug = (s) => String(s || '').toLowerCase().normalize('NFD')
@@ -23,7 +25,7 @@
   const ROLES = ['admin', 'gestor_axis', 'tecnico_campo']
 
   function mostrarSecao(sec) {
-    const map = { usuarios: 'card-usuarios', formularios: 'sec-formularios', tipos: 'sec-tipos' }
+    const map = { usuarios: 'card-usuarios', formularios: 'sec-formularios', tipos: 'sec-tipos', veiculos: 'sec-veiculos' }
     document.querySelectorAll('.cfg-section').forEach(el => { el.style.display = 'none' })
     const el = document.getElementById(map[sec]); if (el) el.style.display = ''
     document.querySelectorAll('.cfg-tab').forEach(t => t.classList.toggle('on', t.dataset.sec === sec))
@@ -33,6 +35,7 @@
     await carregar()
     document.getElementById('btn-novo-form').onclick = () => abrirForm(null)
     document.getElementById('btn-novo-tipo').onclick = () => abrirTipo(null)
+    document.getElementById('btn-novo-veic').onclick = () => abrirVeiculo(null)
     document.getElementById('btn-add-campo').onclick = () => addCampoRow()
     document.querySelectorAll('.cfg-tab').forEach(t => { t.onclick = () => mostrarSecao(t.dataset.sec) })
     const isAdmin = (typeof PERFIL !== 'undefined' && PERFIL === 'admin')
@@ -46,14 +49,16 @@
 
   async function carregar() {
     const sb = getSupabase()
-    const [f, t] = await Promise.all([
+    const [f, t, v] = await Promise.all([
       sb.from('formulario_modelos').select('id,nome,campos,ativo').order('nome'),
       sb.from('tipos_servico').select('id,nome,formulario_id,efeito_inventario,ativo').order('nome'),
+      sb.from('veiculos').select('id,modelo,placa,ativo').order('modelo'),
     ])
     formularios = f.error ? [] : (f.data || [])
     tipos = t.error ? [] : (t.data || [])
+    veiculos = v.error ? [] : (v.data || [])
     if (f.error) toast('Erro ao carregar formulários: ' + f.error.message, 'err')
-    renderFormularios(); renderTipos()
+    renderFormularios(); renderTipos(); renderVeiculos()
   }
 
   // ───────────────────── Formulários ─────────────────────
@@ -191,6 +196,46 @@
     await carregar()
   }
 
+  // ───────────────────── Veículos ─────────────────────
+  function renderVeiculos() {
+    const tb = document.getElementById('tbody-veic')
+    if (!tb) return
+    if (!veiculos.length) { tb.innerHTML = '<tr><td colspan="4" class="dim" style="text-align:center;padding:20px">Nenhum veículo.</td></tr>'; return }
+    tb.innerHTML = veiculos.map(v => `
+      <tr>
+        <td>${esc(v.modelo || '—')}</td>
+        <td>${esc(v.placa || '—')}</td>
+        <td>${v.ativo ? '<span class="badge s-en"><span class="dot"></span>Ativo</span>' : '<span class="dim">Inativo</span>'}</td>
+        <td><div class="acts" style="opacity:1"><button class="ab ab-v" data-edit="${esc(v.id)}">Editar</button></div></td>
+      </tr>`).join('')
+    tb.querySelectorAll('[data-edit]').forEach(b => b.onclick = () => abrirVeiculo(b.dataset.edit))
+  }
+
+  function abrirVeiculo(id) {
+    editVeicId = id
+    const v = id ? veiculos.find(x => x.id === id) : null
+    document.getElementById('veic-titulo').textContent = id ? 'Editar veículo' : 'Novo veículo'
+    document.getElementById('cv-modelo').value = v ? (v.modelo || '') : ''
+    document.getElementById('cv-placa').value = v ? (v.placa || '') : ''
+    document.getElementById('cv-ativo').checked = v ? !!v.ativo : true
+    abrir('modal-veic')
+  }
+
+  async function salvarVeiculo() {
+    const modelo = document.getElementById('cv-modelo').value.trim()
+    const placa = document.getElementById('cv-placa').value.trim()
+    const ativo = document.getElementById('cv-ativo').checked
+    if (!modelo && !placa) return toast('Informe modelo e/ou placa.', 'err')
+    const payload = { modelo, placa, ativo }
+    const sb = getSupabase()
+    const res = editVeicId
+      ? await sb.from('veiculos').update(payload).eq('id', editVeicId)
+      : await sb.from('veiculos').insert(payload)
+    if (res.error) return toast('Erro ao salvar: ' + res.error.message, 'err')
+    toast('Veículo salvo.', 'ok')
+    fechar('modal-veic'); await carregar()
+  }
+
   // ───────────────────── Usuários (admin) ─────────────────────
   // Criação de login e reset de senha vão pela Edge Function (service_role);
   // edição de papel/ativo/nome é UPDATE direto (RLS usuarios_admin_update).
@@ -278,5 +323,5 @@
   const abrir = (id) => document.getElementById(id).classList.add('open')
   const fechar = (id) => document.getElementById(id).classList.remove('open')
 
-  window.ConfigApp = { init, salvarForm, salvarTipo, salvarUsuario, excluirUsuario, fechar }
+  window.ConfigApp = { init, salvarForm, salvarTipo, salvarVeiculo, salvarUsuario, excluirUsuario, fechar }
 })()
