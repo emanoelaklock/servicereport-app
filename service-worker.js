@@ -9,7 +9,7 @@
    não do cache do SW.
 ═══════════════════════════════════════════════ */
 
-const CACHE = 'sr-shell-v2'
+const CACHE = 'sr-shell-v3'
 
 const SHELL = [
   'index.html',
@@ -23,6 +23,7 @@ const SHELL = [
   'js/auth.js',
   'js/sidebar.js',
   'js/db-local.js',
+  'js/tecnico.js',
   'manifest.webmanifest',
   'assets/icon.svg',
 ]

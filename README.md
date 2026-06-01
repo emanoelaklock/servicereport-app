@@ -38,10 +38,13 @@ js/utils.js           helpers (copiado de axisinventory-app)  ✅
 js/auth.js            auth + roteamento por papel (adaptado)  ✅
 js/sidebar.js         sidebar Bold + nav Service Report (adaptado)  ✅
 js/supabase-client.js init único do Supabase (Traders Apps)  ✅
-js/db-local.js        IndexedDB (RATs + fotos em fila)  — passo 3
-js/sync.js            máquina de estados de sincronização — passo 5
+js/db-local.js        IndexedDB (RATs + fotos + eventos)  ✅
+js/tecnico.js         formulário de RAT (app de campo)  ✅
+js/sync.js            sincronização Supabase + sync_eventos — passo 5
 assets/icon.svg       ícone do app
 ```
+
+Dados de exemplo no banco (marcados **TESTE**): `Cliente Exemplo (TESTE)` e `Formulário de exemplo (TESTE)` (campos texto/seleção/número/foto/assinatura) ligado ao tipo `Manutencao corretiva`.
 
 Padrão de carregamento das páginas (igual ao inventário): `theme.css` → `@supabase/supabase-js@2` (UMD, cria `window.supabase`) → `utils.js` → `supabase-client.js` → `auth.js` → `sidebar.js` → script da página. Cada página declara `window.PAGE_ALLOWED` (papéis que podem permanecer); quem não pode é roteado para sua home.
 
@@ -51,7 +54,7 @@ Padrão de carregamento das páginas (igual ao inventário): `theme.css` → `@s
 - PWA instalável com shell offline (service worker na raiz).
 
 ### Próximos passos (fatia 1)
-2. PWA base (refino do shell/ícones) · 3. IndexedDB local-first · 4. Formulário de RAT · 5. Sincronização + `sync_eventos` · 6. Contadores do painel · 7. Lista + Faturar.
+5. Sincronização Supabase + `sync_eventos` (→ `confirmado`) · 6. Contadores do painel · 7. Lista de relatórios + Faturar.
 
 ### Setup / teste
 Servir a raiz por HTTP (service worker e módulos não funcionam em `file://`). Ex.: `npx serve` ou `python -m http.server`, depois abrir `login.html`. Criar um usuário no Supabase Auth do projeto Traders Apps e a linha correspondente em `usuarios` (`id` = auth uid, `role` = `admin`/`gestor_axis`/`tecnico_campo`).
