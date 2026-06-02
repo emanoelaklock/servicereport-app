@@ -25,7 +25,7 @@
   const ROLES = ['admin', 'gestor_axis', 'tecnico_campo']
 
   function mostrarSecao(sec) {
-    const map = { usuarios: 'card-usuarios', formularios: 'sec-formularios', tipos: 'sec-tipos', veiculos: 'sec-veiculos', omie: 'sec-omie' }
+    const map = { usuarios: 'card-usuarios', formularios: 'sec-formularios', tipos: 'sec-tipos', veiculos: 'sec-veiculos', clientes: 'sec-clientes', produtos: 'sec-produtos', omie: 'sec-omie' }
     document.querySelectorAll('.cfg-section').forEach(el => { el.style.display = 'none' })
     const el = document.getElementById(map[sec]); if (el) el.style.display = ''
     document.querySelectorAll('.cfg-tab').forEach(t => t.classList.toggle('on', t.dataset.sec === sec))
@@ -40,6 +40,9 @@
     document.getElementById('btn-omie-test').onclick = testarOmie
     document.getElementById('btn-omie-sync').onclick = sincronizarOmie
     carregarOmieLog()
+    const bc = document.getElementById('busca-cli'); if (bc) bc.oninput = debounce(() => buscarClientes(bc.value.trim()), 300)
+    const bp = document.getElementById('busca-prod'); if (bp) bp.oninput = debounce(() => buscarProdutos(bp.value.trim()), 300)
+    buscarClientes(''); buscarProdutos('')
     document.querySelectorAll('.cfg-tab').forEach(t => { t.onclick = () => mostrarSecao(t.dataset.sec) })
     const isAdmin = (typeof PERFIL !== 'undefined' && PERFIL === 'admin')
     if (isAdmin) {
@@ -362,6 +365,56 @@
       .eq('fonte', 'omie').order('inicio', { ascending: false }).limit(1)
     const l = (data || [])[0]
     el.textContent = l ? `Última sincronização: ${fdt(l.fim || l.inicio, { withTime: true })} · ${l.status} · ${l.detalhe || ''}` : 'Nenhuma sincronização ainda.'
+  }
+
+  // ───────────────────── Clientes (cadastro, origem Omie) ─────────────────────
+  async function buscarClientes(q) {
+    let query = getSupabase().from('clientes').select('id,nome,documento,oculto').order('nome').limit(50)
+    if (q) query = query.ilike('nome', `%${q}%`)
+    const { data, error } = await query
+    renderCadastro('cli', error ? [] : (data || []), 'cliente')
+  }
+  async function buscarProdutos(q) {
+    let query = getSupabase().from('produtos').select('id,codigo,descricao,unidade,ativo,oculto').order('descricao').limit(50)
+    if (q) query = query.or(`descricao.ilike.%${q}%,codigo.ilike.%${q}%`)
+    const { data, error } = await query
+    renderCadastro('prod', error ? [] : (data || []), 'produto')
+  }
+  function renderCadastro(kind, rows, tipo) {
+    const tb = document.getElementById(kind === 'cli' ? 'tbody-cli' : 'tbody-prod')
+    if (!tb) return
+    const cols = kind === 'cli' ? 4 : 5
+    if (!rows.length) { tb.innerHTML = `<tr><td colspan="${cols}" class="dim" style="text-align:center;padding:20px">Nada encontrado.</td></tr>`; return }
+    tb.innerHTML = rows.map(r => {
+      const status = r.oculto ? '<span class="dim">Oculto</span>' : (kind === 'prod' && !r.ativo ? '<span class="dim">Inativo</span>' : '<span class="badge s-en"><span class="dot"></span>Visível</span>')
+      const acoes = `<div class="acts" style="opacity:1">
+          <button class="ab ab-c" data-toggle="${esc(r.id)}" data-oc="${r.oculto ? 1 : 0}">${r.oculto ? 'Mostrar' : 'Ocultar'}</button>
+          <button class="ab ab-d" data-del="${esc(r.id)}">Excluir</button>
+        </div>`
+      if (kind === 'cli') return `<tr><td>${esc(r.nome || '—')}</td><td>${esc(r.documento || '—')}</td><td>${status}</td><td>${acoes}</td></tr>`
+      return `<tr><td>${esc(r.codigo || '—')}</td><td>${esc(r.descricao || '—')}</td><td>${esc(r.unidade || '—')}</td><td>${status}</td><td>${acoes}</td></tr>`
+    }).join('')
+    tb.querySelectorAll('[data-toggle]').forEach(b => b.onclick = () => toggleOculto(tipo, b.dataset.toggle, b.dataset.oc === '1'))
+    tb.querySelectorAll('[data-del]').forEach(b => b.onclick = () => excluirCadastro(tipo, b.dataset.del))
+  }
+  function recarregaCadastro(tipo) {
+    if (tipo === 'cliente') buscarClientes((document.getElementById('busca-cli').value || '').trim())
+    else buscarProdutos((document.getElementById('busca-prod').value || '').trim())
+  }
+  async function toggleOculto(tipo, id, oculto) {
+    const tabela = tipo === 'cliente' ? 'clientes' : 'produtos'
+    const { error } = await getSupabase().from(tabela).update({ oculto: !oculto }).eq('id', id)
+    if (error) return toast('Erro: ' + error.message, 'err')
+    toast(!oculto ? `${tipo} ocultado.` : `${tipo} exibido.`, 'ok')
+    recarregaCadastro(tipo)
+  }
+  async function excluirCadastro(tipo, id) {
+    if (!confirm(`Excluir este ${tipo}? O Omie pode reimportá-lo na próxima sincronização — para sumir de vez do app, use Ocultar.`)) return
+    const tabela = tipo === 'cliente' ? 'clientes' : 'produtos'
+    const { error } = await getSupabase().from(tabela).delete().eq('id', id)
+    if (error) return toast(error.code === '23503' ? `${tipo} em uso por uma RAT — use Ocultar.` : 'Erro: ' + error.message, 'err')
+    toast(`${tipo} excluído.`, 'ok')
+    recarregaCadastro(tipo)
   }
 
   const abrir = (id) => document.getElementById(id).classList.add('open')

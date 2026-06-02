@@ -77,12 +77,12 @@
     try {
       const sb = getSupabase()
       const [cli, tip, forms, tec, veic, prod] = await Promise.all([
-        sb.from('clientes').select('id,nome,documento').order('nome'),
+        sb.from('clientes').select('id,nome,documento').eq('oculto', false).order('nome'),
         sb.from('tipos_servico').select('id,nome,formulario_id,ativo').eq('ativo', true).order('nome'),
         sb.from('formulario_modelos').select('id,nome,campos').eq('ativo', true),
         sb.from('usuarios').select('id,nome').eq('role', 'tecnico_campo').eq('ativo', true).order('nome'),
         sb.from('veiculos').select('id,modelo,placa,ativo').eq('ativo', true).order('modelo'),
-        sb.from('produtos').select('id,codigo,descricao,unidade,ativo').eq('ativo', true).order('descricao'),
+        sb.from('produtos').select('id,codigo,descricao,unidade,ativo').eq('ativo', true).eq('oculto', false).order('descricao'),
       ])
       if (cli.error || tip.error || forms.error) throw (cli.error || tip.error || forms.error)
       ref.clientes = cli.data || []

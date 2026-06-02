@@ -42,6 +42,8 @@
         <button class="cfg-tab on" data-sec="formularios">Formulários</button>
         <button class="cfg-tab" data-sec="tipos">Tipos de Serviço</button>
         <button class="cfg-tab" data-sec="veiculos">Veículos</button>
+        <button class="cfg-tab" data-sec="clientes">Clientes</button>
+        <button class="cfg-tab" data-sec="produtos">Produtos</button>
         <button class="cfg-tab" data-sec="omie">Omie</button>
       </div>
 
@@ -90,6 +92,32 @@
         <div class="tcard"><div class="twrap"><table>
           <thead><tr><th>Modelo</th><th>Placa</th><th>Status</th><th>Ações</th></tr></thead>
           <tbody id="tbody-veic"><tr><td colspan="4" class="dim" style="text-align:center;padding:20px">Carregando…</td></tr></tbody>
+        </table></div></div>
+      </div>
+
+      <!-- Clientes (origem Omie) -->
+      <div class="cfg-card cfg-section" id="sec-clientes" style="display:none">
+        <div class="cfg-head">
+          <h2>Clientes</h2>
+          <input type="text" id="busca-cli" placeholder="Buscar cliente…" autocomplete="off" style="padding:8px 11px;border:1px solid var(--bd);border-radius:var(--r);font:inherit;font-size:13px;min-width:240px">
+        </div>
+        <p class="dim" style="margin:-6px 0 10px">Vêm do Omie. <b>Ocultar</b> some do app do técnico e sobrevive ao sync; <b>Excluir</b> apaga (o Omie pode reimportar).</p>
+        <div class="tcard"><div class="twrap"><table>
+          <thead><tr><th>Nome</th><th>Documento</th><th>Status</th><th>Ações</th></tr></thead>
+          <tbody id="tbody-cli"><tr><td colspan="4" class="dim" style="text-align:center;padding:20px">Carregando…</td></tr></tbody>
+        </table></div></div>
+      </div>
+
+      <!-- Produtos (origem Omie) -->
+      <div class="cfg-card cfg-section" id="sec-produtos" style="display:none">
+        <div class="cfg-head">
+          <h2>Produtos</h2>
+          <input type="text" id="busca-prod" placeholder="Buscar produto…" autocomplete="off" style="padding:8px 11px;border:1px solid var(--bd);border-radius:var(--r);font:inherit;font-size:13px;min-width:240px">
+        </div>
+        <p class="dim" style="margin:-6px 0 10px">Vêm do Omie. <b>Ocultar</b> some do app do técnico e sobrevive ao sync; <b>Excluir</b> apaga (o Omie pode reimportar).</p>
+        <div class="tcard"><div class="twrap"><table>
+          <thead><tr><th>Código</th><th>Descrição</th><th>Unidade</th><th>Status</th><th>Ações</th></tr></thead>
+          <tbody id="tbody-prod"><tr><td colspan="5" class="dim" style="text-align:center;padding:20px">Carregando…</td></tr></tbody>
         </table></div></div>
       </div>
 
