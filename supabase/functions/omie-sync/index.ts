@@ -29,9 +29,11 @@ Deno.serve(async (req: Request) => {
     const { data: prof } = await admin.from("usuarios").select("role").eq("id", ud.user.id).single()
     if (!prof || !["admin", "gestor_axis"].includes(prof.role)) return json({ error: "apenas admin/gestor" }, 403)
 
-    const KEY = Deno.env.get("OMIE_APP_KEY")
-    const SECRET = Deno.env.get("OMIE_APP_SECRET")
-    if (!KEY || !SECRET) return json({ error: "Secrets OMIE_APP_KEY/OMIE_APP_SECRET nao configurados." }, 400)
+    // Aceita OMIE_APP_KEY/OMIE_APP_SECRET ou APP_KEY/APP_SECRET
+    const KEY = Deno.env.get("OMIE_APP_KEY") || Deno.env.get("APP_KEY")
+    const SECRET = Deno.env.get("OMIE_APP_SECRET") || Deno.env.get("APP_SECRET")
+    if (!KEY) return json({ error: "Secret da app_key nao encontrado (OMIE_APP_KEY ou APP_KEY)." }, 400)
+    if (!SECRET) return json({ error: "Secret da app_secret nao encontrado (OMIE_APP_SECRET ou APP_SECRET)." }, 400)
 
     // Chamada Omie com backoff exponencial em rate limit / erro transitório
     async function omie(modulo: string, call: string, param: unknown) {
