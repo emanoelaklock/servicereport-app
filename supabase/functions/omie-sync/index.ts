@@ -1,6 +1,4 @@
 // Edge Function: omie-sync (Fase 1 — clientes + produtos)
-// Pull read-only do Omie -> upsert no Supabase. Gated a admin/gestor.
-// Secrets: OMIE_APP_KEY, OMIE_APP_SECRET. Respeita rate limit com backoff.
 import "jsr:@supabase/functions-js/edge-runtime.d.ts"
 import { createClient } from "jsr:@supabase/supabase-js@2"
 
@@ -11,6 +9,9 @@ const CORS = {
 }
 const OMIE_BASE = "https://app.omie.com.br/api/v1"
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms))
+// Omie devolve texto com entidades HTML (ex.: 3/4&quot;). Decodifica (&amp; por último).
+const dec = (s: any): any => s == null ? s : String(s)
+  .replace(/&quot;/g, '"').replace(/&#39;/g, "'").replace(/&lt;/g, "<").replace(/&gt;/g, ">").replace(/&amp;/g, "&")
 
 Deno.serve(async (req: Request) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: CORS })
@@ -22,20 +23,17 @@ Deno.serve(async (req: Request) => {
   const admin = createClient(url, service, { auth: { persistSession: false } })
 
   try {
-    // Autorização: admin ou gestor_axis
     const token = (req.headers.get("Authorization") || "").replace("Bearer ", "")
     const { data: ud, error: uerr } = await admin.auth.getUser(token)
     if (uerr || !ud?.user) return json({ error: "nao autenticado" }, 401)
     const { data: prof } = await admin.from("usuarios").select("role").eq("id", ud.user.id).single()
     if (!prof || !["admin", "gestor_axis"].includes(prof.role)) return json({ error: "apenas admin/gestor" }, 403)
 
-    // Aceita OMIE_APP_KEY/OMIE_APP_SECRET ou APP_KEY/APP_SECRET
     const KEY = Deno.env.get("OMIE_APP_KEY") || Deno.env.get("APP_KEY")
     const SECRET = Deno.env.get("OMIE_APP_SECRET") || Deno.env.get("APP_SECRET")
     if (!KEY) return json({ error: "Secret da app_key nao encontrado (OMIE_APP_KEY ou APP_KEY)." }, 400)
     if (!SECRET) return json({ error: "Secret da app_secret nao encontrado (OMIE_APP_SECRET ou APP_SECRET)." }, 400)
 
-    // Chamada Omie com backoff exponencial em rate limit / erro transitório
     async function omie(modulo: string, call: string, param: unknown) {
       let lastErr = ""
       for (let attempt = 0; attempt < 6; attempt++) {
@@ -50,9 +48,7 @@ Deno.serve(async (req: Request) => {
         let j: any
         try { j = await res.json() } catch (_e) { lastErr = "json invalido"; await sleep(800 * 2 ** attempt); continue }
         if (j && j.faultstring) {
-          if (/aguarde|bloquead|consumo|excedid|limite|tente novamente|425/i.test(j.faultstring)) {
-            lastErr = j.faultstring; await sleep(1500 * 2 ** attempt); continue
-          }
+          if (/aguarde|bloquead|consumo|excedid|limite|tente novamente|425/i.test(j.faultstring)) { lastErr = j.faultstring; await sleep(1500 * 2 ** attempt); continue }
           throw new Error(j.faultstring)
         }
         return j
@@ -67,17 +63,12 @@ Deno.serve(async (req: Request) => {
         total = r.total_de_paginas || 1
         const rows = (r.clientes_cadastro || []).map((c: any) => ({
           omie_cliente_id: String(c.codigo_cliente_omie),
-          nome: c.razao_social || c.nome_fantasia || "(sem nome)",
+          nome: dec(c.razao_social || c.nome_fantasia || "(sem nome)"),
           documento: c.cnpj_cpf || null,
-          endereco: [c.endereco, c.endereco_numero, c.bairro, c.cidade, c.estado, c.cep].filter(Boolean).join(", ") || null,
+          endereco: dec([c.endereco, c.endereco_numero, c.bairro, c.cidade, c.estado, c.cep].filter(Boolean).join(", ")) || null,
         }))
-        if (rows.length) {
-          const up = await admin.from("clientes").upsert(rows, { onConflict: "omie_cliente_id" })
-          if (up.error) throw up.error
-          n += rows.length
-        }
-        pagina++
-        await sleep(300)
+        if (rows.length) { const up = await admin.from("clientes").upsert(rows, { onConflict: "omie_cliente_id" }); if (up.error) throw up.error; n += rows.length }
+        pagina++; await sleep(300)
       } while (pagina <= total && pagina <= 200)
       return n
     }
@@ -90,17 +81,12 @@ Deno.serve(async (req: Request) => {
         const rows = (r.produto_servico_cadastro || []).map((p: any) => ({
           omie_produto_id: String(p.codigo_produto),
           codigo: p.codigo || null,
-          descricao: p.descricao || "(sem descricao)",
+          descricao: dec(p.descricao || "(sem descricao)"),
           unidade: p.unidade || null,
           ativo: p.inativo !== "S",
         }))
-        if (rows.length) {
-          const up = await admin.from("produtos").upsert(rows, { onConflict: "omie_produto_id" })
-          if (up.error) throw up.error
-          n += rows.length
-        }
-        pagina++
-        await sleep(300)
+        if (rows.length) { const up = await admin.from("produtos").upsert(rows, { onConflict: "omie_produto_id" }); if (up.error) throw up.error; n += rows.length }
+        pagina++; await sleep(300)
       } while (pagina <= total && pagina <= 200)
       return n
     }
