@@ -27,6 +27,7 @@ var ROLE_LABEL = {
   admin:        'Administrador',
   gestor_axis:  'Gestor',
   tecnico_campo:'Técnico',
+  comercial:    'Comercial',
 }
 
 // Página inicial por papel (roteamento pós-login).

@@ -83,6 +83,7 @@ Deno.serve(async (req: Request) => {
           codigo: p.codigo || null,
           descricao: dec(p.descricao || "(sem descricao)"),
           unidade: p.unidade || null,
+          preco_venda: p.valor_unitario ?? null,
           ativo: p.inativo !== "S",
         }))
         if (rows.length) { const up = await admin.from("produtos").upsert(rows, { onConflict: "omie_produto_id" }); if (up.error) throw up.error; n += rows.length }

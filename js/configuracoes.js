@@ -22,7 +22,7 @@
 
   let usuarios = []
   let editUserId = null
-  const ROLES = ['admin', 'gestor_axis', 'tecnico_campo']
+  const ROLES = ['admin', 'gestor_axis', 'tecnico_campo', 'comercial']
 
   function mostrarSecao(sec) {
     const map = { usuarios: 'card-usuarios', formularios: 'sec-formularios', tipos: 'sec-tipos', veiculos: 'sec-veiculos', clientes: 'sec-clientes', produtos: 'sec-produtos', omie: 'sec-omie' }

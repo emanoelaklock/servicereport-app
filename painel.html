@@ -46,7 +46,7 @@
 
 <script>
   // Apenas back-office acessa o portal.
-  window.PAGE_ALLOWED = ['admin', 'gestor_axis']
+  window.PAGE_ALLOWED = ['admin', 'gestor_axis', 'comercial']
   async function onPostLogin() {
     renderSidebar('painel')
     await PainelApp.init()
