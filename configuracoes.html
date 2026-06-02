@@ -42,6 +42,7 @@
         <button class="cfg-tab on" data-sec="formularios">Formulários</button>
         <button class="cfg-tab" data-sec="tipos">Tipos de Serviço</button>
         <button class="cfg-tab" data-sec="veiculos">Veículos</button>
+        <button class="cfg-tab" data-sec="omie">Omie</button>
       </div>
 
       <!-- Usuários (admin) -->
@@ -90,6 +91,20 @@
           <thead><tr><th>Modelo</th><th>Placa</th><th>Status</th><th>Ações</th></tr></thead>
           <tbody id="tbody-veic"><tr><td colspan="4" class="dim" style="text-align:center;padding:20px">Carregando…</td></tr></tbody>
         </table></div></div>
+      </div>
+
+      <!-- Integração Omie -->
+      <div class="cfg-card cfg-section" id="sec-omie" style="display:none">
+        <div class="cfg-head">
+          <h2>Integração Omie</h2>
+          <div style="display:flex;gap:8px">
+            <button class="btn" id="btn-omie-test">Testar conexão</button>
+            <button class="btn btn-p" id="btn-omie-sync">Sincronizar agora</button>
+          </div>
+        </div>
+        <p class="dim" id="omie-last">—</p>
+        <p id="omie-result" style="margin-top:8px;font-size:14px"></p>
+        <p class="dim" style="margin-top:10px">Importa <b>clientes</b> e <b>produtos</b> do Omie (somente leitura). Requer os secrets <b>OMIE_APP_KEY</b> / <b>OMIE_APP_SECRET</b> configurados na Edge Function. OS / material levado entram na fase 2.</p>
       </div>
 
     </div>

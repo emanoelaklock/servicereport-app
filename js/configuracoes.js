@@ -25,7 +25,7 @@
   const ROLES = ['admin', 'gestor_axis', 'tecnico_campo']
 
   function mostrarSecao(sec) {
-    const map = { usuarios: 'card-usuarios', formularios: 'sec-formularios', tipos: 'sec-tipos', veiculos: 'sec-veiculos' }
+    const map = { usuarios: 'card-usuarios', formularios: 'sec-formularios', tipos: 'sec-tipos', veiculos: 'sec-veiculos', omie: 'sec-omie' }
     document.querySelectorAll('.cfg-section').forEach(el => { el.style.display = 'none' })
     const el = document.getElementById(map[sec]); if (el) el.style.display = ''
     document.querySelectorAll('.cfg-tab').forEach(t => t.classList.toggle('on', t.dataset.sec === sec))
@@ -37,6 +37,9 @@
     document.getElementById('btn-novo-tipo').onclick = () => abrirTipo(null)
     document.getElementById('btn-novo-veic').onclick = () => abrirVeiculo(null)
     document.getElementById('btn-add-campo').onclick = () => addCampoRow()
+    document.getElementById('btn-omie-test').onclick = testarOmie
+    document.getElementById('btn-omie-sync').onclick = sincronizarOmie
+    carregarOmieLog()
     document.querySelectorAll('.cfg-tab').forEach(t => { t.onclick = () => mostrarSecao(t.dataset.sec) })
     const isAdmin = (typeof PERFIL !== 'undefined' && PERFIL === 'admin')
     if (isAdmin) {
@@ -318,6 +321,47 @@
       toast('Usuário excluído.', 'ok')
       fechar('modal-user'); await carregarUsuarios()
     } catch (e) { toast('Erro: ' + e.message, 'err') }
+  }
+
+  // ───────────────────── Integração Omie ─────────────────────
+  async function omieFn(action) {
+    const { data, error } = await getSupabase().functions.invoke('omie-sync', { body: { action } })
+    if (error) {
+      let m = error.message
+      try { const j = await error.context.json(); if (j && j.error) m = j.error } catch (_) {}
+      throw new Error(m)
+    }
+    if (data && data.error) throw new Error(data.error)
+    return data
+  }
+  async function testarOmie() {
+    const el = document.getElementById('omie-result'); el.textContent = 'Testando conexão…'
+    try {
+      const r = await omieFn('test')
+      el.textContent = 'Conexão OK' + (r.empresas != null ? ` (empresas: ${r.empresas})` : '')
+      toast('Conexão Omie OK.', 'ok')
+    } catch (e) { el.textContent = 'Erro: ' + e.message; toast('Erro: ' + e.message, 'err') }
+  }
+  async function sincronizarOmie() {
+    const el = document.getElementById('omie-result')
+    const btn = document.getElementById('btn-omie-sync'); btn.disabled = true
+    try {
+      el.textContent = 'Sincronizando clientes…'
+      const c = await omieFn('clientes')
+      el.textContent = `Clientes: ${c.clientes}. Sincronizando produtos…`
+      const p = await omieFn('produtos')
+      el.textContent = `Concluído: ${c.clientes} clientes, ${p.produtos} produtos.`
+      toast('Omie sincronizado.', 'ok')
+      await carregarOmieLog()
+    } catch (e) { el.textContent = 'Erro: ' + e.message; toast('Erro: ' + e.message, 'err') }
+    finally { btn.disabled = false }
+  }
+  async function carregarOmieLog() {
+    const el = document.getElementById('omie-last'); if (!el) return
+    const { data } = await getSupabase().from('sync_log').select('inicio,fim,registros,status,detalhe')
+      .eq('fonte', 'omie').order('inicio', { ascending: false }).limit(1)
+    const l = (data || [])[0]
+    el.textContent = l ? `Última sincronização: ${fdt(l.fim || l.inicio, { withTime: true })} · ${l.status} · ${l.detalhe || ''}` : 'Nenhuma sincronização ainda.'
   }
 
   const abrir = (id) => document.getElementById(id).classList.add('open')
