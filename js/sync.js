@@ -69,13 +69,13 @@
     payload.tecnico_id = uid
     payload.sync_status = 'confirmado'
     if (assinatura_url) payload.assinatura_url = assinatura_url
-    const ups = await sb.from('tarefas').upsert(payload, { onConflict: 'client_uuid' }).select('id,recebido_em').single()
+    const ups = await sb.from('rats').upsert(payload, { onConflict: 'client_uuid' }).select('id,recebido_em').single()
     if (ups.error) throw ups.error
     const tarefaId = ups.data.id
 
     // 4) relatorio_fotos (idempotente: id = id local da foto)
     const rows = (await D().listarFotos(rat.client_uuid)).filter(f => f.url)
-      .map(f => ({ id: f.id, tarefa_id: tarefaId, url: f.url, legenda: f.legenda || null }))
+      .map(f => ({ id: f.id, rat_id: tarefaId, url: f.url, legenda: f.legenda || null }))
     if (rows.length) {
       const rf = await sb.from('relatorio_fotos').upsert(rows, { onConflict: 'id' })
       if (rf.error) throw rf.error
@@ -85,7 +85,7 @@
     const mats = await D().listarMateriais(rat.client_uuid)
     if (mats.length) {
       const mrows = mats.map(m => ({
-        id: m.id, origem: 'usado', tarefa_id: tarefaId,
+        id: m.id, origem: 'usado', rat_id: tarefaId,
         produto_id: m.produto_id || null, codigo_produto: m.codigo_produto || null,
         descricao: m.descricao || null, quantidade: m.quantidade || 0,
       }))
@@ -104,7 +104,7 @@
     const evs = await D().listarEventos({ client_uuid: rat.client_uuid, pendentes: true })
     if (evs.length) {
       const erows = evs.map(e => ({
-        id: e.id, client_uuid: e.client_uuid, tarefa_id: tarefaId,
+        id: e.id, client_uuid: e.client_uuid, rat_id: tarefaId,
         device_id: e.device_id, evento: e.evento, detalhe: e.detalhe, em: e.em,
       }))
       const se = await sb.from('sync_eventos').upsert(erows, { onConflict: 'id' })

@@ -428,7 +428,7 @@
     const sb = getSupabase()
     // descobre quais estão em uso (não dá pra excluir por FK) e exclui o resto
     const usados = new Set()
-    if (tipo === 'cliente') { const { data } = await sb.from('tarefas').select('cliente_id').in('cliente_id', ids); (data || []).forEach(r => usados.add(r.cliente_id)) }
+    if (tipo === 'cliente') { const { data } = await sb.from('rats').select('cliente_id').in('cliente_id', ids); (data || []).forEach(r => usados.add(r.cliente_id)) }
     else { const { data } = await sb.from('materiais').select('produto_id').in('produto_id', ids); (data || []).forEach(r => usados.add(r.produto_id)) }
     const deletaveis = ids.filter(id => !usados.has(id))
     if (deletaveis.length) {

@@ -43,7 +43,7 @@
 
   async function carregar() {
     const sb = getSupabase()
-    const { data, error } = await sb.from('tarefas')
+    const { data, error } = await sb.from('rats')
       .select('id,cliente_nome,tecnico_nome,data_tarefa,status,sync_status,relatorio_completo,pendencias,faturado,data_faturamento,numero_nota,assinatura_url,respostas,tempo_trabalhado,tipos_servico(nome)')
       .order('data_tarefa', { ascending: false, nullsFirst: false }).limit(500)
     if (error) { toast('Erro ao carregar: ' + error.message, 'err'); cache = [] }
@@ -97,14 +97,14 @@
     }
 
     // produtos utilizados
-    const { data: mats } = await sb.from('materiais').select('descricao,codigo_produto,quantidade').eq('tarefa_id', id).eq('origem', 'usado')
+    const { data: mats } = await sb.from('materiais').select('descricao,codigo_produto,quantidade').eq('rat_id', id).eq('origem', 'usado')
     if (mats && mats.length) {
       html += '<div class="dim" style="margin-top:12px">Produtos utilizados</div><div class="det-prod">' +
         mats.map(m => `<div>${esc(m.descricao || m.codigo_produto || '—')} — <b>${esc(String(m.quantidade))}</b></div>`).join('') + '</div>'
     }
 
     // fotos (signed URLs) com legenda
-    const { data: fotos } = await sb.from('relatorio_fotos').select('url,legenda').eq('tarefa_id', id)
+    const { data: fotos } = await sb.from('relatorio_fotos').select('url,legenda').eq('rat_id', id)
     const comUrl = (fotos || []).filter(f => f.url)
     if (comUrl.length) {
       const legPorPath = {}; comUrl.forEach(f => { legPorPath[f.url] = f.legenda })
@@ -130,7 +130,7 @@
   async function confirmarFaturar() {
     if (!faturarId) return
     const nota = document.getElementById('f-nota').value.trim()
-    const { error } = await getSupabase().from('tarefas')
+    const { error } = await getSupabase().from('rats')
       .update({ faturado: true, data_faturamento: new Date().toISOString(), numero_nota: nota || null })
       .eq('id', faturarId)
     if (error) { toast('Erro ao faturar: ' + error.message, 'err'); return }

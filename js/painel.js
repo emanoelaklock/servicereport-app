@@ -26,14 +26,14 @@
     const cont = (q) => q.then(r => r.error ? '—' : r.count)
 
     const [hojeC, pendC, fatC, fatHojeC] = await Promise.all([
-      cont(sb.from('tarefas').select('*', { count: 'exact', head: true }).gte('data_tarefa', isoHoje)),
-      cont(sb.from('tarefas').select('*', { count: 'exact', head: true }).eq('status', 'Concluído com Pendências')),
-      cont(sb.from('tarefas').select('*', { count: 'exact', head: true }).eq('faturado', false).eq('relatorio_completo', true)),
-      cont(sb.from('tarefas').select('*', { count: 'exact', head: true }).eq('faturado', true).gte('data_faturamento', isoHoje)),
+      cont(sb.from('rats').select('*', { count: 'exact', head: true }).gte('data_tarefa', isoHoje)),
+      cont(sb.from('rats').select('*', { count: 'exact', head: true }).eq('status', 'Concluído com Pendências')),
+      cont(sb.from('rats').select('*', { count: 'exact', head: true }).eq('faturado', false).eq('relatorio_completo', true)),
+      cont(sb.from('rats').select('*', { count: 'exact', head: true }).eq('faturado', true).gte('data_faturamento', isoHoje)),
     ])
     set('kpi-hoje', hojeC); set('kpi-pend', pendC); set('kpi-faturar', fatC); set('kpi-fat-hoje', fatHojeC)
 
-    const { data, error } = await sb.from('tarefas')
+    const { data, error } = await sb.from('rats')
       .select('id,cliente_nome,data_tarefa,sync_status,relatorio_completo,faturado')
       .order('data_tarefa', { ascending: false, nullsFirst: false }).limit(8)
     renderRecentes(error ? [] : (data || []))

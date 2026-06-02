@@ -10,7 +10,7 @@ const CORS = {
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
   "Access-Control-Allow-Methods": "POST, OPTIONS",
 }
-const ROLES = ["admin", "gestor_axis", "tecnico_campo"]
+const ROLES = ["admin", "gestor_axis", "tecnico_campo", "comercial"]
 
 Deno.serve(async (req: Request) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: CORS })
@@ -58,7 +58,7 @@ Deno.serve(async (req: Request) => {
       const { user_id } = body
       if (!user_id) return json({ error: "dados invalidos" }, 400)
       if (user_id === callerId) return json({ error: "nao pode excluir a si mesmo" }, 400)
-      await admin.from("tarefas").update({ tecnico_id: null }).eq("tecnico_id", user_id)
+      await admin.from("rats").update({ tecnico_id: null }).eq("tecnico_id", user_id)
       await admin.from("usuarios").delete().eq("id", user_id)
       const { error } = await admin.auth.admin.deleteUser(user_id)
       if (error) return json({ error: error.message }, 400)
