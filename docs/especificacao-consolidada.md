@@ -224,10 +224,12 @@ Por **Tarefa**. Decisão do **administrativo** (na mão).
 - Integração Omie **Fase 1** (leitura de clientes/produtos via Edge Function `omie-sync`).
 
 **Pendente (próximos passos):**
-1. **Reestruturação dois níveis:** renomear `tarefas` atual → `rats`; criar nova `tarefas` (a OS/job); `rats.tarefa_id`. (Fazer agora, com dado de teste — barato.)
-2. Adicionar papel **`comercial`**.
-3. Adicionar **preço** em `produtos` (sync Omie).
-4. **Módulo comercial:** pré-orçamento (campo, offline), orçamento, status, exclusão/arquivo.
+1. ✅ **Reestruturação dois níveis** (feito, `bc485a4`): `tarefas`→`rats`; nova `tarefas` (OS/job); `rats.tarefa_id`; filhas `tarefa_id`→`rat_id`. Fundação validada no ar (OS → 2 RATs em dias → painel). Faturamento ainda na RAT (move no #6).
+2. ✅ **Papel `comercial`** (feito, `e4f8efd`): liberado no CHECK, na tela de Usuários, no portal.
+3. ✅ **Preço em `produtos`** (feito, `e4f8efd`): `preco_venda` do Omie (`valor_unitario`); 1714 produtos com preço.
+4. **Módulo comercial** (em andamento):
+   - ✅ 4.1 **Schema** — `pre_orcamentos`(+itens), `orcamentos`(+itens c/ preço e subtotal), links opcionais, status + arquivar, RLS por papel (técnico sem acesso a orçamento).
+   - ⏭️ 4.2 Pré-orçamento (app de campo, offline) · 4.3 Orçamento (portal, comercial) · 4.4 Status/arquivo · 4.5 Serviços de PDF (servidor) e e-mail (Resend).
 5. **Material/conciliação** com as 5 colunas + permissões por papel + preço oculto no nível de dados.
 6. **Faturamento:** revisão do admin, escrita da OS no Omie ("a Faturar") com idempotência, retorno do status faturado.
 7. **PDF + e-mail ao finalizar** (serviço compartilhado).
