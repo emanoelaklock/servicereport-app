@@ -21,6 +21,35 @@
   // Título-case: "marcelo oliveira" -> "Marcelo Oliveira"
   const tcase = (s) => String(s || '').toLowerCase().replace(/(^|[\s\-'])\p{L}/gu, m => m.toUpperCase())
 
+  // Autocomplete com busca (listas grandes: clientes/produtos). Sem framework.
+  // busca: input texto; hidden: input que guarda o id; list: div de sugestões.
+  function attachAutocomplete(busca, hidden, list, items, fmt) {
+    function render(q) {
+      const nq = normStr(q)
+      if (!nq) { list.classList.remove('open'); list.innerHTML = ''; return }
+      const matches = []
+      for (const it of items) {
+        const f = fmt(it)
+        if (normStr(f.label).includes(nq)) { matches.push(f); if (matches.length >= 30) break }
+      }
+      if (!matches.length) { list.innerHTML = '<div class="ac-empty">Nada encontrado</div>'; list.classList.add('open'); return }
+      list.innerHTML = matches.map(m => `<div class="ac-item" data-id="${esc(m.id)}">${esc(m.label)}</div>`).join('')
+      list.classList.add('open')
+      list.querySelectorAll('.ac-item').forEach(el => {
+        el.onmousedown = (e) => {
+          e.preventDefault()
+          hidden.value = el.dataset.id
+          const m = matches.find(x => String(x.id) === el.dataset.id)
+          busca.value = m ? m.label : ''
+          list.classList.remove('open')
+        }
+      })
+    }
+    busca.oninput = () => { hidden.value = ''; render(busca.value) }
+    busca.onfocus = () => { if (busca.value) render(busca.value) }
+    busca.onblur = () => { setTimeout(() => list.classList.remove('open'), 150) }
+  }
+
   // ─────────────────────────── Init ───────────────────────────
   async function init() {
     const { data: { user } } = await getSupabase().auth.getUser()
@@ -69,10 +98,13 @@
       if (cache) { ref = JSON.parse(cache); toast('Offline — usando cadastros salvos.', 'info') }
       else { toast('Sem conexão e sem cadastros em cache.', 'err') }
     }
-    // popula selects
-    const selC = document.getElementById('f-cliente')
-    selC.innerHTML = '<option value="">Selecione…</option>' +
-      ref.clientes.map(c => `<option value="${esc(c.id)}">${esc(c.nome)}</option>`).join('')
+    // cliente: autocomplete (lista grande do Omie)
+    attachAutocomplete(
+      document.getElementById('f-cliente-busca'),
+      document.getElementById('f-cliente'),
+      document.getElementById('ac-cliente-list'),
+      ref.clientes, c => ({ id: c.id, label: c.nome })
+    )
     const selT = document.getElementById('f-tipo')
     selT.innerHTML = '<option value="">Selecione…</option>' +
       ref.tipos.map(t => `<option value="${esc(t.id)}">${esc(t.nome)}</option>`).join('')
@@ -125,6 +157,7 @@
     const rat = await D().novoRat({})
     cur = { client_uuid: rat.client_uuid, campos: [] }
     document.getElementById('f-cliente').value = ''
+    document.getElementById('f-cliente-busca').value = ''
     document.getElementById('f-tipo').value = ''
     document.getElementById('f-status').value = 'Em andamento'
     document.getElementById('campos-container').innerHTML = ''
@@ -138,6 +171,8 @@
     cur = { client_uuid, campos: [] }
     document.getElementById('form-titulo').textContent = 'Editar RAT'
     document.getElementById('f-cliente').value = rat.cliente_id || ''
+    document.getElementById('f-cliente-busca').value =
+      (ref.clientes.find(c => c.id === rat.cliente_id) || {}).nome || rat.cliente_nome || ''
     document.getElementById('f-tipo').value = rat.tipo_servico_id || ''
     document.getElementById('f-status').value = rat.status || 'Em andamento'
     await onTipoChange()
@@ -211,17 +246,29 @@
       const ops = (ref.veiculos || []).map(v => { const lbl = `${v.modelo || ''} (${v.placa || ''})`; return `<option value="${esc(lbl)}">${esc(lbl)}</option>` }).join('')
       wrap.innerHTML = `${label}<select data-campo="${esc(c.id)}" data-tipo="veiculo"><option value="">Selecione…</option>${ops}</select>`
     } else if (c.tipo === 'produtos') {
-      const ops = (ref.produtos || []).map(p => `<option value="${esc(p.id)}">${esc((p.codigo ? p.codigo + ' - ' : '') + (p.descricao || ''))}</option>`).join('')
       wrap.innerHTML = `${label}
         <div class="prod-box">
           <div class="prod-add">
-            <select id="prod-sel"><option value="">Produto…</option>${ops}</select>
+            <div class="ac">
+              <input type="text" id="prod-busca" placeholder="Buscar produto…" autocomplete="off">
+              <input type="hidden" id="prod-sel">
+              <div class="ac-list" id="prod-ac-list"></div>
+            </div>
             <input type="number" id="prod-qtd" inputmode="decimal" placeholder="Qtd" min="0" step="any">
             <button type="button" class="btn btn-sm" id="prod-add-btn">+ Add</button>
           </div>
           <div class="prod-list" id="prod-list"></div>
         </div>`
-      setTimeout(() => { const b = document.getElementById('prod-add-btn'); if (b) b.onclick = adicionarMaterialUI; refreshMateriais() }, 0)
+      setTimeout(() => {
+        attachAutocomplete(
+          document.getElementById('prod-busca'),
+          document.getElementById('prod-sel'),
+          document.getElementById('prod-ac-list'),
+          ref.produtos || [], p => ({ id: p.id, label: (p.codigo ? p.codigo + ' - ' : '') + (p.descricao || '') })
+        )
+        const b = document.getElementById('prod-add-btn'); if (b) b.onclick = adicionarMaterialUI
+        refreshMateriais()
+      }, 0)
     } else if (c.tipo === 'foto') {
       wrap.innerHTML = `${label}
         <div class="foto-box">
@@ -278,9 +325,8 @@
 
   // ── Produtos utilizados (materiais, origem 'usado') ──
   async function adicionarMaterialUI() {
-    const sel = document.getElementById('prod-sel')
+    const pid = document.getElementById('prod-sel').value
     const qtdEl = document.getElementById('prod-qtd')
-    const pid = sel.value
     const qtd = Number(qtdEl.value)
     if (!pid) return toast('Selecione um produto.', 'err')
     if (!qtd || qtd <= 0) return toast('Informe a quantidade.', 'err')
@@ -289,7 +335,9 @@
       produto_id: pid, codigo_produto: p ? p.codigo : null, descricao: p ? p.descricao : null,
       unidade: p ? p.unidade : null, quantidade: qtd,
     })
-    sel.value = ''; qtdEl.value = ''
+    document.getElementById('prod-sel').value = ''
+    document.getElementById('prod-busca').value = ''
+    qtdEl.value = ''
     await refreshMateriais()
   }
   async function refreshMateriais() {
