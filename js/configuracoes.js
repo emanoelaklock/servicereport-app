@@ -42,6 +42,14 @@
     carregarOmieLog()
     const bc = document.getElementById('busca-cli'); if (bc) bc.oninput = debounce(() => buscarClientes(bc.value.trim()), 300)
     const bp = document.getElementById('busca-prod'); if (bp) bp.oninput = debounce(() => buscarProdutos(bp.value.trim()), 300)
+    const ca = document.getElementById('chkall-cli'); if (ca) ca.onclick = () => document.querySelectorAll('#tbody-cli .row-chk').forEach(c => { c.checked = ca.checked })
+    const pa = document.getElementById('chkall-prod'); if (pa) pa.onclick = () => document.querySelectorAll('#tbody-prod .row-chk').forEach(c => { c.checked = pa.checked })
+    document.getElementById('bulk-cli-ocultar').onclick = () => ocultarSelecionados('cliente', true)
+    document.getElementById('bulk-cli-mostrar').onclick = () => ocultarSelecionados('cliente', false)
+    document.getElementById('bulk-cli-excluir').onclick = () => excluirSelecionados('cliente')
+    document.getElementById('bulk-prod-ocultar').onclick = () => ocultarSelecionados('produto', true)
+    document.getElementById('bulk-prod-mostrar').onclick = () => ocultarSelecionados('produto', false)
+    document.getElementById('bulk-prod-excluir').onclick = () => excluirSelecionados('produto')
     buscarClientes(''); buscarProdutos('')
     document.querySelectorAll('.cfg-tab').forEach(t => { t.onclick = () => mostrarSecao(t.dataset.sec) })
     const isAdmin = (typeof PERFIL !== 'undefined' && PERFIL === 'admin')
@@ -383,19 +391,53 @@
   function renderCadastro(kind, rows, tipo) {
     const tb = document.getElementById(kind === 'cli' ? 'tbody-cli' : 'tbody-prod')
     if (!tb) return
-    const cols = kind === 'cli' ? 4 : 5
+    const cols = kind === 'cli' ? 5 : 6
+    const chkAll = document.getElementById(kind === 'cli' ? 'chkall-cli' : 'chkall-prod'); if (chkAll) chkAll.checked = false
     if (!rows.length) { tb.innerHTML = `<tr><td colspan="${cols}" class="dim" style="text-align:center;padding:20px">Nada encontrado.</td></tr>`; return }
     tb.innerHTML = rows.map(r => {
+      const chk = `<td><input type="checkbox" class="row-chk" value="${esc(r.id)}"></td>`
       const status = r.oculto ? '<span class="dim">Oculto</span>' : (kind === 'prod' && !r.ativo ? '<span class="dim">Inativo</span>' : '<span class="badge s-en"><span class="dot"></span>Visível</span>')
       const acoes = `<div class="acts" style="opacity:1">
           <button class="ab ab-c" data-toggle="${esc(r.id)}" data-oc="${r.oculto ? 1 : 0}">${r.oculto ? 'Mostrar' : 'Ocultar'}</button>
           <button class="ab ab-d" data-del="${esc(r.id)}">Excluir</button>
         </div>`
-      if (kind === 'cli') return `<tr><td>${esc(r.nome || '—')}</td><td>${esc(r.documento || '—')}</td><td>${status}</td><td>${acoes}</td></tr>`
-      return `<tr><td>${esc(r.codigo || '—')}</td><td>${esc(r.descricao || '—')}</td><td>${esc(r.unidade || '—')}</td><td>${status}</td><td>${acoes}</td></tr>`
+      if (kind === 'cli') return `<tr>${chk}<td>${esc(r.nome || '—')}</td><td>${esc(r.documento || '—')}</td><td>${status}</td><td>${acoes}</td></tr>`
+      return `<tr>${chk}<td>${esc(r.codigo || '—')}</td><td>${esc(r.descricao || '—')}</td><td>${esc(r.unidade || '—')}</td><td>${status}</td><td>${acoes}</td></tr>`
     }).join('')
     tb.querySelectorAll('[data-toggle]').forEach(b => b.onclick = () => toggleOculto(tipo, b.dataset.toggle, b.dataset.oc === '1'))
     tb.querySelectorAll('[data-del]').forEach(b => b.onclick = () => excluirCadastro(tipo, b.dataset.del))
+  }
+
+  function idsSelecionados(kind) {
+    return Array.from(document.querySelectorAll(`#${kind === 'cli' ? 'tbody-cli' : 'tbody-prod'} .row-chk:checked`)).map(c => c.value)
+  }
+  async function ocultarSelecionados(tipo, oculto) {
+    const kind = tipo === 'cliente' ? 'cli' : 'prod'
+    const ids = idsSelecionados(kind)
+    if (!ids.length) return toast('Selecione ao menos um item.', 'err')
+    const { error } = await getSupabase().from(tipo === 'cliente' ? 'clientes' : 'produtos').update({ oculto }).in('id', ids)
+    if (error) return toast('Erro: ' + error.message, 'err')
+    toast(`${ids.length} ${oculto ? 'ocultado(s)' : 'exibido(s)'}.`, 'ok')
+    recarregaCadastro(tipo)
+  }
+  async function excluirSelecionados(tipo) {
+    const kind = tipo === 'cliente' ? 'cli' : 'prod'
+    const ids = idsSelecionados(kind)
+    if (!ids.length) return toast('Selecione ao menos um item.', 'err')
+    if (!confirm(`Excluir ${ids.length} ${tipo}(s)? Itens em uso por RAT são mantidos. O Omie pode reimportar.`)) return
+    const sb = getSupabase()
+    // descobre quais estão em uso (não dá pra excluir por FK) e exclui o resto
+    const usados = new Set()
+    if (tipo === 'cliente') { const { data } = await sb.from('tarefas').select('cliente_id').in('cliente_id', ids); (data || []).forEach(r => usados.add(r.cliente_id)) }
+    else { const { data } = await sb.from('materiais').select('produto_id').in('produto_id', ids); (data || []).forEach(r => usados.add(r.produto_id)) }
+    const deletaveis = ids.filter(id => !usados.has(id))
+    if (deletaveis.length) {
+      const { error } = await sb.from(tipo === 'cliente' ? 'clientes' : 'produtos').delete().in('id', deletaveis)
+      if (error) return toast('Erro: ' + error.message, 'err')
+    }
+    const mantidos = ids.length - deletaveis.length
+    toast(`${deletaveis.length} excluído(s)${mantidos ? `, ${mantidos} em uso mantido(s)` : ''}.`, 'ok')
+    recarregaCadastro(tipo)
   }
   function recarregaCadastro(tipo) {
     if (tipo === 'cliente') buscarClientes((document.getElementById('busca-cli').value || '').trim())
