@@ -237,4 +237,20 @@ Por **Tarefa**. Decisão do **administrativo** (na mão).
 
 ---
 
+---
+
+## 14. App do técnico — navegação (home pós-login)
+
+Após o login, o técnico vê um **painel com botões** (não mais a lista direta de RATs):
+
+1. **Ordens de Serviço** → lista das **OS destinadas a ele** (com cores por status/atividade). Ao abrir uma OS: **Nova RAT** (do dia) ou continuar a **RAT em andamento** daquele dia. (RAT sempre vive dentro de uma OS — não há mais RAT avulsa.)
+2. **Orçamentos** → **Novo Orçamento** (o levantamento de campo = pré-orçamento; formulário **fixo**; sem preço). Lista os dele.
+3. **Deslocamento** → **Novo Deslocamento** — artefato próprio, **formulário fixo específico para deslocamento com pernoite** (viagem com pernoite). *(Campos a definir — ver §15.)*
+
+> Formulários do técnico são **fixos** (pré-orçamento e deslocamento), não configuráveis. A RAT segue configurável por tipo de serviço.
+
+## 15. Deslocamento (pernoite) — NOVO artefato
+
+Formulário fixo, registro próprio (tabela `deslocamentos`), offline-first como os demais artefatos de campo. **Campos a definir com o time** (ex.: destino, data/hora de ida e volta, nº de pernoites, quem viajou, veículo, despesas?, observações, fotos?). Pendente de especificação antes de construir.
+
 *Fim do documento. O que faltar, a gente acrescenta aqui.*
