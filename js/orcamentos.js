@@ -79,6 +79,11 @@
     document.getElementById('btn-salvar').onclick = () => salvar('rascunho')
     document.getElementById('btn-enviar').onclick = () => salvar('enviado')
     document.getElementById('btn-pdf').onclick = gerarPdf
+    document.getElementById('btn-aprovar').onclick = aprovar
+    document.getElementById('btn-naoaprovado').onclick = naoAprovado
+    document.getElementById('btn-reabrir').onclick = reabrir
+    document.getElementById('btn-arquivar').onclick = arquivar
+    document.getElementById('btn-desarquivar').onclick = desarquivar
     document.getElementById('add-servico').onclick = () => { addItem({ tipo: 'servico', quantidade: 1, preco_unitario: 0 }); renderItens() }
     document.getElementById('add-avulso').onclick = () => { addItem({ tipo: 'avulso', quantidade: 1, preco_unitario: 0 }); renderItens() }
     document.getElementById('add-material').onclick = adicionarMaterialSelecionado
@@ -128,13 +133,18 @@
     if (error) { box.innerHTML = `<p class="muted" style="padding:10px;color:var(--re)">Erro: ${esc(error.message)}</p>`; return }
     if (!data || !data.length) { box.innerHTML = '<p class="muted" style="padding:14px 2px">Nenhum orçamento.</p>'; return }
     const cliNome = (id) => (ref.clientes.find(c => c.id === id) || {}).nome || '—'
+    const semRetorno = (o) => {
+      if (o.status !== 'enviado' || !o.data_envio) return ''
+      const dias = Math.floor((Date.now() - new Date(o.data_envio).getTime()) / 86400000)
+      return dias >= 90 ? ` <span class="badge s-rm"><span class="dot"></span>sem retorno ${dias}d</span>` : ''
+    }
     box.innerHTML = `<table class="orc-table">
       <thead><tr><th>Nº</th><th>Cliente</th><th>Status</th><th>Total</th><th>Enviado</th><th>Criado</th></tr></thead>
       <tbody>${data.map(o => `
         <tr class="row-click" data-id="${esc(o.id)}">
           <td class="orc-num">${esc(o.numero)}</td>
           <td>${esc(cliNome(o.cliente_id))}${o.pre_orcamento_id ? ' <span class="muted">· de pré-orç</span>' : ''}</td>
-          <td>${statusBadge(o.status)}</td>
+          <td>${statusBadge(o.status)}${semRetorno(o)}</td>
           <td class="orc-total">${money(o.valor_total)}</td>
           <td>${o.data_envio ? fdt(o.data_envio) : '<span class="muted">—</span>'}</td>
           <td>${fdt(o.criado_em)}</td>
@@ -178,7 +188,7 @@
   }
 
   function novoOrcamento(preorc) {
-    cur = { id: null, pre_orcamento_id: preorc ? preorc.id : null, status: 'rascunho', data_envio: null }
+    cur = { id: null, pre_orcamento_id: preorc ? preorc.id : null, status: 'rascunho', data_envio: null, arquivado: false }
     itens = []
     setCliente(preorc ? preorc.cliente_id : '', preorc ? preorc.cliente_nome : '')
     document.getElementById('e-origem').value = preorc ? `Pré-orçamento Nº ${preorc.numero}` : 'Novo (sem pré-orçamento)'
@@ -186,6 +196,7 @@
     document.getElementById('e-condicao').value = ''
     document.getElementById('ed-status').textContent = ''
     renderItens()
+    aplicarEstado()
     mostrar('editor')
   }
 
@@ -216,7 +227,7 @@
       sb().from('orcamento_itens').select('*').eq('orcamento_id', id).order('criado_em'),
     ])
     if (e1 || !o) return toast('Erro ao abrir orçamento.', 'err')
-    cur = { id: o.id, pre_orcamento_id: o.pre_orcamento_id, status: o.status, data_envio: o.data_envio }
+    cur = { id: o.id, pre_orcamento_id: o.pre_orcamento_id, status: o.status, data_envio: o.data_envio, arquivado: !!o.arquivado }
     itens = (its || []).map(m => ({
       _rid: rid(), tipo: m.tipo, produto_id: m.produto_id, descricao: m.descricao || '',
       unidade: m.unidade, quantidade: Number(m.quantidade) || 0, preco_unitario: Number(m.preco_unitario) || 0,
@@ -228,6 +239,7 @@
     document.getElementById('ed-status').textContent = `Nº ${o.numero} · ${STATUS_LABEL[o.status] || o.status}`
     if (e2) toast('Aviso: itens não carregaram: ' + e2.message, 'err')
     renderItens()
+    aplicarEstado()
     mostrar('editor')
   }
 
@@ -346,7 +358,85 @@
       const insI = await sb().from('orcamento_itens').insert(rows)
       if (insI.error) return toast('Erro ao salvar itens: ' + insI.error.message, 'err')
     }
+    document.getElementById('ed-status').textContent = STATUS_LABEL[novoStatus] || novoStatus
     toast(novoStatus === 'enviado' ? 'Orçamento marcado como enviado.' : 'Rascunho salvo.', 'ok')
+    aplicarEstado()
+  }
+
+  // ─────────────────────── Status / aprovação ───────────────────────
+  async function invoke(fn, body) {
+    try {
+      const { data, error } = await sb().functions.invoke(fn, { body })
+      if (error) {
+        let m = error.message || 'falha'
+        try { const c = await error.context?.json?.(); if (c?.error) m = c.error } catch (_) {}
+        throw new Error(m)
+      }
+      if (data && data.error) throw new Error(data.error)
+      return data
+    } catch (e) { toast('Erro: ' + (e.message || e), 'err'); return null }
+  }
+
+  function setEditorEnabled(on) {
+    ['e-cliente-busca', 'e-observacoes', 'e-condicao', 'mat-busca', 'add-servico', 'add-material', 'add-avulso']
+      .forEach(id => { const e = document.getElementById(id); if (e) e.disabled = !on })
+    document.querySelectorAll('#tb-servico input, #tb-material input').forEach(i => { i.disabled = !on })
+    document.querySelectorAll('#tb-servico .it-x, #tb-material .it-x').forEach(b => { b.style.display = on ? '' : 'none' })
+  }
+
+  function aplicarEstado() {
+    const locked = cur.status === 'aprovado'   // congelado
+    const arq = !!cur.arquivado
+    const editable = !locked && !arq
+    setEditorEnabled(editable)
+    const show = (id, on) => { const e = document.getElementById(id); if (e) e.style.display = on ? '' : 'none' }
+    show('btn-salvar', editable)
+    show('btn-enviar', editable)
+    show('btn-aprovar', editable)
+    show('btn-naoaprovado', editable && cur.status !== 'nao_aprovado')
+    show('btn-reabrir', !arq && cur.status === 'nao_aprovado')
+    show('btn-arquivar', !arq && !!cur.id)
+    show('btn-desarquivar', arq)
+    show('btn-pdf', !!cur.id)
+    const b = document.getElementById('ed-banner')
+    if (arq) { b.style.display = 'block'; b.style.background = '#F1F5F9'; b.style.color = '#475569'; b.textContent = 'Arquivado — fora das listas ativas; histórico preservado.' }
+    else if (locked) { b.style.display = 'block'; b.style.background = '#E8F5E9'; b.style.color = '#2E7D32'; b.textContent = cur._tarefaMsg || 'Aprovado — orçamento congelado; Tarefa (OS) gerada.' }
+    else { b.style.display = 'none' }
+  }
+
+  async function aprovar() {
+    if (!cur || !cur.id) return toast('Salve o orçamento antes de aprovar.', 'err')
+    if (!confirm('Aprovar este orçamento? Gera a Tarefa (OS) e congela o orçado.')) return
+    const r = await invoke('aprovar-orcamento', { id: cur.id })
+    if (!r) return
+    cur.status = 'aprovado'
+    cur._tarefaMsg = r.tarefa_numero
+      ? `Aprovado — Tarefa (OS) Nº ${r.tarefa_numero} gerada; orçamento congelado.`
+      : 'Aprovado — Tarefa (OS) gerada; orçamento congelado.'
+    document.getElementById('ed-status').textContent = 'Aprovado'
+    toast(r.already ? 'Já estava aprovado.' : 'Aprovado e Tarefa gerada.', 'ok')
+    aplicarEstado()
+  }
+
+  async function mudarStatusSimples(patch, novoStatus, msg) {
+    if (!cur || !cur.id) return toast('Salve o orçamento primeiro.', 'err')
+    const up = await sb().from('orcamentos').update(patch).eq('id', cur.id)
+    if (up.error) return toast('Erro: ' + up.error.message, 'err')
+    if (novoStatus) { cur.status = novoStatus; document.getElementById('ed-status').textContent = STATUS_LABEL[novoStatus] || novoStatus }
+    toast(msg, 'ok')
+    aplicarEstado()
+  }
+
+  const naoAprovado = () => mudarStatusSimples({ status: 'nao_aprovado', data_resposta: new Date().toISOString().slice(0, 10) }, 'nao_aprovado', 'Marcado como não aprovado.')
+  const reabrir = () => mudarStatusSimples({ status: 'rascunho' }, 'rascunho', 'Reaberto para revisão.')
+  const desarquivar = () => { cur.arquivado = false; mudarStatusSimples({ arquivado: false, arquivado_em: null }, null, 'Desarquivado.') }
+
+  async function arquivar() {
+    if (!cur || !cur.id) return toast('Salve o orçamento primeiro.', 'err')
+    if (!confirm('Arquivar este orçamento? Sai das listas ativas; histórico preservado.')) return
+    const up = await sb().from('orcamentos').update({ arquivado: true, arquivado_em: new Date().toISOString() }).eq('id', cur.id)
+    if (up.error) return toast('Erro: ' + up.error.message, 'err')
+    toast('Arquivado.', 'ok'); cur = null; mostrar('lista'); await renderLista()
   }
 
   // ─────────────────────────── PDF (servidor) ───────────────────────────
