@@ -577,7 +577,7 @@ body{font-family:'Inter',system-ui,sans-serif;color:var(--ink);-webkit-font-smoo
 .firm{text-align:right;font-size:10.5px;line-height:1.7;color:var(--gray);}
 .firm b{display:block;color:var(--ink);font-weight:600;margin-bottom:2px;}
 .intro{margin-top:8px;}
-.intro-head{display:flex;justify-content:space-between;align-items:flex-end;gap:24px;}
+.intro-head{display:flex;justify-content:space-between;align-items:flex-start;gap:24px;}
 .intro-head h1{font-size:26px;font-weight:700;letter-spacing:-.8px;color:var(--ink);line-height:1;}
 .docno{text-align:right;}
 .docno .lbl{font-size:10.5px;font-weight:600;letter-spacing:1.2px;text-transform:uppercase;color:var(--gray);}
