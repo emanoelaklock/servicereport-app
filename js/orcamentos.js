@@ -472,6 +472,20 @@
   const nl2br = (s) => esc(s).replace(/\n/g, '<br>')
   const dmy = (iso) => { const d = new Date(iso); return isNaN(d) ? '—' : d.toLocaleDateString('pt-BR') }
 
+  // Title case p/ dados do cliente (vêm em CAIXA-ALTA do Omie). Preserva siglas e conectivos.
+  const TC_UP = new Set(['LTDA', 'ME', 'EPP', 'EIRELI', 'SA', 'S/A', 'MEI', 'CEP', 'CNPJ', 'CPF', 'II', 'III', 'IV', 'BR',
+    'AC', 'AL', 'AP', 'AM', 'BA', 'CE', 'DF', 'ES', 'GO', 'MA', 'MT', 'MS', 'MG', 'PA', 'PB', 'PR', 'PE', 'PI', 'RJ', 'RN', 'RS', 'RO', 'RR', 'SC', 'SP', 'SE', 'TO'])
+  const TC_LOW = new Set(['de', 'da', 'do', 'das', 'dos', 'e', 'a', 'o', 'em', 'no', 'na'])
+  function titleCase(s) {
+    if (!s) return s
+    return String(s).toLowerCase().replace(/[\p{L}\p{N}/]+/gu, (w) => {
+      const up = w.toUpperCase()
+      if (TC_UP.has(up)) return up
+      if (TC_LOW.has(w)) return w
+      return w.charAt(0).toUpperCase() + w.slice(1)
+    })
+  }
+
   async function gerarPdf() {
     if (!cur || !cur.id) return toast('Salve o orçamento antes de gerar o PDF.', 'err')
     const [{ data: o, error: e1 }, { data: its, error: e2 }] = await Promise.all([
@@ -628,8 +642,8 @@ tbody td.tot{font-weight:700;}
     <div class="meta">${meta.map(([k, v]) => `<div><div class="k">${esc(k)}</div><div class="v">${v}</div></div>`).join('')}</div>
   </section>
   <div class="client">
-    <div><div class="eyebrow">Cliente</div><div class="name">${esc(cli.nome || '—')}</div></div>
-    <div class="det">${[cli.documento ? 'CNPJ ' + esc(cli.documento) : '', cli.endereco ? esc(cli.endereco) : ''].filter(Boolean).join('<br>') || '&nbsp;'}</div>
+    <div><div class="eyebrow">Cliente</div><div class="name">${esc(titleCase(cli.nome) || '—')}</div></div>
+    <div class="det">${[cli.documento ? 'CNPJ ' + esc(cli.documento) : '', cli.endereco ? esc(titleCase(cli.endereco)) : ''].filter(Boolean).join('<br>') || '&nbsp;'}</div>
   </div>
   ${escopo}
   ${materiais}
