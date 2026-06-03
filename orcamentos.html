@@ -139,9 +139,9 @@
             <div class="fg" style="margin-bottom:10px">
               <textarea id="e-servico-desc" rows="5" placeholder="1ª linha = resumo do serviço (em destaque).&#10;Demais linhas = itens em tópicos, um por linha. Ex.:&#10;Lançamento de cabo de rede Cat6A até o ponto da câmera&#10;Conectorização dos pontos nas extremidades&#10;Certificação conforme norma ANSI/TIA-568.2-D"></textarea>
             </div>
-            <div class="prod-add" style="grid-template-columns:1fr 160px">
-              <div class="fg" style="margin-bottom:0"><label>Valor do serviço (R$)</label><input type="number" id="e-servico-valor" inputmode="decimal" min="0" step="any" placeholder="0,00"></div>
-              <div class="fg" style="margin-bottom:0"><label>Subtotal serviços</label><input type="text" id="tot-servico" readonly value="—" style="background:var(--sur2)"></div>
+            <div style="display:flex;gap:20px;align-items:flex-end">
+              <div class="fg" style="margin-bottom:0;flex:1"><label>Valor do serviço (R$)</label><input type="number" id="e-servico-valor" inputmode="decimal" min="0" step="any" placeholder="0,00"></div>
+              <div class="fg" style="margin-bottom:0;width:180px;flex:none"><label>Subtotal serviços</label><input type="text" id="tot-servico" readonly value="—" style="background:var(--sur2)"></div>
             </div>
           </div>
 
