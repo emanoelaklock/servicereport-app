@@ -463,8 +463,13 @@
     const bin = atob(b64), arr = new Uint8Array(bin.length)
     for (let i = 0; i < bin.length; i++) arr[i] = bin.charCodeAt(i)
     const url = URL.createObjectURL(new Blob([arr], { type: 'application/pdf' }))
-    const w = window.open(url, '_blank')
-    if (!w) { const a = document.createElement('a'); a.href = url; a.download = filename; a.click() }
+    // Baixa o arquivo com o nome correto (salvar é mais confiável que abrir aba/blob).
+    const a = document.createElement('a')
+    a.href = url
+    a.download = filename || 'orcamento.pdf'
+    document.body.appendChild(a)
+    a.click()
+    a.remove()
     setTimeout(() => URL.revokeObjectURL(url), 60000)
   }
 
