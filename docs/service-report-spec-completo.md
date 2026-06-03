@@ -76,28 +76,31 @@ Artefato **próprio** do técnico (não é um campo dentro da RAT — esse é o 
 ## 5. Orçamento
 
 - **Quem cria:** **comercial**. Pode ser **transformado de um pré-orçamento** ou **criado novo** (`pre_orcamento_id` opcional).
-- **Preços:**
-  - **Serviço:** digitado na hora (manual).
-  - **Material do catálogo:** puxa o preço do **Omie**, mas **editável**.
-  - **Item avulso:** preço digitado na mão.
-- **Ao finalizar:** gera **só o PDF** (sem e-mail automático). O comercial/admin envia ao cliente do jeito dele (e-mail próprio, WhatsApp…).
+- **Estrutura (modelo atual):**
+  - **Serviço = descrição livre (texto longo) + valor final.** É **um bloco único** no orçamento (colunas `orcamentos.servico_descricao` + `servico_valor`), **não** itemizado (sem qtd/unitário/total). *(Mudança: antes serviço era item de tabela.)*
+  - **Materiais = itemizados** em `orcamento_itens` (tipo `material`/`avulso`): **do catálogo** (preço do **Omie**, editável) ou **avulso** (descrição + preço manual). Subtotal = `qtd × preço` (coluna gerada).
+  - **Campos do orçamento:** `prazo_execucao` (texto, ex.: "5 dias úteis") · `impostos` (texto, ex.: "Inclusos nos valores") · `condicao_pagamento` (forma de pagamento) · `observacoes`. **Sem garantia.** Validade = padrão "15 dias" (constante, env `EMPRESA_VALIDADE`).
+- **Total** = valor do serviço + Σ subtotais dos materiais. **Orçamento vazio** (sem serviço e sem material) é **bloqueado**.
+- **Ao finalizar:** gera **só o PDF** (sem e-mail automático). O comercial/admin envia ao cliente do jeito dele.
 - **O técnico não vê preço** — nem do produto, nem do orçamento (ver regra de dados em §10).
 
-### Layout do PDF (pré-orçamento e orçamento)
+### Layout do PDF (servidor — Edge Function `documentos`)
 
-Referência visual: PDFs reais `Pré-orçamento_4698.pdf` e `Orçamento_4698.pdf`. **Mesmo template, dois modos** — a única diferença é o preço. Reusa o serviço de PDF compartilhado (§12).
+Referência visual fiel: **`docs/mockups/orcamento-pdf.html`** (fonte Inter no mockup; o PDF gerado usa Helvetica — pdf-lib no edge não embute Inter sem bundlar a TTF). Acento navy `#1B2A4A`, A4. Dados da empresa via envs **`EMPRESA_*`** (defaults = dados reais TSRV).
 
-Estrutura comum:
-- **Cabeçalho:** dados da empresa (TSRV: CNPJ, IE, IM, endereço, telefone) + logo.
-- **Título:** "Pré-Orçamento Nº X" ou "Orçamento Nº X".
-- **Informações do Cliente:** nome, CNPJ, endereço, e-mail, telefone.
-- **Lista de Serviços:** descrição (pode ter várias linhas) + quantidade.
-- **Lista de Produtos:** descrição + unidade + quantidade.
-- **Rodapé:** "Gerado em DD/MM/AAAA às HH:MM por <usuário>".
+**Estrutura (ordem):**
+1. **Cabeçalho:** selo "TS" + "Traders Service" + tagline; bloco da empresa à direita (razão social, CNPJ·IE·IM, endereço, telefone). Borda navy.
+2. **"Proposta Comercial"** + **"Orçamento Nº X"** (ou "Pré-Orçamento Nº X") → **metas**: Emissão · Validade · Prazo de execução.
+3. **Cliente:** nome + documento/endereço.
+4. **Escopo do serviço:** card com a descrição + **Valor do serviço**.
+5. **Materiais:** tabela Descrição · Un. · Qtd · Valor unit. · Total.
+6. **Resumo financeiro:** Subtotal Serviços · Subtotal Materiais · Impostos · **Total geral** (caixa navy em destaque).
+7. **Condições comerciais** (Forma de pagamento · Valor) **ao lado de Observações**.
+8. **Rodapé:** empresa/contato + "Gerado em DD/MM/AAAA por <usuário> · Página i de n".
 
-Diferença **pré-orçamento → orçamento**:
-- Orçamento **acrescenta**: colunas **Valor Unit.** e **Valor Total** (em serviços e produtos), **totais** (serviços, produtos, total geral) e **condição de pagamento** (parcelas/vencimento).
-- Pré-orçamento **não tem** nenhum valor nem condição de pagamento.
+**Variantes (mesmo template, seções condicionais — mostra só o que existe):**
+- **Completo** (serviço + materiais) · **Só serviço** (oculta Materiais e Subtotal Materiais) · **Só materiais** (oculta Escopo e Subtotal Serviços) · **Pré-orçamento** (sem nenhum valor, sem resumo financeiro, sem condições/pagamento).
+- No resumo, **só os subtotais existentes**; com **um grupo só**, vai direto ao **Total**.
 
 **Removido do modelo do Omie** (não usar): "Local de Estoque", "Previsão de Faturamento", "Ordem de Serviço incluído em" e linha de **desconto**. PDF enxuto.
 
