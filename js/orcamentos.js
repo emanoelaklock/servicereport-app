@@ -613,8 +613,8 @@ body{font-family:'Inter',system-ui,sans-serif;color:var(--ink);-webkit-font-smoo
 
 /* título */
 .doc{display:flex;justify-content:space-between;align-items:flex-start;gap:24px;margin-top:22px;padding-bottom:16px;border-bottom:1px solid var(--line);}
-.doc h1{font-size:27px;font-weight:800;letter-spacing:-.4px;color:var(--ink);line-height:1.05;}
-.doc h1 .no{color:var(--red);}
+.doc h1{font-size:20px;font-weight:700;letter-spacing:-.2px;color:var(--ink);line-height:1.05;}
+.doc h1 .no{color:var(--ink);}
 .doc .sub{font-size:13px;color:var(--gray);margin-top:7px;max-width:430px;line-height:1.4;}
 .meta{display:flex;}
 .meta .mi{padding:0 16px;}
