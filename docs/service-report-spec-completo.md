@@ -79,7 +79,7 @@ Artefato **próprio** do técnico (não é um campo dentro da RAT — esse é o 
 - **Estrutura (modelo atual):**
   - **Serviço = descrição livre (texto longo) + valor final.** É **um bloco único** no orçamento (colunas `orcamentos.servico_descricao` + `servico_valor`), **não** itemizado (sem qtd/unitário/total). *(Mudança: antes serviço era item de tabela.)*
   - **Materiais = itemizados** em `orcamento_itens` (tipo `material`/`avulso`): **do catálogo** (preço do **Omie**, editável) ou **avulso** (descrição + preço manual). Subtotal = `qtd × preço` (coluna gerada).
-  - **Campos do orçamento:** `prazo_execucao` (texto, ex.: "5 dias úteis") · `impostos` (texto, ex.: "Inclusos nos valores") · `condicao_pagamento` (forma de pagamento) · `observacoes`. **Sem garantia.** Validade = padrão "15 dias" (constante, env `EMPRESA_VALIDADE`).
+  - **Campos do orçamento:** `prazo_execucao` (texto, ex.: "5 dias úteis") · `condicao_pagamento` (forma de pagamento) · `observacoes` (com checkbox que insere a frase-padrão "Serviço executado em horário comercial (segunda a sexta, das 7h às 17h)."). **Sem garantia, sem impostos.** Validade = padrão "15 dias" (constante, env `EMPRESA_VALIDADE`).
 - **Total** = valor do serviço + Σ subtotais dos materiais. **Orçamento vazio** (sem serviço e sem material) é **bloqueado**.
 - **Ao finalizar:** gera **só o PDF** (sem e-mail automático). O comercial/admin envia ao cliente do jeito dele.
 - **O técnico não vê preço** — nem do produto, nem do orçamento (ver regra de dados em §10).
@@ -94,7 +94,7 @@ Referência visual fiel: **`docs/mockups/orcamento-pdf.html`** (fonte Inter no m
 3. **Cliente:** nome + documento/endereço.
 4. **Escopo do serviço:** card com a descrição + **Valor do serviço**.
 5. **Materiais:** tabela Descrição · Un. · Qtd · Valor unit. · Total.
-6. **Resumo financeiro:** Subtotal Serviços · Subtotal Materiais · Impostos · **Total geral** (caixa navy em destaque).
+6. **Resumo financeiro:** Subtotal Serviços · Subtotal Materiais · **Total geral** (caixa navy em destaque).
 7. **Condições comerciais** (Forma de pagamento · Valor) **ao lado de Observações**.
 8. **Rodapé:** empresa/contato + "Gerado em DD/MM/AAAA por <usuário> · Página i de n".
 

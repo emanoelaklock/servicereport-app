@@ -57,7 +57,6 @@ type DocData = {
   servicoValor: number
   materiais: Mat[]
   prazoExecucao?: string | null
-  impostos?: string | null
   condicaoPagamento?: string | null
   observacoes?: string | null
 }
@@ -189,7 +188,6 @@ async function buildPdf(d: DocData): Promise<Uint8Array> {
       rowsRes.push(["Subtotal · Serviços", BRL(d.servicoValor), false])
       rowsRes.push(["Subtotal · Materiais", BRL(totMat), false])
     }
-    if (d.impostos) rowsRes.push(["Impostos", d.impostos, true])
     for (const [k, v, soft] of rowsRes) {
       t(k, bx, y, 11, font, gray)
       rt(v, XR, y, 11, soft ? font : bold, soft ? gray : ink)
@@ -304,7 +302,7 @@ Deno.serve(async (req: Request) => {
         servicoDescricao: o.servico_descricao, servicoValor: Number(o.servico_valor) || 0,
         materiais: (itens || []).filter((i: { tipo: string }) => i.tipo === "material" || i.tipo === "avulso")
           .map((m: Mat) => ({ descricao: m.descricao || "—", unidade: m.unidade, quantidade: Number(m.quantidade) || 0, preco_unitario: Number(m.preco_unitario) || 0 })),
-        prazoExecucao: o.prazo_execucao, impostos: o.impostos, condicaoPagamento: o.condicao_pagamento, observacoes: o.observacoes,
+        prazoExecucao: o.prazo_execucao, condicaoPagamento: o.condicao_pagamento, observacoes: o.observacoes,
       }
     } else {
       return json({ error: "tipo inválido (pre_orcamento|orcamento)" }, 400)

@@ -87,6 +87,8 @@
     document.getElementById('add-avulso').onclick = () => { addItem({ tipo: 'avulso', quantidade: 1, preco_unitario: 0 }); renderItens() }
     document.getElementById('add-material').onclick = adicionarMaterialSelecionado
     document.getElementById('e-servico-valor').oninput = recomputeTotais
+    document.getElementById('e-obs-horario').onchange = toggleObsHorario
+    document.getElementById('e-observacoes').oninput = syncObsHorarioCheckbox
     document.querySelectorAll('#orc-filtros .chip').forEach(ch => {
       ch.onclick = () => {
         filtro = ch.dataset.f
@@ -197,7 +199,7 @@
     document.getElementById('e-servico-desc').value = preorc ? (preorc.descricao || '') : ''
     document.getElementById('e-servico-valor').value = ''
     document.getElementById('e-prazo').value = ''
-    document.getElementById('e-impostos').value = ''
+    document.getElementById('e-obs-horario').checked = false
     document.getElementById('ed-status').textContent = ''
     renderItens()
     aplicarEstado()
@@ -243,7 +245,7 @@
     document.getElementById('e-servico-desc').value = o.servico_descricao || ''
     document.getElementById('e-servico-valor').value = (o.servico_valor != null && Number(o.servico_valor) !== 0) ? o.servico_valor : ''
     document.getElementById('e-prazo').value = o.prazo_execucao || ''
-    document.getElementById('e-impostos').value = o.impostos || ''
+    syncObsHorarioCheckbox()
     document.getElementById('ed-status').textContent = `Nº ${o.numero} · ${STATUS_LABEL[o.status] || o.status}`
     if (e2) toast('Aviso: itens não carregaram: ' + e2.message, 'err')
     renderItens()
@@ -303,6 +305,19 @@
     })
   }
 
+  // Frase-padrão de observação via checkbox (insere/remove sem digitar).
+  const OBS_HORARIO = 'Serviço executado em horário comercial (segunda a sexta, das 7h às 17h).'
+  function toggleObsHorario() {
+    const ta = document.getElementById('e-observacoes')
+    const on = document.getElementById('e-obs-horario').checked
+    const has = ta.value.includes(OBS_HORARIO)
+    if (on && !has) ta.value = (ta.value.trim() ? ta.value.trim() + ' ' : '') + OBS_HORARIO
+    else if (!on && has) ta.value = ta.value.replace(OBS_HORARIO, '').replace(/\s{2,}/g, ' ').trim()
+  }
+  function syncObsHorarioCheckbox() {
+    document.getElementById('e-obs-horario').checked = document.getElementById('e-observacoes').value.includes(OBS_HORARIO)
+  }
+
   // Valor do serviço (descrição livre + valor único — não é mais item).
   const servicoValor = () => Number(document.getElementById('e-servico-valor').value) || 0
   const somaMateriais = () => itens.reduce((s, i) => s + (Number(i.quantidade) || 0) * (Number(i.preco_unitario) || 0), 0)
@@ -335,7 +350,6 @@
       servico_descricao: servDesc || null,
       servico_valor: servVal,
       prazo_execucao: document.getElementById('e-prazo').value.trim() || null,
-      impostos: document.getElementById('e-impostos').value.trim() || null,
       observacoes: document.getElementById('e-observacoes').value.trim() || null,
       condicao_pagamento: document.getElementById('e-condicao').value.trim() || null,
       valor_total,
@@ -391,7 +405,7 @@
   }
 
   function setEditorEnabled(on) {
-    ['e-cliente-busca', 'e-servico-desc', 'e-servico-valor', 'e-prazo', 'e-impostos', 'e-observacoes', 'e-condicao', 'mat-busca', 'add-material', 'add-avulso']
+    ['e-cliente-busca', 'e-servico-desc', 'e-servico-valor', 'e-prazo', 'e-obs-horario', 'e-observacoes', 'e-condicao', 'mat-busca', 'add-material', 'add-avulso']
       .forEach(id => { const e = document.getElementById(id); if (e) e.disabled = !on })
     document.querySelectorAll('#tb-material input').forEach(i => { i.disabled = !on })
     document.querySelectorAll('#tb-material .it-x').forEach(b => { b.style.display = on ? '' : 'none' })
