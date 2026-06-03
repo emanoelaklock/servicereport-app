@@ -466,38 +466,181 @@
     toast('Arquivado.', 'ok'); cur = null; mostrar('lista'); await renderLista()
   }
 
-  // ─────────────────────────── PDF (servidor) ───────────────────────────
+  // ─────────────────── PDF do orçamento (render do mockup → imprimir) ───────────────────
+  // Reproduz fielmente docs/mockups/orcamento-pdf.html (Inter, A4). O usuário escolhe
+  // "Salvar como PDF" no diálogo de impressão — saída vetorial, idêntica ao mockup.
+  const nl2br = (s) => esc(s).replace(/\n/g, '<br>')
+  const dmy = (iso) => { const d = new Date(iso); return isNaN(d) ? '—' : d.toLocaleDateString('pt-BR') }
+
   async function gerarPdf() {
     if (!cur || !cur.id) return toast('Salve o orçamento antes de gerar o PDF.', 'err')
-    const btn = document.getElementById('btn-pdf')
-    const old = btn.textContent; btn.disabled = true; btn.textContent = 'Gerando…'
-    try {
-      const { data, error } = await sb().functions.invoke('documentos', { body: { action: 'pdf', tipo: 'orcamento', id: cur.id } })
-      if (error) {
-        let msg = error.message || 'falha'
-        try { const ctx = await error.context?.json?.(); if (ctx?.error) msg = ctx.error } catch (_) {}
-        throw new Error(msg)
-      }
-      if (!data || !data.base64) throw new Error((data && data.error) || 'resposta inválida')
-      abrirPdfBase64(data.base64, data.filename || 'orcamento.pdf')
-    } catch (e) {
-      toast('Erro ao gerar PDF: ' + (e.message || e), 'err')
-    } finally {
-      btn.disabled = false; btn.textContent = old
-    }
+    const [{ data: o, error: e1 }, { data: its, error: e2 }] = await Promise.all([
+      sb().from('orcamentos').select('*').eq('id', cur.id).single(),
+      sb().from('orcamento_itens').select('*').eq('orcamento_id', cur.id).order('criado_em'),
+    ])
+    if (e1 || !o) return toast('Erro ao carregar orçamento: ' + (e1 && e1.message || ''), 'err')
+    if (e2) return toast('Erro ao carregar itens: ' + e2.message, 'err')
+    const cli = ref.clientes.find(c => c.id === o.cliente_id) || {}
+    const mats = (its || []).filter(i => i.tipo === 'material' || i.tipo === 'avulso')
+    const html = orcamentoHTML(o, mats, cli, user.nome)
+    const w = window.open('', '_blank')
+    if (!w) return toast('Permita pop-ups para gerar o PDF.', 'err')
+    w.document.open(); w.document.write(html); w.document.close()
   }
-  function abrirPdfBase64(b64, filename) {
-    const bin = atob(b64), arr = new Uint8Array(bin.length)
-    for (let i = 0; i < bin.length; i++) arr[i] = bin.charCodeAt(i)
-    const url = URL.createObjectURL(new Blob([arr], { type: 'application/pdf' }))
-    // Baixa o arquivo com o nome correto (salvar é mais confiável que abrir aba/blob).
-    const a = document.createElement('a')
-    a.href = url
-    a.download = filename || 'orcamento.pdf'
-    document.body.appendChild(a)
-    a.click()
-    a.remove()
-    setTimeout(() => URL.revokeObjectURL(url), 60000)
+
+  function orcamentoHTML(o, mats, cli, geradoPor) {
+    const servVal = Number(o.servico_valor) || 0
+    const totMat = mats.reduce((s, m) => s + (Number(m.quantidade) || 0) * (Number(m.preco_unitario) || 0), 0)
+    const total = servVal + totMat
+    const hasServico = !!(o.servico_descricao && o.servico_descricao.trim()) || servVal > 0
+    const hasMateriais = mats.length > 0
+
+    const meta = [['Emissão', dmy(o.data_envio || o.criado_em)], ['Validade', '15 dias']]
+    if (o.prazo_execucao) meta.push(['Prazo de execução', esc(o.prazo_execucao)])
+
+    const escopo = hasServico ? `
+      <section class="sec">
+        <div class="sh"><span class="dot"></span><span class="t">Escopo do serviço</span></div>
+        <div class="scope">
+          <div class="scope-desc">${nl2br(o.servico_descricao || '')}</div>
+          <div class="scope-val"><span class="k">Valor do serviço</span><span class="v num">${money(servVal)}</span></div>
+        </div>
+      </section>` : ''
+
+    const materiais = hasMateriais ? `
+      <section class="sec">
+        <div class="sh"><span class="dot"></span><span class="t">Materiais</span></div>
+        <table>
+          <thead><tr><th class="l">Descrição</th><th class="c">Un.</th><th class="c">Qtd</th><th>Valor unit.</th><th>Total</th></tr></thead>
+          <tbody>${mats.map(m => { const q = Number(m.quantidade) || 0, p = Number(m.preco_unitario) || 0; return `
+            <tr><td class="l">${nl2br(m.descricao || '—')}</td><td class="c">${esc(m.unidade || '—')}</td><td class="c num">${q.toLocaleString('pt-BR', { maximumFractionDigits: 3 })}</td><td class="unit num">${money(p)}</td><td class="tot num">${money(q * p)}</td></tr>`
+    }).join('')}</tbody>
+        </table>
+      </section>` : ''
+
+    const subs = (hasServico && hasMateriais) ? `
+      <div class="row"><span>Subtotal · Serviços</span><span class="v num">${money(servVal)}</span></div>
+      <div class="row"><span>Subtotal · Materiais</span><span class="v num">${money(totMat)}</span></div>` : ''
+    const resumo = `
+      <div class="summary"><div class="box">
+        ${subs}
+        <div class="total"><span class="l">Total geral</span><span class="v num">${money(total)}</span></div>
+      </div></div>`
+
+    const temCond = !!(o.condicao_pagamento || o.observacoes)
+    const condTerms = `
+      ${o.condicao_pagamento ? `<div class="trow"><span class="k">Forma de pagamento</span><span class="v">${esc(o.condicao_pagamento)}</span></div>` : ''}
+      <div class="trow"><span class="k">Valor</span><span class="v num">${money(total)}</span></div>`
+    const condObs = temCond ? `
+      <section class="sec two">
+        <div class="col">
+          <div class="sh"><span class="dot"></span><span class="t">Condições comerciais</span></div>
+          <div class="terms">${condTerms}</div>
+        </div>
+        <div class="col">
+          <div class="sh"><span class="dot"></span><span class="t">Observações</span></div>
+          <p class="obs-text">${o.observacoes ? nl2br(o.observacoes) : '—'}</p>
+        </div>
+      </section>` : ''
+
+    return `<!DOCTYPE html><html lang="pt-BR"><head><meta charset="UTF-8">
+<title>Orçamento Nº ${esc(o.numero)} — ${esc(cli.nome || 'Cliente')}</title>
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<style>
+:root{--navy:#1B2A4A;--ink:#1d2533;--gray:#6B7280;--line:#E5E7EB;--line-soft:#F1F2F4;--card:#F8FAFC;--paper:#fff;}
+*{box-sizing:border-box;margin:0;padding:0;}
+html,body{background:#e7eaef;}
+body{font-family:'Inter',system-ui,sans-serif;color:var(--ink);-webkit-font-smoothing:antialiased;font-variant-numeric:tabular-nums;line-height:1.45;}
+.num{font-variant-numeric:tabular-nums;}
+.page{width:794px;min-height:1123px;margin:30px auto;background:var(--paper);padding:40px 60px 18px;position:relative;display:flex;flex-direction:column;box-shadow:0 24px 64px rgba(20,30,55,.18);}
+.head{display:flex;justify-content:space-between;align-items:flex-start;gap:32px;padding-bottom:16px;border-bottom:2.5px solid var(--navy);}
+.brand{display:flex;align-items:center;gap:13px;}
+.logo{width:46px;height:46px;border-radius:11px;background:var(--navy);color:#fff;display:grid;place-items:center;font-weight:800;font-size:19px;letter-spacing:-1px;flex:none;}
+.brand .nm{font-size:21px;font-weight:700;letter-spacing:-.4px;color:var(--ink);line-height:1;}
+.brand .tg{font-size:11.5px;font-weight:500;color:var(--gray);margin-top:3px;}
+.firm{text-align:right;font-size:10.5px;line-height:1.7;color:var(--gray);}
+.firm b{display:block;color:var(--ink);font-weight:600;margin-bottom:2px;}
+.intro{margin-top:18px;}
+.intro-head{display:flex;justify-content:space-between;align-items:flex-end;gap:24px;}
+.intro-head h1{font-size:33px;font-weight:800;letter-spacing:-1.1px;color:var(--ink);line-height:1;}
+.docno{text-align:right;}
+.docno .lbl{font-size:10.5px;font-weight:600;letter-spacing:1.2px;text-transform:uppercase;color:var(--gray);}
+.docno .no{font-size:22px;font-weight:800;color:var(--navy);letter-spacing:-.5px;display:block;margin-top:2px;}
+.meta{display:flex;gap:52px;margin-top:14px;}
+.meta .k{font-size:10px;font-weight:600;letter-spacing:1px;text-transform:uppercase;color:var(--gray);}
+.meta .v{font-size:14px;font-weight:600;color:var(--ink);margin-top:5px;}
+.client{margin-top:15px;padding-top:15px;border-top:1px solid var(--line);display:flex;justify-content:space-between;align-items:flex-end;gap:40px;}
+.eyebrow{font-size:10px;font-weight:600;letter-spacing:1.2px;text-transform:uppercase;color:var(--gray);margin-bottom:7px;}
+.client .name{font-size:20px;font-weight:700;letter-spacing:-.3px;color:var(--ink);line-height:1.15;}
+.client .det{text-align:right;font-size:11.5px;line-height:1.7;color:var(--gray);}
+.sh{display:flex;align-items:center;gap:9px;margin-bottom:11px;}
+.sh .dot{width:7px;height:7px;border-radius:50%;background:var(--navy);flex:none;}
+.sh .t{font-size:12.5px;font-weight:600;letter-spacing:.2px;color:var(--ink);}
+.sec{margin-top:18px;}
+.scope{background:var(--card);border-radius:12px;padding:14px 22px;}
+.scope-desc{font-size:13px;line-height:1.8;color:#3b3f46;}
+.scope-val{display:flex;justify-content:space-between;align-items:baseline;margin-top:12px;padding-top:11px;border-top:1px solid var(--line);}
+.scope-val .k{font-size:10.5px;font-weight:600;letter-spacing:1px;text-transform:uppercase;color:var(--gray);}
+.scope-val .v{font-size:18px;font-weight:700;color:var(--ink);}
+table{width:100%;border-collapse:collapse;}
+thead th{font-size:10px;font-weight:600;letter-spacing:.8px;text-transform:uppercase;color:var(--gray);padding:0 10px 11px;border-bottom:1px solid var(--line);text-align:right;}
+thead th.l{text-align:left;padding-left:2px;}
+thead th.c{text-align:center;}
+tbody td{font-size:12.5px;padding:9px 10px;border-bottom:1px solid var(--line-soft);text-align:right;color:var(--ink);}
+tbody td.l{text-align:left;padding-left:2px;font-weight:500;line-height:1.4;}
+tbody td.c{text-align:center;color:var(--gray);}
+tbody td.unit{color:var(--gray);}
+tbody td.tot{font-weight:700;}
+.summary{display:flex;justify-content:flex-end;margin-top:16px;}
+.summary .box{width:340px;}
+.summary .row{display:flex;justify-content:space-between;align-items:baseline;font-size:13px;padding:7px 0;color:var(--gray);}
+.summary .row .v{color:var(--ink);font-weight:700;}
+.summary .total{display:flex;justify-content:space-between;align-items:center;margin-top:10px;padding:14px 18px;background:var(--navy);border-radius:12px;color:#fff;}
+.summary .total .l{font-size:11px;font-weight:700;letter-spacing:1.4px;text-transform:uppercase;opacity:.82;}
+.summary .total .v{font-size:25px;font-weight:800;letter-spacing:-.6px;}
+.two{display:flex;gap:42px;align-items:flex-start;}
+.two .col{flex:1;min-width:0;}
+.trow{display:flex;justify-content:space-between;align-items:baseline;font-size:12.5px;padding:9px 0;border-bottom:1px solid var(--line-soft);}
+.trow:last-child{border-bottom:none;}
+.trow .k{color:var(--gray);font-weight:500;}
+.trow .v{color:var(--ink);font-weight:600;}
+.obs-text{font-size:11.5px;line-height:1.7;color:#4a4e56;}
+.foot{margin-top:auto;padding-top:14px;border-top:1px solid var(--line);display:flex;justify-content:space-between;align-items:center;font-size:10px;color:var(--gray);}
+.foot b{color:var(--ink);font-weight:600;}
+@media print{@page{size:A4;margin:0;}html,body{background:#fff;}.page{box-shadow:none;margin:0;width:210mm;min-height:297mm;}}
+</style></head>
+<body>
+<div class="page">
+  <header class="head">
+    <div class="brand"><div class="logo">TS</div><div>
+      <div class="nm">Traders Service</div>
+      <div class="tg">Infraestrutura · Redes · Segurança Eletrônica</div></div></div>
+    <div class="firm"><b>Traders Service Soluções em Tecnologia LTDA</b>
+      CNPJ 10.923.494/0001-30 · IE 255882904 · IM 96456<br>
+      Rua Dona Francisca, 8300 — Via Trieste, Prédio 2<br>
+      Zona Industrial Norte · Joinville-SC · 89219-600<br>(47) 3025-2660</div>
+  </header>
+  <section class="intro">
+    <div class="intro-head"><h1>Proposta Comercial</h1>
+      <div class="docno"><span class="lbl">Orçamento</span><span class="no">Nº ${esc(o.numero)}</span></div></div>
+    <div class="meta">${meta.map(([k, v]) => `<div><div class="k">${esc(k)}</div><div class="v">${v}</div></div>`).join('')}</div>
+  </section>
+  <div class="client">
+    <div><div class="eyebrow">Cliente</div><div class="name">${esc(cli.nome || '—')}</div></div>
+    <div class="det">${[cli.documento ? 'CNPJ ' + esc(cli.documento) : '', cli.endereco ? esc(cli.endereco) : ''].filter(Boolean).join('<br>') || '&nbsp;'}</div>
+  </div>
+  ${escopo}
+  ${materiais}
+  ${resumo}
+  ${condObs}
+  <footer class="foot">
+    <span><b>Traders Service</b> · (47) 3025-2660 · comercial@tsrv.com.br · Joinville-SC</span>
+    <span>Gerado em ${dmy(new Date().toISOString())} por ${esc(geradoPor || '')} · Página 1 de 1</span>
+  </footer>
+</div>
+<script>window.onload=function(){var p=function(){window.focus();window.print();};(document.fonts&&document.fonts.ready?document.fonts.ready:Promise.resolve()).then(function(){setTimeout(p,300)});};</script>
+</body></html>`
   }
 
   window.OrcamentosApp = { init }
