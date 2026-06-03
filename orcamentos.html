@@ -34,11 +34,22 @@
   .fg input,.fg textarea,.fg select{width:100%;padding:9px 11px;border:1px solid var(--bd);border-radius:8px;font:inherit;font-size:14px;outline:none;background:#fff}
   .fg input:focus,.fg textarea:focus,.fg select:focus{border-color:var(--ac);box-shadow:0 0 0 3px var(--acl)}
   .ac{position:relative}
-  .ac-list{position:absolute;left:0;right:0;top:100%;z-index:30;background:#fff;border:1px solid var(--bd);border-radius:0 0 8px 8px;max-height:240px;overflow-y:auto;box-shadow:var(--sh);display:none}
+  .ac-list{position:absolute;left:0;right:0;top:calc(100% + 4px);z-index:30;background:#fff;border:1px solid #cfd8e6;border-radius:10px;max-height:340px;overflow-y:auto;box-shadow:0 14px 36px rgba(20,30,55,.18);display:none}
   .ac-list.open{display:block}
-  .ac-item{padding:9px 11px;font-size:13px;cursor:pointer;border-top:1px solid var(--bd)}
-  .ac-item:hover{background:var(--sur2)}
-  .ac-empty{padding:9px 11px;font-size:13px;color:var(--tx3)}
+  .ac-item{padding:10px 13px;font-size:13.5px;cursor:pointer;border-top:1px solid var(--bd)}
+  .ac-item:first-child{border-top:none}
+  .ac-item:hover{background:#eef4ff}
+  .ac-empty{padding:11px 13px;font-size:13px;color:var(--tx3)}
+  .ac-prod{display:flex;align-items:baseline;gap:10px}
+  .ac-prod .ac-cod{font-family:var(--mono);font-size:11px;color:var(--tx3);min-width:74px;font-weight:600}
+  .ac-prod .ac-desc{flex:1;color:var(--tx);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .ac-prod .ac-preco{font-family:var(--mono);font-size:12px;font-weight:600;color:#1f7a4d;white-space:nowrap}
+  /* Busca de material em destaque */
+  .mat-search{display:flex;gap:10px;align-items:center;flex-wrap:wrap;background:#f3f6fc;border:1px solid #dbe3f0;border-radius:10px;padding:12px;margin-bottom:12px}
+  .mat-search .ac{flex:1;min-width:240px}
+  .mat-ic{position:absolute;left:12px;top:50%;transform:translateY(-50%);font-size:14px;opacity:.55;pointer-events:none}
+  .mat-input{width:100%;padding:11px 12px 11px 34px;border:1px solid var(--bd);border-radius:8px;font:inherit;font-size:14px;outline:none;background:#fff}
+  .mat-input:focus{border-color:var(--ac);box-shadow:0 0 0 3px var(--acl)}
 
   /* Itens */
   .it-group{margin-bottom:18px}
@@ -141,19 +152,20 @@
           <!-- Materiais -->
           <div class="it-group">
             <h4>Materiais</h4>
+            <div class="mat-search">
+              <div class="ac">
+                <span class="mat-ic">🔍</span>
+                <input type="text" id="mat-busca" class="mat-input" placeholder="Buscar produto do catálogo (código ou descrição)…" autocomplete="off">
+                <input type="hidden" id="mat-sel">
+                <div class="ac-list" id="mat-list"></div>
+              </div>
+              <button class="btn btn-p btn-sm" id="add-material">+ Adicionar</button>
+              <button class="btn btn-sm" id="add-avulso">+ Item avulso</button>
+            </div>
             <table class="it-table">
               <thead><tr><th>Produto / descrição</th><th class="col-qtd">Qtd</th><th class="col-preco">Valor unit.</th><th class="col-sub">Subtotal</th><th class="col-x"></th></tr></thead>
               <tbody id="tb-material"></tbody>
             </table>
-            <div class="it-add">
-              <div class="ac" style="flex:1;min-width:220px">
-                <input type="text" id="mat-busca" placeholder="Buscar produto do catálogo…" autocomplete="off">
-                <input type="hidden" id="mat-sel">
-                <div class="ac-list" id="mat-list"></div>
-              </div>
-              <button class="btn btn-sm" id="add-material">+ Adicionar</button>
-              <button class="btn btn-sm" id="add-avulso">+ Item avulso</button>
-            </div>
             <div class="grp-tot">Subtotal materiais: <strong id="tot-material">—</strong></div>
           </div>
         </div>

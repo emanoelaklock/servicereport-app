@@ -42,7 +42,7 @@
         if (normStr(f.label).includes(nq)) { matches.push(f); if (matches.length >= 30) break }
       }
       if (!matches.length) { list.innerHTML = '<div class="ac-empty">Nada encontrado</div>'; list.classList.add('open'); return }
-      list.innerHTML = matches.map(m => `<div class="ac-item" data-id="${esc(m.id)}">${esc(m.label)}</div>`).join('')
+      list.innerHTML = matches.map(m => `<div class="ac-item" data-id="${esc(m.id)}">${m.html || esc(m.label)}</div>`).join('')
       list.classList.add('open')
       list.querySelectorAll('.ac-item').forEach(el => {
         el.onmousedown = (e) => {
@@ -118,7 +118,11 @@
       document.getElementById('mat-busca'),
       document.getElementById('mat-sel'),
       document.getElementById('mat-list'),
-      ref.produtos, p => ({ id: p.id, label: (p.codigo ? p.codigo + ' - ' : '') + (p.descricao || '') })
+      ref.produtos, p => ({
+        id: p.id,
+        label: (p.codigo ? p.codigo + ' ' : '') + (p.descricao || ''),
+        html: `<div class="ac-prod"><span class="ac-cod">${esc(p.codigo || '—')}</span><span class="ac-desc">${esc(p.descricao || '')}</span><span class="ac-preco">${money(p.preco_venda)}</span></div>`,
+      })
     )
   }
 
