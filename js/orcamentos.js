@@ -692,7 +692,7 @@ tbody td.dash{color:#b8bcc4;}
 
   <section class="doc">
     <div>
-      <h1>ORÇAMENTO <span class="no">Nº ${esc(numero)}</span></h1>
+      <h1>Proposta <span class="no">Nº ${esc(numero)}</span></h1>
       ${o.assunto ? `<div class="sub">${esc(o.assunto)}</div>` : ''}
     </div>
     <div class="meta">${meta.map(([k, v]) => `<div class="mi"><div class="k">${esc(k)}</div><div class="v">${v}</div></div>`).join('')}</div>
