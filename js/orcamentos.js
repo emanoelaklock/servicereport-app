@@ -77,7 +77,7 @@
     document.getElementById('btn-de-preorc').onclick = abrirSelecaoPreorc
     document.getElementById('btn-voltar').onclick = () => { cur = null; mostrar('lista'); renderLista() }
     document.getElementById('btn-salvar').onclick = () => salvar('rascunho')
-    document.getElementById('btn-enviar').onclick = () => salvar('enviado')
+    document.getElementById('btn-excluir').onclick = excluir
     document.getElementById('btn-pdf').onclick = gerarPdf
     document.getElementById('btn-aprovar').onclick = aprovar
     document.getElementById('btn-naoaprovado').onclick = naoAprovado
@@ -202,7 +202,6 @@
     document.getElementById('e-condicao').value = ''
     document.getElementById('e-servico-desc').value = preorc ? (preorc.descricao || '') : ''
     document.getElementById('e-servico-valor').value = ''
-    document.getElementById('e-assunto').value = ''
     document.getElementById('e-prazo').value = ''
     document.getElementById('e-obs-horario').checked = false
     document.getElementById('ed-status').textContent = ''
@@ -249,7 +248,6 @@
     document.getElementById('e-condicao').value = o.condicao_pagamento || ''
     document.getElementById('e-servico-desc').value = o.servico_descricao || ''
     document.getElementById('e-servico-valor').value = (o.servico_valor != null && Number(o.servico_valor) !== 0) ? o.servico_valor : ''
-    document.getElementById('e-assunto').value = o.assunto || ''
     document.getElementById('e-prazo').value = o.prazo_execucao || ''
     syncObsHorarioCheckbox()
     document.getElementById('ed-status').textContent = `Nº ${o.numero} · ${STATUS_LABEL[o.status] || o.status}`
@@ -353,7 +351,6 @@
       cliente_id: cliId,
       comercial_id: user.id,
       pre_orcamento_id: cur.pre_orcamento_id || null,
-      assunto: document.getElementById('e-assunto').value.trim() || null,
       servico_descricao: servDesc || null,
       servico_valor: servVal,
       prazo_execucao: document.getElementById('e-prazo').value.trim() || null,
@@ -412,7 +409,7 @@
   }
 
   function setEditorEnabled(on) {
-    ['e-cliente-busca', 'e-assunto', 'e-servico-desc', 'e-servico-valor', 'e-prazo', 'e-obs-horario', 'e-observacoes', 'e-condicao', 'mat-busca', 'add-material', 'add-avulso']
+    ['e-cliente-busca', 'e-servico-desc', 'e-servico-valor', 'e-prazo', 'e-obs-horario', 'e-observacoes', 'e-condicao', 'mat-busca', 'add-material', 'add-avulso']
       .forEach(id => { const e = document.getElementById(id); if (e) e.disabled = !on })
     document.querySelectorAll('#tb-material input').forEach(i => { i.disabled = !on })
     document.querySelectorAll('#tb-material .it-x').forEach(b => { b.style.display = on ? '' : 'none' })
@@ -425,12 +422,12 @@
     setEditorEnabled(editable)
     const show = (id, on) => { const e = document.getElementById(id); if (e) e.style.display = on ? '' : 'none' }
     show('btn-salvar', editable)
-    show('btn-enviar', editable)
     show('btn-aprovar', editable)
     show('btn-naoaprovado', editable && cur.status !== 'nao_aprovado')
     show('btn-reabrir', !arq && cur.status === 'nao_aprovado')
     show('btn-arquivar', !arq && !!cur.id)
     show('btn-desarquivar', arq)
+    show('btn-excluir', !!cur.id && cur.status !== 'aprovado')
     show('btn-pdf', !!cur.id)
     const b = document.getElementById('ed-banner')
     if (arq) { b.style.display = 'block'; b.style.background = '#F1F5F9'; b.style.color = '#475569'; b.textContent = 'Arquivado — fora das listas ativas; histórico preservado.' }
@@ -471,6 +468,17 @@
     const up = await sb().from('orcamentos').update({ arquivado: true, arquivado_em: new Date().toISOString() }).eq('id', cur.id)
     if (up.error) return toast('Erro: ' + up.error.message, 'err')
     toast('Arquivado.', 'ok'); cur = null; mostrar('lista'); await renderLista()
+  }
+
+  async function excluir() {
+    if (!cur || !cur.id) return toast('Nada para excluir.', 'err')
+    if (cur.status === 'aprovado') return toast('Orçamento aprovado gerou uma Tarefa — arquive em vez de excluir.', 'err')
+    if (!confirm('Excluir definitivamente este orçamento? Esta ação não pode ser desfeita.')) return
+    const di = await sb().from('orcamento_itens').delete().eq('orcamento_id', cur.id)
+    if (di.error) return toast('Erro ao excluir itens: ' + di.error.message, 'err')
+    const d = await sb().from('orcamentos').delete().eq('id', cur.id)
+    if (d.error) return toast('Erro ao excluir: ' + d.error.message, 'err')
+    toast('Orçamento excluído.', 'ok'); cur = null; mostrar('lista'); await renderLista()
   }
 
   // ─────────────────── PDF do orçamento (render do mockup → imprimir) ───────────────────

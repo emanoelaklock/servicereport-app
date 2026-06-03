@@ -117,10 +117,6 @@
               <label>Origem</label>
               <input type="text" id="e-origem" readonly value="Novo (sem pré-orçamento)" style="background:var(--sur2)">
             </div>
-            <div class="fg full">
-              <label>Assunto (subtítulo do orçamento)</label>
-              <input type="text" id="e-assunto" placeholder="Ex.: Instalação de infraestrutura de rede Cat6A para sistema de CFTV">
-            </div>
             <div class="fg">
               <label>Prazo de execução</label>
               <input type="text" id="e-prazo" placeholder="Ex.: 5 dias úteis">
@@ -188,12 +184,12 @@
           <div class="ed-actions">
             <button class="btn" id="btn-voltar">← Voltar</button>
             <button class="btn btn-p" id="btn-salvar">Salvar rascunho</button>
-            <button class="btn" id="btn-enviar">Marcar como enviado</button>
             <button class="btn" id="btn-aprovar" title="Aprova e gera a Tarefa (OS)">✓ Aprovar</button>
             <button class="btn" id="btn-naoaprovado">Não aprovado</button>
             <button class="btn" id="btn-reabrir" style="display:none">Reabrir p/ revisão</button>
             <button class="btn" id="btn-arquivar">Arquivar</button>
             <button class="btn" id="btn-desarquivar" style="display:none">Desarquivar</button>
+            <button class="btn" id="btn-excluir" style="color:var(--re)">🗑 Excluir</button>
             <button class="btn" id="btn-pdf" title="Gera o PDF do orçamento (servidor)">Gerar PDF</button>
             <span class="muted" id="ed-status"></span>
           </div>
