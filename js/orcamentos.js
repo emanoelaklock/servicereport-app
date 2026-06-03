@@ -511,6 +511,7 @@
       <section class="sec">
         <div class="sh"><span class="dot"></span><span class="t">Materiais</span></div>
         <table>
+          <colgroup><col style="width:44%"><col style="width:9%"><col style="width:11%"><col style="width:18%"><col style="width:18%"></colgroup>
           <thead><tr><th class="l">Descrição</th><th class="c">Un.</th><th class="c">Qtd</th><th>Valor unit.</th><th>Total</th></tr></thead>
           <tbody>${mats.map(m => { const q = Number(m.quantidade) || 0, p = Number(m.preco_unitario) || 0; return `
             <tr><td class="l">${nl2br(m.descricao || '—')}</td><td class="c">${esc(m.unidade || '—')}</td><td class="c num">${q.toLocaleString('pt-BR', { maximumFractionDigits: 3 })}</td><td class="unit num">${money(p)}</td><td class="tot num">${money(q * p)}</td></tr>`
@@ -551,7 +552,7 @@
 :root{--navy:#1B2A4A;--ink:#1d2533;--gray:#6B7280;--line:#E5E7EB;--line-soft:#F1F2F4;--card:#F8FAFC;--paper:#fff;}
 *{box-sizing:border-box;margin:0;padding:0;}
 html,body{background:#e7eaef;}
-body{font-family:'Inter',system-ui,sans-serif;color:var(--ink);-webkit-font-smoothing:antialiased;font-variant-numeric:tabular-nums;line-height:1.45;}
+body{font-family:'Inter',system-ui,sans-serif;color:var(--ink);-webkit-font-smoothing:antialiased;font-variant-numeric:tabular-nums;line-height:1.45;-webkit-print-color-adjust:exact;print-color-adjust:exact;}
 .num{font-variant-numeric:tabular-nums;}
 .page{width:794px;min-height:1123px;margin:30px auto;background:var(--paper);padding:40px 60px 18px;position:relative;display:flex;flex-direction:column;box-shadow:0 24px 64px rgba(20,30,55,.18);}
 .head{display:flex;justify-content:space-between;align-items:flex-start;gap:32px;padding-bottom:16px;border-bottom:2.5px solid var(--navy);}
@@ -575,7 +576,7 @@ body{font-family:'Inter',system-ui,sans-serif;color:var(--ink);-webkit-font-smoo
 .client .name{font-size:20px;font-weight:700;letter-spacing:-.3px;color:var(--ink);line-height:1.15;}
 .client .det{text-align:right;font-size:11.5px;line-height:1.7;color:var(--gray);}
 .sh{display:flex;align-items:center;gap:9px;margin-bottom:11px;}
-.sh .dot{width:7px;height:7px;border-radius:50%;background:var(--navy);flex:none;}
+.sh .dot{width:8px;height:8px;border-radius:50%;background:var(--navy);flex:none;display:inline-block;}
 .sh .t{font-size:12.5px;font-weight:600;letter-spacing:.2px;color:var(--ink);}
 .sec{margin-top:18px;}
 .scope{background:var(--card);border-radius:12px;padding:14px 22px;}
