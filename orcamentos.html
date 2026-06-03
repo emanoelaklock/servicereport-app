@@ -106,23 +106,32 @@
               <label>Origem</label>
               <input type="text" id="e-origem" readonly value="Novo (sem pré-orçamento)" style="background:var(--sur2)">
             </div>
+            <div class="fg">
+              <label>Prazo de execução</label>
+              <input type="text" id="e-prazo" placeholder="Ex.: 5 dias úteis">
+            </div>
+            <div class="fg">
+              <label>Impostos</label>
+              <input type="text" id="e-impostos" placeholder="Ex.: Inclusos nos valores">
+            </div>
             <div class="fg full">
               <label>Observações</label>
-              <textarea id="e-observacoes" rows="2" placeholder="Escopo, condições, validade…"></textarea>
+              <textarea id="e-observacoes" rows="2" placeholder="Validade, horário de execução, condições…"></textarea>
             </div>
           </div>
         </div>
 
         <div class="ed-card">
-          <!-- Serviços -->
+          <!-- Escopo do serviço (descrição livre + valor único) -->
           <div class="it-group">
-            <h4>Serviços</h4>
-            <table class="it-table">
-              <thead><tr><th>Descrição</th><th class="col-qtd">Qtd</th><th class="col-preco">Valor unit.</th><th class="col-sub">Subtotal</th><th class="col-x"></th></tr></thead>
-              <tbody id="tb-servico"></tbody>
-            </table>
-            <div class="it-add"><button class="btn btn-sm" id="add-servico">+ Serviço</button></div>
-            <div class="grp-tot">Subtotal serviços: <strong id="tot-servico">—</strong></div>
+            <h4>Escopo do serviço</h4>
+            <div class="fg" style="margin-bottom:10px">
+              <textarea id="e-servico-desc" rows="3" placeholder="Descrição do serviço a ser executado…"></textarea>
+            </div>
+            <div class="prod-add" style="grid-template-columns:1fr 160px">
+              <div class="fg" style="margin-bottom:0"><label>Valor do serviço (R$)</label><input type="number" id="e-servico-valor" inputmode="decimal" min="0" step="any" placeholder="0,00"></div>
+              <div class="fg" style="margin-bottom:0"><label>Subtotal serviços</label><input type="text" id="tot-servico" readonly value="—" style="background:var(--sur2)"></div>
+            </div>
           </div>
 
           <!-- Materiais -->

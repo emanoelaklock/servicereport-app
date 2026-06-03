@@ -1,8 +1,9 @@
-// Edge Function: documentos (#4.5)
+// Edge Function: documentos (#4.5 + redesign do PDF do orçamento)
 //  action 'pdf'                     → gera PDF (pré-orçamento OU orçamento) e devolve base64.
 //  action 'pre_orcamento_concluido' → gera PDF do pré-orçamento + e-mail ao comercial (Resend), idempotente.
-// PDF no SERVIDOR (pdf-lib, sem headless browser). Mesmo template, 2 modos: orçamento tem preço/totais.
-// E-mail: só pré-orçamento → comercial@tsrv (best-effort; não bloqueia o PDF). Orçamento nunca dispara e-mail.
+// PDF no SERVIDOR (pdf-lib, sem headless browser). Layout reproduz docs/mockups/orcamento-pdf.html
+// (fonte Helvetica — pdf-lib não embute Inter sem bundlar a TTF). Variantes condicionais:
+// completo / só serviço / só materiais / pré-orçamento (sem valores nem pagamento).
 import "jsr:@supabase/functions-js/edge-runtime.d.ts"
 import { createClient } from "jsr:@supabase/supabase-js@2"
 import { PDFDocument, StandardFonts, rgb } from "https://esm.sh/pdf-lib@1.17.1?target=deno"
@@ -14,14 +15,22 @@ const CORS = {
   "Access-Control-Allow-Methods": "POST, OPTIONS",
 }
 const OFFICE = ["admin", "gestor_axis", "comercial"]
+const env = (k: string, d = "") => Deno.env.get(k) || d
 
+// Dados da empresa via EMPRESA_* (defaults = dados reais da TSRV, para o PDF já sair certo).
 const EMP = {
-  nome: Deno.env.get("EMPRESA_NOME") || "Traders Service",
-  cnpj: Deno.env.get("EMPRESA_CNPJ") || "",
-  ie: Deno.env.get("EMPRESA_IE") || "",
-  im: Deno.env.get("EMPRESA_IM") || "",
-  endereco: Deno.env.get("EMPRESA_ENDERECO") || "",
-  telefone: Deno.env.get("EMPRESA_TELEFONE") || "",
+  nome: env("EMPRESA_NOME", "Traders Service"),
+  tagline: env("EMPRESA_TAGLINE", "Infraestrutura · Redes · Segurança Eletrônica"),
+  razao: env("EMPRESA_RAZAO", "Traders Service Soluções em Tecnologia LTDA"),
+  cnpj: env("EMPRESA_CNPJ", "10.923.494/0001-30"),
+  ie: env("EMPRESA_IE", "255882904"),
+  im: env("EMPRESA_IM", "96456"),
+  endereco: env("EMPRESA_ENDERECO", "Rua Dona Francisca, 8300 — Via Trieste, Prédio 2"),
+  endereco2: env("EMPRESA_ENDERECO2", "Zona Industrial Norte · Joinville-SC · 89219-600"),
+  telefone: env("EMPRESA_TELEFONE", "(47) 3025-2660"),
+  email: env("EMPRESA_EMAIL", "comercial@tsrv.com.br"),
+  cidade: env("EMPRESA_CIDADE", "Joinville-SC"),
+  validade: env("EMPRESA_VALIDADE", "15 dias"),
 }
 
 const BRL = (n: number) =>
@@ -30,129 +39,195 @@ const QTD = (n: number) => {
   const v = Number(n) || 0
   return Number.isInteger(v) ? String(v) : v.toLocaleString("pt-BR", { maximumFractionDigits: 3 })
 }
-function agoraFmt(): string {
-  const fmt = new Intl.DateTimeFormat("pt-BR", {
-    timeZone: "America/Sao_Paulo", day: "2-digit", month: "2-digit", year: "numeric",
-    hour: "2-digit", minute: "2-digit",
-  })
+function fmtData(d: Date): string {
+  const f = new Intl.DateTimeFormat("pt-BR", { timeZone: "America/Sao_Paulo", day: "2-digit", month: "2-digit", year: "numeric" })
   const p: Record<string, string> = {}
-  for (const part of fmt.formatToParts(new Date())) p[part.type] = part.value
-  return `${p.day}/${p.month}/${p.year} às ${p.hour}:${p.minute}`
+  for (const part of f.formatToParts(d)) p[part.type] = part.value
+  return `${p.day}/${p.month}/${p.year}`
 }
 
-type Item = { descricao: string; unidade?: string | null; quantidade: number; preco_unitario: number }
+type Mat = { descricao: string; unidade?: string | null; quantidade: number; preco_unitario: number }
 type DocData = {
-  numero: number | string; dataFmt: string; geradoPor: string;
-  cliente: { nome?: string | null; documento?: string | null; endereco?: string | null };
-  descricao?: string | null; servicos: Item[]; produtos: Item[]; condicao_pagamento?: string | null;
+  kind: "pre_orcamento" | "orcamento"
+  numero: number | string
+  emissao: string
+  geradoPor: string
+  cliente: { nome?: string | null; documento?: string | null; endereco?: string | null }
+  servicoDescricao?: string | null
+  servicoValor: number
+  materiais: Mat[]
+  prazoExecucao?: string | null
+  impostos?: string | null
+  condicaoPagamento?: string | null
+  observacoes?: string | null
 }
 
-async function buildPdf(kind: "pre_orcamento" | "orcamento", d: DocData): Promise<Uint8Array> {
-  const withPrice = kind === "orcamento"
+async function buildPdf(d: DocData): Promise<Uint8Array> {
+  const withPrice = d.kind === "orcamento"
   const pdf = await PDFDocument.create()
   const font = await pdf.embedFont(StandardFonts.Helvetica)
   const bold = await pdf.embedFont(StandardFonts.HelveticaBold)
-  const W = 595.28, H = 841.89, M = 40
-  const navy = rgb(0.106, 0.165, 0.290), gray = rgb(0.42, 0.45, 0.5), line = rgb(0.85, 0.87, 0.9), black = rgb(0, 0, 0)
+  const W = 595.28, H = 841.89, ML = 45, XR = W - 45
+  const navy = rgb(0.106, 0.165, 0.290), ink = rgb(0.114, 0.145, 0.200), gray = rgb(0.42, 0.447, 0.502)
+  const line = rgb(0.898, 0.906, 0.922), lineSoft = rgb(0.945, 0.949, 0.957), card = rgb(0.965, 0.973, 0.984), white = rgb(1, 1, 1)
 
   let page = pdf.addPage([W, H])
-  let y = H - M
-  const txt = (s: unknown, x: number, yy: number, size: number, f = font, c = black) =>
-    page.drawText(String(s ?? ""), { x, y: yy, size, font: f, color: c })
+  let y = H - 40
+  const t = (s: unknown, x: number, yy: number, size: number, f = font, c = ink) => page.drawText(String(s ?? ""), { x, y: yy, size, font: f, color: c })
   const wof = (s: unknown, size: number, f = font) => f.widthOfTextAtSize(String(s ?? ""), size)
-  const rtxt = (s: unknown, xr: number, yy: number, size: number, f = font, c = black) =>
-    txt(s, xr - wof(s, size, f), yy, size, f, c)
-  const hr = (yy: number) => page.drawLine({ start: { x: M, y: yy }, end: { x: W - M, y: yy }, thickness: 0.5, color: line })
-  const newPage = () => { page = pdf.addPage([W, H]); y = H - M }
-  const ensure = (h: number) => { if (y - h < M + 26) newPage() }
+  const rt = (s: unknown, xr: number, yy: number, size: number, f = font, c = ink) => t(s, xr - wof(s, size, f), yy, size, f, c)
+  const ct = (s: unknown, cx: number, yy: number, size: number, f = font, c = ink) => t(s, cx - wof(s, size, f) / 2, yy, size, f, c)
+  const rect = (x: number, yy: number, w: number, h: number, c: ReturnType<typeof rgb>) => page.drawRectangle({ x, y: yy, width: w, height: h, color: c })
+  const hr = (yy: number, c = line, th = 0.6) => page.drawLine({ start: { x: ML, y: yy }, end: { x: XR, y: yy }, thickness: th, color: c })
+  const newPage = () => { page = pdf.addPage([W, H]); y = H - 40 }
+  const ensure = (h: number) => { if (y - h < 46) newPage() }
   function wrap(s: unknown, size: number, maxW: number, f = font): string[] {
     const words = String(s ?? "").split(/\s+/), lines: string[] = []; let cur = ""
-    for (const w of words) { const t = cur ? cur + " " + w : w; if (wof(t, size, f) <= maxW) cur = t; else { if (cur) lines.push(cur); cur = w } }
+    for (const w of words) { const tt = cur ? cur + " " + w : w; if (wof(tt, size, f) <= maxW) cur = tt; else { if (cur) lines.push(cur); cur = w } }
     if (cur) lines.push(cur); return lines.length ? lines : [""]
   }
+  const sh = (title: string) => { ensure(26); rect(ML, y - 6, 5, 5, navy); t(title, ML + 11, y - 5, 11.5, bold, ink); y -= 20 }
 
-  // Cabeçalho da empresa
-  txt(EMP.nome, M, y - 6, 16, bold, navy); y -= 22
-  const sub = [EMP.cnpj && "CNPJ " + EMP.cnpj, EMP.ie && "IE " + EMP.ie, EMP.im && "IM " + EMP.im].filter(Boolean).join("  ·  ")
-  if (sub) { txt(sub, M, y, 8, font, gray); y -= 12 }
-  if (EMP.endereco) { txt(EMP.endereco, M, y, 8, font, gray); y -= 12 }
-  if (EMP.telefone) { txt("Tel " + EMP.telefone, M, y, 8, font, gray); y -= 12 }
-  y -= 6; hr(y); y -= 22
+  // ── 1 · Cabeçalho ──
+  const y0 = y
+  rect(ML, y0 - 31, 31, 31, navy)
+  ct("TS", ML + 15.5, y0 - 21, 13, bold, white)
+  t(EMP.nome, ML + 41, y0 - 11, 15, bold, ink)
+  t(EMP.tagline, ML + 41, y0 - 24, 8, font, gray)
+  // bloco da empresa (direita)
+  let fy = y0 - 6
+  rt(EMP.razao, XR, fy, 8.5, bold, ink); fy -= 11
+  rt(`CNPJ ${EMP.cnpj} · IE ${EMP.ie} · IM ${EMP.im}`, XR, fy, 8.5, font, gray); fy -= 11
+  rt(EMP.endereco, XR, fy, 8.5, font, gray); fy -= 11
+  rt(EMP.endereco2, XR, fy, 8.5, font, gray); fy -= 11
+  rt(EMP.telefone, XR, fy, 8.5, font, gray); fy -= 11
+  y = Math.min(y0 - 38, fy) - 6
+  hr(y, navy, 1.8); y -= 22
 
-  // Título
-  const titulo = (withPrice ? "Orçamento" : "Pré-Orçamento") + " Nº " + d.numero
-  txt(titulo, M, y, 14, bold, navy); rtxt(d.dataFmt, W - M, y, 9, font, gray); y -= 24
+  // ── 2 · Proposta ──
+  t("Proposta Comercial", ML, y - 4, 25, bold, ink)
+  rt(withPrice ? "ORÇAMENTO" : "PRÉ-ORÇAMENTO", XR, y + 6, 9, bold, gray)
+  rt(`Nº ${d.numero}`, XR, y - 9, 18, bold, navy)
+  y -= 30
+  // meta
+  const meta: Array<[string, string]> = [["Emissão", d.emissao]]
+  if (withPrice) { meta.push(["Validade", EMP.validade]); if (d.prazoExecucao) meta.push(["Prazo de execução", d.prazoExecucao]) }
+  let mx = ML
+  for (const [k, v] of meta) {
+    t(k.toUpperCase(), mx, y, 8, bold, gray)
+    t(v, mx, y - 13, 11.5, bold, ink)
+    mx += Math.max(110, wof(v, 11.5, bold) + 40)
+  }
+  y -= 28
 
-  // Cliente
-  txt("Cliente", M, y, 9, bold, gray); y -= 14
-  txt(d.cliente.nome || "—", M, y, 11, bold); y -= 13
+  // ── 3 · Cliente ──
+  hr(y, line); y -= 16
+  t("CLIENTE", ML, y, 8, bold, gray)
+  t(d.cliente.nome || "—", ML, y - 16, 15, bold, ink)
+  let cy = y
   for (const c of [d.cliente.documento, d.cliente.endereco].filter(Boolean)) {
-    for (const ln of wrap(c, 9, W - 2 * M)) { txt(ln, M, y, 9, font, gray); y -= 11 }
+    for (const ln of wrap(c, 9, 240)) { rt(ln, XR, cy, 9, font, gray); cy -= 12 }
   }
-  y -= 8; hr(y); y -= 18
+  y -= 30
 
-  // Levantamento (só pré-orçamento)
-  if (!withPrice && d.descricao) {
-    txt("Levantamento", M, y, 9, bold, gray); y -= 14
-    for (const ln of wrap(d.descricao, 10, W - 2 * M)) { ensure(14); txt(ln, M, y, 10); y -= 13 }
-    y -= 8; hr(y); y -= 18
+  const hasServico = !!(d.servicoDescricao && d.servicoDescricao.trim()) || (withPrice && d.servicoValor > 0)
+  const hasMateriais = d.materiais.length > 0
+  const totMat = d.materiais.reduce((s, m) => s + (Number(m.quantidade) || 0) * (Number(m.preco_unitario) || 0), 0)
+
+  // ── 4 · Escopo do serviço ──
+  if (hasServico) {
+    sh("Escopo do serviço")
+    const descLines = wrap(d.servicoDescricao || "", 11, XR - ML - 28)
+    const cardH = 14 + descLines.length * 15 + (withPrice ? 30 : 6)
+    ensure(cardH + 6)
+    rect(ML, y - cardH + 6, XR - ML, cardH, card)
+    let sy = y - 8
+    for (const ln of descLines) { t(ln, ML + 14, sy, 11, font, rgb(0.231, 0.247, 0.275)); sy -= 15 }
+    if (withPrice) {
+      sy -= 6; page.drawLine({ start: { x: ML + 14, y: sy + 6 }, end: { x: XR - 14, y: sy + 6 }, thickness: 0.6, color: line })
+      t("VALOR DO SERVIÇO", ML + 14, sy - 6, 9, bold, gray)
+      rt(BRL(d.servicoValor), XR - 14, sy - 8, 16, bold, ink)
+      sy -= 22
+    }
+    y = sy - 12
   }
 
-  const drawTable = (titulo: string, rows: Item[], hasUnid: boolean) => {
-    if (!rows.length) return 0
-    ensure(40)
-    txt(titulo, M, y, 11, bold, navy); y -= 16
+  // ── 5 · Materiais ──
+  if (hasMateriais) {
+    sh("Materiais")
     // colunas
-    const vtR = W - M, vuR = W - M - 90, qtdR = withPrice ? vuR - 70 : W - M
-    const unidR = hasUnid ? (withPrice ? 110 + M : qtdR - 70) : 0
-    const descW = (hasUnid ? unidR - 14 : qtdR - 14) - M - (hasUnid ? 30 : 30)
-    // cabeçalho
-    txt("Descrição", M, y, 8, bold, gray)
-    if (hasUnid) rtxt("Unid.", unidR, y, 8, bold, gray)
-    rtxt("Qtd", qtdR, y, 8, bold, gray)
-    if (withPrice) { rtxt("Valor unit.", vuR, y, 8, bold, gray); rtxt("Valor total", vtR, y, 8, bold, gray) }
-    y -= 5; hr(y); y -= 13
-    let tot = 0
-    for (const it of rows) {
-      const lines = wrap(it.descricao, 9, Math.max(80, descW))
-      const rowH = Math.max(13, lines.length * 11)
+    const totR = XR, vuR = XR - 78, qtdC = withPrice ? vuR - 55 : XR - 30, unC = withPrice ? qtdC - 48 : qtdC - 60
+    const descMax = unC - 24 - ML
+    t("DESCRIÇÃO", ML, y, 8, bold, gray)
+    ct("UN.", unC, y, 8, bold, gray)
+    ct("QTD", qtdC, y, 8, bold, gray)
+    if (withPrice) { rt("VALOR UNIT.", vuR, y, 8, bold, gray); rt("TOTAL", totR, y, 8, bold, gray) }
+    y -= 5; hr(y, line); y -= 14
+    for (const m of d.materiais) {
+      const lines = wrap(m.descricao || "—", 11, descMax)
+      const rowH = Math.max(13, lines.length * 12)
       ensure(rowH + 4)
       let yy = y
-      for (const ln of lines) { txt(ln, M, yy, 9); yy -= 11 }
-      if (hasUnid) rtxt(it.unidade || "—", unidR, y, 9, font, gray)
-      rtxt(QTD(it.quantidade), qtdR, y, 9)
+      for (const ln of lines) { t(ln, ML, yy, 11, font, ink); yy -= 12 }
+      ct(m.unidade || "—", unC, y, 11, font, gray)
+      ct(QTD(m.quantidade), qtdC, y, 11, font, ink)
       if (withPrice) {
-        const sub = (Number(it.quantidade) || 0) * (Number(it.preco_unitario) || 0)
-        tot += sub
-        rtxt(BRL(it.preco_unitario), vuR, y, 9)
-        rtxt(BRL(sub), vtR, y, 9)
+        rt(BRL(m.preco_unitario), vuR, y, 11, font, gray)
+        rt(BRL((Number(m.quantidade) || 0) * (Number(m.preco_unitario) || 0)), totR, y, 11, bold, ink)
       }
-      y -= rowH + 5; hr(y + 2)
+      y -= rowH + 5; hr(y + 3, lineSoft)
     }
     y -= 10
-    return tot
   }
 
-  const totServ = drawTable("Serviços", d.servicos, false)
-  const totProd = drawTable("Materiais", d.produtos, true)
-
+  // ── 6 · Resumo financeiro (só orçamento) ──
   if (withPrice) {
-    ensure(70)
-    rtxt("Serviços: " + BRL(totServ), W - M, y, 9); y -= 13
-    rtxt("Materiais: " + BRL(totProd), W - M, y, 9); y -= 17
-    rtxt("TOTAL: " + BRL(totServ + totProd), W - M, y, 13, bold, navy); y -= 22
-    if (d.condicao_pagamento) {
-      ensure(30)
-      txt("Condição de pagamento", M, y, 8, bold, gray); y -= 12
-      for (const ln of wrap(d.condicao_pagamento, 9, W - 2 * M)) { txt(ln, M, y, 9); y -= 11 }
+    ensure(96)
+    const boxW = 250, bx = XR - boxW
+    const rowsRes: Array<[string, string, boolean]> = []
+    if (hasServico && hasMateriais) {
+      rowsRes.push(["Subtotal · Serviços", BRL(d.servicoValor), false])
+      rowsRes.push(["Subtotal · Materiais", BRL(totMat), false])
     }
+    if (d.impostos) rowsRes.push(["Impostos", d.impostos, true])
+    for (const [k, v, soft] of rowsRes) {
+      t(k, bx, y, 11, font, gray)
+      rt(v, XR, y, 11, soft ? font : bold, soft ? gray : ink)
+      y -= 18
+    }
+    y -= 2
+    rect(bx, y - 26, boxW, 32, navy)
+    t("TOTAL GERAL", bx + 14, y - 8, 10, bold, rgb(0.78, 0.82, 0.88))
+    rt(BRL(d.servicoValor + totMat), XR - 14, y - 11, 18, bold, white)
+    y -= 40
   }
 
-  // Rodapé em todas as páginas
+  // ── 7 · Condições comerciais + Observações (só orçamento) ──
+  if (withPrice && (d.condicaoPagamento || d.observacoes)) {
+    ensure(70)
+    const colW = (XR - ML - 30) / 2, rightX = ML + colW + 30
+    const topY = y
+    // esquerda
+    rect(ML, y - 6, 5, 5, navy); t("Condições comerciais", ML + 11, y - 5, 11.5, bold, ink)
+    let ly = y - 24
+    const trow = (k: string, v: string) => { t(k, ML, ly, 11, font, gray); rt(v, ML + colW, ly, 11, bold, ink); page.drawLine({ start: { x: ML, y: ly - 8 }, end: { x: ML + colW, y: ly - 8 }, thickness: 0.6, color: lineSoft }); ly -= 22 }
+    if (d.condicaoPagamento) trow("Forma de pagamento", d.condicaoPagamento)
+    trow("Valor", BRL(d.servicoValor + totMat))
+    // direita
+    rect(rightX, topY - 6, 5, 5, navy); t("Observações", rightX + 11, topY - 5, 11.5, bold, ink)
+    let oy = topY - 24
+    for (const ln of wrap(d.observacoes || "—", 11, colW)) { t(ln, rightX, oy, 11, font, rgb(0.29, 0.31, 0.34)); oy -= 14 }
+    y = Math.min(ly, oy) - 6
+  }
+
+  // ── 8 · Rodapé (todas as páginas) ──
   const pages = pdf.getPages()
-  const footer = `Gerado em ${d.dataFmt} por ${d.geradoPor}`
+  const left = `${EMP.nome} · ${EMP.telefone} · ${EMP.email} · ${EMP.cidade}`
   pages.forEach((p, i) => {
-    p.drawText(`${footer}   —   ${i + 1}/${pages.length}`, { x: M, y: 22, size: 8, font, color: gray })
+    p.drawLine({ start: { x: ML, y: 34 }, end: { x: XR, y: 34 }, thickness: 0.6, color: line })
+    p.drawText(left, { x: ML, y: 22, size: 8, font, color: gray })
+    const r = `Gerado em ${d.emissao} por ${d.geradoPor} · Página ${i + 1} de ${pages.length}`
+    p.drawText(r, { x: XR - font.widthOfTextAtSize(r, 8), y: 22, size: 8, font, color: gray })
   })
 
   return await pdf.save()
@@ -197,12 +272,8 @@ Deno.serve(async (req: Request) => {
     const id = body.id
     if (!id) return json({ error: "id obrigatorio" }, 400)
 
-    const dataFmt = agoraFmt()
-
-    // ── Carrega dados conforme o tipo, validando autorização ──
-    let kind: "pre_orcamento" | "orcamento"
     let docData: DocData
-    let preorcRow: { numero: number; cliente_nome?: string | null; email_comercial_em?: string | null } | null = null
+    let preorcRow: { numero: number; email_comercial_em?: string | null } | null = null
 
     if (tipo === "pre_orcamento") {
       const { data: po } = await admin.from("pre_orcamentos").select("*").eq("id", id).single()
@@ -211,13 +282,12 @@ Deno.serve(async (req: Request) => {
       if (!isOffice && !ownerOk) return json({ error: "sem permissão" }, 403)
       const { data: itens } = await admin.from("pre_orcamento_itens").select("*").eq("pre_orcamento_id", id).order("criado_em")
       const cli = po.cliente_id ? (await admin.from("clientes").select("nome,documento,endereco").eq("id", po.cliente_id).single()).data : null
-      kind = "pre_orcamento"
       preorcRow = po
       docData = {
-        numero: po.numero, dataFmt, geradoPor,
+        kind: "pre_orcamento", numero: po.numero, emissao: fmtData(po.criado_em ? new Date(po.criado_em) : new Date()), geradoPor,
         cliente: { nome: po.cliente_nome || cli?.nome, documento: cli?.documento, endereco: cli?.endereco },
-        descricao: po.descricao, servicos: [],
-        produtos: (itens || []).map((m: Item & { codigo_produto?: string }) => ({
+        servicoDescricao: po.descricao, servicoValor: 0,
+        materiais: (itens || []).map((m: Mat & { codigo_produto?: string }) => ({
           descricao: m.descricao || (m as { codigo_produto?: string }).codigo_produto || "—",
           unidade: m.unidade, quantidade: Number(m.quantidade) || 0, preco_unitario: 0,
         })),
@@ -228,42 +298,36 @@ Deno.serve(async (req: Request) => {
       if (!o) return json({ error: "orçamento não encontrado" }, 404)
       const { data: itens } = await admin.from("orcamento_itens").select("*").eq("orcamento_id", id).order("criado_em")
       const cli = o.cliente_id ? (await admin.from("clientes").select("nome,documento,endereco").eq("id", o.cliente_id).single()).data : null
-      const map = (m: Item) => ({ descricao: m.descricao || "—", unidade: m.unidade, quantidade: Number(m.quantidade) || 0, preco_unitario: Number(m.preco_unitario) || 0 })
-      kind = "orcamento"
       docData = {
-        numero: o.numero, dataFmt, geradoPor,
+        kind: "orcamento", numero: o.numero, emissao: fmtData(o.data_envio ? new Date(o.data_envio) : (o.criado_em ? new Date(o.criado_em) : new Date())), geradoPor,
         cliente: { nome: cli?.nome, documento: cli?.documento, endereco: cli?.endereco },
-        servicos: (itens || []).filter((i: { tipo: string }) => i.tipo === "servico").map(map),
-        produtos: (itens || []).filter((i: { tipo: string }) => i.tipo === "material" || i.tipo === "avulso").map(map),
-        condicao_pagamento: o.condicao_pagamento,
+        servicoDescricao: o.servico_descricao, servicoValor: Number(o.servico_valor) || 0,
+        materiais: (itens || []).filter((i: { tipo: string }) => i.tipo === "material" || i.tipo === "avulso")
+          .map((m: Mat) => ({ descricao: m.descricao || "—", unidade: m.unidade, quantidade: Number(m.quantidade) || 0, preco_unitario: Number(m.preco_unitario) || 0 })),
+        prazoExecucao: o.prazo_execucao, impostos: o.impostos, condicaoPagamento: o.condicao_pagamento, observacoes: o.observacoes,
       }
     } else {
       return json({ error: "tipo inválido (pre_orcamento|orcamento)" }, 400)
     }
 
-    const pdfBytes = await buildPdf(kind, docData)
+    const pdfBytes = await buildPdf(docData)
     const b64 = encodeBase64(pdfBytes)
-    const filename = `${kind === "orcamento" ? "Orcamento" : "Pre-Orcamento"}_${docData.numero}.pdf`
+    const filename = `${docData.kind === "orcamento" ? "Orcamento" : "Pre-Orcamento"}_${docData.numero}.pdf`
 
-    // ── Só PDF ──
-    if (action === "pdf") {
-      return json({ ok: true, filename, base64: b64 })
-    }
+    if (action === "pdf") return json({ ok: true, filename, base64: b64 })
 
-    // ── Pré-orçamento concluído: e-mail ao comercial (idempotente) ──
     if (action === "pre_orcamento_concluido") {
       if (preorcRow?.email_comercial_em) return json({ ok: true, already: true, filename })
       const to = Deno.env.get("PREORC_EMAIL_TO") || "comercial@tsrv.com.br"
       const html = `<p>Novo pré-orçamento concluído em campo.</p>
         <p><strong>Nº ${docData.numero}</strong> — Cliente: ${docData.cliente.nome || "—"}<br>
-        Técnico: ${geradoPor} · ${dataFmt}</p>
+        Técnico: ${geradoPor} · ${docData.emissao}</p>
         <p>PDF em anexo.</p>`
       const r = await enviarEmail(to, `Pré-Orçamento Nº ${docData.numero} — ${docData.cliente.nome || ""}`.trim(), html, { filename, content: b64 })
       if (r.ok) {
         await admin.from("pre_orcamentos").update({ email_comercial_em: new Date().toISOString() }).eq("id", id)
         return json({ ok: true, email: "enviado", id: r.id, filename })
       }
-      // Não bloqueia: tentará de novo no próximo sync (email_comercial_em segue nulo).
       return json({ ok: true, email: "falhou", reason: r.reason, filename })
     }
 

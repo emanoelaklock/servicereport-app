@@ -1,0 +1,208 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Proposta Comercial — Traders Service (mescla)</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --navy:#1B2A4A;        /* acento principal (troque por #A61E22 se quiser vermelho) */
+    --ink:#1d2533;
+    --gray:#6B7280;
+    --line:#E5E7EB;
+    --line-soft:#F1F2F4;
+    --card:#F8FAFC;
+    --paper:#ffffff;
+  }
+  *{box-sizing:border-box;margin:0;padding:0;}
+  html,body{background:#e7eaef;}
+  body{font-family:'Inter',system-ui,sans-serif;color:var(--ink);-webkit-font-smoothing:antialiased;font-variant-numeric:tabular-nums;font-feature-settings:"tnum" 1;line-height:1.45;}
+  .num{font-variant-numeric:tabular-nums;}
+
+  .page{width:794px;min-height:1123px;margin:30px auto;background:var(--paper);padding:40px 60px 18px;position:relative;display:flex;flex-direction:column;box-shadow:0 24px 64px rgba(20,30,55,.18);}
+
+  /* 1 · header */
+  .head{display:flex;justify-content:space-between;align-items:flex-start;gap:32px;padding-bottom:16px;border-bottom:2.5px solid var(--navy);}
+  .brand{display:flex;align-items:center;gap:13px;}
+  .logo{width:46px;height:46px;border-radius:11px;background:var(--navy);color:#fff;display:grid;place-items:center;font-weight:800;font-size:19px;letter-spacing:-1px;flex:none;}
+  .brand .nm{font-size:21px;font-weight:700;letter-spacing:-.4px;color:var(--ink);line-height:1;}
+  .brand .tg{font-size:11.5px;font-weight:500;color:var(--gray);margin-top:3px;}
+  .firm{text-align:right;font-size:10.5px;line-height:1.7;color:var(--gray);}
+  .firm b{display:block;color:var(--ink);font-weight:600;margin-bottom:2px;}
+
+  /* 2 · proposal info */
+  .intro{margin-top:18px;}
+  .intro-head{display:flex;justify-content:space-between;align-items:flex-end;gap:24px;}
+  .intro-head h1{font-size:33px;font-weight:800;letter-spacing:-1.1px;color:var(--ink);line-height:1;}
+  .docno{text-align:right;}
+  .docno .lbl{font-size:10.5px;font-weight:600;letter-spacing:1.2px;text-transform:uppercase;color:var(--gray);}
+  .docno .no{font-size:22px;font-weight:800;color:var(--navy);letter-spacing:-.5px;display:block;margin-top:2px;}
+  .meta{display:flex;gap:52px;margin-top:14px;}
+  .meta .k{font-size:10px;font-weight:600;letter-spacing:1px;text-transform:uppercase;color:var(--gray);}
+  .meta .v{font-size:14px;font-weight:600;color:var(--ink);margin-top:5px;}
+
+  /* 3 · client */
+  .client{margin-top:15px;padding-top:15px;border-top:1px solid var(--line);display:flex;justify-content:space-between;align-items:flex-end;gap:40px;}
+  .eyebrow{font-size:10px;font-weight:600;letter-spacing:1.2px;text-transform:uppercase;color:var(--gray);margin-bottom:7px;}
+  .client .name{font-size:20px;font-weight:700;letter-spacing:-.3px;color:var(--ink);line-height:1.15;}
+  .client .det{text-align:right;font-size:11.5px;line-height:1.7;color:var(--gray);}
+
+  /* section header */
+  .sh{display:flex;align-items:center;gap:9px;margin-bottom:11px;}
+  .sh .dot{width:7px;height:7px;border-radius:50%;background:var(--navy);flex:none;}
+  .sh .t{font-size:12.5px;font-weight:600;letter-spacing:.2px;color:var(--ink);}
+  .sec{margin-top:18px;}
+
+  /* 4 · scope */
+  .scope{background:var(--card);border-radius:12px;padding:14px 22px;}
+  .scope-desc{font-size:13px;line-height:1.8;color:#3b3f46;}
+  .scope-desc .lead{font-weight:600;color:var(--ink);}
+  .scope-val{display:flex;justify-content:space-between;align-items:baseline;margin-top:12px;padding-top:11px;border-top:1px solid var(--line);}
+  .scope-val .k{font-size:10.5px;font-weight:600;letter-spacing:1px;text-transform:uppercase;color:var(--gray);}
+  .scope-val .v{font-size:18px;font-weight:700;color:var(--ink);}
+
+  /* 5 · materials */
+  table{width:100%;border-collapse:collapse;}
+  thead th{font-size:10px;font-weight:600;letter-spacing:.8px;text-transform:uppercase;color:var(--gray);padding:0 10px 11px;border-bottom:1px solid var(--line);text-align:right;}
+  thead th.l{text-align:left;padding-left:2px;}
+  thead th.c{text-align:center;}
+  tbody td{font-size:12.5px;padding:9px 10px;border-bottom:1px solid var(--line-soft);text-align:right;color:var(--ink);}
+  tbody td.l{text-align:left;padding-left:2px;font-weight:500;line-height:1.4;}
+  tbody td.c{text-align:center;color:var(--gray);}
+  tbody td.unit{color:var(--gray);}
+  tbody td.tot{font-weight:700;}
+
+  /* 6 · financial summary */
+  .summary{display:flex;justify-content:flex-end;margin-top:16px;}
+  .summary .box{width:340px;}
+  .summary .row{display:flex;justify-content:space-between;align-items:baseline;font-size:13px;padding:7px 0;color:var(--gray);}
+  .summary .row .v{color:var(--ink);font-weight:700;}
+  .summary .row.tax .v{font-weight:500;color:var(--gray);}
+  .summary .total{display:flex;justify-content:space-between;align-items:center;margin-top:10px;padding:14px 18px;background:var(--navy);border-radius:12px;color:#fff;}
+  .summary .total .l{font-size:11px;font-weight:700;letter-spacing:1.4px;text-transform:uppercase;opacity:.82;}
+  .summary .total .v{font-size:25px;font-weight:800;letter-spacing:-.6px;}
+
+  /* 7 · commercial terms + observações (lado a lado) */
+  .two{display:flex;gap:42px;align-items:flex-start;}
+  .two .col{flex:1;min-width:0;}
+  .trow{display:flex;justify-content:space-between;align-items:baseline;font-size:12.5px;padding:9px 0;border-bottom:1px solid var(--line-soft);}
+  .trow:last-child{border-bottom:none;}
+  .trow .k{color:var(--gray);font-weight:500;}
+  .trow .v{color:var(--ink);font-weight:600;}
+  .obs-text{font-size:11.5px;line-height:1.7;color:#4a4e56;}
+
+  /* 8 · footer */
+  .foot{margin-top:auto;padding-top:14px;border-top:1px solid var(--line);display:flex;justify-content:space-between;align-items:center;font-size:10px;color:var(--gray);}
+  .foot b{color:var(--ink);font-weight:600;}
+
+  @media print{ @page{size:A4;margin:0;} html,body{background:#fff;} .page{box-shadow:none;margin:0;width:210mm;min-height:297mm;} }
+</style>
+</head>
+<body>
+  <div class="page">
+
+    <!-- 1 · header -->
+    <header class="head">
+      <div class="brand">
+        <div class="logo">TS</div>
+        <div>
+          <div class="nm">Traders Service</div>
+          <div class="tg">Infraestrutura · Redes · Segurança Eletrônica</div>
+        </div>
+      </div>
+      <div class="firm">
+        <b>Traders Service Soluções em Tecnologia LTDA</b>
+        CNPJ 10.923.494/0001-30 · IE 255882904 · IM 96456<br>
+        Rua Dona Francisca, 8300 — Via Trieste, Prédio 2<br>
+        Zona Industrial Norte · Joinville-SC · 89219-600<br>
+        (47) 3025-2660
+      </div>
+    </header>
+
+    <!-- 2 · proposal info -->
+    <section class="intro">
+      <div class="intro-head">
+        <h1>Proposta Comercial</h1>
+        <div class="docno">
+          <span class="lbl">Orçamento</span>
+          <span class="no">Nº 3</span>
+        </div>
+      </div>
+      <div class="meta">
+        <div><div class="k">Emissão</div><div class="v">03/06/2026</div></div>
+        <div><div class="k">Validade</div><div class="v">15 dias</div></div>
+        <div><div class="k">Prazo de execução</div><div class="v">5 dias úteis</div></div>
+      </div>
+    </section>
+
+    <!-- 3 · client -->
+    <div class="client">
+      <div>
+        <div class="eyebrow">Cliente</div>
+        <div class="name">BMW do Brasil LTDA</div>
+      </div>
+      <div class="det">CNPJ 00.882.430/0011-56<br>Rod. BR 101, nº 15055 — Corveta · Araquari-SC<br>CEP 89245-000</div>
+    </div>
+
+    <!-- 4 · scope -->
+    <section class="sec">
+      <div class="sh"><span class="dot"></span><span class="t">Escopo do serviço</span></div>
+      <div class="scope">
+        <div class="scope-desc"><span class="lead">Passagem de cabeamento de rede Cat6A para câmera na Copa do ADM.</span> Conectorização, identificação e certificação do ponto. Instalação da câmera e configuração no VMS.</div>
+        <div class="scope-val">
+          <span class="k">Valor do serviço</span>
+          <span class="v num">R$ 1.450,00</span>
+        </div>
+      </div>
+    </section>
+
+    <!-- 5 · materials -->
+    <section class="sec">
+      <div class="sh"><span class="dot"></span><span class="t">Materiais</span></div>
+      <table>
+        <thead><tr><th class="l">Descrição</th><th class="c">Un.</th><th class="c">Qtd</th><th>Valor unit.</th><th>Total</th></tr></thead>
+        <tbody>
+          <tr><td class="l">Conector macho Cat6A blindado passthrough TrueCable</td><td class="c">PC</td><td class="c">1</td><td class="unit num">R$ 14,65</td><td class="tot num">R$ 14,65</td></tr>
+          <tr><td class="l">Conector fêmea Cat6A blindado NetConnect CommScope</td><td class="c">PC</td><td class="c">1</td><td class="unit num">R$ 85,00</td><td class="tot num">R$ 85,00</td></tr>
+          <tr><td class="l">Cabo de rede Cat6A F/UTP LSZH blindado NetConnect CommScope</td><td class="c">M</td><td class="c">39</td><td class="unit num">R$ 9,72</td><td class="tot num">R$ 379,08</td></tr>
+        </tbody>
+      </table>
+    </section>
+
+    <!-- 6 · financial summary -->
+    <div class="summary">
+      <div class="box">
+        <div class="row"><span>Subtotal · Serviços</span><span class="v num">R$ 1.450,00</span></div>
+        <div class="row"><span>Subtotal · Materiais</span><span class="v num">R$ 478,73</span></div>
+        <div class="row tax"><span>Impostos</span><span class="v">Inclusos nos valores</span></div>
+        <div class="total"><span class="l">Total geral</span><span class="v num">R$ 1.928,73</span></div>
+      </div>
+    </div>
+
+    <!-- 7 · commercial terms + observações (lado a lado) -->
+    <section class="sec two">
+      <div class="col">
+        <div class="sh"><span class="dot"></span><span class="t">Condições comerciais</span></div>
+        <div class="terms">
+          <div class="trow"><span class="k">Forma de pagamento</span><span class="v">À vista</span></div>
+          <div class="trow"><span class="k">Vencimento</span><span class="v num">13/06/2026</span></div>
+          <div class="trow"><span class="k">Valor</span><span class="v num">R$ 1.928,73</span></div>
+        </div>
+      </div>
+      <div class="col">
+        <div class="sh"><span class="dot"></span><span class="t">Observações</span></div>
+        <p class="obs-text">Proposta válida por 15 dias a partir da data de emissão. Serviço executado em horário comercial (segunda a sexta, das 8h às 18h).</p>
+      </div>
+    </section>
+
+    <!-- 8 · footer -->
+    <footer class="foot">
+      <span><b>Traders Service</b> · (47) 3025-2660 · comercial@tsrv.com.br · Joinville-SC</span>
+      <span>Gerado em 03/06/2026 · Página 1 de 1</span>
+    </footer>
+  </div>
+</body>
+</html>

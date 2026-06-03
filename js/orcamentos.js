@@ -84,9 +84,9 @@
     document.getElementById('btn-reabrir').onclick = reabrir
     document.getElementById('btn-arquivar').onclick = arquivar
     document.getElementById('btn-desarquivar').onclick = desarquivar
-    document.getElementById('add-servico').onclick = () => { addItem({ tipo: 'servico', quantidade: 1, preco_unitario: 0 }); renderItens() }
     document.getElementById('add-avulso').onclick = () => { addItem({ tipo: 'avulso', quantidade: 1, preco_unitario: 0 }); renderItens() }
     document.getElementById('add-material').onclick = adicionarMaterialSelecionado
+    document.getElementById('e-servico-valor').oninput = recomputeTotais
     document.querySelectorAll('#orc-filtros .chip').forEach(ch => {
       ch.onclick = () => {
         filtro = ch.dataset.f
@@ -194,6 +194,10 @@
     document.getElementById('e-origem').value = preorc ? `Pré-orçamento Nº ${preorc.numero}` : 'Novo (sem pré-orçamento)'
     document.getElementById('e-observacoes').value = ''
     document.getElementById('e-condicao').value = ''
+    document.getElementById('e-servico-desc').value = preorc ? (preorc.descricao || '') : ''
+    document.getElementById('e-servico-valor').value = ''
+    document.getElementById('e-prazo').value = ''
+    document.getElementById('e-impostos').value = ''
     document.getElementById('ed-status').textContent = ''
     renderItens()
     aplicarEstado()
@@ -228,7 +232,7 @@
     ])
     if (e1 || !o) return toast('Erro ao abrir orçamento.', 'err')
     cur = { id: o.id, pre_orcamento_id: o.pre_orcamento_id, status: o.status, data_envio: o.data_envio, arquivado: !!o.arquivado }
-    itens = (its || []).map(m => ({
+    itens = (its || []).filter(m => m.tipo === 'material' || m.tipo === 'avulso').map(m => ({
       _rid: rid(), tipo: m.tipo, produto_id: m.produto_id, descricao: m.descricao || '',
       unidade: m.unidade, quantidade: Number(m.quantidade) || 0, preco_unitario: Number(m.preco_unitario) || 0,
     }))
@@ -236,6 +240,10 @@
     document.getElementById('e-origem').value = o.pre_orcamento_id ? 'A partir de pré-orçamento' : 'Novo (sem pré-orçamento)'
     document.getElementById('e-observacoes').value = o.observacoes || ''
     document.getElementById('e-condicao').value = o.condicao_pagamento || ''
+    document.getElementById('e-servico-desc').value = o.servico_descricao || ''
+    document.getElementById('e-servico-valor').value = (o.servico_valor != null && Number(o.servico_valor) !== 0) ? o.servico_valor : ''
+    document.getElementById('e-prazo').value = o.prazo_execucao || ''
+    document.getElementById('e-impostos').value = o.impostos || ''
     document.getElementById('ed-status').textContent = `Nº ${o.numero} · ${STATUS_LABEL[o.status] || o.status}`
     if (e2) toast('Aviso: itens não carregaram: ' + e2.message, 'err')
     renderItens()
@@ -271,18 +279,14 @@
   }
 
   function renderItens() {
-    const tbS = document.getElementById('tb-servico')
     const tbM = document.getElementById('tb-material')
-    const serv = itens.filter(i => i.tipo === 'servico')
-    const mat = itens.filter(i => i.tipo === 'material' || i.tipo === 'avulso')
-    tbS.innerHTML = serv.length ? serv.map(linhaHTML).join('') : '<tr><td colspan="5" class="muted">Nenhum serviço.</td></tr>'
-    tbM.innerHTML = mat.length ? mat.map(linhaHTML).join('') : '<tr><td colspan="5" class="muted">Nenhum material.</td></tr>'
+    tbM.innerHTML = itens.length ? itens.map(linhaHTML).join('') : '<tr><td colspan="5" class="muted">Nenhum material.</td></tr>'
     bindLinhas()
     recomputeTotais()
   }
 
   function bindLinhas() {
-    document.querySelectorAll('#tb-servico tr[data-rid], #tb-material tr[data-rid]').forEach(tr => {
+    document.querySelectorAll('#tb-material tr[data-rid]').forEach(tr => {
       const it = itens.find(x => x._rid === tr.dataset.rid)
       if (!it) return
       tr.querySelectorAll('input[data-f]').forEach(inp => {
@@ -299,14 +303,13 @@
     })
   }
 
-  function somaPorTipo(tipos) {
-    return itens.filter(i => tipos.includes(i.tipo))
-      .reduce((s, i) => s + (Number(i.quantidade) || 0) * (Number(i.preco_unitario) || 0), 0)
-  }
+  // Valor do serviço (descrição livre + valor único — não é mais item).
+  const servicoValor = () => Number(document.getElementById('e-servico-valor').value) || 0
+  const somaMateriais = () => itens.reduce((s, i) => s + (Number(i.quantidade) || 0) * (Number(i.preco_unitario) || 0), 0)
   function recomputeTotais() {
-    const ts = somaPorTipo(['servico'])
-    const tm = somaPorTipo(['material', 'avulso'])
-    document.getElementById('tot-servico').textContent = money(ts)
+    const ts = servicoValor()
+    const tm = somaMateriais()
+    document.getElementById('tot-servico').value = money(ts)
     document.getElementById('tot-material').textContent = money(tm)
     document.getElementById('rt-servico').textContent = money(ts)
     document.getElementById('rt-material').textContent = money(tm)
@@ -318,11 +321,21 @@
     if (!cur) return
     const cliId = document.getElementById('e-cliente').value
     if (!cliId) return toast('Selecione o cliente.', 'err')
-    const valor_total = somaPorTipo(['servico', 'material', 'avulso'])
+    const servDesc = document.getElementById('e-servico-desc').value.trim()
+    const servVal = servicoValor()
+    const matVal = somaMateriais()
+    const temServico = !!servDesc || servVal > 0
+    const temMaterial = itens.some(i => (i.descricao || '').trim() || i.produto_id)
+    if (!temServico && !temMaterial) return toast('Orçamento vazio: informe ao menos um serviço ou um material.', 'err')
+    const valor_total = servVal + matVal
     const payload = {
       cliente_id: cliId,
       comercial_id: user.id,
       pre_orcamento_id: cur.pre_orcamento_id || null,
+      servico_descricao: servDesc || null,
+      servico_valor: servVal,
+      prazo_execucao: document.getElementById('e-prazo').value.trim() || null,
+      impostos: document.getElementById('e-impostos').value.trim() || null,
       observacoes: document.getElementById('e-observacoes').value.trim() || null,
       condicao_pagamento: document.getElementById('e-condicao').value.trim() || null,
       valor_total,
@@ -378,10 +391,10 @@
   }
 
   function setEditorEnabled(on) {
-    ['e-cliente-busca', 'e-observacoes', 'e-condicao', 'mat-busca', 'add-servico', 'add-material', 'add-avulso']
+    ['e-cliente-busca', 'e-servico-desc', 'e-servico-valor', 'e-prazo', 'e-impostos', 'e-observacoes', 'e-condicao', 'mat-busca', 'add-material', 'add-avulso']
       .forEach(id => { const e = document.getElementById(id); if (e) e.disabled = !on })
-    document.querySelectorAll('#tb-servico input, #tb-material input').forEach(i => { i.disabled = !on })
-    document.querySelectorAll('#tb-servico .it-x, #tb-material .it-x').forEach(b => { b.style.display = on ? '' : 'none' })
+    document.querySelectorAll('#tb-material input').forEach(i => { i.disabled = !on })
+    document.querySelectorAll('#tb-material .it-x').forEach(b => { b.style.display = on ? '' : 'none' })
   }
 
   function aplicarEstado() {
