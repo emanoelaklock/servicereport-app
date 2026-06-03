@@ -1,0 +1,189 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Orçamentos — Service Report</title>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="css/theme.css">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="js/utils.js"></script>
+<script src="js/supabase-client.js"></script>
+<script src="js/auth.js"></script>
+<script src="js/sidebar.js"></script>
+<script src="js/orcamentos.js"></script>
+<style>
+  /* Lista */
+  .orc-toolbar{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:16px;flex-wrap:wrap}
+  .orc-filtros{display:flex;gap:6px;flex-wrap:wrap}
+  .orc-filtros .chip{font:inherit;font-size:12px;padding:6px 11px;border:1px solid var(--bd);border-radius:20px;background:var(--sur);cursor:pointer;color:var(--tx2)}
+  .orc-filtros .chip.on{background:var(--ac);border-color:var(--ac);color:#fff}
+  .orc-table{width:100%;border-collapse:collapse;font-size:13px}
+  .orc-table th{text-align:left;font-size:11px;text-transform:uppercase;letter-spacing:.04em;color:var(--tx3);padding:8px 10px;border-bottom:1px solid var(--bd)}
+  .orc-table td{padding:10px;border-bottom:1px solid var(--bd);color:var(--tx)}
+  .orc-table tr.row-click{cursor:pointer}
+  .orc-table tr.row-click:hover td{background:var(--sur2)}
+  .orc-num{font-family:var(--mono);font-size:12px;color:var(--tx2)}
+  .orc-total{font-weight:600}
+
+  /* Editor */
+  .ed-card{background:var(--sur);border:1px solid var(--bd);border-radius:14px;padding:18px;box-shadow:var(--sh);margin-bottom:16px}
+  .ed-grid{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+  .ed-grid .full{grid-column:1/-1}
+  .fg label{display:block;font-size:12px;font-weight:600;color:var(--tx2);margin-bottom:5px}
+  .fg input,.fg textarea,.fg select{width:100%;padding:9px 11px;border:1px solid var(--bd);border-radius:8px;font:inherit;font-size:14px;outline:none;background:#fff}
+  .fg input:focus,.fg textarea:focus,.fg select:focus{border-color:var(--ac);box-shadow:0 0 0 3px var(--acl)}
+  .ac{position:relative}
+  .ac-list{position:absolute;left:0;right:0;top:100%;z-index:30;background:#fff;border:1px solid var(--bd);border-radius:0 0 8px 8px;max-height:240px;overflow-y:auto;box-shadow:var(--sh);display:none}
+  .ac-list.open{display:block}
+  .ac-item{padding:9px 11px;font-size:13px;cursor:pointer;border-top:1px solid var(--bd)}
+  .ac-item:hover{background:var(--sur2)}
+  .ac-empty{padding:9px 11px;font-size:13px;color:var(--tx3)}
+
+  /* Itens */
+  .it-group{margin-bottom:18px}
+  .it-group h4{font-size:13px;font-weight:700;color:var(--tx);margin:0 0 8px}
+  .it-table{width:100%;border-collapse:collapse;font-size:13px}
+  .it-table th{text-align:left;font-size:11px;text-transform:uppercase;color:var(--tx3);padding:6px 8px;border-bottom:1px solid var(--bd)}
+  .it-table td{padding:5px 8px;border-bottom:1px solid var(--bd);vertical-align:middle}
+  .it-table input{width:100%;padding:6px 8px;border:1px solid var(--bd);border-radius:6px;font:inherit;font-size:13px}
+  .it-table .col-qtd{width:90px}
+  .it-table .col-preco{width:120px}
+  .it-table .col-sub{width:120px;text-align:right;font-family:var(--mono);font-size:12px;white-space:nowrap}
+  .it-table .col-x{width:34px;text-align:center}
+  .it-x{border:none;background:none;color:var(--re);font-size:16px;cursor:pointer;line-height:1}
+  .it-add{margin-top:8px;display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+  .grp-tot{text-align:right;font-size:12px;color:var(--tx2);margin-top:6px}
+  .ed-totais{display:flex;flex-direction:column;gap:4px;align-items:flex-end;font-size:13px;margin-top:6px}
+  .ed-totais .grand{font-size:18px;font-weight:700;color:var(--tx)}
+  .ed-actions{display:flex;gap:10px;flex-wrap:wrap;margin-top:8px}
+  .muted{color:var(--tx3);font-size:12px}
+</style>
+</head>
+<body>
+
+<div id="sidebar-container"></div>
+
+<div class="main">
+  <div id="app-screen" style="display:none">
+    <div class="topbar">
+      <span class="topbar-title" id="topbar-title">Orçamentos</span>
+    </div>
+    <div class="content">
+
+      <!-- LISTA -->
+      <div id="view-lista">
+        <div class="orc-toolbar">
+          <div class="orc-filtros" id="orc-filtros">
+            <button class="chip on" data-f="ativos">Ativos</button>
+            <button class="chip" data-f="rascunho">Rascunho</button>
+            <button class="chip" data-f="enviado">Enviado</button>
+            <button class="chip" data-f="aprovado">Aprovado</button>
+            <button class="chip" data-f="nao_aprovado">Não aprovado</button>
+            <button class="chip" data-f="arquivado">Arquivados</button>
+          </div>
+          <div style="display:flex;gap:8px">
+            <button class="btn" id="btn-de-preorc">De um pré-orçamento</button>
+            <button class="btn btn-p" id="btn-novo">+ Novo orçamento</button>
+          </div>
+        </div>
+        <div id="lista-box"></div>
+      </div>
+
+      <!-- EDITOR -->
+      <div id="view-editor" style="display:none">
+        <div class="ed-card">
+          <div class="ed-grid">
+            <div class="fg">
+              <label>Cliente *</label>
+              <div class="ac">
+                <input type="text" id="e-cliente-busca" placeholder="Buscar cliente…" autocomplete="off">
+                <input type="hidden" id="e-cliente">
+                <div class="ac-list" id="e-cliente-list"></div>
+              </div>
+            </div>
+            <div class="fg">
+              <label>Origem</label>
+              <input type="text" id="e-origem" readonly value="Novo (sem pré-orçamento)" style="background:var(--sur2)">
+            </div>
+            <div class="fg full">
+              <label>Observações</label>
+              <textarea id="e-observacoes" rows="2" placeholder="Escopo, condições, validade…"></textarea>
+            </div>
+          </div>
+        </div>
+
+        <div class="ed-card">
+          <!-- Serviços -->
+          <div class="it-group">
+            <h4>Serviços</h4>
+            <table class="it-table">
+              <thead><tr><th>Descrição</th><th class="col-qtd">Qtd</th><th class="col-preco">Valor unit.</th><th class="col-sub">Subtotal</th><th class="col-x"></th></tr></thead>
+              <tbody id="tb-servico"></tbody>
+            </table>
+            <div class="it-add"><button class="btn btn-sm" id="add-servico">+ Serviço</button></div>
+            <div class="grp-tot">Subtotal serviços: <strong id="tot-servico">—</strong></div>
+          </div>
+
+          <!-- Materiais -->
+          <div class="it-group">
+            <h4>Materiais</h4>
+            <table class="it-table">
+              <thead><tr><th>Produto / descrição</th><th class="col-qtd">Qtd</th><th class="col-preco">Valor unit.</th><th class="col-sub">Subtotal</th><th class="col-x"></th></tr></thead>
+              <tbody id="tb-material"></tbody>
+            </table>
+            <div class="it-add">
+              <div class="ac" style="flex:1;min-width:220px">
+                <input type="text" id="mat-busca" placeholder="Buscar produto do catálogo…" autocomplete="off">
+                <input type="hidden" id="mat-sel">
+                <div class="ac-list" id="mat-list"></div>
+              </div>
+              <button class="btn btn-sm" id="add-material">+ Adicionar</button>
+              <button class="btn btn-sm" id="add-avulso">+ Item avulso</button>
+            </div>
+            <div class="grp-tot">Subtotal materiais: <strong id="tot-material">—</strong></div>
+          </div>
+        </div>
+
+        <div class="ed-card">
+          <div class="ed-grid">
+            <div class="fg">
+              <label>Condição de pagamento</label>
+              <input type="text" id="e-condicao" placeholder="Ex.: 50% entrada, 50% na entrega / 30 dias">
+            </div>
+            <div class="fg">
+              <label>&nbsp;</label>
+              <div class="ed-totais">
+                <div>Serviços: <span id="rt-servico">—</span> &nbsp;·&nbsp; Materiais: <span id="rt-material">—</span></div>
+                <div class="grand">Total: <span id="rt-total">—</span></div>
+              </div>
+            </div>
+          </div>
+          <div class="ed-actions">
+            <button class="btn" id="btn-voltar">← Voltar</button>
+            <button class="btn btn-p" id="btn-salvar">Salvar rascunho</button>
+            <button class="btn" id="btn-enviar">Marcar como enviado</button>
+            <button class="btn" id="btn-pdf" disabled title="Serviço de PDF no servidor — #4.5">Gerar PDF (em breve)</button>
+            <span class="muted" id="ed-status"></span>
+          </div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+</div>
+
+<div class="tc" id="tc"></div>
+
+<script>
+  // Portal comercial/administrativo. Técnico não acessa (sem RLS de orçamento).
+  window.PAGE_ALLOWED = ['admin', 'gestor_axis', 'comercial']
+  async function onPostLogin() {
+    renderSidebar('orcamentos')
+    await OrcamentosApp.init()
+  }
+  renderSidebar('orcamentos')
+  initAuth()
+</script>
+</body>
+</html>
