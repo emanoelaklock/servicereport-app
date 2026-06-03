@@ -1,5 +1,7 @@
 # Service Report + Módulo Comercial — Especificação Consolidada
 
+> ⚠️ **ARQUIVADO / OBSOLETO.** A fonte única da verdade agora é **`docs/service-report-spec-completo.md`**. Este arquivo fica só como histórico. O que era exclusivo daqui (Deslocamento §15, nav do técnico §14) já foi migrado: a §15 era um placeholder ("campos a definir") → recuperada em §4.1 do novo doc; a §14 (3 botões) foi substituída pelo hub de 5 áreas (§7).
+
 > Documento vivo. Reúne tudo que foi desenhado até aqui. Serve de referência única para a construção (Claude Code) e para revisão do time. Ao lembrar de algo novo, acrescenta-se aqui — não precisa segurar nada de cabeça.
 
 ---
@@ -244,7 +246,7 @@ Por **Tarefa**. Decisão do **administrativo** (na mão).
 Após o login, o técnico vê um **painel com botões** (não mais a lista direta de RATs):
 
 1. **Ordens de Serviço** → lista das **OS destinadas a ele** (com cores por status/atividade). Ao abrir uma OS: **Nova RAT** (do dia) ou continuar a **RAT em andamento** daquele dia. (RAT sempre vive dentro de uma OS — não há mais RAT avulsa.)
-2. **Orçamentos** → **Novo Orçamento** (o levantamento de campo = pré-orçamento; formulário **fixo**; sem preço). Lista os dele.
+2. **Pré-Orçamento** → **Novo Pré-Orçamento** (o levantamento de campo; formulário **fixo**; sem preço). Lista os dele. *(Nome "Pré-Orçamento" no app do técnico para não confundir com o orçamento do comercial.)*
 3. **Deslocamento** → **Novo Deslocamento** — artefato próprio, **formulário fixo específico para deslocamento com pernoite** (viagem com pernoite). *(Campos a definir — ver §15.)*
 
 > Formulários do técnico são **fixos** (pré-orçamento e deslocamento), não configuráveis. A RAT segue configurável por tipo de serviço.
