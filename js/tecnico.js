@@ -58,16 +58,36 @@
     tecnico.nome = u?.nome || user?.email?.split('@')[0] || 'Técnico'
     const ftn = document.getElementById('ft-nome'); if (ftn) ftn.textContent = tecnico.nome
 
+    const hello = document.getElementById('home-hello')
+    if (hello) hello.textContent = 'Olá, ' + (tecnico.nome || 'técnico') + '!'
+
     bind()
     await carregarRef()
-    await renderLista()
+    mostrar('home')
   }
 
   function bind() {
+    // RAT (Ordens de Serviço — fluxo atual)
     document.getElementById('btn-nova').onclick = novaRat
     document.getElementById('btn-cancelar').onclick = cancelar
     document.getElementById('btn-salvar').onclick = salvar
     document.getElementById('f-tipo').onchange = onTipoChange
+    // Navegação da home
+    document.getElementById('btn-voltar').onclick = onVoltar
+    document.getElementById('nav-os').onclick = async () => { mostrar('lista'); await renderLista() }
+    document.getElementById('nav-preorc').onclick = async () => { mostrar('preorc-lista'); await renderPreorcLista() }
+    document.getElementById('nav-desloc').onclick = () => toast('Deslocamento (pernoite) — em breve.', 'info')
+    const bsh = document.getElementById('btn-sync-home'); if (bsh) bsh.onclick = () => window.SyncEngine && SyncEngine.syncAll()
+    // Pré-orçamento
+    document.getElementById('btn-preorc-novo').onclick = novoPreorcUI
+    document.getElementById('po-btn-cancelar').onclick = cancelarPreorc
+    document.getElementById('po-btn-salvar').onclick = concluirPreorc
+    document.getElementById('po-desloc').onchange = onDeslocPoChange
+    document.getElementById('view-preorc-form').addEventListener('input', atualizarTempoPo)
+    document.getElementById('po-prod-add-btn').onclick = poAddItem
+    const pf = document.getElementById('po-foto-input')
+    document.getElementById('po-btn-foto').onclick = () => pf.click()
+    pf.onchange = () => poAddFotos(pf.files)
   }
 
   // ───────────────────── Dados de referência ─────────────────────
@@ -147,10 +167,28 @@
     })
   }
 
-  // ─────────────────────────── Form ───────────────────────────
+  // ─────────────────────── Navegação (home + módulos) ───────────────────────
+  let screen = 'home'
+  const VIEWS = {
+    home: 'view-home', lista: 'view-lista', form: 'view-form',
+    'preorc-lista': 'view-preorc-lista', 'preorc-form': 'view-preorc-form',
+  }
+  const TITLES = {
+    home: 'Service Report', lista: 'Ordens de Serviço', form: 'Nova RAT',
+    'preorc-lista': 'Pré-Orçamento', 'preorc-form': 'Pré-Orçamento',
+  }
   function mostrar(secao) {
-    document.getElementById('view-lista').style.display = secao === 'lista' ? 'block' : 'none'
-    document.getElementById('view-form').style.display = secao === 'form' ? 'block' : 'none'
+    screen = secao
+    for (const [k, id] of Object.entries(VIEWS)) {
+      const el = document.getElementById(id); if (el) el.style.display = (k === secao) ? 'block' : 'none'
+    }
+    const t = document.getElementById('ft-title'); if (t) t.textContent = TITLES[secao] || 'Service Report'
+    const b = document.getElementById('btn-voltar'); if (b) b.style.display = (secao === 'home') ? 'none' : 'block'
+  }
+  function onVoltar() {
+    if (screen === 'form') return cancelar()
+    if (screen === 'preorc-form') return cancelarPreorc()
+    mostrar('home')
   }
 
   async function novaRat() {
@@ -488,5 +526,216 @@
     await renderLista()
   }
 
-  window.TecnicoApp = { init, refresh: renderLista }
+  // ═══════════════════════ Pré-orçamento (form fixo) ═══════════════════════
+  let curPo = null   // { client_uuid }
+
+  async function renderPreorcLista() {
+    const box = document.getElementById('lista-preorc')
+    if (!box) return
+    const list = await D().listarPreorc()
+    if (!list.length) {
+      box.innerHTML = '<p class="dim" style="padding:14px 2px">Nenhum pré-orçamento no aparelho. Toque em “+ Novo”.</p>'
+      return
+    }
+    box.innerHTML = list.map(p => `
+      <div class="rat-card" data-uuid="${esc(p.client_uuid)}">
+        <div class="rat-card-top">
+          <span class="rat-cli">${esc(p.cliente_nome || 'Sem cliente')}</span>
+          ${badge(p.sync_status)}
+        </div>
+        <div class="rat-meta">
+          <span>${p.numero ? 'Nº ' + esc(p.numero) + ' · ' : ''}${esc((p.descricao || '—').slice(0, 40))}</span>
+          <span>${fdt(p.criado_em, { withTime: true })}</span>
+        </div>
+      </div>`).join('')
+    box.querySelectorAll('.rat-card').forEach(el => { el.onclick = () => abrirPreorc(el.dataset.uuid) })
+  }
+
+  function poBindAutocomplete() {
+    attachAutocomplete(
+      document.getElementById('po-cliente-busca'),
+      document.getElementById('po-cliente'),
+      document.getElementById('po-cliente-list'),
+      ref.clientes, c => ({ id: c.id, label: c.nome })
+    )
+    attachAutocomplete(
+      document.getElementById('po-prod-busca'),
+      document.getElementById('po-prod-sel'),
+      document.getElementById('po-prod-ac-list'),
+      ref.produtos || [], p => ({ id: p.id, label: (p.codigo ? p.codigo + ' - ' : '') + (p.descricao || '') })
+    )
+  }
+
+  function poLimparForm() {
+    const set = (id, v) => { const e = document.getElementById(id); if (e) e.value = v }
+    ;['po-cliente', 'po-cliente-busca', 'po-descricao', 'po-prod-sel', 'po-prod-busca', 'po-prod-qtd',
+      'po-desloc', 'po-hora-inicio', 'po-hora-termino', 'po-ida', 'po-retorno', 'po-almoco', 'po-pausa'].forEach(id => set(id, ''))
+    set('po-tempo', '—')
+    onDeslocPoChange()
+  }
+
+  async function novoPreorcUI() {
+    const po = await D().novoPreorc({})
+    curPo = { client_uuid: po.client_uuid }
+    document.getElementById('preorc-titulo').textContent = 'Novo pré-orçamento'
+    poLimparForm()
+    poBindAutocomplete()
+    await poRefreshThumbs()
+    await poRefreshItens()
+    mostrar('preorc-form')
+  }
+
+  async function abrirPreorc(client_uuid) {
+    const po = await D().obterPreorc(client_uuid)
+    if (!po) return
+    curPo = { client_uuid }
+    document.getElementById('preorc-titulo').textContent = po.numero ? `Pré-orçamento Nº ${po.numero}` : 'Pré-orçamento'
+    poLimparForm()
+    document.getElementById('po-cliente').value = po.cliente_id || ''
+    document.getElementById('po-cliente-busca').value =
+      (ref.clientes.find(c => c.id === po.cliente_id) || {}).nome || po.cliente_nome || ''
+    document.getElementById('po-descricao').value = po.descricao || ''
+    const r = po.respostas || {}
+    const set = (id, v) => { const e = document.getElementById(id); if (e && v != null) e.value = v }
+    set('po-desloc', r.deslocamento); set('po-hora-inicio', r.hora_inicio); set('po-hora-termino', r.hora_termino)
+    set('po-ida', r.ida); set('po-retorno', r.retorno); set('po-almoco', r.almoco); set('po-pausa', r.pausa)
+    onDeslocPoChange()
+    poBindAutocomplete()
+    await poRefreshThumbs()
+    await poRefreshItens()
+    mostrar('preorc-form')
+  }
+
+  function onDeslocPoChange() {
+    const d = document.getElementById('po-desloc').value
+    document.getElementById('po-bloco-sem').style.display = d === 'Não' ? 'block' : 'none'
+    document.getElementById('po-bloco-com').style.display = d === 'Sim' ? 'block' : 'none'
+    atualizarTempoPo()
+  }
+  function calcTempoPo() {
+    const v = (id) => { const e = document.getElementById(id); return e ? e.value : '' }
+    const d = v('po-desloc'); let ini, fim
+    if (d === 'Sim') { ini = v('po-ida'); fim = v('po-retorno') }
+    else if (d === 'Não') { ini = v('po-hora-inicio'); fim = v('po-hora-termino') }
+    else return null
+    const a = minutosDe(ini), b = minutosDe(fim)
+    if (a == null || b == null) return null
+    const t = b - a - (Number(v('po-almoco')) || 0) - (Number(v('po-pausa')) || 0)
+    return t < 0 ? 0 : t
+  }
+  function atualizarTempoPo() {
+    const el = document.getElementById('po-tempo'); if (el) el.value = fmtMin(calcTempoPo())
+  }
+
+  async function poAddFotos(fileList) {
+    if (!curPo) return
+    for (const f of Array.from(fileList || [])) {
+      if (!f.type.startsWith('image/')) continue
+      await D().adicionarFoto(curPo.client_uuid, f, null)
+    }
+    document.getElementById('po-foto-input').value = ''
+    await poRefreshThumbs()
+  }
+  async function poRefreshThumbs() {
+    const box = document.getElementById('po-thumbs')
+    if (!box || !curPo) return
+    const fotos = await D().listarFotos(curPo.client_uuid)
+    box.innerHTML = fotos.map(f => {
+      const src = f.url || URL.createObjectURL(f.blob)
+      return `<div class="thumb-card">
+        <div class="thumb"><img src="${src}" alt=""><button type="button" class="thumb-x" data-id="${esc(f.id)}">×</button></div>
+        <input type="text" class="thumb-leg" data-legid="${esc(f.id)}" placeholder="Legenda" value="${esc(f.legenda || '')}">
+      </div>`
+    }).join('')
+    box.querySelectorAll('.thumb-x').forEach(b => {
+      b.onclick = async (e) => { e.stopPropagation(); await D().removerFoto(b.dataset.id); await poRefreshThumbs() }
+    })
+    box.querySelectorAll('.thumb-leg').forEach(inp => {
+      inp.onchange = () => D().atualizarLegendaFoto(inp.dataset.legid, inp.value.trim())
+    })
+  }
+
+  async function poAddItem() {
+    if (!curPo) return
+    const pid = document.getElementById('po-prod-sel').value
+    const qtdEl = document.getElementById('po-prod-qtd')
+    const qtd = Number(qtdEl.value)
+    if (!pid) return toast('Selecione um produto.', 'err')
+    if (!qtd || qtd <= 0) return toast('Informe a quantidade.', 'err')
+    const p = (ref.produtos || []).find(x => x.id === pid)
+    await D().adicionarItemPreorc(curPo.client_uuid, {
+      produto_id: pid, codigo_produto: p ? p.codigo : null, descricao: p ? p.descricao : null,
+      unidade: p ? p.unidade : null, quantidade: qtd,
+    })
+    document.getElementById('po-prod-sel').value = ''
+    document.getElementById('po-prod-busca').value = ''
+    qtdEl.value = ''
+    await poRefreshItens()
+  }
+  async function poRefreshItens() {
+    const box = document.getElementById('po-prod-list')
+    if (!box || !curPo) return
+    const itens = await D().listarItensPreorc(curPo.client_uuid)
+    if (!itens.length) { box.innerHTML = '<span class="dim">Nenhum material necessário adicionado.</span>'; return }
+    box.innerHTML = itens.map(m => `<div class="prod-item">
+      <span>${esc(m.descricao || m.codigo_produto || '—')}</span>
+      <span class="prod-qtd">${m.quantidade}${m.unidade ? ' ' + esc(m.unidade) : ''}</span>
+      <button type="button" class="thumb-x" data-mid="${esc(m.id)}">×</button>
+    </div>`).join('')
+    box.querySelectorAll('[data-mid]').forEach(b => { b.onclick = async () => { await D().removerItemPreorc(b.dataset.mid); await poRefreshItens() } })
+  }
+
+  async function concluirPreorc() {
+    if (!curPo) return
+    const cliId = document.getElementById('po-cliente').value
+    const desc = document.getElementById('po-descricao').value.trim()
+    if (!cliId) return toast('Selecione o cliente.', 'err')
+    if (!desc) return toast('Descreva o levantamento.', 'err')
+    const v = (id) => { const e = document.getElementById(id); return e ? e.value : '' }
+    const cli = ref.clientes.find(c => c.id === cliId)
+    await D().salvarPreorc(curPo.client_uuid, {
+      cliente_id: cliId,
+      cliente_nome: cli?.nome || null,
+      tecnico_id: tecnico.id,
+      tecnico_nome: tecnico.nome,
+      descricao: desc,
+      respostas: {
+        deslocamento: v('po-desloc') || null,
+        hora_inicio: v('po-hora-inicio') || null, hora_termino: v('po-hora-termino') || null,
+        ida: v('po-ida') || null, retorno: v('po-retorno') || null,
+        almoco: v('po-almoco') || null, pausa: v('po-pausa') || null,
+      },
+      tempo_trabalhado: calcTempoPo(),
+      data: new Date().toISOString(),
+      status: 'concluido',
+    })
+    await D().definirStatusPreorc(curPo.client_uuid, D().STATUS.SALVO_LOCAL)
+    // TODO #4.5: ao concluir, disparar geração de PDF (servidor) + e-mail ao comercial.
+    toast('Pré-orçamento salvo no aparelho.', 'ok')
+    curPo = null
+    mostrar('preorc-lista')
+    await renderPreorcLista()
+    if (window.SyncEngine && navigator.onLine) window.SyncEngine.syncAll()
+  }
+
+  async function cancelarPreorc() {
+    if (curPo) {
+      const po = await D().obterPreorc(curPo.client_uuid)
+      const fotos = await D().listarFotos(curPo.client_uuid)
+      const itens = await D().listarItensPreorc(curPo.client_uuid)
+      const vazio = po && po.sync_status === D().STATUS.RASCUNHO && !po.cliente_id && !po.descricao && !fotos.length && !itens.length
+      if (vazio) await D().removerPreorc(curPo.client_uuid)
+    }
+    curPo = null
+    mostrar('preorc-lista')
+    await renderPreorcLista()
+  }
+
+  // Atualiza a lista da tela visível após uma rodada de sync.
+  async function refresh() {
+    if (screen === 'preorc-lista' || screen === 'preorc-form') await renderPreorcLista()
+    else await renderLista()
+  }
+
+  window.TecnicoApp = { init, refresh }
 })()

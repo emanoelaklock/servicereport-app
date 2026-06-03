@@ -20,9 +20,20 @@
   body{display:block;background:var(--bg)}
   .field-wrap{max-width:560px;margin:0 auto;min-height:100vh;display:flex;flex-direction:column}
   .field-top{height:56px;background:#1B2A4A;color:#fff;display:flex;align-items:center;justify-content:space-between;padding:0 16px;position:sticky;top:0;z-index:50}
-  .field-top .ft-title{font-size:15px;font-weight:600}
+  .field-top .ft-title{font-size:15px;font-weight:600;flex:1}
   .field-top .ft-logout{background:rgba(255,255,255,.12);border:none;color:#fff;border-radius:8px;padding:8px 12px;font:inherit;font-size:13px;cursor:pointer}
+  .field-top .ft-back{background:rgba(255,255,255,.12);border:none;color:#fff;border-radius:8px;width:32px;height:32px;font-size:20px;line-height:1;cursor:pointer;margin-right:8px;flex:none}
   .field-body{flex:1;padding:18px 16px}
+
+  /* Home (3 botões) */
+  .home-hello{font-size:18px;font-weight:700;color:var(--tx);margin:4px 2px 16px}
+  .home-grid{display:flex;flex-direction:column;gap:12px}
+  .home-card{display:flex;flex-direction:column;align-items:flex-start;gap:2px;text-align:left;background:var(--sur);border:1px solid var(--bd);border-radius:14px;padding:18px 18px;box-shadow:var(--sh);cursor:pointer;font:inherit;width:100%}
+  .home-card:active{background:var(--sur2)}
+  .home-card .home-ic{font-size:26px;margin-bottom:6px}
+  .home-card .home-tt{font-size:16px;font-weight:600;color:var(--tx)}
+  .home-card .home-sb{font-size:12px;color:var(--tx3)}
+  .home-card.soon{opacity:.62}
   .net-badge{font-size:11px;font-weight:600;padding:3px 9px;border-radius:20px}
   .net-on{background:#E8F5E9;color:#2E7D32}
   .net-off{background:#FEF3C7;color:#B45309}
@@ -101,7 +112,8 @@
 <div id="app-screen" style="display:none">
   <div class="field-wrap">
     <div class="field-top">
-      <span class="ft-title">Nova RAT</span>
+      <button class="ft-back" id="btn-voltar" style="display:none" aria-label="Voltar">‹</button>
+      <span class="ft-title" id="ft-title">Service Report</span>
       <div style="display:flex;align-items:center;gap:10px">
         <span class="net-badge" id="net-badge">—</span>
         <button class="ft-logout" onclick="fazerLogout()">Sair</button>
@@ -109,8 +121,33 @@
     </div>
     <div class="field-body">
 
+      <!-- HOME: 3 botões -->
+      <div id="view-home">
+        <div class="home-hello" id="home-hello">Olá!</div>
+        <div class="home-grid">
+          <button type="button" class="home-card" id="nav-os">
+            <span class="home-ic">🧰</span>
+            <span class="home-tt">Ordens de Serviço</span>
+            <span class="home-sb">Suas OS e RATs do dia</span>
+          </button>
+          <button type="button" class="home-card" id="nav-preorc">
+            <span class="home-ic">📝</span>
+            <span class="home-tt">Pré-Orçamento</span>
+            <span class="home-sb">Levantamento em campo</span>
+          </button>
+          <button type="button" class="home-card soon" id="nav-desloc">
+            <span class="home-ic">🚚</span>
+            <span class="home-tt">Deslocamento</span>
+            <span class="home-sb">Pernoite · em breve</span>
+          </button>
+        </div>
+        <div style="margin-top:18px;text-align:center">
+          <button class="btn" id="btn-sync-home">↻ Sincronizar</button>
+        </div>
+      </div>
+
       <!-- LISTA -->
-      <div id="view-lista">
+      <div id="view-lista" style="display:none">
         <div class="lista-head">
           <h2>Minhas RATs</h2>
           <div style="display:flex;gap:8px">
@@ -159,6 +196,93 @@
           <div class="form-actions">
             <button class="btn" id="btn-cancelar">Cancelar</button>
             <button class="btn btn-p" id="btn-salvar">Salvar no aparelho</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- PRÉ-ORÇAMENTO: LISTA -->
+      <div id="view-preorc-lista" style="display:none">
+        <div class="lista-head">
+          <h2>Meus pré-orçamentos</h2>
+          <button class="btn btn-p" id="btn-preorc-novo">+ Novo</button>
+        </div>
+        <div id="lista-preorc"></div>
+      </div>
+
+      <!-- PRÉ-ORÇAMENTO: FORMULÁRIO FIXO -->
+      <div id="view-preorc-form" style="display:none">
+        <div class="login-card" style="box-shadow:var(--sh)">
+          <h2 id="preorc-titulo" style="font-size:16px;font-weight:600;margin-bottom:14px;color:var(--tx)">Novo pré-orçamento</h2>
+
+          <div class="fg campo">
+            <label>Cliente <span style="color:var(--re)">*</span></label>
+            <div class="ac">
+              <input type="text" id="po-cliente-busca" placeholder="Buscar cliente…" autocomplete="off">
+              <input type="hidden" id="po-cliente">
+              <div class="ac-list" id="po-cliente-list"></div>
+            </div>
+          </div>
+
+          <div class="fg campo">
+            <label>Descrição do levantamento <span style="color:var(--re)">*</span></label>
+            <textarea class="ta-longo" id="po-descricao" placeholder="O que foi avaliado, escopo, condições do local…"></textarea>
+          </div>
+
+          <div class="fg campo">
+            <label>Materiais necessários</label>
+            <div class="prod-box">
+              <div class="prod-add">
+                <div class="ac">
+                  <input type="text" id="po-prod-busca" placeholder="Buscar produto…" autocomplete="off">
+                  <input type="hidden" id="po-prod-sel">
+                  <div class="ac-list" id="po-prod-ac-list"></div>
+                </div>
+                <input type="number" id="po-prod-qtd" inputmode="decimal" placeholder="Qtd" min="0" step="any">
+                <button type="button" class="btn btn-sm" id="po-prod-add-btn">+ Add</button>
+              </div>
+              <div class="prod-list" id="po-prod-list"></div>
+            </div>
+          </div>
+
+          <div class="fg campo">
+            <label>Fotos</label>
+            <div class="foto-box">
+              <input type="file" accept="image/*" capture="environment" multiple id="po-foto-input" style="display:none">
+              <button type="button" class="btn" id="po-btn-foto">📷 Adicionar foto</button>
+              <div class="thumbs" id="po-thumbs"></div>
+            </div>
+          </div>
+
+          <!-- Bloco de controle de tempo (mesma lógica da RAT) -->
+          <div class="fg campo">
+            <label>Houve deslocamento?</label>
+            <select id="po-desloc">
+              <option value="">Selecione…</option>
+              <option value="Não">Não</option>
+              <option value="Sim">Sim</option>
+            </select>
+          </div>
+          <div id="po-bloco-sem" style="display:none">
+            <div class="fg campo"><label>Início</label><input type="time" id="po-hora-inicio"></div>
+            <div class="fg campo"><label>Término</label><input type="time" id="po-hora-termino"></div>
+          </div>
+          <div id="po-bloco-com" style="display:none">
+            <div class="fg campo"><label>Início do deslocamento (ida)</label><input type="time" id="po-ida"></div>
+            <div class="fg campo"><label>Fim do deslocamento (retorno)</label><input type="time" id="po-retorno"></div>
+          </div>
+          <div class="prod-add" style="grid-template-columns:1fr 1fr">
+            <div class="fg campo" style="margin-bottom:0"><label>Almoço (min)</label><input type="number" id="po-almoco" inputmode="numeric" min="0" placeholder="0"></div>
+            <div class="fg campo" style="margin-bottom:0"><label>Pausa (min)</label><input type="number" id="po-pausa" inputmode="numeric" min="0" placeholder="0"></div>
+          </div>
+
+          <div class="fg campo" style="margin-top:14px">
+            <label>Tempo trabalhado (calculado)</label>
+            <input type="text" id="po-tempo" readonly value="—" style="background:var(--sur2)">
+          </div>
+
+          <div class="form-actions">
+            <button class="btn" id="po-btn-cancelar">Cancelar</button>
+            <button class="btn btn-p" id="po-btn-salvar">Concluir</button>
           </div>
         </div>
       </div>
