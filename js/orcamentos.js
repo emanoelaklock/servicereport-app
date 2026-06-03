@@ -78,6 +78,7 @@
     document.getElementById('btn-voltar').onclick = () => { cur = null; mostrar('lista'); renderLista() }
     document.getElementById('btn-salvar').onclick = () => salvar('rascunho')
     document.getElementById('btn-enviar').onclick = () => salvar('enviado')
+    document.getElementById('btn-pdf').onclick = gerarPdf
     document.getElementById('add-servico').onclick = () => { addItem({ tipo: 'servico', quantidade: 1, preco_unitario: 0 }); renderItens() }
     document.getElementById('add-avulso').onclick = () => { addItem({ tipo: 'avulso', quantidade: 1, preco_unitario: 0 }); renderItens() }
     document.getElementById('add-material').onclick = adicionarMaterialSelecionado
@@ -346,6 +347,35 @@
       if (insI.error) return toast('Erro ao salvar itens: ' + insI.error.message, 'err')
     }
     toast(novoStatus === 'enviado' ? 'Orçamento marcado como enviado.' : 'Rascunho salvo.', 'ok')
+  }
+
+  // ─────────────────────────── PDF (servidor) ───────────────────────────
+  async function gerarPdf() {
+    if (!cur || !cur.id) return toast('Salve o orçamento antes de gerar o PDF.', 'err')
+    const btn = document.getElementById('btn-pdf')
+    const old = btn.textContent; btn.disabled = true; btn.textContent = 'Gerando…'
+    try {
+      const { data, error } = await sb().functions.invoke('documentos', { body: { action: 'pdf', tipo: 'orcamento', id: cur.id } })
+      if (error) {
+        let msg = error.message || 'falha'
+        try { const ctx = await error.context?.json?.(); if (ctx?.error) msg = ctx.error } catch (_) {}
+        throw new Error(msg)
+      }
+      if (!data || !data.base64) throw new Error((data && data.error) || 'resposta inválida')
+      abrirPdfBase64(data.base64, data.filename || 'orcamento.pdf')
+    } catch (e) {
+      toast('Erro ao gerar PDF: ' + (e.message || e), 'err')
+    } finally {
+      btn.disabled = false; btn.textContent = old
+    }
+  }
+  function abrirPdfBase64(b64, filename) {
+    const bin = atob(b64), arr = new Uint8Array(bin.length)
+    for (let i = 0; i < bin.length; i++) arr[i] = bin.charCodeAt(i)
+    const url = URL.createObjectURL(new Blob([arr], { type: 'application/pdf' }))
+    const w = window.open(url, '_blank')
+    if (!w) { const a = document.createElement('a'); a.href = url; a.download = filename; a.click() }
+    setTimeout(() => URL.revokeObjectURL(url), 60000)
   }
 
   window.OrcamentosApp = { init }

@@ -174,6 +174,13 @@
       await D().salvarPreorc(po.client_uuid, { recebido_em: ups.data.recebido_em, numero: ups.data.numero })
       await D().definirStatusPreorc(po.client_uuid, D().STATUS.CONFIRMADO)
     }
+
+    // 6) Pré-orçamento CONCLUÍDO → PDF (servidor) + e-mail ao comercial.
+    //    Best-effort: não derruba o sync; idempotente no servidor (email_comercial_em).
+    if (po.status === 'concluido') {
+      try { await sb.functions.invoke('documentos', { body: { action: 'pre_orcamento_concluido', id: preorcId } }) }
+      catch (e) { console.warn('[sync] pós-conclusão pré-orçamento (pdf/email):', e) }
+    }
     return true
   }
 
