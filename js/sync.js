@@ -113,22 +113,99 @@
     return true
   }
 
-  // Sobe todas as RATs pendentes (salvo_local / na_fila / erro).
+  // Colunas REAIS de public.pre_orcamentos (whitelist).
+  // Exclui: numero (IDENTITY no servidor), recebido_em (servidor), criado_em/
+  // atualizado_em (defaults) e campos só-locais.
+  const PREORC_COLS = [
+    'client_uuid', 'cliente_id', 'tecnico_id', 'cliente_nome', 'tecnico_nome',
+    'descricao', 'respostas', 'tempo_trabalhado', 'data', 'status',
+    'sync_status', 'device_id',
+  ]
+
+  // Envia UM pré-orçamento. Lança em caso de falha (o chamador marca 'erro').
+  async function enviarPreorc(po) {
+    const sb = getSupabase()
+    const uid = po.tecnico_id
+    if (!uid) throw new Error('Pré-orçamento sem tecnico_id')
+
+    await D().definirStatusPreorc(po.client_uuid, D().STATUS.ENVIANDO)
+
+    // 1) Fotos pendentes → Storage (pasta do técnico p/ casar com a RLS do bucket)
+    for (const f of await D().listarFotos(po.client_uuid)) {
+      if (f.enviada) continue
+      const path = `${uid}/${po.client_uuid}/foto-${f.id}.${extDoMime(f.blob.type)}`
+      const up = await sb.storage.from(BUCKET).upload(path, f.blob, { upsert: true, contentType: f.blob.type || 'image/jpeg' })
+      if (up.error) throw up.error
+      await D().marcarFotoEnviada(f.id, path)
+    }
+
+    // 2) Upsert do pré-orçamento (idempotente por client_uuid)
+    const payload = {}
+    PREORC_COLS.forEach(c => { if (po[c] !== undefined && po[c] !== null) payload[c] = po[c] })
+    payload.client_uuid = po.client_uuid
+    payload.tecnico_id = uid
+    payload.sync_status = 'confirmado'
+    const ups = await sb.from('pre_orcamentos').upsert(payload, { onConflict: 'client_uuid' }).select('id,numero,recebido_em').single()
+    if (ups.error) throw ups.error
+    const preorcId = ups.data.id
+
+    // 3) relatorio_fotos (idempotente: id = id local da foto) — via pre_orcamento_id
+    const rows = (await D().listarFotos(po.client_uuid)).filter(f => f.url)
+      .map(f => ({ id: f.id, pre_orcamento_id: preorcId, url: f.url, legenda: f.legenda || null }))
+    if (rows.length) {
+      const rf = await sb.from('relatorio_fotos').upsert(rows, { onConflict: 'id' })
+      if (rf.error) throw rf.error
+    }
+
+    // 4) Itens (materiais necessários — sem preço; idempotente: id = id local)
+    const itens = await D().listarItensPreorc(po.client_uuid)
+    if (itens.length) {
+      const irows = itens.map(m => ({
+        id: m.id, pre_orcamento_id: preorcId,
+        produto_id: m.produto_id || null, codigo_produto: m.codigo_produto || null,
+        descricao: m.descricao || null, unidade: m.unidade || null, quantidade: m.quantidade || 0,
+      }))
+      const ir = await sb.from('pre_orcamento_itens').upsert(irows, { onConflict: 'id' })
+      if (ir.error) throw ir.error
+    }
+
+    // 5) ACK do servidor: recebido_em carimbado → confirmado
+    if (ups.data.recebido_em) {
+      await D().salvarPreorc(po.client_uuid, { recebido_em: ups.data.recebido_em, numero: ups.data.numero })
+      await D().definirStatusPreorc(po.client_uuid, D().STATUS.CONFIRMADO)
+    }
+    return true
+  }
+
+  // Sobe todas as RATs e pré-orçamentos pendentes (salvo_local / na_fila / erro).
   async function syncAll() {
     if (syncing || !navigator.onLine) return { ok: 0, fail: 0, skipped: true }
     syncing = true
     let ok = 0, fail = 0
+    const PEND = [D().STATUS.SALVO_LOCAL, D().STATUS.NA_FILA, D().STATUS.ERRO]
     try {
       const todas = await D().listarRats()
-      const pend = todas.filter(r => [D().STATUS.SALVO_LOCAL, D().STATUS.NA_FILA, D().STATUS.ERRO].includes(r.sync_status))
+      const pend = todas.filter(r => PEND.includes(r.sync_status))
       for (const r of pend) {
         try {
           await D().definirStatus(r.client_uuid, D().STATUS.NA_FILA, 'enfileirado')
           await enviarRat(await D().obterRat(r.client_uuid))
           ok++
         } catch (e) {
-          console.warn('[sync] falha', r.client_uuid, e)
+          console.warn('[sync] falha rat', r.client_uuid, e)
           await D().definirStatus(r.client_uuid, D().STATUS.ERRO, (e && e.message) || 'erro de envio')
+          fail++
+        }
+      }
+      const preorcs = (await D().listarPreorc()).filter(p => PEND.includes(p.sync_status))
+      for (const p of preorcs) {
+        try {
+          await D().definirStatusPreorc(p.client_uuid, D().STATUS.NA_FILA)
+          await enviarPreorc(await D().obterPreorc(p.client_uuid))
+          ok++
+        } catch (e) {
+          console.warn('[sync] falha pré-orçamento', p.client_uuid, e)
+          await D().definirStatusPreorc(p.client_uuid, D().STATUS.ERRO)
           fail++
         }
       }
@@ -143,5 +220,5 @@
     if (navigator.onLine) syncAll()
   }
 
-  window.SyncEngine = { syncAll, enviarRat, start }
+  window.SyncEngine = { syncAll, enviarRat, enviarPreorc, start }
 })()

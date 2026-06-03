@@ -9,11 +9,13 @@
 ═══════════════════════════════════════════════ */
 (function () {
   const DB_NAME = 'service_report'
-  const DB_VERSION = 2
+  const DB_VERSION = 3
   const ST_RATS = 'rats'
   const ST_FOTOS = 'fotos'
   const ST_EVENTOS = 'eventos'
   const ST_MATERIAIS = 'materiais'
+  const ST_PREORC = 'preorcamentos'      // pré-orçamentos (artefato de campo, #4.2)
+  const ST_PREORC_ITENS = 'preorc_itens' // materiais NECESSÁRIOS do pré-orçamento
 
   // ── Estados de sincronização (brief) ──
   const STATUS = {
@@ -79,6 +81,15 @@
         if (!d.objectStoreNames.contains(ST_MATERIAIS)) {
           const s = d.createObjectStore(ST_MATERIAIS, { keyPath: 'id' })
           s.createIndex('rat_uuid', 'rat_uuid', { unique: false })
+        }
+        if (!d.objectStoreNames.contains(ST_PREORC)) {
+          const s = d.createObjectStore(ST_PREORC, { keyPath: 'client_uuid' })
+          s.createIndex('sync_status', 'sync_status', { unique: false })
+          s.createIndex('criado_em', 'criado_em', { unique: false })
+        }
+        if (!d.objectStoreNames.contains(ST_PREORC_ITENS)) {
+          const s = d.createObjectStore(ST_PREORC_ITENS, { keyPath: 'id' })
+          s.createIndex('preorc_uuid', 'preorc_uuid', { unique: false })
         }
       }
       req.onsuccess = () => resolve(req.result)
@@ -221,6 +232,93 @@
     return tx([ST_MATERIAIS], 'readwrite', (t) => t.objectStore(ST_MATERIAIS).delete(id))
   }
 
+  // ── Pré-orçamentos (artefato de campo, #4.2) ──
+  // Mesma máquina de sync_status das RATs. Fotos reutilizam o store ST_FOTOS
+  // (rat_uuid = client_uuid do pré-orçamento). Sem trilha de eventos (sync_eventos
+  // exige rat_id) — pré-orçamento é um artefato mais leve.
+  async function novoPreorc(dados = {}) {
+    const client_uuid = dados.client_uuid || uuid()
+    const reg = {
+      client_uuid,
+      device_id: deviceId(),
+      sync_status: STATUS.RASCUNHO,
+      tem_foto: false,
+      respostas: null,
+      recebido_em: null,
+      criado_em: agora(),
+      atualizado_em: agora(),
+      ...dados,
+    }
+    await tx([ST_PREORC], 'readwrite', (t) => { t.objectStore(ST_PREORC).add(reg) })
+    return reg
+  }
+
+  async function salvarPreorc(client_uuid, patch = {}) {
+    return tx([ST_PREORC], 'readwrite', (t) => {
+      const s = t.objectStore(ST_PREORC)
+      reqP(s.get(client_uuid)).then((cur) => {
+        if (!cur) return
+        s.put({ ...cur, ...patch, client_uuid, atualizado_em: agora() })
+      })
+    }).then(() => obterPreorc(client_uuid))
+  }
+
+  async function obterPreorc(client_uuid) {
+    const d = await db()
+    return reqP(d.transaction(ST_PREORC).objectStore(ST_PREORC).get(client_uuid))
+  }
+
+  async function listarPreorc({ status } = {}) {
+    const d = await db()
+    const s = d.transaction(ST_PREORC).objectStore(ST_PREORC)
+    const all = await reqP(s.getAll())
+    const arr = status ? all.filter(r => r.sync_status === status) : all
+    return arr.sort((a, b) => (b.criado_em || '').localeCompare(a.criado_em || ''))
+  }
+
+  async function definirStatusPreorc(client_uuid, novo) {
+    return tx([ST_PREORC], 'readwrite', (t) => {
+      const s = t.objectStore(ST_PREORC)
+      reqP(s.get(client_uuid)).then((cur) => {
+        if (!cur) return
+        const patch = { ...cur, sync_status: novo, atualizado_em: agora() }
+        if (novo === STATUS.CONFIRMADO && !patch.recebido_em) patch.recebido_em = agora()
+        s.put(patch)
+      })
+    }).then(() => obterPreorc(client_uuid))
+  }
+
+  async function removerPreorc(client_uuid) {
+    return tx([ST_PREORC, ST_PREORC_ITENS, ST_FOTOS], 'readwrite', (t) => {
+      t.objectStore(ST_PREORC).delete(client_uuid)
+      const ii = t.objectStore(ST_PREORC_ITENS).index('preorc_uuid')
+      reqP(ii.getAllKeys(client_uuid)).then(keys => keys.forEach(k => t.objectStore(ST_PREORC_ITENS).delete(k)))
+      const fi = t.objectStore(ST_FOTOS).index('rat_uuid')
+      reqP(fi.getAllKeys(client_uuid)).then(keys => keys.forEach(k => t.objectStore(ST_FOTOS).delete(k)))
+    })
+  }
+
+  // Materiais NECESSÁRIOS (sem preço — técnico nunca vê preço).
+  async function adicionarItemPreorc(client_uuid, m) {
+    const reg = {
+      id: uuid(), preorc_uuid: client_uuid,
+      produto_id: m.produto_id || null, codigo_produto: m.codigo_produto || null,
+      descricao: m.descricao || null, unidade: m.unidade || null,
+      quantidade: Number(m.quantidade) || 0, criado_em: agora(),
+    }
+    await tx([ST_PREORC_ITENS], 'readwrite', (t) => { t.objectStore(ST_PREORC_ITENS).add(reg) })
+    return reg.id
+  }
+  async function listarItensPreorc(client_uuid) {
+    const d = await db()
+    const idx = d.transaction(ST_PREORC_ITENS).objectStore(ST_PREORC_ITENS).index('preorc_uuid')
+    const arr = await reqP(idx.getAll(client_uuid))
+    return arr.sort((a, b) => (a.criado_em || '').localeCompare(b.criado_em || ''))
+  }
+  async function removerItemPreorc(id) {
+    return tx([ST_PREORC_ITENS], 'readwrite', (t) => t.objectStore(ST_PREORC_ITENS).delete(id))
+  }
+
   // ── Fotos (blobs guardados offline) ──
   async function adicionarFoto(client_uuid, blob, legenda) {
     const foto = { id: uuid(), rat_uuid: client_uuid, blob, legenda: legenda || null, url: null, enviada: 0, criado_em: agora() }
@@ -291,6 +389,8 @@
     novoRat, salvarRat, obterRat, listarRats, definirStatus, removerRat,
     adicionarFoto, listarFotos, removerFoto, marcarFotoEnviada, fotosPendentes, atualizarLegendaFoto,
     adicionarMaterial, listarMateriais, removerMaterial,
+    novoPreorc, salvarPreorc, obterPreorc, listarPreorc, definirStatusPreorc, removerPreorc,
+    adicionarItemPreorc, listarItensPreorc, removerItemPreorc,
     listarEventos, marcarEventoEnviado,
   }
 })()
