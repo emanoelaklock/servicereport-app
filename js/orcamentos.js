@@ -198,6 +198,7 @@
     document.getElementById('e-condicao').value = ''
     document.getElementById('e-servico-desc').value = preorc ? (preorc.descricao || '') : ''
     document.getElementById('e-servico-valor').value = ''
+    document.getElementById('e-assunto').value = ''
     document.getElementById('e-prazo').value = ''
     document.getElementById('e-obs-horario').checked = false
     document.getElementById('ed-status').textContent = ''
@@ -244,6 +245,7 @@
     document.getElementById('e-condicao').value = o.condicao_pagamento || ''
     document.getElementById('e-servico-desc').value = o.servico_descricao || ''
     document.getElementById('e-servico-valor').value = (o.servico_valor != null && Number(o.servico_valor) !== 0) ? o.servico_valor : ''
+    document.getElementById('e-assunto').value = o.assunto || ''
     document.getElementById('e-prazo').value = o.prazo_execucao || ''
     syncObsHorarioCheckbox()
     document.getElementById('ed-status').textContent = `Nº ${o.numero} · ${STATUS_LABEL[o.status] || o.status}`
@@ -347,6 +349,7 @@
       cliente_id: cliId,
       comercial_id: user.id,
       pre_orcamento_id: cur.pre_orcamento_id || null,
+      assunto: document.getElementById('e-assunto').value.trim() || null,
       servico_descricao: servDesc || null,
       servico_valor: servVal,
       prazo_execucao: document.getElementById('e-prazo').value.trim() || null,
@@ -405,7 +408,7 @@
   }
 
   function setEditorEnabled(on) {
-    ['e-cliente-busca', 'e-servico-desc', 'e-servico-valor', 'e-prazo', 'e-obs-horario', 'e-observacoes', 'e-condicao', 'mat-busca', 'add-material', 'add-avulso']
+    ['e-cliente-busca', 'e-assunto', 'e-servico-desc', 'e-servico-valor', 'e-prazo', 'e-obs-horario', 'e-observacoes', 'e-condicao', 'mat-busca', 'add-material', 'add-avulso']
       .forEach(id => { const e = document.getElementById(id); if (e) e.disabled = !on })
     document.querySelectorAll('#tb-material input').forEach(i => { i.disabled = !on })
     document.querySelectorAll('#tb-material .it-x').forEach(b => { b.style.display = on ? '' : 'none' })
@@ -508,150 +511,193 @@
     const total = servVal + totMat
     const hasServico = !!(o.servico_descricao && o.servico_descricao.trim()) || servVal > 0
     const hasMateriais = mats.length > 0
+    const numero = String(o.numero).padStart(3, '0')
+
+    // Serviço: 1ª linha = resumo (destaque); demais linhas = bullets.
+    const linhas = (o.servico_descricao || '').split('\n').map(s => s.trim()).filter(Boolean)
+    const lead = linhas[0] || ''
+    const bullets = linhas.slice(1).map(b => b.replace(/^[-•·*]\s*/, ''))
 
     const meta = [['Emissão', dmy(o.data_envio || o.criado_em)], ['Validade', '15 dias']]
     if (o.prazo_execucao) meta.push(['Prazo de execução', esc(o.prazo_execucao)])
 
-    const escopo = hasServico ? `
+    const servicoSec = hasServico ? `
       <section class="sec">
-        <div class="sh"><span class="dot"></span><span class="t">Escopo do serviço</span></div>
-        <div class="scope">
-          <div class="scope-desc">${nl2br(o.servico_descricao || '')}</div>
-          <div class="scope-val"><span class="k">Valor do serviço</span><span class="v num">${money(servVal)}</span></div>
+        <div class="eyebrow">Serviços</div>
+        <div class="serv">
+          <div class="serv-d">
+            ${lead ? `<p class="lead">${esc(lead)}</p>` : ''}
+            ${bullets.length ? `<ul>${bullets.map(b => `<li>${esc(b)}</li>`).join('')}</ul>` : ''}
+          </div>
+          <div class="serv-v"><div class="vk">Valor dos serviços</div><div class="vv num">${money(servVal)}</div></div>
         </div>
       </section>` : ''
 
-    const materiais = hasMateriais ? `
+    const matRows = mats.map((m, i) => {
+      const q = Number(m.quantidade) || 0, p = Number(m.preco_unitario) || 0, sem = p === 0
+      return `<tr>
+        <td class="c idx">${i + 1}</td>
+        <td class="l">${esc(m.descricao || '—')}</td>
+        <td class="c">${esc(m.unidade || '—')}</td>
+        <td class="c num">${q.toLocaleString('pt-BR', { maximumFractionDigits: 3 })}</td>
+        <td class="r num${sem ? ' dash' : ''}">${sem ? '—' : money(p)}</td>
+        <td class="r tot num${sem ? ' dash' : ''}">${sem ? '—' : money(q * p)}</td></tr>`
+    }).join('')
+    const materiaisSec = hasMateriais ? `
       <section class="sec">
-        <div class="sh"><span class="dot"></span><span class="t">Materiais</span></div>
+        <div class="eyebrow">Materiais</div>
         <table>
-          <colgroup><col style="width:44%"><col style="width:9%"><col style="width:11%"><col style="width:18%"><col style="width:18%"></colgroup>
-          <thead><tr><th class="l">Descrição</th><th class="c">Un.</th><th class="c">Qtd</th><th>Valor unit.</th><th>Total</th></tr></thead>
-          <tbody>${mats.map(m => { const q = Number(m.quantidade) || 0, p = Number(m.preco_unitario) || 0; return `
-            <tr><td class="l">${nl2br(m.descricao || '—')}</td><td class="c">${esc(m.unidade || '—')}</td><td class="c num">${q.toLocaleString('pt-BR', { maximumFractionDigits: 3 })}</td><td class="unit num">${money(p)}</td><td class="tot num">${money(q * p)}</td></tr>`
-    }).join('')}</tbody>
+          <colgroup><col style="width:7%"><col style="width:43%"><col style="width:8%"><col style="width:10%"><col style="width:16%"><col style="width:16%"></colgroup>
+          <thead><tr><th class="c">Item</th><th class="l">Descrição</th><th class="c">Un.</th><th class="c">Qtd</th><th class="r">Vlr. Unit.</th><th class="r">Total</th></tr></thead>
+          <tbody>${matRows}</tbody>
         </table>
       </section>` : ''
 
-    const subs = (hasServico && hasMateriais) ? `
-      <div class="row"><span>Subtotal · Serviços</span><span class="v num">${money(servVal)}</span></div>
-      <div class="row"><span>Subtotal · Materiais</span><span class="v num">${money(totMat)}</span></div>` : ''
-    const resumo = `
-      <div class="summary"><div class="box">
-        ${subs}
-        <div class="total"><span class="l">Total geral</span><span class="v num">${money(total)}</span></div>
-      </div></div>`
+    const resumoSec = (hasServico || hasMateriais) ? `
+      <div class="mat-foot">
+        <div class="obs-note">${hasMateriais ? 'Observação: Materiais inclusos para execução do serviço.' : ''}</div>
+        <div class="resumo">
+          ${hasServico ? `<div class="rrow"><span>Serviços</span><span class="num">${money(servVal)}</span></div>` : ''}
+          ${hasMateriais ? `<div class="rrow"><span>Materiais</span><span class="num">${money(totMat)}</span></div>` : ''}
+          <div class="rtot"><span>Total</span><span class="rtv num">${money(total)}</span></div>
+        </div>
+      </div>` : ''
 
-    const temCond = !!(o.condicao_pagamento || o.observacoes)
-    const condTerms = `
-      ${o.condicao_pagamento ? `<div class="trow"><span class="k">Forma de pagamento</span><span class="v">${esc(o.condicao_pagamento)}</span></div>` : ''}
-      <div class="trow"><span class="k">Valor</span><span class="v num">${money(total)}</span></div>`
-    const condObs = temCond ? `
+    const obsParas = (o.observacoes || '').split('\n').map(s => s.trim()).filter(Boolean).map(p => `<p>${esc(p)}</p>`).join('')
+    const condSec = `
       <section class="sec two">
         <div class="col">
-          <div class="sh"><span class="dot"></span><span class="t">Condições comerciais</span></div>
-          <div class="terms">${condTerms}</div>
+          <div class="eyebrow">Condições comerciais</div>
+          <div class="trow"><span class="k">Forma de pagamento</span><span class="v">${esc(o.condicao_pagamento || '—')}</span></div>
+          <div class="trow"><span class="k">Validade da proposta</span><span class="v">15 dias</span></div>
         </div>
         <div class="col">
-          <div class="sh"><span class="dot"></span><span class="t">Observações</span></div>
-          <p class="obs-text">${o.observacoes ? nl2br(o.observacoes) : '—'}</p>
+          <div class="eyebrow">Observações</div>
+          <div class="obs-text">${obsParas || '<p>—</p>'}</div>
         </div>
-      </section>` : ''
+      </section>`
 
     return `<!DOCTYPE html><html lang="pt-BR"><head><meta charset="UTF-8">
-<title>Orçamento Nº ${esc(o.numero)} — ${esc(cli.nome || 'Cliente')}</title>
+<title>Orçamento Nº ${esc(numero)} — ${esc(cli.nome || 'Cliente')}</title>
 <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
 <style>
-:root{--navy:#1B2A4A;--ink:#1d2533;--gray:#6B7280;--line:#E5E7EB;--line-soft:#F1F2F4;--card:#F8FAFC;--paper:#fff;}
+:root{--navy:#1B2A4A;--red:#BE1622;--ink:#1d2533;--gray:#6B7280;--line:#E5E7EB;}
 *{box-sizing:border-box;margin:0;padding:0;}
 html,body{background:#e7eaef;}
-body{font-family:'Inter',system-ui,sans-serif;color:var(--ink);-webkit-font-smoothing:antialiased;font-variant-numeric:tabular-nums;line-height:1.55;-webkit-print-color-adjust:exact;print-color-adjust:exact;}
+body{font-family:'Inter',system-ui,sans-serif;color:var(--ink);-webkit-font-smoothing:antialiased;font-variant-numeric:tabular-nums;line-height:1.5;-webkit-print-color-adjust:exact;print-color-adjust:exact;}
 .num{font-variant-numeric:tabular-nums;}
-.page{width:794px;min-height:1123px;margin:30px auto;background:var(--paper);padding:48px 60px 26px;position:relative;display:flex;flex-direction:column;box-shadow:0 24px 64px rgba(20,30,55,.18);}
-.head{display:flex;justify-content:space-between;align-items:flex-start;gap:32px;padding-bottom:20px;border-bottom:1.5px solid #d3d9e2;}
-.brand{display:flex;align-items:center;gap:13px;}
-.logo{width:46px;height:46px;border-radius:11px;background:var(--navy);color:#fff;display:grid;place-items:center;font-weight:800;font-size:19px;letter-spacing:-1px;flex:none;}
-.brand .nm{font-size:21px;font-weight:700;letter-spacing:-.4px;color:var(--ink);line-height:1;}
-.brand .tg{font-size:11.5px;font-weight:500;color:var(--gray);margin-top:3px;}
-.firm{text-align:right;font-size:10.5px;line-height:1.7;color:var(--gray);}
-.firm b{display:block;color:var(--ink);font-weight:600;margin-bottom:2px;}
-.intro{margin-top:8px;}
-.intro-head{display:flex;justify-content:space-between;align-items:flex-start;gap:24px;}
-.intro-head h1{font-size:26px;font-weight:700;letter-spacing:-.8px;color:var(--ink);line-height:1;}
-.docno{text-align:right;}
-.docno .lbl{font-size:10.5px;font-weight:600;letter-spacing:1.2px;text-transform:uppercase;color:var(--gray);}
-.docno .no{font-size:20px;font-weight:700;color:#5a6884;letter-spacing:-.4px;display:block;margin-top:2px;}
-.meta{display:flex;gap:52px;margin-top:14px;}
-.meta .k{font-size:10px;font-weight:600;letter-spacing:1px;text-transform:uppercase;color:var(--gray);}
-.meta .v{font-size:14px;font-weight:600;color:var(--ink);margin-top:5px;}
-.client{margin-top:16px;padding-top:15px;border-top:1px solid var(--line);display:flex;justify-content:space-between;align-items:flex-end;gap:40px;}
-.eyebrow{font-size:10px;font-weight:600;letter-spacing:1.2px;text-transform:uppercase;color:var(--gray);margin-bottom:7px;}
-.client .name{font-size:17px;font-weight:700;letter-spacing:-.2px;color:var(--ink);line-height:1.2;}
-.client .det{text-align:right;font-size:11.5px;line-height:1.7;color:var(--gray);}
-.sh{display:flex;align-items:center;gap:9px;margin-bottom:11px;}
-.sh .dot{width:7px;height:7px;border-radius:50%;background:#8a93a6;flex:none;display:inline-block;}
-.sh .t{font-size:12.5px;font-weight:600;letter-spacing:.2px;color:var(--ink);}
-.sec{margin-top:22px;}
-.scope{background:var(--card);border-radius:12px;padding:15px 22px;}
-.scope-desc{font-size:13px;line-height:1.7;color:#3b3f46;}
-.scope-val{display:flex;justify-content:space-between;align-items:baseline;margin-top:14px;padding-top:13px;border-top:1px solid var(--line);}
-.scope-val .k{font-size:10.5px;font-weight:600;letter-spacing:1px;text-transform:uppercase;color:var(--gray);}
-.scope-val .v{font-size:18px;font-weight:700;color:var(--ink);}
+.page{width:794px;min-height:1123px;margin:30px auto;background:#fff;padding:46px 56px 24px;display:flex;flex-direction:column;box-shadow:0 24px 64px rgba(20,30,55,.18);}
+.eyebrow{font-size:10px;font-weight:600;letter-spacing:1.2px;text-transform:uppercase;color:var(--gray);margin-bottom:11px;}
+
+/* header */
+.head{display:flex;justify-content:space-between;align-items:center;gap:32px;padding-bottom:18px;border-bottom:1px solid var(--line);}
+.brand{display:flex;align-items:center;gap:14px;}
+.logo{width:50px;height:50px;border-radius:12px;background:var(--navy);color:#fff;display:grid;place-items:center;font-weight:800;font-size:20px;letter-spacing:-1px;flex:none;}
+.brand .nm{font-size:25px;font-weight:800;letter-spacing:.4px;color:var(--ink);line-height:1;}
+.firm{text-align:right;font-size:10.5px;line-height:1.65;color:var(--gray);}
+.firm b{display:block;color:var(--ink);font-weight:700;font-size:11px;margin-bottom:3px;}
+.firm .tel{display:block;color:var(--ink);font-weight:700;font-size:11.5px;margin-top:3px;}
+
+/* título */
+.doc{display:flex;justify-content:space-between;align-items:flex-start;gap:24px;margin-top:22px;padding-bottom:16px;border-bottom:1px solid var(--line);}
+.doc h1{font-size:27px;font-weight:800;letter-spacing:-.4px;color:var(--ink);line-height:1.05;}
+.doc h1 .no{color:var(--red);}
+.doc .sub{font-size:13px;color:var(--gray);margin-top:7px;max-width:430px;line-height:1.4;}
+.meta{display:flex;}
+.meta .mi{padding:0 16px;}
+.meta .mi+.mi{border-left:1px solid #e4e7ec;}
+.meta .mi:last-child{padding-right:0;}
+.meta .k{font-size:9px;font-weight:600;letter-spacing:1px;text-transform:uppercase;color:var(--gray);}
+.meta .v{font-size:12.5px;font-weight:600;color:var(--ink);margin-top:6px;white-space:nowrap;}
+
+/* cliente */
+.cli{display:flex;margin-top:20px;padding-bottom:16px;border-bottom:1px solid var(--line);}
+.cli-l{flex:1;padding-right:32px;}
+.cli .cname{font-size:16px;font-weight:700;letter-spacing:-.2px;color:var(--ink);line-height:1.25;}
+.cli-r{flex:1;border-left:1px solid var(--line);padding-left:32px;font-size:11px;line-height:1.75;color:var(--gray);}
+
+.sec{margin-top:24px;}
+
+/* serviços */
+.serv{display:flex;gap:32px;align-items:flex-start;}
+.serv-d{flex:1;min-width:0;}
+.serv .lead{font-size:12.5px;font-weight:700;color:var(--ink);line-height:1.55;margin-bottom:11px;}
+.serv ul{list-style:none;}
+.serv li{position:relative;padding-left:16px;font-size:12px;color:#3f444c;line-height:1.5;margin-bottom:6px;}
+.serv li:before{content:"•";position:absolute;left:2px;color:#9aa1b0;}
+.serv-v{width:190px;flex:none;text-align:right;padding-top:2px;}
+.serv-v .vk{font-size:9.5px;font-weight:600;letter-spacing:.9px;text-transform:uppercase;color:var(--gray);margin-bottom:7px;}
+.serv-v .vv{font-size:21px;font-weight:800;letter-spacing:-.4px;color:var(--red);}
+
+/* materiais */
 table{width:100%;border-collapse:collapse;}
-thead th{font-size:10px;font-weight:600;letter-spacing:.8px;text-transform:uppercase;color:var(--gray);padding:0 10px 13px;border-bottom:1px solid var(--line);text-align:right;}
-thead th.l{text-align:left;padding-left:2px;}
+thead th{font-size:9.5px;font-weight:600;letter-spacing:.6px;text-transform:uppercase;color:var(--gray);background:#f4f5f7;padding:9px 10px;text-align:right;}
+thead th.l{text-align:left;}
 thead th.c{text-align:center;}
-tbody td{font-size:12.5px;padding:9px 10px;border-bottom:1px solid var(--line-soft);text-align:right;color:var(--ink);}
-tbody td.l{text-align:left;padding-left:2px;font-weight:500;line-height:1.45;}
+tbody td{font-size:11.5px;padding:8px 10px;text-align:right;color:var(--ink);border-bottom:1px solid #eef0f3;}
+tbody tr:nth-child(even) td{background:#f8f9fb;}
+tbody td.l{text-align:left;font-weight:500;line-height:1.4;}
 tbody td.c{text-align:center;color:var(--gray);}
-tbody td.unit{color:var(--gray);}
+tbody td.idx{color:#9aa1b0;}
 tbody td.tot{font-weight:700;}
-.summary{display:flex;justify-content:flex-end;margin-top:16px;}
-.summary .box{width:340px;}
-.summary .row{display:flex;justify-content:space-between;align-items:baseline;font-size:13px;padding:9px 0;color:var(--gray);}
-.summary .row .v{color:var(--ink);font-weight:700;}
-.summary .total{display:flex;justify-content:space-between;align-items:center;margin-top:11px;padding:14px 18px;background:var(--navy);border-radius:12px;color:#fff;}
-.summary .total .l{font-size:11px;font-weight:700;letter-spacing:1.4px;text-transform:uppercase;opacity:.82;}
-.summary .total .v{font-size:25px;font-weight:800;letter-spacing:-.6px;}
-.two{display:flex;gap:42px;align-items:flex-start;}
+tbody td.dash{color:#b8bcc4;}
+
+/* resumo */
+.mat-foot{display:flex;justify-content:space-between;align-items:flex-start;gap:30px;margin-top:13px;}
+.mat-foot .obs-note{font-size:10px;color:var(--gray);padding-top:6px;}
+.resumo{width:300px;flex:none;}
+.rrow{display:flex;justify-content:space-between;font-size:13px;padding:7px 0;color:var(--gray);}
+.rrow span:last-child{color:var(--ink);font-weight:700;}
+.rtot{display:flex;justify-content:space-between;align-items:center;margin-top:7px;padding-top:13px;border-top:1.5px solid #d3d9e2;}
+.rtot span:first-child{font-size:14px;font-weight:700;color:var(--ink);}
+.rtot .rtv{font-size:22px;font-weight:800;letter-spacing:-.4px;color:var(--red);}
+
+/* condições + observações */
+.two{display:flex;gap:48px;align-items:flex-start;}
 .two .col{flex:1;min-width:0;}
-.trow{display:flex;justify-content:space-between;align-items:baseline;font-size:12.5px;padding:9px 0;border-bottom:1px solid var(--line-soft);}
+.trow{display:flex;justify-content:space-between;align-items:baseline;font-size:12px;padding:10px 0;border-bottom:1px solid #f1f2f4;}
 .trow:last-child{border-bottom:none;}
-.trow .k{color:var(--gray);font-weight:500;}
+.trow .k{color:var(--gray);font-weight:500;text-transform:uppercase;font-size:9.5px;letter-spacing:.6px;}
 .trow .v{color:var(--ink);font-weight:600;}
-.obs-text{font-size:11.5px;line-height:1.7;color:#4a4e56;}
+.obs-text p{font-size:11px;line-height:1.6;color:#4a4e56;margin-bottom:9px;}
+.obs-text p:last-child{margin-bottom:0;}
+
+/* rodapé */
 .foot{margin-top:auto;padding-top:16px;border-top:1px solid var(--line);display:flex;justify-content:space-between;align-items:center;font-size:10px;color:var(--gray);}
-.foot b{color:var(--ink);font-weight:600;}
 @media print{@page{size:A4;margin:0;}html,body{background:#fff;}.page{box-shadow:none;margin:0;width:210mm;min-height:297mm;}}
 </style></head>
 <body>
 <div class="page">
   <header class="head">
-    <div class="brand"><div class="logo">TS</div><div>
-      <div class="nm">Traders Service</div>
-      <div class="tg">Infraestrutura · Redes · Segurança Eletrônica</div></div></div>
+    <div class="brand"><div class="logo">TS</div><div class="nm">TRADERS SERVICE</div></div>
     <div class="firm"><b>Traders Service Soluções em Tecnologia LTDA</b>
-      CNPJ 10.923.494/0001-30 · IE 255882904 · IM 96456<br>
-      Rua Dona Francisca, 8300 — Via Trieste, Prédio 2<br>
-      Zona Industrial Norte · Joinville-SC · 89219-600<br>(47) 3025-2660</div>
+      CNPJ 10.923.494/0001-30 &nbsp;|&nbsp; IE 255882904 &nbsp;|&nbsp; IM 96456<br>
+      Rua Dona Francisca, 8300 – Vila Trieste, Prédio 2<br>
+      Zona Industrial Norte – Joinville/SC – CEP 89219-600
+      <span class="tel">(47) 3025-2660</span></div>
   </header>
-  <section class="intro">
-    <div class="intro-head"><h1>Proposta Comercial</h1>
-      <div class="docno"><span class="lbl">Orçamento</span><span class="no">Nº ${esc(o.numero)}</span></div></div>
-    <div class="meta">${meta.map(([k, v]) => `<div><div class="k">${esc(k)}</div><div class="v">${v}</div></div>`).join('')}</div>
+
+  <section class="doc">
+    <div>
+      <h1>ORÇAMENTO <span class="no">Nº ${esc(numero)}</span></h1>
+      ${o.assunto ? `<div class="sub">${esc(o.assunto)}</div>` : ''}
+    </div>
+    <div class="meta">${meta.map(([k, v]) => `<div class="mi"><div class="k">${esc(k)}</div><div class="v">${v}</div></div>`).join('')}</div>
   </section>
-  <div class="client">
-    <div><div class="eyebrow">Cliente</div><div class="name">${esc(titleCase(cli.nome) || '—')}</div></div>
-    <div class="det">${[cli.documento ? 'CNPJ ' + esc(cli.documento) : '', cli.endereco ? esc(titleCase(cli.endereco)) : ''].filter(Boolean).join('<br>') || '&nbsp;'}</div>
-  </div>
-  ${escopo}
-  ${materiais}
-  ${resumo}
-  ${condObs}
+
+  <section class="cli">
+    <div class="cli-l"><div class="eyebrow">Cliente</div><div class="cname">${esc(titleCase(cli.nome) || '—')}</div></div>
+    <div class="cli-r">${[cli.documento ? 'CNPJ ' + esc(cli.documento) : '', cli.endereco ? esc(titleCase(cli.endereco)) : ''].filter(Boolean).join('<br>') || '&nbsp;'}</div>
+  </section>
+
+  ${servicoSec}
+  ${materiaisSec}
+  ${resumoSec}
+  ${condSec}
+
   <footer class="foot">
-    <span><b>Traders Service</b> · (47) 3025-2660 · comercial@tsrv.com.br · Joinville-SC</span>
-    <span>Gerado em ${dmy(new Date().toISOString())} por ${esc(geradoPor || '')} · Página 1 de 1</span>
+    <span>(47) 3025-2660</span><span>comercial@tsrv.com.br</span><span>www.tsrv.com.br</span><span>Página 1 de 1</span>
   </footer>
 </div>
 <script>window.onload=function(){var p=function(){window.focus();window.print();};(document.fonts&&document.fonts.ready?document.fonts.ready:Promise.resolve()).then(function(){setTimeout(p,300)});};</script>

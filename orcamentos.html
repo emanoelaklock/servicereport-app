@@ -106,6 +106,10 @@
               <label>Origem</label>
               <input type="text" id="e-origem" readonly value="Novo (sem pré-orçamento)" style="background:var(--sur2)">
             </div>
+            <div class="fg full">
+              <label>Assunto (subtítulo do orçamento)</label>
+              <input type="text" id="e-assunto" placeholder="Ex.: Instalação de infraestrutura de rede Cat6A para sistema de CFTV">
+            </div>
             <div class="fg">
               <label>Prazo de execução</label>
               <input type="text" id="e-prazo" placeholder="Ex.: 5 dias úteis">
@@ -126,7 +130,7 @@
           <div class="it-group">
             <h4>Escopo do serviço</h4>
             <div class="fg" style="margin-bottom:10px">
-              <textarea id="e-servico-desc" rows="3" placeholder="Descrição do serviço a ser executado…"></textarea>
+              <textarea id="e-servico-desc" rows="5" placeholder="1ª linha = resumo do serviço (em destaque).&#10;Demais linhas = itens em tópicos, um por linha. Ex.:&#10;Lançamento de cabo de rede Cat6A até o ponto da câmera&#10;Conectorização dos pontos nas extremidades&#10;Certificação conforme norma ANSI/TIA-568.2-D"></textarea>
             </div>
             <div class="prod-add" style="grid-template-columns:1fr 160px">
               <div class="fg" style="margin-bottom:0"><label>Valor do serviço (R$)</label><input type="number" id="e-servico-valor" inputmode="decimal" min="0" step="any" placeholder="0,00"></div>
