@@ -565,12 +565,12 @@
         </table>
       </section>` : ''
 
+    const bothGroups = hasServico && hasMateriais
     const resumoSec = (hasServico || hasMateriais) ? `
       <div class="mat-foot">
         <div class="obs-note">${hasMateriais ? 'Observação: Materiais inclusos para execução do serviço.' : ''}</div>
         <div class="resumo">
-          ${hasServico ? `<div class="rrow"><span>Serviços</span><span class="num">${money(servVal)}</span></div>` : ''}
-          ${hasMateriais ? `<div class="rrow"><span>Materiais</span><span class="num">${money(totMat)}</span></div>` : ''}
+          ${bothGroups ? `<div class="rrow"><span>Serviços</span><span class="num">${money(servVal)}</span></div><div class="rrow"><span>Materiais</span><span class="num">${money(totMat)}</span></div>` : ''}
           <div class="rtot"><span>Total</span><span class="rtv num">${money(total)}</span></div>
         </div>
       </div>` : ''
