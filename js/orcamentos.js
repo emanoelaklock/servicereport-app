@@ -562,7 +562,7 @@ body{font-family:'Inter',system-ui,sans-serif;color:var(--ink);-webkit-font-smoo
 .brand .tg{font-size:11.5px;font-weight:500;color:var(--gray);margin-top:3px;}
 .firm{text-align:right;font-size:10.5px;line-height:1.7;color:var(--gray);}
 .firm b{display:block;color:var(--ink);font-weight:600;margin-bottom:2px;}
-.intro{margin-top:20px;}
+.intro{margin-top:8px;}
 .intro-head{display:flex;justify-content:space-between;align-items:flex-end;gap:24px;}
 .intro-head h1{font-size:26px;font-weight:700;letter-spacing:-.8px;color:var(--ink);line-height:1;}
 .docno{text-align:right;}
