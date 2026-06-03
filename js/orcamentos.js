@@ -535,13 +535,13 @@
 
     const servicoSec = hasServico ? `
       <section class="sec">
-        <div class="eyebrow">Serviços</div>
-        <div class="serv">
-          <div class="serv-d">
+        <div class="eyebrow">Serviço</div>
+        <div class="scope">
+          <div class="scope-desc">
             ${lead ? `<p class="lead">${esc(lead)}</p>` : ''}
             ${bullets.length ? `<ul>${bullets.map(b => `<li>${esc(b)}</li>`).join('')}</ul>` : ''}
           </div>
-          <div class="serv-v"><div class="vk">Valor dos serviços</div><div class="vv num">${money(servVal)}</div></div>
+          <div class="scope-val"><span class="k">Valor do serviço</span><span class="v num">${money(servVal)}</span></div>
         </div>
       </section>` : ''
 
@@ -631,16 +631,16 @@ body{font-family:'Inter',system-ui,sans-serif;color:var(--ink);-webkit-font-smoo
 
 .sec{margin-top:24px;}
 
-/* serviços */
-.serv{display:flex;gap:32px;align-items:flex-start;}
-.serv-d{flex:1;min-width:0;}
-.serv .lead{font-size:12.5px;font-weight:700;color:var(--ink);line-height:1.55;margin-bottom:11px;}
-.serv ul{list-style:none;}
-.serv li{position:relative;padding-left:16px;font-size:12px;color:#3f444c;line-height:1.5;margin-bottom:6px;}
-.serv li:before{content:"•";position:absolute;left:2px;color:#9aa1b0;}
-.serv-v{width:190px;flex:none;text-align:right;padding-top:2px;}
-.serv-v .vk{font-size:9.5px;font-weight:600;letter-spacing:.9px;text-transform:uppercase;color:var(--gray);margin-bottom:7px;}
-.serv-v .vv{font-size:21px;font-weight:800;letter-spacing:-.4px;color:var(--red);}
+/* serviço (card azul claro, valor abaixo da descrição) */
+.scope{background:#f2f6fc;border:1px solid #e6eef8;border-radius:12px;padding:16px 22px;}
+.scope-desc .lead{font-size:12.5px;font-weight:700;color:var(--ink);line-height:1.6;margin-bottom:9px;}
+.scope-desc .lead:last-child{margin-bottom:0;}
+.scope-desc ul{list-style:none;}
+.scope-desc li{position:relative;padding-left:16px;font-size:12px;color:#3f444c;line-height:1.5;margin-bottom:6px;}
+.scope-desc li:before{content:"•";position:absolute;left:2px;color:#9aa1b0;}
+.scope-val{display:flex;justify-content:space-between;align-items:baseline;margin-top:14px;padding-top:13px;border-top:1px solid #dde6f1;}
+.scope-val .k{font-size:10px;font-weight:600;letter-spacing:1px;text-transform:uppercase;color:var(--gray);}
+.scope-val .v{font-size:16px;font-weight:800;letter-spacing:-.2px;color:var(--red);}
 
 /* materiais */
 table{width:100%;border-collapse:collapse;}
@@ -662,8 +662,8 @@ tbody td.dash{color:#b8bcc4;}
 .rrow{display:flex;justify-content:space-between;font-size:13px;padding:7px 0;color:var(--gray);}
 .rrow span:last-child{color:var(--ink);font-weight:700;}
 .rtot{display:flex;justify-content:space-between;align-items:center;margin-top:7px;padding-top:13px;border-top:1.5px solid #d3d9e2;}
-.rtot span:first-child{font-size:14px;font-weight:700;color:var(--ink);}
-.rtot .rtv{font-size:22px;font-weight:800;letter-spacing:-.4px;color:var(--red);}
+.rtot span:first-child{font-size:13px;font-weight:700;color:var(--ink);}
+.rtot .rtv{font-size:17px;font-weight:800;letter-spacing:-.2px;color:var(--red);}
 
 /* condições + observações */
 .two{display:flex;gap:48px;align-items:flex-start;}
