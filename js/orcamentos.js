@@ -329,7 +329,7 @@
     const ts = servicoValor()
     const tm = somaMateriais()
     document.getElementById('tot-servico').value = money(ts)
-    document.getElementById('tot-material').textContent = money(tm)
+    document.getElementById('tot-material').value = money(tm)
     document.getElementById('rt-servico').textContent = money(ts)
     document.getElementById('rt-material').textContent = money(tm)
     document.getElementById('rt-total').textContent = money(ts + tm)

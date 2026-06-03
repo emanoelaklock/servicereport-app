@@ -162,7 +162,9 @@
               <thead><tr><th>Produto / descrição</th><th class="col-qtd">Qtd</th><th class="col-preco">Valor unit.</th><th class="col-sub">Subtotal</th><th class="col-x"></th></tr></thead>
               <tbody id="tb-material"></tbody>
             </table>
-            <div class="grp-tot">Subtotal materiais: <strong id="tot-material">—</strong></div>
+            <div style="display:flex;justify-content:flex-end;margin-top:12px">
+              <div class="fg" style="margin-bottom:0;width:180px;flex:none"><label>Subtotal materiais</label><input type="text" id="tot-material" readonly value="—" style="background:var(--sur2)"></div>
+            </div>
           </div>
         </div>
 
