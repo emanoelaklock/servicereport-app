@@ -547,7 +547,7 @@
 
     const meta = [['Emissão', dmy(o.data_envio || o.criado_em)]]
 
-    const servicoSec = hasServico ? `
+    const servicoSec = (lead || bullets.length) ? `
       <section class="sec">
         <div class="eyebrow">Serviço</div>
         <div class="scope">
@@ -555,7 +555,6 @@
             ${lead ? `<p class="lead">${esc(lead)}</p>` : ''}
             ${bullets.length ? `<ul>${bullets.map(b => `<li>${esc(b)}</li>`).join('')}</ul>` : ''}
           </div>
-          <div class="scope-val"><span class="k">Valor do serviço</span><span class="v num">${money(servVal)}</span></div>
         </div>
       </section>` : ''
 
@@ -577,7 +576,7 @@
       <div class="mat-foot">
         <div class="obs-note">${hasMateriais ? 'Observação: Materiais inclusos para execução do serviço.' : ''}</div>
         <div class="resumo">
-          ${bothGroups ? `<div class="rrow"><span>Serviços</span><span class="num">${money(servVal)}</span></div><div class="rrow"><span>Materiais</span><span class="num">${money(totMat)}</span></div>` : ''}
+          ${bothGroups ? `<div class="rrow"><span>Valor do serviço</span><span class="num">${money(servVal)}</span></div><div class="rrow"><span>Materiais</span><span class="num">${money(totMat)}</span></div>` : ''}
           <div class="rtot"><span>Total</span><span class="rtv num">${money(total)}</span></div>
         </div>
       </div>` : ''
@@ -629,7 +628,7 @@
     const blocks = []
     blocks.push({ t: 'html', h: introHtml })
     blocks.push({ t: 'html', h: clienteHtml })
-    if (hasServico) blocks.push({ t: 'html', h: servicoSec })
+    if (servicoSec) blocks.push({ t: 'html', h: servicoSec })
     if (hasMateriais) {
       blocks.push({ t: 'tstart', eyebrow: 'Materiais', col: colgroupHtml, thead: theadHtml })
       matRowsArr.forEach(r => blocks.push({ t: 'row', h: r }))
