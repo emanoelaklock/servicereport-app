@@ -27,9 +27,42 @@
   .orc-total{font-weight:600}
 
   /* Editor */
-  .ed-card{background:var(--sur);border:1px solid var(--bd);border-radius:14px;padding:18px;box-shadow:var(--sh);margin-bottom:16px}
-  .ed-grid{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+  .ed-wrap{max-width:1120px;margin:0 auto;padding-bottom:96px}
+  .ed-card{background:var(--sur);border:1px solid var(--bd);border-radius:14px;padding:22px 24px;box-shadow:var(--sh);margin-bottom:18px}
+  /* Cabeçalho de card com ponto navy */
+  .card-h{display:flex;align-items:center;gap:9px;margin-bottom:16px}
+  .card-h .dot{width:7px;height:7px;border-radius:50%;background:var(--ac)}
+  .card-h .t{font-size:13px;font-weight:700;letter-spacing:.2px;color:var(--tx)}
+  .ed-grid{display:grid;grid-template-columns:1fr 1fr;gap:18px}
   .ed-grid .full{grid-column:1/-1}
+  /* Serviço: descrição + coluna valor/subtotal */
+  .svc{display:grid;grid-template-columns:1fr 230px;gap:22px;align-items:start}
+  .hint{font-size:11px;color:var(--tx3);margin-top:5px}
+  /* Caixa de subtotal */
+  .subtotal-box{background:#F7F9FC;border:1px solid var(--bd);border-radius:11px;padding:12px 14px}
+  .subtotal-box .k{font-size:9.5px;font-weight:600;letter-spacing:.7px;text-transform:uppercase;color:var(--tx3)}
+  .subtotal-box .v{font-size:18px;font-weight:800;color:var(--tx);margin-top:5px;font-family:var(--mono)}
+  .matfoot{display:flex;justify-content:flex-end;margin-top:14px}
+  .matfoot .subtotal-box{min-width:200px}
+  /* Cláusulas padrão */
+  .clauses-wrap{margin-top:18px}
+  .clauses-wrap > label{display:block;font-size:12px;font-weight:600;color:var(--tx2);margin-bottom:8px}
+  .clauses{display:flex;flex-direction:column;gap:10px}
+  .ck{display:flex;align-items:flex-start;gap:10px;font-size:13px;color:var(--tx);line-height:1.4;cursor:pointer}
+  .ck input{margin-top:2px;width:15px;height:15px;accent-color:var(--ac);flex:none}
+  /* Barra fixa de totais + ações */
+  .totalbar{position:fixed;left:var(--sb);right:0;bottom:0;background:#fff;border-top:1px solid var(--bd);padding:12px 26px;display:flex;align-items:center;gap:20px;box-shadow:0 -6px 20px rgba(20,30,55,.06);z-index:20;transition:left .2s ease}
+  body:has(.sidebar.collapsed) .totalbar{left:var(--sb-col)}
+  .totalbar .sums{font-size:12.5px;color:var(--tx3)}
+  .totalbar .sums b{color:var(--tx);font-weight:700;font-family:var(--mono)}
+  .totalbar .tot{font-size:13px;color:var(--tx3)}
+  .totalbar .tot b{font-size:22px;color:var(--tx);font-weight:800;letter-spacing:-.5px;margin-left:6px;font-family:var(--mono)}
+  .totalbar .actions{margin-left:auto;display:flex;align-items:center;gap:9px;flex-wrap:wrap;justify-content:flex-end}
+  @media (max-width:880px){
+    .svc{grid-template-columns:1fr}
+    .totalbar{left:0;flex-wrap:wrap;gap:10px;padding:10px 14px}
+    .totalbar .actions{margin-left:0;width:100%}
+  }
   .fg label{display:block;font-size:12px;font-weight:600;color:var(--tx2);margin-bottom:5px}
   .fg input,.fg textarea,.fg select{width:100%;padding:9px 11px;border:1px solid var(--bd);border-radius:8px;font:inherit;font-size:14px;outline:none;background:#fff}
   .fg input:focus,.fg textarea:focus,.fg select:focus{border-color:var(--ac);box-shadow:0 0 0 3px var(--acl)}
@@ -55,8 +88,10 @@
   .it-group{margin-bottom:18px}
   .it-group h4{font-size:13px;font-weight:700;color:var(--tx);margin:0 0 8px}
   .it-table{width:100%;border-collapse:collapse;font-size:13px}
-  .it-table th{text-align:left;font-size:11px;text-transform:uppercase;color:var(--tx3);padding:6px 8px;border-bottom:1px solid var(--bd)}
-  .it-table td{padding:5px 8px;border-bottom:1px solid var(--bd);vertical-align:middle}
+  .it-table th{text-align:right;font-size:10px;letter-spacing:.5px;text-transform:uppercase;color:var(--tx3);padding:0 8px 9px;border-bottom:1px solid var(--bd)}
+  .it-table th:first-child{text-align:left}
+  .it-table th.col-qtd{text-align:center}
+  .it-table td{padding:6px 8px;border-bottom:1px solid var(--sur2);vertical-align:middle}
   .it-table input{width:100%;padding:6px 8px;border:1px solid var(--bd);border-radius:6px;font:inherit;font-size:13px}
   .it-table .col-qtd{width:90px}
   .it-table .col-preco{width:120px}
@@ -127,51 +162,46 @@
 
       <!-- EDITOR -->
       <div id="view-editor" style="display:none">
-        <div class="ed-card">
-          <div class="ed-grid">
-            <div class="fg">
-              <label>Cliente *</label>
-              <div class="ac">
-                <input type="text" id="e-cliente-busca" placeholder="Buscar cliente…" autocomplete="off">
-                <input type="hidden" id="e-cliente">
-                <div class="ac-list" id="e-cliente-list"></div>
+        <div class="ed-wrap">
+
+          <!-- Cliente -->
+          <div class="ed-card">
+            <div class="card-h"><span class="dot"></span><span class="t">Cliente</span></div>
+            <div class="ed-grid">
+              <div class="fg">
+                <label>Cliente *</label>
+                <div class="ac">
+                  <input type="text" id="e-cliente-busca" placeholder="Buscar cliente…" autocomplete="off">
+                  <input type="hidden" id="e-cliente">
+                  <div class="ac-list" id="e-cliente-list"></div>
+                </div>
+              </div>
+              <div class="fg">
+                <label>Origem</label>
+                <input type="text" id="e-origem" readonly value="Novo (sem pré-orçamento)" style="background:var(--sur2)">
               </div>
             </div>
-            <div class="fg">
-              <label>Origem</label>
-              <input type="text" id="e-origem" readonly value="Novo (sem pré-orçamento)" style="background:var(--sur2)">
-            </div>
-            <div class="fg">
-              <label>Prazo de execução</label>
-              <input type="text" id="e-prazo" placeholder="Ex.: 5 dias úteis">
-            </div>
-            <div class="fg full">
-              <label>Observações</label>
-              <textarea id="e-observacoes" rows="2" placeholder="Validade, horário de execução, condições…"></textarea>
-              <label style="display:flex;align-items:center;gap:8px;font-weight:400;margin-top:8px;cursor:pointer">
-                <input type="checkbox" id="e-obs-horario" style="width:auto">
-                <span>Serviço executado em horário comercial (segunda a sexta, das 7h às 17h).</span>
-              </label>
-            </div>
           </div>
-        </div>
 
-        <div class="ed-card">
-          <!-- Escopo do serviço (descrição livre + valor único) -->
-          <div class="it-group">
-            <h4>Serviço</h4>
-            <div class="fg" style="margin-bottom:10px">
-              <textarea id="e-servico-desc" rows="5" placeholder="1ª linha = resumo do serviço (em destaque).&#10;Demais linhas = itens em tópicos, um por linha. Ex.:&#10;Lançamento de cabo de rede Cat6A até o ponto da câmera&#10;Conectorização dos pontos nas extremidades&#10;Certificação conforme norma ANSI/TIA-568.2-D"></textarea>
-            </div>
-            <div style="display:flex;gap:20px;align-items:flex-end">
-              <div class="fg" style="margin-bottom:0;flex:1"><label>Valor do serviço (R$)</label><input type="number" id="e-servico-valor" inputmode="decimal" min="0" step="any" placeholder="0,00"></div>
-              <div class="fg" style="margin-bottom:0;width:180px;flex:none"><label>Subtotal serviços</label><input type="text" id="tot-servico" readonly value="—" style="background:var(--sur2)"></div>
+          <!-- Serviço -->
+          <div class="ed-card">
+            <div class="card-h"><span class="dot"></span><span class="t">Serviço</span></div>
+            <div class="svc">
+              <div class="fg" style="margin-bottom:0">
+                <label>Descrição</label>
+                <textarea id="e-servico-desc" rows="6" placeholder="1ª linha = resumo do serviço (em destaque).&#10;Demais linhas = itens em tópicos, um por linha. Ex.:&#10;Lançamento de cabo de rede Cat6A até o ponto da câmera&#10;Conectorização dos pontos nas extremidades&#10;Certificação conforme norma ANSI/TIA-568.2-D"></textarea>
+                <div class="hint">Aceita tópicos — comece a linha com “• ” ou “- ”. Vira lista no PDF.</div>
+              </div>
+              <div>
+                <div class="fg" style="margin-bottom:0"><label>Valor do serviço (R$)</label><input type="number" id="e-servico-valor" inputmode="decimal" min="0" step="any" placeholder="0,00"></div>
+                <div class="subtotal-box" style="margin-top:14px"><div class="k">Subtotal serviços</div><div class="v" id="tot-servico">—</div></div>
+              </div>
             </div>
           </div>
 
           <!-- Materiais -->
-          <div class="it-group">
-            <h4>Materiais</h4>
+          <div class="ed-card">
+            <div class="card-h"><span class="dot"></span><span class="t">Materiais</span></div>
             <div class="mat-search">
               <div class="ac">
                 <span class="mat-ic">🔍</span>
@@ -186,15 +216,14 @@
               <thead><tr><th>Produto / descrição</th><th class="col-qtd">Qtd</th><th class="col-preco">Valor unit.</th><th class="col-sub">Subtotal</th><th class="col-x"></th></tr></thead>
               <tbody id="tb-material"></tbody>
             </table>
-            <div style="display:flex;justify-content:flex-end;margin-top:12px">
-              <div class="fg" style="margin-bottom:0;width:180px;flex:none"><label>Subtotal materiais</label><input type="text" id="tot-material" readonly value="—" style="background:var(--sur2)"></div>
+            <div class="matfoot">
+              <div class="subtotal-box"><div class="k">Subtotal materiais</div><div class="v" id="tot-material">—</div></div>
             </div>
           </div>
-        </div>
 
-        <div class="ed-card">
-          <div class="it-group">
-            <h4>Fotos</h4>
+          <!-- Fotos -->
+          <div class="ed-card">
+            <div class="card-h"><span class="dot"></span><span class="t">Fotos</span></div>
             <div id="fotos-hint" class="muted" style="display:none;margin-bottom:8px">Salve o orçamento para poder anexar fotos.</div>
             <input type="file" id="e-foto-input" accept="image/*" multiple style="display:none">
             <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px">
@@ -203,24 +232,41 @@
             </div>
             <div class="thumbs" id="e-thumbs"></div>
           </div>
-        </div>
 
-        <div class="ed-card">
-          <div class="ed-grid">
-            <div class="fg">
-              <label>Condição de pagamento</label>
-              <input type="text" id="e-condicao" placeholder="Ex.: 50% entrada, 50% na entrega / 30 dias">
-            </div>
-            <div class="fg">
-              <label>&nbsp;</label>
-              <div class="ed-totais">
-                <div>Serviços: <span id="rt-servico">—</span> &nbsp;·&nbsp; Materiais: <span id="rt-material">—</span></div>
-                <div class="grand">Total: <span id="rt-total">—</span></div>
+          <!-- Condições comerciais -->
+          <div class="ed-card">
+            <div class="card-h"><span class="dot"></span><span class="t">Condições comerciais</span></div>
+            <div class="ed-grid">
+              <div class="fg">
+                <label>Condição de pagamento</label>
+                <input type="text" id="e-condicao" placeholder="Ex.: 50% entrada, 50% na entrega / 30 dias">
+              </div>
+              <div class="fg">
+                <label>Prazo de execução</label>
+                <input type="text" id="e-prazo" placeholder="Ex.: 5 dias úteis">
+              </div>
+              <div class="fg full">
+                <label>Observações</label>
+                <textarea id="e-observacoes" rows="2" placeholder="Notas específicas desta proposta…"></textarea>
               </div>
             </div>
+            <div class="clauses-wrap">
+              <label>Cláusulas padrão</label>
+              <div class="clauses">
+                <label class="ck"><input type="checkbox" id="e-obs-horario"> Serviço executado em horário comercial (segunda a sexta, das 7h às 17h).</label>
+              </div>
+              <div class="hint">A cláusula marcada entra no bloco “Observações” do PDF.</div>
+            </div>
+            <div id="ed-banner" style="display:none;margin-top:16px;padding:10px 12px;border-radius:8px;font-size:13px"></div>
           </div>
-          <div id="ed-banner" style="display:none;margin-bottom:10px;padding:10px 12px;border-radius:8px;font-size:13px"></div>
-          <div class="ed-actions">
+
+        </div>
+
+        <!-- Barra fixa: totais + ações contextuais -->
+        <div class="totalbar">
+          <span class="sums">Serviços <b id="rt-servico">—</b> · Materiais <b id="rt-material">—</b></span>
+          <span class="tot">Total <b id="rt-total">—</b></span>
+          <span class="actions">
             <button class="btn" id="btn-voltar">← Voltar</button>
             <div id="more-wrap" style="display:none">
               <button class="btn" id="btn-more" title="Mais ações">⋯</button>
@@ -237,7 +283,7 @@
             <button class="btn btn-ok" id="btn-aprovar" title="Aprova e gera a Tarefa (OS)">✓ Aprovar</button>
             <button class="btn btn-p" id="btn-salvar">Salvar</button>
             <span class="muted" id="ed-status" style="display:none"></span>
-          </div>
+          </span>
         </div>
       </div>
 
