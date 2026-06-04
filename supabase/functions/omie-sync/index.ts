@@ -63,7 +63,10 @@ Deno.serve(async (req: Request) => {
         total = r.total_de_paginas || 1
         const rows = (r.clientes_cadastro || []).map((c: any) => ({
           omie_cliente_id: String(c.codigo_cliente_omie),
-          nome: dec(c.razao_social || c.nome_fantasia || "(sem nome)"),
+          razao_social: dec(c.razao_social || "") || null,
+          nome_fantasia: dec(c.nome_fantasia || "") || null,
+          // nome de exibição: fantasia preferida, com fallback para razão social
+          nome: dec(c.nome_fantasia || c.razao_social || "(sem nome)"),
           documento: c.cnpj_cpf || null,
           endereco: dec([c.endereco, c.endereco_numero, c.bairro, c.cidade, c.estado, c.cep].filter(Boolean).join(", ")) || null,
         }))
