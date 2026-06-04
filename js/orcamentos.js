@@ -485,7 +485,7 @@
   // Reproduz fielmente docs/mockups/orcamento-pdf.html (Inter, A4). O usuário escolhe
   // "Salvar como PDF" no diálogo de impressão — saída vetorial, idêntica ao mockup.
   const nl2br = (s) => esc(s).replace(/\n/g, '<br>')
-  const dmy = (iso) => { const d = new Date(iso); return isNaN(d) ? '—' : d.toLocaleDateString('pt-BR') }
+  const dmy = (iso) => { if (!iso) return '—'; const m = String(iso).match(/^(\d{4})-(\d{2})-(\d{2})/); if (m) return m[3] + '/' + m[2] + '/' + m[1]; const d = new Date(iso); return isNaN(d) ? '—' : d.toLocaleDateString('pt-BR') }
 
   // Title case p/ dados do cliente (vêm em CAIXA-ALTA do Omie). Preserva siglas e conectivos.
   const TC_UP = new Set(['LTDA', 'ME', 'EPP', 'EIRELI', 'SA', 'S/A', 'MEI', 'CEP', 'CNPJ', 'CPF', 'II', 'III', 'IV', 'BR',
@@ -512,6 +512,10 @@
     return s.replace(/\s{2,}/g, ' ').trim()
   }
 
+  // Normaliza exibição: caixa consistente em prazos; unidade padronizada (PÇ -> PC).
+  const normPrazo = (s) => String(s || '').replace(/\b(dias?|úteis|útil|horas?|semanas?|meses|mês|imediato)\b/gi, m => m.toLowerCase())
+  const normUnidade = (u) => u ? String(u).toUpperCase().replace(/PÇ/g, 'PC') : '—'
+
   async function gerarPdf() {
     if (!cur || !cur.id) return toast('Salve o orçamento antes de gerar o PDF.', 'err')
     const [{ data: o, error: e1 }, { data: its, error: e2 }] = await Promise.all([
@@ -530,7 +534,7 @@
 
   function orcamentoHTML(o, mats, cli, geradoPor) {
     const servVal = Number(o.servico_valor) || 0
-    const totMat = mats.reduce((s, m) => s + (Number(m.quantidade) || 0) * (Number(m.preco_unitario) || 0), 0)
+    const totMat = mats.reduce((s, m) => s + ((Number(m.preco_unitario) || 0) === 0 ? 0 : (Number(m.quantidade) || 0) * (Number(m.preco_unitario) || 0)), 0)
     const total = servVal + totMat
     const hasServico = !!(o.servico_descricao && o.servico_descricao.trim()) || servVal > 0
     const hasMateriais = mats.length > 0
@@ -542,7 +546,7 @@
     const bullets = linhas.slice(1).map(b => b.replace(/^[-•·*]\s*/, ''))
 
     const meta = [['Emissão', dmy(o.data_envio || o.criado_em)], ['Validade', '15 dias']]
-    if (o.prazo_execucao) meta.push(['Prazo de execução', esc(o.prazo_execucao)])
+    if (o.prazo_execucao) meta.push(['Prazo de execução', esc(normPrazo(o.prazo_execucao))])
 
     const servicoSec = hasServico ? `
       <section class="sec">
@@ -561,7 +565,7 @@
       return `<tr>
         <td class="c idx">${i + 1}</td>
         <td class="l">${esc(m.descricao || '—')}</td>
-        <td class="c">${esc(m.unidade || '—')}</td>
+        <td class="c">${esc(normUnidade(m.unidade))}</td>
         <td class="c num">${q.toLocaleString('pt-BR', { maximumFractionDigits: 3 })}</td>
         <td class="r num${sem ? ' dash' : ''}">${sem ? '—' : money(p)}</td>
         <td class="r tot num${sem ? ' dash' : ''}">${sem ? '—' : money(q * p)}</td></tr>`
@@ -580,18 +584,22 @@
       </div>` : ''
 
     const obsParas = (o.observacoes || '').split('\n').map(s => s.trim()).filter(Boolean).map(p => `<p>${esc(p)}</p>`).join('')
-    const condSec = `
-      <section class="sec two">
-        <div class="col">
-          <div class="eyebrow">Condições comerciais</div>
-          <div class="trow"><span class="k">Forma de pagamento</span><span class="v">${esc(o.condicao_pagamento || '—')}</span></div>
-          <div class="trow"><span class="k">Validade da proposta</span><span class="v">15 dias</span></div>
-        </div>
-        <div class="col">
+    const temCond = !!(o.condicao_pagamento && o.condicao_pagamento.trim())
+    const condSec = temCond
+      ? `<section class="sec two">
+          <div class="col">
+            <div class="eyebrow">Condições comerciais</div>
+            <div class="trow"><span class="k">Forma de pagamento</span><span class="v">${esc(o.condicao_pagamento)}</span></div>
+          </div>
+          <div class="col">
+            <div class="eyebrow">Observações</div>
+            <div class="obs-text">${obsParas || '<p>—</p>'}</div>
+          </div>
+        </section>`
+      : `<section class="sec">
           <div class="eyebrow">Observações</div>
           <div class="obs-text">${obsParas || '<p>—</p>'}</div>
-        </div>
-      </section>`
+        </section>`
 
     const introHtml = `<section class="doc">
       <div>
@@ -614,6 +622,10 @@
         Rua Dona Francisca, 8300 – Vila Trieste, Prédio 2<br>
         Zona Industrial Norte – Joinville/SC – CEP 89219-600
         <span class="tel">(47) 3025-2660</span></div>
+    </header>`
+    const headerContHtml = `<header class="head head-cont">
+      <div class="brand"><div class="logo">TS</div><div class="nm">TRADERS SERVICE</div></div>
+      <div class="cont-no">Proposta Nº ${esc(numero)}</div>
     </header>`
     const footerHtml = `<footer class="foot"><span>(47) 3025-2660</span><span>comercial@tsrv.com.br</span><span>www.tsrv.com.br</span><span class="pg">Página 1 de 1</span></footer>`
 
@@ -653,6 +665,10 @@ body{font-family:'Inter',system-ui,sans-serif;color:var(--ink);-webkit-font-smoo
 .firm{text-align:right;font-size:10.5px;line-height:1.65;color:var(--gray);}
 .firm b{display:block;color:var(--ink);font-weight:700;font-size:11px;margin-bottom:3px;}
 .firm .tel{display:block;color:var(--ink);font-weight:700;font-size:11.5px;margin-top:3px;}
+.head-cont{padding-bottom:12px;}
+.head-cont .logo{width:34px;height:34px;font-size:14px;border-radius:9px;}
+.head-cont .nm{font-size:17px;}
+.head-cont .cont-no{font-size:13px;font-weight:700;color:var(--ink);}
 
 /* título */
 .doc{display:flex;justify-content:space-between;align-items:flex-start;gap:24px;margin-top:6px;padding-bottom:16px;border-bottom:1px solid var(--line);}
@@ -680,9 +696,9 @@ body{font-family:'Inter',system-ui,sans-serif;color:var(--ink);-webkit-font-smoo
 .scope{background:#f2f6fc;border:1px solid #e6eef8;border-radius:12px;padding:16px 22px;}
 .scope-desc .lead{font-size:12.5px;font-weight:700;color:var(--ink);line-height:1.6;margin-bottom:9px;}
 .scope-desc .lead:last-child{margin-bottom:0;}
-.scope-desc ul{list-style:none;}
-.scope-desc li{position:relative;padding-left:16px;font-size:12px;color:#3f444c;line-height:1.5;margin-bottom:6px;}
-.scope-desc li:before{content:"•";position:absolute;left:2px;color:#9aa1b0;}
+.scope-desc ul{list-style:disc;padding-left:18px;margin:0;}
+.scope-desc li{font-size:12px;color:#3f444c;line-height:1.55;margin-bottom:6px;}
+.scope-desc li::marker{color:#9aa1b0;}
 .scope-val{display:flex;justify-content:space-between;align-items:baseline;margin-top:14px;padding-top:13px;border-top:1px solid #dde6f1;}
 .scope-val .k{font-size:10px;font-weight:600;letter-spacing:1px;text-transform:uppercase;color:var(--gray);}
 .scope-val .v{font-size:16px;font-weight:600;letter-spacing:-.2px;color:var(--ink);}
@@ -715,8 +731,8 @@ tbody td.dash{color:#b8bcc4;}
 .two .col{flex:1;min-width:0;}
 .trow{display:flex;justify-content:space-between;align-items:baseline;font-size:12px;padding:10px 0;border-bottom:1px solid #f1f2f4;}
 .trow:last-child{border-bottom:none;}
-.trow .k{color:var(--gray);font-weight:500;text-transform:uppercase;font-size:9.5px;letter-spacing:.6px;}
-.trow .v{color:var(--ink);font-weight:600;}
+.trow .k{color:var(--gray);font-weight:500;text-transform:uppercase;font-size:9.5px;letter-spacing:.6px;white-space:nowrap;flex:none;padding-right:14px;}
+.trow .v{color:var(--ink);font-weight:600;text-align:right;}
 .obs-text p{font-size:11px;line-height:1.6;color:#4a4e56;margin-bottom:9px;}
 .obs-text p:last-child{margin-bottom:0;}
 
@@ -728,11 +744,12 @@ tbody td.dash{color:#b8bcc4;}
 <div id="sheets"></div>
 <script>
 var HEADER=${JSON.stringify(headerHtml)};
+var HEADERC=${JSON.stringify(headerContHtml)};
 var FOOTER=${JSON.stringify(footerHtml)};
 var BLOCKS=${JSON.stringify(blocks)};
 function el(t,c){var e=document.createElement(t);if(c)e.className=c;return e;}
 var sheets=document.getElementById('sheets'),cur=null,openTbody=null,curCol='',curThead='',ftrs=[];
-function newSheet(){var s=el('div','sheet');var hd=el('div','hd');hd.innerHTML=HEADER;var bd=el('div','bd');var ft=el('div','ft');ft.innerHTML=FOOTER;s.appendChild(hd);s.appendChild(bd);s.appendChild(ft);sheets.appendChild(s);ftrs.push(ft);cur={bd:bd};}
+function newSheet(){var first=ftrs.length===0;var s=el('div','sheet');var hd=el('div','hd');hd.innerHTML=first?HEADER:HEADERC;var bd=el('div','bd');var ft=el('div','ft');ft.innerHTML=FOOTER;s.appendChild(hd);s.appendChild(bd);s.appendChild(ft);sheets.appendChild(s);ftrs.push(ft);cur={bd:bd};}
 function over(){return cur.bd.scrollHeight>cur.bd.clientHeight+1;}
 function addHTML(h){var d=el('div');d.innerHTML=h;var n=d.firstElementChild;if(!n)return;cur.bd.appendChild(n);if(over()&&cur.bd.children.length>1){cur.bd.removeChild(n);newSheet();cur.bd.appendChild(n);}}
 function makeTable(){var t=el('table');t.innerHTML='<colgroup>'+curCol+'</colgroup><thead>'+curThead+'</thead><tbody></tbody>';return t;}
