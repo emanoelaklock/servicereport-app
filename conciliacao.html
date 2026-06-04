@@ -53,6 +53,18 @@
   .cc-dados-grid input:focus,.cc-dados-grid select:focus,.cc-dados-grid textarea:focus{border-color:var(--ac);box-shadow:0 0 0 3px var(--acl)}
   .cc-dados-grid .ro{font-size:14px;color:var(--tx);padding:7px 0;font-weight:500}
   .cc-dados-foot{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-top:16px;flex-wrap:wrap}
+  /* Técnicos (múltipla escolha) */
+  .cc-tecnicos{display:flex;flex-wrap:wrap;gap:9px 18px;padding:4px 0}
+  .cc-tecnicos label{display:flex;align-items:center;gap:7px;font-size:13px;font-weight:500;color:var(--tx);text-transform:none;letter-spacing:0;cursor:pointer;margin:0}
+  .cc-tecnicos input{width:15px;height:15px;accent-color:var(--ac);margin:0}
+  /* Busca de material em destaque (padrão do orçamento) */
+  .mat-search{display:flex;gap:10px;align-items:center;flex-wrap:wrap;background:#f3f6fc;border:1px solid #dbe3f0;border-radius:10px;padding:12px;margin-top:16px}
+  .mat-search .ac{flex:1;min-width:240px}
+  .mat-ic{position:absolute;left:12px;top:50%;transform:translateY(-50%);font-size:14px;opacity:.55;pointer-events:none}
+  .mat-input{width:100%;padding:11px 12px 11px 34px;border:1px solid var(--bd);border-radius:8px;font:inherit;font-size:14px;outline:none;background:#fff}
+  .mat-input:focus{border-color:var(--ac);box-shadow:0 0 0 3px var(--acl)}
+  .btn-sm{padding:8px 12px;font-size:13px}
+  .ac-prod .ac-preco{font-family:var(--mono);font-size:12px;font-weight:600;color:#1f7a4d;white-space:nowrap}
 
   /* Equipamentos relacionados */
   .cc-eq-add{display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-bottom:14px}
@@ -182,9 +194,9 @@
             <div class="fg"><label>Origem</label><div class="ro" id="cc-d-orc">—</div></div>
             <div class="fg"><label>Status</label><div class="ro" id="cc-d-status">—</div></div>
             <div class="fg"><label>Tipo de tarefa</label><select id="cc-d-tipo"><option value="">— selecione —</option></select></div>
-            <div class="fg"><label>Técnico responsável</label><select id="cc-d-tecnico"><option value="">— não atribuído —</option></select></div>
             <div class="fg"><label>Data agendada</label><input type="date" id="cc-d-data"></div>
             <div class="fg"><label>Pedido de Compra (PC)</label><input type="text" id="cc-d-pc" placeholder="Ex.: PC-2026-0123"></div>
+            <div class="fg full"><label>Técnico(s) responsável(is)</label><div class="cc-tecnicos" id="cc-d-tecnicos"></div></div>
             <div class="fg full"><label>Orientação ao técnico</label><textarea id="cc-d-orientacao" rows="3" placeholder="O que precisa ser feito no campo…"></textarea></div>
             <div class="fg full"><label>Observações internas</label><textarea id="cc-d-obs" rows="2" placeholder="Notas do administrativo…"></textarea></div>
           </div>
@@ -225,24 +237,15 @@
             <tbody id="cc-tbody"></tbody>
           </table>
 
-          <div class="cc-add">
-            <div class="fg fg-prod">
-              <label>Adicionar do catálogo</label>
-              <div class="ac">
-                <input type="text" id="cc-add-busca" placeholder="Buscar produto (código ou descrição)…" autocomplete="off">
-                <input type="hidden" id="cc-add-prod">
-                <div class="ac-list" id="cc-add-list"></div>
-              </div>
+          <div class="mat-search">
+            <div class="ac">
+              <span class="mat-ic">🔍</span>
+              <input type="text" id="cc-add-busca" class="mat-input" placeholder="Buscar produto do catálogo (código ou descrição)…" autocomplete="off">
+              <input type="hidden" id="cc-add-prod">
+              <div class="ac-list" id="cc-add-list"></div>
             </div>
-            <div class="fg fg-desc">
-              <label>ou descrição avulsa</label>
-              <input type="text" id="cc-add-desc" placeholder="Ex.: Cabo Cat6A (m)">
-            </div>
-            <div class="fg fg-qtd">
-              <label>Levada</label>
-              <input type="number" id="cc-add-qtd" inputmode="decimal" min="0" step="any" placeholder="0">
-            </div>
-            <button class="btn btn-p" id="cc-add-btn">+ Adicionar</button>
+            <button class="btn btn-p btn-sm" id="cc-add-material">+ Adicionar</button>
+            <button class="btn btn-sm" id="cc-add-avulso">+ Item avulso</button>
           </div>
 
           <div class="cc-obs">

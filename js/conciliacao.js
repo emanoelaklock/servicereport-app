@@ -11,6 +11,7 @@ const ConciliacaoApp = (() => {
   let tarefas = []           // lista de tarefas
   let cliNomes = {}          // cliente_id -> nome
   let tecNomes = {}          // tecnico_id -> nome
+  let tecPorTarefa = {}      // tarefa_id -> [tecnico_id]
   let orcNo = {}             // orcamento_id -> numero
   let divPorTarefa = {}      // tarefa_id -> nº de linhas com divergência
   let filtro = 'todas'
@@ -38,6 +39,8 @@ const ConciliacaoApp = (() => {
   const osNo = (n) => n != null ? String(n).padStart(5, '0') : '—'
   const equipLabel = (e) => `${e.modelo || e.tipo || 'Equipamento'}${e.serial ? ' · S/N ' + e.serial : ''}${e.part_number ? ' · PN ' + e.part_number : ''}`
   const fmtSize = (n) => { n = Number(n) || 0; return n < 1024 ? n + ' B' : n < 1048576 ? (n / 1024).toFixed(0) + ' KB' : (n / 1048576).toFixed(1) + ' MB' }
+  const getTecnicosChecked = () => [...document.querySelectorAll('#cc-d-tecnicos input:checked')].map(c => c.value)
+  const setTecnicosChecked = (ids) => { const s = new Set(ids || []); document.querySelectorAll('#cc-d-tecnicos input').forEach(c => { c.checked = s.has(c.value) }) }
 
   async function init() {
     const { data: { user: u } } = await sb().auth.getUser()
@@ -53,7 +56,9 @@ const ConciliacaoApp = (() => {
     ref.tipos = tip.data || []
     ref.equip = eq.data || []
     tecNomes = {}; for (const t of ref.tecnicos) tecNomes[t.id] = t.nome
-    document.getElementById('cc-d-tecnico').innerHTML = '<option value="">— não atribuído —</option>' + ref.tecnicos.map(t => `<option value="${esc(t.id)}">${esc(t.nome || '(sem nome)')}</option>`).join('')
+    document.getElementById('cc-d-tecnicos').innerHTML = ref.tecnicos.length
+      ? ref.tecnicos.map(t => `<label><input type="checkbox" value="${esc(t.id)}"> ${esc(t.nome || '(sem nome)')}</label>`).join('')
+      : '<span class="cc-empty-sm">Nenhum técnico ativo cadastrado.</span>'
     document.getElementById('cc-d-tipo').innerHTML = '<option value="">— selecione —</option>' + ref.tipos.map(t => `<option value="${esc(t.id)}">${esc(t.nome || '')}</option>`).join('')
     bind()
     await carregarTarefas()
@@ -70,7 +75,8 @@ const ConciliacaoApp = (() => {
     })
     const bt = document.getElementById('busca-tarefa')
     if (bt) bt.oninput = debounce(() => renderLista(), 200)
-    document.getElementById('cc-add-btn').onclick = adicionarMaterial
+    document.getElementById('cc-add-material').onclick = adicionarMaterialCatalogo
+    document.getElementById('cc-add-avulso').onclick = adicionarMaterialAvulso
     document.getElementById('cc-d-salvar').onclick = salvarDados
     document.getElementById('cc-eq-btn').onclick = vincularEquip
     document.getElementById('cc-anx-btn').onclick = () => document.getElementById('cc-anx-input').click()
@@ -82,8 +88,8 @@ const ConciliacaoApp = (() => {
       document.getElementById('cc-add-list'),
       ref.produtos,
       p => ({ id: p.id, label: `${p.codigo ? p.codigo + ' · ' : ''}${p.descricao}`,
-              html: `<div class="ac-prod"><span class="ac-cod">${esc(p.codigo || '—')}</span><span class="ac-desc">${esc(p.descricao || '')}</span></div>` }),
-      () => { document.getElementById('cc-add-desc').value = '' },
+              html: `<div class="ac-prod"><span class="ac-cod">${esc(p.codigo || '—')}</span><span class="ac-desc">${esc(p.descricao || '')}</span><span class="ac-preco">${money(p.preco_venda)}</span></div>` }),
+      null,
     )
     attachAutocomplete(
       document.getElementById('cc-eq-busca'),
@@ -128,10 +134,13 @@ const ConciliacaoApp = (() => {
   // ─────────────────────────── Lista ───────────────────────────
   async function carregarTarefas() {
     const { data: ts, error } = await sb().from('tarefas')
-      .select('id,numero,status,criado_em,data_agendada,orcamento_id,cliente_id,tecnico_id,orientacao,observacoes,pedido_compra,tipo_servico_id,conciliacao_obs')
+      .select('id,numero,status,criado_em,data_agendada,orcamento_id,cliente_id,orientacao,observacoes,pedido_compra,tipo_servico_id,conciliacao_obs')
       .order('numero', { ascending: false })
     if (error) { toast('Erro ao carregar tarefas: ' + error.message, 'err'); tarefas = []; return }
     tarefas = ts || []
+    tecPorTarefa = {}
+    const { data: tts } = await sb().from('tarefa_tecnicos').select('tarefa_id,tecnico_id')
+    for (const r of tts || []) (tecPorTarefa[r.tarefa_id] = tecPorTarefa[r.tarefa_id] || []).push(r.tecnico_id)
     const ids = [...new Set(tarefas.map(t => t.cliente_id).filter(Boolean))]
     cliNomes = {}
     if (ids.length) { const { data: cs } = await sb().from('clientes').select('id,nome').in('id', ids); for (const c of cs || []) cliNomes[c.id] = c.nome }
@@ -156,7 +165,8 @@ const ConciliacaoApp = (() => {
       </tr></thead><tbody>${rows.map(t => {
         const d = divPorTarefa[t.id] || 0
         const concil = d ? `<span class="pill pill-warn">${d} divergência${d > 1 ? 's' : ''}</span>` : '<span class="pill pill-ok">OK</span>'
-        const tec = t.tecnico_id ? esc(tecNomes[t.tecnico_id] || '—') : '<span class="pill pill-warn">atribuir</span>'
+        const tids = tecPorTarefa[t.id] || []
+        const tec = tids.length ? esc(tids.map(id => tecNomes[id] || '—').join(', ')) : '<span class="pill pill-warn">atribuir</span>'
         return `<tr class="row-click" data-id="${esc(t.id)}">
           <td class="cc-num">${osNo(t.numero)}</td>
           <td>${esc(cliNomes[t.cliente_id] || '—')}</td>
@@ -181,12 +191,12 @@ const ConciliacaoApp = (() => {
     document.getElementById('cc-d-orc').textContent = t.orcamento_id ? `Orçamento Nº ${orcNo[t.orcamento_id] ?? '—'}` : 'Criada direto (sem orçamento)'
     document.getElementById('cc-d-status').textContent = STATUS_LABEL[cur.status] || cur.status || '—'
     document.getElementById('cc-d-tipo').value = t.tipo_servico_id || ''
-    document.getElementById('cc-d-tecnico').value = t.tecnico_id || ''
+    setTecnicosChecked(tecPorTarefa[id] || [])
     document.getElementById('cc-d-data').value = t.data_agendada || ''
     document.getElementById('cc-d-pc').value = t.pedido_compra || ''
     document.getElementById('cc-d-orientacao').value = t.orientacao || ''
     document.getElementById('cc-d-obs').value = t.observacoes || ''
-    document.getElementById('cc-d-hint').textContent = t.tecnico_id ? '' : 'Atribua um técnico e agende para a Tarefa aparecer no app do técnico.'
+    document.getElementById('cc-d-hint').textContent = (tecPorTarefa[id] || []).length ? '' : 'Atribua um ou mais técnicos e agende para a Tarefa aparecer no app do técnico.'
     document.getElementById('cc-obs').value = t.conciliacao_obs || ''
     document.getElementById('cc-obs-hint').textContent = ''
     limparAdd()
@@ -199,7 +209,6 @@ const ConciliacaoApp = (() => {
     if (!cur || !cur.id) return
     const patch = {
       tipo_servico_id: document.getElementById('cc-d-tipo').value || null,
-      tecnico_id: document.getElementById('cc-d-tecnico').value || null,
       data_agendada: document.getElementById('cc-d-data').value || null,
       pedido_compra: document.getElementById('cc-d-pc').value.trim() || null,
       orientacao: document.getElementById('cc-d-orientacao').value.trim() || null,
@@ -207,10 +216,19 @@ const ConciliacaoApp = (() => {
     }
     const up = await sb().from('tarefas').update(patch).eq('id', cur.id)
     if (up.error) return toast('Erro ao salvar: ' + up.error.message, 'err')
+    // sincroniza técnicos (N:N): substitui o conjunto
+    const tecIds = getTecnicosChecked()
+    const del = await sb().from('tarefa_tecnicos').delete().eq('tarefa_id', cur.id)
+    if (del.error) return toast('Erro ao salvar técnicos: ' + del.error.message, 'err')
+    if (tecIds.length) {
+      const insT = await sb().from('tarefa_tecnicos').insert(tecIds.map(tid => ({ tarefa_id: cur.id, tecnico_id: tid })))
+      if (insT.error) return toast('Erro ao salvar técnicos: ' + insT.error.message, 'err')
+    }
+    tecPorTarefa[cur.id] = tecIds
     // atualiza cache local p/ a lista refletir sem novo fetch
     const t = tarefas.find(x => x.id === cur.id)
     if (t) Object.assign(t, patch)
-    document.getElementById('cc-d-hint').textContent = patch.tecnico_id ? '' : 'Atribua um técnico e agende para a Tarefa aparecer no app do técnico.'
+    document.getElementById('cc-d-hint').textContent = tecIds.length ? '' : 'Atribua um ou mais técnicos e agende para a Tarefa aparecer no app do técnico.'
     toast('Dados da Tarefa salvos.', 'ok')
   }
 
@@ -370,37 +388,37 @@ const ConciliacaoApp = (() => {
     await carregarLinhas()
   }
 
-  async function adicionarMaterial() {
+  // Adiciona material do catálogo (produto selecionado na busca). Levada = 0; edita-se na linha.
+  async function adicionarMaterialCatalogo() {
     const pid = document.getElementById('cc-add-prod').value
-    const desc = document.getElementById('cc-add-desc').value.trim()
-    const qv = Number(document.getElementById('cc-add-qtd').value) || 0
     const p = ref.produtos.find(x => x.id === pid)
-    const descricao = p ? p.descricao : desc
-    if (!descricao) return toast('Selecione um produto ou digite uma descrição avulsa.', 'err')
-    if (!qv || qv <= 0) return toast('Informe a quantidade levada.', 'err')
+    if (!p) return toast('Busque e selecione um produto do catálogo (ou use "Item avulso").', 'err')
+    await inserirMaterial({ produto_id: p.id, codigo_produto: p.codigo || null, descricao: p.descricao, unidade: p.unidade || null, preco_unitario: Number(p.preco_venda) || 0 })
+  }
+  // Adiciona item avulso usando o texto digitado na busca como descrição.
+  async function adicionarMaterialAvulso() {
+    const desc = document.getElementById('cc-add-busca').value.trim()
+    if (!desc) return toast('Digite a descrição do item avulso na busca.', 'err')
+    await inserirMaterial({ produto_id: null, codigo_produto: null, descricao: desc, unidade: null, preco_unitario: 0 })
+  }
+  async function inserirMaterial(m) {
     const ins = await sb().from('tarefa_materiais').insert({
-      tarefa_id: cur.id,
-      produto_id: p ? p.id : null,
-      codigo_produto: p ? p.codigo : null,
-      descricao,
-      unidade: p ? p.unidade : null,
-      preco_unitario: p ? (Number(p.preco_venda) || 0) : 0,
-      qtd_orcada: 0, qtd_levada: qv, origem: 'avulso',
+      tarefa_id: cur.id, produto_id: m.produto_id, codigo_produto: m.codigo_produto,
+      descricao: m.descricao, unidade: m.unidade, preco_unitario: m.preco_unitario,
+      qtd_orcada: 0, qtd_levada: 0, origem: 'avulso',
     })
     if (ins.error) {
       if (ins.error.code === '23505') return toast('Esse material já está na lista — edite a Levada na linha.', 'err')
       return toast('Erro: ' + ins.error.message, 'err')
     }
     limparAdd()
-    toast('Material adicionado.', 'ok')
+    toast('Material adicionado — informe a Levada na linha.', 'ok')
     await carregarLinhas()
   }
 
   function limparAdd() {
     document.getElementById('cc-add-busca').value = ''
     document.getElementById('cc-add-prod').value = ''
-    document.getElementById('cc-add-desc').value = ''
-    document.getElementById('cc-add-qtd').value = ''
   }
 
   function mostrar(sec) {
