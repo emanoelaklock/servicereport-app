@@ -641,12 +641,12 @@
     return `<!DOCTYPE html><html lang="pt-BR"><head><meta charset="UTF-8">
 <title>Orçamento Nº ${esc(numero)} — ${esc(cli.nome || 'Cliente')}</title>
 <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
 <style>
 :root{--navy:#1B2A4A;--red:#BE1622;--ink:#1d2533;--gray:#6B7280;--line:#E5E7EB;}
 *{box-sizing:border-box;margin:0;padding:0;}
 html,body{background:#e7eaef;}
-body{font-family:'Poppins',system-ui,sans-serif;color:var(--ink);-webkit-font-smoothing:antialiased;font-variant-numeric:tabular-nums;line-height:1.5;-webkit-print-color-adjust:exact;print-color-adjust:exact;}
+body{font-family:'Inter',system-ui,sans-serif;color:var(--ink);-webkit-font-smoothing:antialiased;font-variant-numeric:tabular-nums;line-height:1.5;-webkit-print-color-adjust:exact;print-color-adjust:exact;}
 .num{font-variant-numeric:tabular-nums;}
 .sheet{width:794px;height:1123px;margin:30px auto;background:#fff;padding:44px 56px;display:flex;flex-direction:column;box-shadow:0 24px 64px rgba(20,30,55,.18);overflow:hidden;}
 .sheet .hd{flex:none;}
