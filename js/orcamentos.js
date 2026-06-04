@@ -616,8 +616,8 @@
       <div class="brand"><div class="logo">TS</div><div class="nm">TRADERS SERVICE</div></div>
       <div class="firm"><b>Traders Service Soluções em Tecnologia LTDA</b>
         CNPJ 10.923.494/0001-30 &nbsp;|&nbsp; IE 255882904 &nbsp;|&nbsp; IM 96456<br>
-        Rua Dona Francisca, 8300 – Vila Trieste, Prédio 2<br>
-        Zona Industrial Norte – Joinville/SC – CEP 89219-600
+        Rua Dona Francisca, 8300 – Via Trieste, Prédio 01/02<br>
+        Perini Business Park – Joinville/SC – CEP 89219-600
         <span class="tel">(47) 3025-2660</span></div>
     </header>`
     const headerContHtml = `<header class="head head-cont">
