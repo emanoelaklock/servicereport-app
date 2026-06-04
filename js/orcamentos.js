@@ -727,7 +727,7 @@
     const clienteHtml = `<section class="cli">
       <div class="eyebrow">Cliente</div>
       <div class="cli-row">
-        <div class="cli-l"><div class="cname">${esc(titleCase(cli.nome) || '—')}</div></div>
+        <div class="cli-l"><div class="cname">${esc((cli.nome || '').toUpperCase() || '—')}</div></div>
         <div class="cli-r">${[cli.documento ? 'CNPJ ' + esc(cli.documento) : '', cli.endereco ? esc(limparEndereco(titleCase(cli.endereco))) : ''].filter(Boolean).join('<br>') || '&nbsp;'}</div>
       </div>
     </section>`
