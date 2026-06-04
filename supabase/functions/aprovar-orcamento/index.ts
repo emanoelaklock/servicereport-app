@@ -35,7 +35,7 @@ Deno.serve(async (req: Request) => {
     if (!id) return json({ error: "id obrigatorio" }, 400)
 
     const { data: o, error: oerr } = await admin.from("orcamentos")
-      .select("id,cliente_id,status,arquivado").eq("id", id).single()
+      .select("id,cliente_id,status,arquivado,servico_descricao").eq("id", id).single()
     if (oerr || !o) return json({ error: "orçamento não encontrado" }, 404)
     if (o.arquivado) return json({ error: "orçamento arquivado — desarquive antes de aprovar" }, 400)
     if (!o.cliente_id) return json({ error: "orçamento sem cliente" }, 400)
@@ -56,6 +56,8 @@ Deno.serve(async (req: Request) => {
 
     const ins = await admin.from("tarefas").insert({
       orcamento_id: id, cliente_id: o.cliente_id, status: "aguardando_execucao", criado_por: uid,
+      // a orientação ao técnico nasce com o serviço aprovado no orçamento
+      orientacao: o.servico_descricao || null,
     }).select("id,numero").single()
 
     if (ins.error) {
