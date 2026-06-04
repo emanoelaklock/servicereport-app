@@ -545,8 +545,7 @@
     const lead = linhas[0] || ''
     const bullets = linhas.slice(1).map(b => b.replace(/^[-•·*]\s*/, ''))
 
-    const meta = [['Emissão', dmy(o.data_envio || o.criado_em)], ['Validade', '15 dias']]
-    if (o.prazo_execucao) meta.push(['Prazo de execução', esc(normPrazo(o.prazo_execucao))])
+    const meta = [['Emissão', dmy(o.data_envio || o.criado_em)]]
 
     const servicoSec = hasServico ? `
       <section class="sec">
@@ -584,22 +583,20 @@
       </div>` : ''
 
     const obsParas = (o.observacoes || '').split('\n').map(s => s.trim()).filter(Boolean).map(p => `<p>${esc(p)}</p>`).join('')
-    const temCond = !!(o.condicao_pagamento && o.condicao_pagamento.trim())
-    const condSec = temCond
-      ? `<section class="sec two">
-          <div class="col">
-            <div class="eyebrow">Condições comerciais</div>
-            <div class="trow"><span class="k">Forma de pagamento</span><span class="v">${esc(o.condicao_pagamento)}</span></div>
-          </div>
-          <div class="col">
-            <div class="eyebrow">Observações</div>
-            <div class="obs-text">${obsParas || '<p>—</p>'}</div>
-          </div>
-        </section>`
-      : `<section class="sec">
+    const condRows = []
+    if (o.prazo_execucao) condRows.push(['Prazo de execução', esc(normPrazo(o.prazo_execucao))])
+    condRows.push(['Validade', '15 dias'])
+    if (o.condicao_pagamento && o.condicao_pagamento.trim()) condRows.push(['Forma de pagamento', esc(o.condicao_pagamento)])
+    const condSec = `<section class="sec two">
+        <div class="col">
+          <div class="eyebrow">Condições comerciais</div>
+          ${condRows.map(([k, v]) => `<div class="trow"><span class="k">${esc(k)}</span><span class="v">${v}</span></div>`).join('')}
+        </div>
+        <div class="col">
           <div class="eyebrow">Observações</div>
           <div class="obs-text">${obsParas || '<p>—</p>'}</div>
-        </section>`
+        </div>
+      </section>`
 
     const introHtml = `<section class="doc">
       <div>
