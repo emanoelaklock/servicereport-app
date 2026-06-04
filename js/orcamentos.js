@@ -661,9 +661,9 @@ tbody td.dash{color:#b8bcc4;}
 .resumo{width:300px;flex:none;}
 .rrow{display:flex;justify-content:space-between;font-size:13px;padding:7px 0;color:var(--gray);}
 .rrow span:last-child{color:var(--ink);font-weight:700;}
-.rtot{display:flex;justify-content:space-between;align-items:center;margin-top:7px;padding-top:13px;border-top:1.5px solid #d3d9e2;}
-.rtot span:first-child{font-size:13px;font-weight:700;color:var(--ink);}
-.rtot .rtv{font-size:17px;font-weight:800;letter-spacing:-.2px;color:var(--red);}
+.rtot{display:flex;justify-content:space-between;align-items:center;margin-top:10px;padding:13px 18px;background:#f2f6fc;border:1px solid #e6eef8;border-radius:10px;}
+.rtot span:first-child{font-size:12px;font-weight:700;letter-spacing:1px;text-transform:uppercase;color:var(--ink);}
+.rtot .rtv{font-size:18px;font-weight:800;letter-spacing:-.2px;color:var(--red);}
 
 /* condições + observações */
 .two{display:flex;gap:48px;align-items:flex-start;}
