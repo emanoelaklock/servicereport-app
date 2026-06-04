@@ -515,7 +515,14 @@
       <div class="thumb"><img src="${esc(f.signed || '')}" alt="">${locked ? '' : `<button type="button" class="thumb-x" data-id="${esc(f.id)}">×</button>`}</div>
       <input type="text" class="thumb-leg" data-legid="${esc(f.id)}" placeholder="Legenda" value="${esc(f.legenda || '')}"${locked ? ' disabled' : ''}></div>`).join('')
     box.querySelectorAll('.thumb-x').forEach(b => { b.onclick = () => removerFoto(b.dataset.id) })
-    box.querySelectorAll('.thumb-leg').forEach(inp => { inp.onchange = () => sb().from('relatorio_fotos').update({ legenda: inp.value.trim() || null }).eq('id', inp.dataset.legid) })
+    box.querySelectorAll('.thumb-leg').forEach(inp => {
+      inp.onchange = () => {
+        const v = inp.value.trim() || null
+        const f = fotos.find(x => x.id === inp.dataset.legid); if (f) f.legenda = v
+        sb().from('relatorio_fotos').update({ legenda: v }).eq('id', inp.dataset.legid)
+          .then(({ error }) => { if (error) toast('Erro ao salvar legenda: ' + error.message, 'err') })
+      }
+    })
   }
   async function adicionarFotos(fileList) {
     if (!cur || !cur.id) return toast('Salve o orçamento primeiro.', 'err')
@@ -600,8 +607,11 @@
     if (e2) return toast('Erro ao carregar itens: ' + e2.message, 'err')
     const cli = ref.clientes.find(c => c.id === o.cliente_id) || {}
     const mats = (its || []).filter(i => i.tipo === 'material' || i.tipo === 'avulso')
-    const { data: fdata } = await sb().from('relatorio_fotos').select('id,url,legenda').eq('orcamento_id', cur.id).order('criado_em')
-    const fotosArr = fdata || []
+    // Usa as fotos carregadas no editor + legendas do estado vivo dos campos
+    // (evita corrida com o salvamento da legenda no banco).
+    const legAtual = {}
+    document.querySelectorAll('#e-thumbs .thumb-leg').forEach(inp => { legAtual[inp.dataset.legid] = inp.value.trim() || null })
+    const fotosArr = fotos.map(f => ({ id: f.id, url: f.url, legenda: (f.id in legAtual) ? legAtual[f.id] : (f.legenda || null) }))
     if (fotosArr.length) {
       const { data: signed } = await sb().storage.from('rat-anexos').createSignedUrls(fotosArr.map(f => f.url), 3600)
       fotosArr.forEach((f, i) => { f.signed = (signed && signed[i] && signed[i].signedUrl) || '' })
