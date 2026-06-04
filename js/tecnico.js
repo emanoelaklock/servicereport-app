@@ -30,6 +30,12 @@
     aprovada_faturamento: { t: 'Aprovada p/ faturamento', c: 's-done' },
     faturada: { t: 'Faturada', c: 's-done' },
   }
+  const RAT_SIT_LABEL = { em_andamento: 'Em andamento', concluida: 'Concluída', concluida_pendencia: 'Concluída c/ pendência' }
+  const ratSit = (s) => RAT_SIT_LABEL[s] || s || '—'
+  function togglePendencias() {
+    const v = document.getElementById('f-status').value
+    document.getElementById('f-pendencias-wrap').style.display = (v === 'concluida_pendencia') ? 'block' : 'none'
+  }
   const osNo = (n) => n != null ? String(n).padStart(5, '0') : '—'
   const cliNomeDe = (id, fb) => (ref.clientes.find(c => c.id === id) || {}).nome || fb || '—'
 
@@ -87,12 +93,15 @@
     document.getElementById('btn-cancelar').onclick = cancelar
     document.getElementById('btn-salvar').onclick = salvar
     document.getElementById('f-tipo').onchange = onTipoChange
+    document.getElementById('f-status').onchange = togglePendencias
     // Navegação da home
     document.getElementById('btn-voltar').onclick = onVoltar
     document.getElementById('nav-os').onclick = async () => { mostrar('lista'); await renderLista() }
     document.getElementById('nav-tarefas').onclick = async () => { mostrar('tarefas'); await renderTarefas() }
     document.getElementById('btn-tarefas-sync').onclick = async () => { await renderTarefas(true) }
     document.getElementById('btn-iniciar-rat').onclick = () => { if (tarefaAberta) iniciarRatDaTarefa(tarefaAberta) }
+    document.getElementById('btn-concluir').onclick = () => concluirTarefa(false)
+    document.getElementById('btn-concluir-pend').onclick = () => concluirTarefa(true)
     document.getElementById('nav-preorc').onclick = async () => { mostrar('preorc-lista'); await renderPreorcLista() }
     document.getElementById('nav-desloc').onclick = () => toast('Deslocamento (pernoite) — em breve.', 'info')
     const bsh = document.getElementById('btn-sync-home'); if (bsh) bsh.onclick = () => window.SyncEngine && SyncEngine.syncAll()
@@ -176,7 +185,7 @@
           ${badge(r.sync_status)}
         </div>
         <div class="rat-meta">
-          <span>${esc(r.tipo_servico_nome || '—')}${r.status ? ' · ' + esc(r.status) : ''}</span>
+          <span>${esc(r.tipo_servico_nome || '—')}${r.status ? ' · ' + esc(ratSit(r.status)) : ''}</span>
           <span>${fdt(r.criado_em, { withTime: true })}</span>
         </div>
       </div>`).join('')
@@ -228,9 +237,29 @@
     document.getElementById('t-det-agenda').textContent = t.data_agendada ? 'Agendada para ' + fdt(t.data_agendada) : 'Sem data agendada'
     const oSec = document.getElementById('t-det-orient-sec')
     if (t.orientacao) { document.getElementById('t-det-orient').textContent = t.orientacao; oSec.style.display = 'block' } else oSec.style.display = 'none'
+    // botões de concluir (override) — escondidos quando a tarefa já foi para faturamento
+    const podeConcluir = !['aprovada_faturamento', 'faturada'].includes(t.status)
+    document.getElementById('t-det-concluir').style.display = podeConcluir ? 'grid' : 'none'
     mostrar('tarefa-det')
     await carregarEquipDaTarefa(id)
     await renderRatsDaTarefa(id)
+  }
+
+  async function concluirTarefa(comPendencia) {
+    if (!tarefaAberta) return
+    if (!navigator.onLine) return toast('Sem conexão — conclua pela RAT ou quando estiver online.', 'err')
+    let pend = null
+    if (comPendencia) {
+      pend = (prompt('Descreva a pendência da tarefa:') || '').trim()
+      if (!pend) return toast('Pendência obrigatória.', 'err')
+    }
+    const novo = comPendencia ? 'concluida_pendencia' : 'concluida'
+    const up = await getSupabase().from('tarefas').update({ status: novo, pendencias: pend }).eq('id', tarefaAberta.id)
+    if (up.error) return toast('Erro ao concluir: ' + up.error.message, 'err')
+    const id = tarefaAberta.id
+    toast(comPendencia ? 'Tarefa concluída com pendência.' : 'Tarefa concluída.', 'ok')
+    await renderTarefas()
+    await abrirTarefaDet(id)
   }
 
   async function carregarEquipDaTarefa(id) {
@@ -258,7 +287,7 @@
     if (!dela.length) { sec.style.display = 'none'; return }
     box.innerHTML = dela.map(r => `<div class="rat-card" data-uuid="${esc(r.client_uuid)}">
       <div class="rat-card-top"><span class="rat-cli">${esc(r.tipo_servico_nome || 'RAT')}</span>${badge(r.sync_status)}</div>
-      <div class="rat-meta"><span>${esc(r.status || '—')}</span><span>${fdt(r.criado_em, { withTime: true })}</span></div>
+      <div class="rat-meta"><span>${esc(ratSit(r.status))}</span><span>${fdt(r.criado_em, { withTime: true })}</span></div>
     </div>`).join('')
     box.querySelectorAll('.rat-card').forEach(el => el.onclick = () => abrirExistente(el.dataset.uuid))
     sec.style.display = 'block'
@@ -276,7 +305,9 @@
     const cb = document.getElementById('f-cliente-busca')
     cb.value = cliNomeDe(t.cliente_id); cb.readOnly = true
     document.getElementById('f-tipo').value = ''
-    document.getElementById('f-status').value = 'Em andamento'
+    document.getElementById('f-status').value = 'em_andamento'
+    document.getElementById('f-pendencias').value = ''
+    togglePendencias()
     document.getElementById('campos-container').innerHTML = ''
     mostrar('form')
   }
@@ -315,7 +346,9 @@
     document.getElementById('f-cliente').value = ''
     const cb = document.getElementById('f-cliente-busca'); cb.value = ''; cb.readOnly = false
     document.getElementById('f-tipo').value = ''
-    document.getElementById('f-status').value = 'Em andamento'
+    document.getElementById('f-status').value = 'em_andamento'
+    document.getElementById('f-pendencias').value = ''
+    togglePendencias()
     document.getElementById('campos-container').innerHTML = ''
     document.getElementById('form-titulo').textContent = 'Nova RAT'
     mostrar('form')
@@ -336,7 +369,9 @@
     document.getElementById('f-cliente').value = rat.cliente_id || ''
     cb.value = (ref.clientes.find(c => c.id === rat.cliente_id) || {}).nome || rat.cliente_nome || ''
     document.getElementById('f-tipo').value = rat.tipo_servico_id || ''
-    document.getElementById('f-status').value = rat.status || 'Em andamento'
+    document.getElementById('f-status').value = RAT_SIT_LABEL[rat.status] ? rat.status : 'em_andamento'
+    document.getElementById('f-pendencias').value = rat.pendencias || ''
+    togglePendencias()
     await onTipoChange()
     // repopula respostas
     if (rat.respostas) {
@@ -660,6 +695,10 @@
     if (assinaturaObrig && !temAssinatura) return toast('Capture a assinatura.', 'err')
     if (temAssinatura) assinatura_local = sig.dataURL()
 
+    const sit = document.getElementById('f-status').value
+    const pendencias = document.getElementById('f-pendencias').value.trim()
+    if (sit === 'concluida_pendencia' && !pendencias) return toast('Descreva a pendência.', 'err')
+
     const cli = ref.clientes.find(c => c.id === cliId)
     const tipo = ref.tipos.find(t => t.id === tipoId)
 
@@ -673,7 +712,8 @@
       formulario_id: tipo?.formulario_id || null,
       tecnico_id: tecnico.id,
       tecnico_nome: tecnico.nome,
-      status: document.getElementById('f-status').value,
+      status: sit,
+      pendencias: sit === 'concluida_pendencia' ? pendencias : null,
       tempo_trabalhado: calcTempo(),
       data_tarefa: new Date().toISOString(),
       respostas,

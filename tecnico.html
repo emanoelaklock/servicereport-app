@@ -217,6 +217,10 @@
             <div id="t-det-rats"></div>
           </div>
           <button class="btn btn-p" id="btn-iniciar-rat" style="width:100%;margin-top:18px">▶ Iniciar RAT desta tarefa</button>
+          <div id="t-det-concluir" style="display:none;margin-top:10px;grid-template-columns:1fr 1fr;gap:8px">
+            <button class="btn" id="btn-concluir" style="border-color:#0E9F6E;color:#0E7A4F">✓ Concluir</button>
+            <button class="btn" id="btn-concluir-pend" style="border-color:#e0a106;color:#9a6a1a">⚠ Concluir c/ pendência</button>
+          </div>
         </div>
       </div>
 
@@ -247,13 +251,17 @@
           </div>
 
           <div class="fg campo">
-            <label>Status da RAT</label>
+            <label>Situação do atendimento</label>
             <select id="f-status">
-              <option value="Em andamento">Em andamento</option>
-              <option value="Pausa">Pausa</option>
-              <option value="Concluído">Concluído</option>
-              <option value="Concluído com Pendências">Concluído com Pendências</option>
+              <option value="em_andamento">Atendimento continua (em execução)</option>
+              <option value="concluida">Concluída</option>
+              <option value="concluida_pendencia">Concluída com pendência</option>
             </select>
+            <p class="dim" id="f-status-hint" style="margin-top:5px">Atualiza o status da Tarefa. "Continua" = mais visitas/RATs depois.</p>
+          </div>
+          <div class="fg campo" id="f-pendencias-wrap" style="display:none">
+            <label>Pendências <span style="color:var(--re)">*</span></label>
+            <textarea id="f-pendencias" class="ta-longo" placeholder="O que ficou pendente / o que falta resolver…"></textarea>
           </div>
 
           <div class="form-actions">

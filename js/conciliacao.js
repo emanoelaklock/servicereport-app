@@ -149,7 +149,7 @@ const ConciliacaoApp = (() => {
   // ─────────────────────────── Lista ───────────────────────────
   async function carregarTarefas() {
     const { data: ts, error } = await sb().from('tarefas')
-      .select('id,numero,status,criado_em,data_agendada,orcamento_id,cliente_id,orientacao,observacoes,pedido_compra,tipo_servico_id,conciliacao_obs')
+      .select('id,numero,status,criado_em,data_agendada,orcamento_id,cliente_id,orientacao,observacoes,pedido_compra,tipo_servico_id,conciliacao_obs,pendencias')
       .order('numero', { ascending: false })
     if (error) { toast('Erro ao carregar tarefas: ' + error.message, 'err'); tarefas = []; return }
     tarefas = ts || []
@@ -227,7 +227,8 @@ const ConciliacaoApp = (() => {
     // Card "Dados da Tarefa"
     document.getElementById('cc-d-cliente').textContent = cur.cliente_nome
     document.getElementById('cc-d-orc').textContent = t.orcamento_id ? `Orçamento Nº ${orcNo[t.orcamento_id] ?? '—'}` : 'Criada direto (sem orçamento)'
-    document.getElementById('cc-d-status').textContent = STATUS_LABEL[cur.status] || cur.status || '—'
+    document.getElementById('cc-d-status').textContent = (STATUS_LABEL[cur.status] || cur.status || '—') +
+      (cur.status === 'concluida_pendencia' && t.pendencias ? ' — ' + t.pendencias : '')
     document.getElementById('cc-d-tipo').value = t.tipo_servico_id || ''
     setTecnicosChecked(tecPorTarefa[id] || [])
     document.getElementById('cc-d-data').value = t.data_agendada || ''

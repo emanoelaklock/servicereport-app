@@ -93,6 +93,22 @@
       if (mr.error) throw mr.error
     }
 
+    // 4c) Reflete a situação do atendimento no status da Tarefa-pai (#7.2).
+    //     Guardas: não mexe em tarefas já em faturamento; "em execução" só inicia
+    //     (não rebaixa uma tarefa concluída por causa de uma RAT antiga).
+    if (rat.tarefa_id && rat.status) {
+      const MAP = { em_andamento: 'em_execucao', concluida: 'concluida', concluida_pendencia: 'concluida_pendencia' }
+      const novo = MAP[rat.status]
+      if (novo) {
+        const { data: tt } = await sb.from('tarefas').select('status').eq('id', rat.tarefa_id).maybeSingle()
+        const atual = tt && tt.status
+        const terminal = ['aprovada_faturamento', 'faturada']
+        const aplicar = atual && !terminal.includes(atual) &&
+          (novo === 'em_execucao' ? atual === 'aguardando_execucao' : true)
+        if (aplicar) await sb.from('tarefas').update({ status: novo }).eq('id', rat.tarefa_id)
+      }
+    }
+
     // 5) ACK do servidor: recebido_em carimbado → confirmado
     if (ups.data.recebido_em) {
       await D().salvarRat(rat.client_uuid, { recebido_em: ups.data.recebido_em, assinatura_url })
