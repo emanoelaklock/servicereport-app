@@ -555,7 +555,7 @@
             ${lead ? `<p class="lead">${esc(lead)}</p>` : ''}
             ${bullets.length ? `<ul>${bullets.map(b => `<li>${esc(b)}</li>`).join('')}</ul>` : ''}
           </div>
-          <div class="scope-val"><span class="k">Valor do serviço</span><span class="v num">${money(servVal)}</span></div>
+          <div class="scope-val"><span class="k">Valor do Serviço</span><span class="v num">${money(servVal)}</span></div>
         </div>
       </section>` : ''
 
@@ -697,7 +697,7 @@ body{font-family:'Inter',system-ui,sans-serif;color:var(--ink);-webkit-font-smoo
 .scope-desc li{font-size:12px;color:#3f444c;line-height:1.55;margin-bottom:6px;}
 .scope-desc li::marker{color:#9aa1b0;}
 .scope-val{display:flex;justify-content:space-between;align-items:baseline;margin-top:14px;padding-top:13px;border-top:1px solid #dde6f1;}
-.scope-val .k{font-size:10px;font-weight:600;letter-spacing:1px;text-transform:uppercase;color:var(--gray);}
+.scope-val .k{font-size:11.5px;font-weight:600;color:var(--gray);}
 .scope-val .v{font-size:16px;font-weight:600;letter-spacing:-.2px;color:var(--ink);}
 
 /* materiais */
