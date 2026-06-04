@@ -21,12 +21,17 @@
   const rid = () => 'r' + (++_seq)
 
   const STATUS_LABEL = {
-    rascunho: 'Rascunho', enviado: 'Enviado', aprovado: 'Aprovado',
+    rascunho: 'Aguardando aprovação', enviado: 'Aguardando aprovação', aprovado: 'Aprovado',
     nao_aprovado: 'Não aprovado', arquivado: 'Arquivado',
   }
   const STATUS_CLS = {
-    rascunho: 's-fi', enviado: 's-ai', aprovado: 's-en',
+    rascunho: 's-ai', enviado: 's-ai', aprovado: 's-en',
     nao_aprovado: 's-rm', arquivado: 's-sc',
+  }
+  // classe do badge do topo do editor por status
+  const BADGE_CLS = {
+    rascunho: 's-aguardando', enviado: 's-aguardando', aprovado: 's-aprovado',
+    nao_aprovado: 's-naoaprovado', arquivado: 's-arquivado',
   }
   function statusBadge(s) {
     return `<span class="badge ${STATUS_CLS[s] || 's-sc'}"><span class="dot"></span>${esc(STATUS_LABEL[s] || s)}</span>`
@@ -78,13 +83,17 @@
     document.getElementById('btn-de-preorc').onclick = abrirSelecaoPreorc
     document.getElementById('btn-voltar').onclick = () => { cur = null; mostrar('lista'); renderLista() }
     document.getElementById('btn-salvar').onclick = () => salvar('rascunho')
-    document.getElementById('btn-excluir').onclick = excluir
     document.getElementById('btn-pdf').onclick = gerarPdf
     document.getElementById('btn-aprovar').onclick = aprovar
     document.getElementById('btn-naoaprovado').onclick = naoAprovado
     document.getElementById('btn-reabrir').onclick = reabrir
     document.getElementById('btn-arquivar').onclick = arquivar
     document.getElementById('btn-desarquivar').onclick = desarquivar
+    // menu "⋯" (Arquivar · Excluir) — só no estado Aguardando aprovação
+    document.getElementById('btn-more').onclick = (e) => { e.stopPropagation(); document.getElementById('more-menu').classList.toggle('open') }
+    document.getElementById('mm-arquivar').onclick = () => { document.getElementById('more-menu').classList.remove('open'); arquivar() }
+    document.getElementById('mm-excluir').onclick = () => { document.getElementById('more-menu').classList.remove('open'); excluir() }
+    document.addEventListener('click', () => document.getElementById('more-menu')?.classList.remove('open'))
     document.getElementById('add-avulso').onclick = () => { addItem({ tipo: 'avulso', quantidade: 1, preco_unitario: 0 }); renderItens() }
     document.getElementById('add-material').onclick = adicionarMaterialSelecionado
     document.getElementById('e-servico-valor').oninput = recomputeTotais
@@ -190,6 +199,10 @@
     document.getElementById('view-lista').style.display = secao === 'lista' ? 'block' : 'none'
     document.getElementById('view-editor').style.display = secao === 'editor' ? 'block' : 'none'
     document.getElementById('topbar-title').textContent = secao === 'editor' ? 'Orçamento' : 'Orçamentos'
+    if (secao !== 'editor') {
+      document.getElementById('ed-badge').style.display = 'none'
+      document.getElementById('ed-docno').textContent = ''
+    }
   }
 
   function setCliente(id, nome) {
@@ -242,7 +255,7 @@
       sb().from('orcamento_itens').select('*').eq('orcamento_id', id).order('criado_em'),
     ])
     if (e1 || !o) return toast('Erro ao abrir orçamento.', 'err')
-    cur = { id: o.id, pre_orcamento_id: o.pre_orcamento_id, status: o.status, data_envio: o.data_envio, arquivado: !!o.arquivado }
+    cur = { id: o.id, numero: o.numero, pre_orcamento_id: o.pre_orcamento_id, status: o.status, data_envio: o.data_envio, arquivado: !!o.arquivado }
     itens = (its || []).filter(m => m.tipo === 'material' || m.tipo === 'avulso').map(m => ({
       _rid: rid(), tipo: m.tipo, produto_id: m.produto_id, descricao: m.descricao || '',
       unidade: m.unidade, quantidade: Number(m.quantidade) || 0, preco_unitario: Number(m.preco_unitario) || 0,
@@ -376,8 +389,8 @@
       if (ins.error) return toast('Erro ao criar: ' + ins.error.message, 'err')
       orcId = ins.data.id
       cur.id = orcId
+      cur.numero = ins.data.numero
       cur.data_envio = ins.data.data_envio
-      document.getElementById('ed-status').textContent = `Nº ${ins.data.numero} · ${STATUS_LABEL[novoStatus]}`
     }
     cur.status = novoStatus
 
@@ -395,8 +408,7 @@
       const insI = await sb().from('orcamento_itens').insert(rows)
       if (insI.error) return toast('Erro ao salvar itens: ' + insI.error.message, 'err')
     }
-    document.getElementById('ed-status').textContent = STATUS_LABEL[novoStatus] || novoStatus
-    toast(novoStatus === 'enviado' ? 'Orçamento marcado como enviado.' : 'Salvo.', 'ok')
+    toast('Salvo — aguardando aprovação.', 'ok')
     aplicarEstado()
     carregarFotos()
   }
@@ -423,22 +435,34 @@
   }
 
   function aplicarEstado() {
-    const locked = cur.status === 'aprovado'   // congelado
     const arq = !!cur.arquivado
-    const editable = !locked && !arq
-    setEditorEnabled(editable)
+    const aprovado = !arq && cur.status === 'aprovado'
+    const naoAprov = !arq && cur.status === 'nao_aprovado'
+    const aguardando = !arq && !aprovado && !naoAprov   // rascunho/enviado
+    const saved = !!cur.id
+    setEditorEnabled(aguardando)
     const show = (id, on) => { const e = document.getElementById(id); if (e) e.style.display = on ? '' : 'none' }
-    show('btn-salvar', editable)
-    show('btn-aprovar', editable)
-    show('btn-naoaprovado', editable && cur.status !== 'nao_aprovado')
-    show('btn-reabrir', !arq && cur.status === 'nao_aprovado')
-    show('btn-arquivar', !arq && !!cur.id)
+    // Aguardando aprovação → Salvar · Gerar PDF · Aprovar · Não aprovado · ⋯(Arquivar · Excluir)
+    show('btn-salvar', aguardando)
+    show('btn-aprovar', aguardando && saved)
+    show('btn-naoaprovado', aguardando && saved)
+    show('more-wrap', aguardando && saved)
+    // Aprovado → Gerar PDF · Reabrir | Não aprovado → Reabrir · Arquivar
+    show('btn-reabrir', aprovado || naoAprov)
+    show('btn-arquivar', naoAprov)
+    // Arquivado → Desarquivar
     show('btn-desarquivar', arq)
-    show('btn-excluir', !!cur.id && cur.status !== 'aprovado')
-    show('btn-pdf', !!cur.id)
+    show('btn-pdf', saved && (aguardando || aprovado))
+    document.getElementById('more-menu').classList.remove('open')
+    // Badge de status no topo
+    const badge = document.getElementById('ed-badge')
+    badge.textContent = STATUS_LABEL[cur.status] || cur.status
+    badge.className = 'ed-badge ' + (arq ? 's-arquivado' : (BADGE_CLS[cur.status] || 's-aguardando'))
+    badge.style.display = ''
+    document.getElementById('ed-docno').textContent = saved && cur.numero ? `Nº ${cur.numero}` : ''
     const b = document.getElementById('ed-banner')
     if (arq) { b.style.display = 'block'; b.style.background = '#F1F5F9'; b.style.color = '#475569'; b.textContent = 'Arquivado — fora das listas ativas; histórico preservado.' }
-    else if (locked) { b.style.display = 'block'; b.style.background = '#E8F5E9'; b.style.color = '#2E7D32'; b.textContent = cur._tarefaMsg || 'Aprovado — orçamento congelado; Tarefa (OS) gerada.' }
+    else if (aprovado) { b.style.display = 'block'; b.style.background = '#E8F5E9'; b.style.color = '#2E7D32'; b.textContent = cur._tarefaMsg || 'Aprovado — orçamento congelado; Tarefa (OS) gerada.' }
     else { b.style.display = 'none' }
   }
 

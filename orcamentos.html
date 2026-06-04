@@ -67,7 +67,23 @@
   .grp-tot{text-align:right;font-size:12px;color:var(--tx2);margin-top:6px}
   .ed-totais{display:flex;flex-direction:column;gap:4px;align-items:flex-end;font-size:13px;margin-top:6px}
   .ed-totais .grand{font-size:18px;font-weight:700;color:var(--tx)}
-  .ed-actions{display:flex;gap:10px;flex-wrap:wrap;margin-top:8px}
+  .ed-actions{display:flex;gap:10px;flex-wrap:wrap;margin-top:8px;align-items:center}
+  /* Badge de status no topo do editor */
+  .ed-badge{display:inline-block;font-size:11px;font-weight:700;padding:4px 11px;border-radius:999px;letter-spacing:.3px;margin-left:10px;vertical-align:middle}
+  .ed-badge.s-aguardando{background:#FDF3E2;color:#9a6a1a}
+  .ed-badge.s-aprovado{background:#E3F6EC;color:#0E7A4F}
+  .ed-badge.s-naoaprovado{background:#FDECEC;color:#C0241F}
+  .ed-badge.s-arquivado{background:#EEF1F5;color:#5b6573}
+  #ed-docno{margin-left:auto;font-size:12px;color:var(--tx3);font-weight:600}
+  /* Botão Aprovar (verde) e menu "⋯" */
+  .btn-ok{background:#0E9F6E;border-color:#0E9F6E;color:#fff}
+  .btn-ok:hover{background:#0c8c61;border-color:#0c8c61}
+  #more-wrap{position:relative}
+  .more-menu{display:none;position:absolute;bottom:calc(100% + 6px);left:0;background:#fff;border:1px solid var(--bd);border-radius:8px;box-shadow:var(--sh);min-width:150px;z-index:40;overflow:hidden;padding:4px}
+  .more-menu.open{display:block}
+  .more-menu button{display:block;width:100%;text-align:left;padding:9px 12px;border:none;background:none;font:inherit;font-size:13px;color:var(--tx);cursor:pointer;border-radius:6px}
+  .more-menu button:hover{background:var(--sur2)}
+  .more-menu button#mm-excluir{color:var(--re)}
   .muted{color:var(--tx3);font-size:12px}
   /* Fotos */
   .thumbs{display:flex;flex-wrap:wrap;gap:10px}
@@ -86,6 +102,8 @@
   <div id="app-screen" style="display:none">
     <div class="topbar">
       <span class="topbar-title" id="topbar-title">Orçamentos</span>
+      <span class="ed-badge" id="ed-badge" style="display:none"></span>
+      <span id="ed-docno"></span>
     </div>
     <div class="content">
 
@@ -94,8 +112,7 @@
         <div class="orc-toolbar">
           <div class="orc-filtros" id="orc-filtros">
             <button class="chip on" data-f="ativos">Ativos</button>
-            <button class="chip" data-f="rascunho">Rascunho</button>
-            <button class="chip" data-f="enviado">Enviado</button>
+            <button class="chip" data-f="rascunho">Aguardando</button>
             <button class="chip" data-f="aprovado">Aprovado</button>
             <button class="chip" data-f="nao_aprovado">Não aprovado</button>
             <button class="chip" data-f="arquivado">Arquivados</button>
@@ -205,15 +222,21 @@
           <div id="ed-banner" style="display:none;margin-bottom:10px;padding:10px 12px;border-radius:8px;font-size:13px"></div>
           <div class="ed-actions">
             <button class="btn" id="btn-voltar">← Voltar</button>
-            <button class="btn btn-p" id="btn-salvar">Salvar</button>
-            <button class="btn" id="btn-aprovar" title="Aprova e gera a Tarefa (OS)">✓ Aprovar</button>
-            <button class="btn" id="btn-naoaprovado">Não aprovado</button>
+            <div id="more-wrap" style="display:none">
+              <button class="btn" id="btn-more" title="Mais ações">⋯</button>
+              <div class="more-menu" id="more-menu">
+                <button type="button" id="mm-arquivar">Arquivar</button>
+                <button type="button" id="mm-excluir">Excluir</button>
+              </div>
+            </div>
+            <button class="btn" id="btn-pdf" title="Gera o PDF do orçamento">Gerar PDF</button>
             <button class="btn" id="btn-reabrir" style="display:none">Reabrir p/ revisão</button>
-            <button class="btn" id="btn-arquivar">Arquivar</button>
+            <button class="btn" id="btn-arquivar" style="display:none">Arquivar</button>
             <button class="btn" id="btn-desarquivar" style="display:none">Desarquivar</button>
-            <button class="btn" id="btn-excluir" style="color:var(--re)">🗑 Excluir</button>
-            <button class="btn" id="btn-pdf" title="Gera o PDF do orçamento (servidor)">Gerar PDF</button>
-            <span class="muted" id="ed-status"></span>
+            <button class="btn" id="btn-naoaprovado">Não aprovado</button>
+            <button class="btn btn-ok" id="btn-aprovar" title="Aprova e gera a Tarefa (OS)">✓ Aprovar</button>
+            <button class="btn btn-p" id="btn-salvar">Salvar</button>
+            <span class="muted" id="ed-status" style="display:none"></span>
           </div>
         </div>
       </div>
