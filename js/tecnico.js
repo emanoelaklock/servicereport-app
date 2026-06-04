@@ -15,8 +15,22 @@
 
   let ref = { clientes: [], tipos: [], formularios: {}, tecnicos: [], veiculos: [], produtos: [] }   // formularios: { [id]: {nome,campos} }
   let tecnico = { id: null, nome: null }
-  let cur = null            // RAT em edição: { client_uuid, campos: [] }
+  let cur = null            // RAT em edição: { client_uuid, campos: [], tarefa_id?, tarefa_numero? }
   let sig = null            // controlador do canvas de assinatura
+  const TAREFAS_KEY = 'sr_tarefas_v1'
+  let tarefas = []          // tarefas atribuídas (cache)
+  let tarefaAberta = null   // tarefa no detalhe
+  const T_STATUS = {
+    aguardando_execucao: { t: 'Aguardando execução', c: '' },
+    em_execucao: { t: 'Em execução', c: 's-exec' },
+    concluida: { t: 'Concluída', c: 's-done' },
+    concluida_pendencia: { t: 'Concluída c/ pendência', c: 's-done' },
+    devolvida: { t: 'Devolvida', c: '' },
+    aprovada_faturamento: { t: 'Aprovada p/ faturamento', c: 's-done' },
+    faturada: { t: 'Faturada', c: 's-done' },
+  }
+  const osNo = (n) => n != null ? String(n).padStart(5, '0') : '—'
+  const cliNomeDe = (id, fb) => (ref.clientes.find(c => c.id === id) || {}).nome || fb || '—'
 
   // Título-case: "marcelo oliveira" -> "Marcelo Oliveira"
   const tcase = (s) => String(s || '').toLowerCase().replace(/(^|[\s\-'])\p{L}/gu, m => m.toUpperCase())
@@ -75,6 +89,9 @@
     // Navegação da home
     document.getElementById('btn-voltar').onclick = onVoltar
     document.getElementById('nav-os').onclick = async () => { mostrar('lista'); await renderLista() }
+    document.getElementById('nav-tarefas').onclick = async () => { mostrar('tarefas'); await renderTarefas() }
+    document.getElementById('btn-tarefas-sync').onclick = async () => { await renderTarefas(true) }
+    document.getElementById('btn-iniciar-rat').onclick = () => { if (tarefaAberta) iniciarRatDaTarefa(tarefaAberta) }
     document.getElementById('nav-preorc').onclick = async () => { mostrar('preorc-lista'); await renderPreorcLista() }
     document.getElementById('nav-desloc').onclick = () => toast('Deslocamento (pernoite) — em breve.', 'info')
     const bsh = document.getElementById('btn-sync-home'); if (bsh) bsh.onclick = () => window.SyncEngine && SyncEngine.syncAll()
@@ -167,14 +184,112 @@
     })
   }
 
+  // ─────────────────────── Tarefas atribuídas (#7) ───────────────────────
+  // RLS já filtra para as tarefas do técnico (via tarefa_tecnicos). Cacheia p/ offline.
+  async function renderTarefas(force) {
+    const box = document.getElementById('lista-tarefas')
+    if (box && !tarefas.length) box.innerHTML = '<p class="dim" style="padding:14px 2px">Carregando…</p>'
+    try {
+      const sb = getSupabase()
+      const { data, error } = await sb.from('tarefas')
+        .select('id,numero,status,data_agendada,cliente_id,orientacao')
+        .neq('status', 'faturada')
+        .order('data_agendada', { ascending: true, nullsFirst: false })
+        .order('numero', { ascending: false })
+      if (error) throw error
+      tarefas = data || []
+      localStorage.setItem(TAREFAS_KEY, JSON.stringify(tarefas))
+    } catch (e) {
+      const cache = localStorage.getItem(TAREFAS_KEY)
+      tarefas = cache ? JSON.parse(cache) : []
+      if (force) toast('Offline — mostrando tarefas salvas.', 'info')
+    }
+    if (!box) return
+    if (!tarefas.length) { box.innerHTML = '<p class="dim" style="padding:14px 2px">Nenhuma tarefa atribuída a você.</p>'; return }
+    box.innerHTML = tarefas.map(t => {
+      const st = T_STATUS[t.status] || { t: t.status || '—', c: '' }
+      const ag = t.data_agendada ? 'Agendada ' + fdt(t.data_agendada) : 'Sem data'
+      return `<div class="t-card" data-id="${esc(t.id)}">
+        <div class="t-card-top"><span class="t-card-cli">${esc(cliNomeDe(t.cliente_id))}</span><span class="t-badge ${st.c}">${esc(st.t)}</span></div>
+        <div class="t-card-meta"><span class="t-card-no">Nº ${osNo(t.numero)}</span><span>${esc(ag)}</span></div>
+      </div>`
+    }).join('')
+    box.querySelectorAll('.t-card').forEach(el => el.onclick = () => abrirTarefaDet(el.dataset.id))
+  }
+
+  async function abrirTarefaDet(id) {
+    const t = tarefas.find(x => x.id === id); if (!t) return
+    tarefaAberta = t
+    const st = T_STATUS[t.status] || { t: t.status || '—', c: '' }
+    document.getElementById('t-det-no').textContent = 'Tarefa Nº ' + osNo(t.numero)
+    const badge = document.getElementById('t-det-badge'); badge.textContent = st.t; badge.className = 't-det-badge ' + st.c
+    document.getElementById('t-det-cli').textContent = cliNomeDe(t.cliente_id)
+    document.getElementById('t-det-agenda').textContent = t.data_agendada ? 'Agendada para ' + fdt(t.data_agendada) : 'Sem data agendada'
+    const oSec = document.getElementById('t-det-orient-sec')
+    if (t.orientacao) { document.getElementById('t-det-orient').textContent = t.orientacao; oSec.style.display = 'block' } else oSec.style.display = 'none'
+    mostrar('tarefa-det')
+    await carregarEquipDaTarefa(id)
+    await renderRatsDaTarefa(id)
+  }
+
+  async function carregarEquipDaTarefa(id) {
+    const sec = document.getElementById('t-det-equip-sec')
+    const box = document.getElementById('t-det-equip')
+    try {
+      const sb = getSupabase()
+      const { data: te } = await sb.from('tarefa_equipamentos').select('equipamento_id').eq('tarefa_id', id)
+      const ids = (te || []).map(r => r.equipamento_id)
+      if (!ids.length) { sec.style.display = 'none'; return }
+      const { data: eqs } = await sb.from('equipamentos_axis').select('id,tipo,modelo,serial,part_number').in('id', ids)
+      box.innerHTML = (eqs || []).map(e => {
+        const sub = e.serial ? 'S/N ' + e.serial : (e.part_number ? 'PN ' + e.part_number : '')
+        return `<div class="t-det-equip-item">${esc(e.modelo || e.tipo || 'Equipamento')}${sub ? ` <span class="sub">${esc(sub)}</span>` : ''}</div>`
+      }).join('')
+      sec.style.display = 'block'
+    } catch (e) { sec.style.display = 'none' }
+  }
+
+  async function renderRatsDaTarefa(id) {
+    const sec = document.getElementById('t-det-rats-sec')
+    const box = document.getElementById('t-det-rats')
+    const todas = await D().listarRats()
+    const dela = (todas || []).filter(r => r.tarefa_id === id)
+    if (!dela.length) { sec.style.display = 'none'; return }
+    box.innerHTML = dela.map(r => `<div class="rat-card" data-uuid="${esc(r.client_uuid)}">
+      <div class="rat-card-top"><span class="rat-cli">${esc(r.tipo_servico_nome || 'RAT')}</span>${badge(r.sync_status)}</div>
+      <div class="rat-meta"><span>${esc(r.status || '—')}</span><span>${fdt(r.criado_em, { withTime: true })}</span></div>
+    </div>`).join('')
+    box.querySelectorAll('.rat-card').forEach(el => el.onclick = () => abrirExistente(el.dataset.uuid))
+    sec.style.display = 'block'
+  }
+
+  async function iniciarRatDaTarefa(t) {
+    const rat = await D().novoRat({ tarefa_id: t.id, cliente_id: t.cliente_id || null, cliente_nome: cliNomeDe(t.cliente_id, null) })
+    cur = { client_uuid: rat.client_uuid, campos: [], tarefa_id: t.id, tarefa_numero: t.numero }
+    document.getElementById('form-titulo').textContent = 'Nova RAT'
+    const banner = document.getElementById('f-tarefa-banner')
+    banner.style.display = 'block'
+    banner.textContent = `RAT da Tarefa Nº ${osNo(t.numero)} · ${cliNomeDe(t.cliente_id)}`
+    // cliente travado (vem da tarefa)
+    document.getElementById('f-cliente').value = t.cliente_id || ''
+    const cb = document.getElementById('f-cliente-busca')
+    cb.value = cliNomeDe(t.cliente_id); cb.readOnly = true
+    document.getElementById('f-tipo').value = ''
+    document.getElementById('f-status').value = 'Em andamento'
+    document.getElementById('campos-container').innerHTML = ''
+    mostrar('form')
+  }
+
   // ─────────────────────── Navegação (home + módulos) ───────────────────────
   let screen = 'home'
   const VIEWS = {
     home: 'view-home', lista: 'view-lista', form: 'view-form',
+    tarefas: 'view-tarefas', 'tarefa-det': 'view-tarefa-det',
     'preorc-lista': 'view-preorc-lista', 'preorc-form': 'view-preorc-form',
   }
   const TITLES = {
-    home: 'Service Report', lista: 'Ordens de Serviço', form: 'Nova RAT',
+    home: 'Service Report', lista: 'Minhas RATs', form: 'Nova RAT',
+    tarefas: 'Minhas Tarefas', 'tarefa-det': 'Tarefa',
     'preorc-lista': 'Pré-Orçamento', 'preorc-form': 'Pré-Orçamento',
   }
   function mostrar(secao) {
@@ -188,14 +303,16 @@
   function onVoltar() {
     if (screen === 'form') return cancelar()
     if (screen === 'preorc-form') return cancelarPreorc()
+    if (screen === 'tarefa-det') return mostrar('tarefas')
     mostrar('home')
   }
 
   async function novaRat() {
     const rat = await D().novoRat({})
     cur = { client_uuid: rat.client_uuid, campos: [] }
+    document.getElementById('f-tarefa-banner').style.display = 'none'
     document.getElementById('f-cliente').value = ''
-    document.getElementById('f-cliente-busca').value = ''
+    const cb = document.getElementById('f-cliente-busca'); cb.value = ''; cb.readOnly = false
     document.getElementById('f-tipo').value = ''
     document.getElementById('f-status').value = 'Em andamento'
     document.getElementById('campos-container').innerHTML = ''
@@ -206,11 +323,17 @@
   async function abrirExistente(client_uuid) {
     const rat = await D().obterRat(client_uuid)
     if (!rat) return
-    cur = { client_uuid, campos: [] }
+    cur = { client_uuid, campos: [], tarefa_id: rat.tarefa_id || null, tarefa_numero: rat.tarefa_numero || null }
     document.getElementById('form-titulo').textContent = 'Editar RAT'
+    const banner = document.getElementById('f-tarefa-banner')
+    const cb = document.getElementById('f-cliente-busca')
+    if (rat.tarefa_id) {
+      banner.style.display = 'block'
+      banner.textContent = `RAT da Tarefa Nº ${osNo(rat.tarefa_numero)} · ${cliNomeDe(rat.cliente_id, rat.cliente_nome)}`
+      cb.readOnly = true
+    } else { banner.style.display = 'none'; cb.readOnly = false }
     document.getElementById('f-cliente').value = rat.cliente_id || ''
-    document.getElementById('f-cliente-busca').value =
-      (ref.clientes.find(c => c.id === rat.cliente_id) || {}).nome || rat.cliente_nome || ''
+    cb.value = (ref.clientes.find(c => c.id === rat.cliente_id) || {}).nome || rat.cliente_nome || ''
     document.getElementById('f-tipo').value = rat.tipo_servico_id || ''
     document.getElementById('f-status').value = rat.status || 'Em andamento'
     await onTipoChange()
@@ -489,6 +612,8 @@
     const tipo = ref.tipos.find(t => t.id === tipoId)
 
     await D().salvarRat(cur.client_uuid, {
+      tarefa_id: cur.tarefa_id || null,
+      tarefa_numero: cur.tarefa_numero || null,
       cliente_id: cliId,
       cliente_nome: cli?.nome || null,
       tipo_servico_id: tipoId,

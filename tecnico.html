@@ -47,6 +47,29 @@
   .rat-cli{font-weight:600;color:var(--tx);font-size:14px}
   .rat-meta{display:flex;align-items:center;justify-content:space-between;font-size:12px;color:var(--tx3)}
 
+  /* Tarefas (atribuídas) */
+  .t-card{background:var(--sur);border:1px solid var(--bd);border-radius:12px;padding:13px 14px;margin-bottom:10px;box-shadow:var(--sh);cursor:pointer}
+  .t-card:active{background:var(--sur2)}
+  .t-card-top{display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:5px}
+  .t-card-cli{font-weight:600;color:var(--tx);font-size:14px}
+  .t-card-no{font-family:var(--mono);font-size:12px;color:var(--tx3)}
+  .t-card-meta{display:flex;align-items:center;gap:10px;font-size:12px;color:var(--tx3);flex-wrap:wrap}
+  .t-badge{font-size:11px;font-weight:700;padding:3px 9px;border-radius:999px;background:#FDF3E2;color:#9a6a1a;white-space:nowrap}
+  .t-badge.s-exec{background:#E8F0FE;color:#1c54b8}
+  .t-badge.s-done{background:#E3F6EC;color:#0E7A4F}
+  /* Detalhe da tarefa */
+  .t-det-top{display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:8px}
+  .t-det-no{font-family:var(--mono);font-size:13px;color:var(--tx3);font-weight:600}
+  .t-det-badge{font-size:11px;font-weight:700;padding:3px 10px;border-radius:999px;background:#FDF3E2;color:#9a6a1a}
+  .t-det-cli{font-size:17px;font-weight:700;color:var(--tx);margin-bottom:4px}
+  .t-det-row{font-size:13px;color:var(--tx2);margin-bottom:4px}
+  .t-det-sec{margin-top:16px}
+  .t-det-lbl{font-size:11px;font-weight:600;letter-spacing:.4px;text-transform:uppercase;color:var(--tx3);margin-bottom:6px}
+  .t-det-orient{font-size:14px;color:var(--tx);line-height:1.5;white-space:pre-wrap}
+  .t-det-equip-item{font-size:13px;color:var(--tx);padding:6px 0;border-bottom:1px solid var(--bd)}
+  .t-det-equip-item .sub{color:var(--tx3);font-family:var(--mono);font-size:11px}
+  #f-tarefa-banner{background:#EEF4FF;border:1px solid #cfe0ff;border-radius:10px;padding:10px 12px;margin-bottom:14px;font-size:13px;color:#1c54b8}
+
   /* Form */
   .campo{margin-bottom:14px}
   .multi-chk{display:flex;flex-direction:column;gap:8px;border:1px solid var(--bd);border-radius:8px;padding:10px 12px;background:var(--sur)}
@@ -125,10 +148,15 @@
       <div id="view-home">
         <div class="home-hello" id="home-hello">Olá!</div>
         <div class="home-grid">
+          <button type="button" class="home-card" id="nav-tarefas">
+            <span class="home-ic">📋</span>
+            <span class="home-tt">Minhas Tarefas</span>
+            <span class="home-sb">OS atribuídas a você</span>
+          </button>
           <button type="button" class="home-card" id="nav-os">
             <span class="home-ic">🧰</span>
-            <span class="home-tt">Ordens de Serviço</span>
-            <span class="home-sb">Suas OS e RATs do dia</span>
+            <span class="home-tt">Minhas RATs</span>
+            <span class="home-sb">Relatórios no aparelho</span>
           </button>
           <button type="button" class="home-card" id="nav-preorc">
             <span class="home-ic">📝</span>
@@ -158,10 +186,45 @@
         <div id="lista-rats"></div>
       </div>
 
+      <!-- TAREFAS (atribuídas) -->
+      <div id="view-tarefas" style="display:none">
+        <div class="lista-head">
+          <h2>Minhas Tarefas</h2>
+          <button class="btn" id="btn-tarefas-sync" title="Atualizar">↻ Atualizar</button>
+        </div>
+        <div id="lista-tarefas"></div>
+      </div>
+
+      <!-- TAREFA (detalhe) -->
+      <div id="view-tarefa-det" style="display:none">
+        <div class="login-card" style="box-shadow:var(--sh)">
+          <div class="t-det-top">
+            <span class="t-det-no" id="t-det-no">Tarefa</span>
+            <span class="t-det-badge" id="t-det-badge"></span>
+          </div>
+          <div class="t-det-cli" id="t-det-cli">—</div>
+          <div class="t-det-row" id="t-det-agenda"></div>
+          <div class="t-det-sec" id="t-det-orient-sec" style="display:none">
+            <div class="t-det-lbl">Orientação</div>
+            <div class="t-det-orient" id="t-det-orient"></div>
+          </div>
+          <div class="t-det-sec" id="t-det-equip-sec" style="display:none">
+            <div class="t-det-lbl">Equipamentos</div>
+            <div id="t-det-equip"></div>
+          </div>
+          <div class="t-det-sec" id="t-det-rats-sec" style="display:none">
+            <div class="t-det-lbl">RATs desta tarefa</div>
+            <div id="t-det-rats"></div>
+          </div>
+          <button class="btn btn-p" id="btn-iniciar-rat" style="width:100%;margin-top:18px">▶ Iniciar RAT desta tarefa</button>
+        </div>
+      </div>
+
       <!-- FORMULÁRIO -->
       <div id="view-form" style="display:none">
         <div class="login-card" style="box-shadow:var(--sh)">
           <h2 id="form-titulo" style="font-size:16px;font-weight:600;margin-bottom:14px;color:var(--tx)">Nova RAT</h2>
+          <div id="f-tarefa-banner" style="display:none"></div>
 
           <div class="fg campo">
             <label>Cliente <span style="color:var(--re)">*</span></label>

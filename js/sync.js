@@ -18,7 +18,7 @@
   // Exclui: relatorio_completo (gerada), recebido_em (servidor), criado_em/
   // atualizado_em (defaults) e campos só-locais (tipo_servico_nome, assinatura_local).
   const TAREFA_COLS = [
-    'client_uuid', 'origem_registro', 'cliente_id', 'tecnico_id',
+    'client_uuid', 'origem_registro', 'cliente_id', 'tecnico_id', 'tarefa_id',
     'equipamento_id', 'contrato_id', 'tipo_servico_id', 'formulario_id',
     'cliente_nome', 'tecnico_nome', 'data_tarefa', 'status', 'valor',
     'checkin_lat', 'checkin_lng', 'assinatura_url', 'respostas',
