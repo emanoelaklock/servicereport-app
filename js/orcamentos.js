@@ -475,8 +475,8 @@
     if (!r) return
     cur.status = 'aprovado'
     cur._tarefaMsg = r.tarefa_numero
-      ? `Aprovado — Tarefa (OS) Nº ${r.tarefa_numero} gerada; orçamento congelado.`
-      : 'Aprovado — Tarefa (OS) gerada; orçamento congelado.'
+      ? `Aprovado — Tarefa (OS) Nº ${r.tarefa_numero} gerada. Gerencie em Execução → Tarefas (atribua um técnico e agende).`
+      : 'Aprovado — Tarefa (OS) gerada. Gerencie em Execução → Tarefas.'
     document.getElementById('ed-status').textContent = 'Aprovado'
     toast(r.already ? 'Já estava aprovado.' : 'Aprovado e Tarefa gerada.', 'ok')
     aplicarEstado()

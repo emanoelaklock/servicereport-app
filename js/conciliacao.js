@@ -7,9 +7,11 @@
 const ConciliacaoApp = (() => {
   const sb = () => getSupabase()
   let user = { id: null }
-  let ref = { produtos: [] }
+  let ref = { produtos: [], tecnicos: [] }
   let tarefas = []           // lista de tarefas
   let cliNomes = {}          // cliente_id -> nome
+  let tecNomes = {}          // tecnico_id -> nome
+  let orcNo = {}             // orcamento_id -> numero
   let divPorTarefa = {}      // tarefa_id -> nº de linhas com divergência
   let filtro = 'todas'
   let cur = null             // tarefa aberta
@@ -37,8 +39,15 @@ const ConciliacaoApp = (() => {
   async function init() {
     const { data: { user: u } } = await sb().auth.getUser()
     user.id = u?.id || null
-    const prod = await sb().from('produtos').select('id,codigo,descricao,unidade,preco_venda').eq('ativo', true).eq('oculto', false).order('descricao')
+    const [prod, tec] = await Promise.all([
+      sb().from('produtos').select('id,codigo,descricao,unidade,preco_venda').eq('ativo', true).eq('oculto', false).order('descricao'),
+      sb().from('usuarios').select('id,nome').eq('role', 'tecnico_campo').eq('ativo', true).order('nome'),
+    ])
     ref.produtos = prod.data || []
+    ref.tecnicos = tec.data || []
+    tecNomes = {}; for (const t of ref.tecnicos) tecNomes[t.id] = t.nome
+    const sel = document.getElementById('cc-d-tecnico')
+    sel.innerHTML = '<option value="">— não atribuído —</option>' + ref.tecnicos.map(t => `<option value="${esc(t.id)}">${esc(t.nome || '(sem nome)')}</option>`).join('')
     bind()
     await carregarTarefas()
     mostrar('lista')
@@ -55,6 +64,7 @@ const ConciliacaoApp = (() => {
     const bt = document.getElementById('busca-tarefa')
     if (bt) bt.oninput = debounce(() => renderLista(), 200)
     document.getElementById('cc-add-btn').onclick = adicionarMaterial
+    document.getElementById('cc-d-salvar').onclick = salvarDados
     attachAutocomplete(
       document.getElementById('cc-add-busca'),
       document.getElementById('cc-add-prod'),
@@ -98,13 +108,16 @@ const ConciliacaoApp = (() => {
   // ─────────────────────────── Lista ───────────────────────────
   async function carregarTarefas() {
     const { data: ts, error } = await sb().from('tarefas')
-      .select('id,numero,status,criado_em,data_agendada,orcamento_id,cliente_id')
+      .select('id,numero,status,criado_em,data_agendada,orcamento_id,cliente_id,tecnico_id,orientacao,observacoes')
       .order('numero', { ascending: false })
     if (error) { toast('Erro ao carregar tarefas: ' + error.message, 'err'); tarefas = []; return }
     tarefas = ts || []
     const ids = [...new Set(tarefas.map(t => t.cliente_id).filter(Boolean))]
     cliNomes = {}
     if (ids.length) { const { data: cs } = await sb().from('clientes').select('id,nome').in('id', ids); for (const c of cs || []) cliNomes[c.id] = c.nome }
+    const oids = [...new Set(tarefas.map(t => t.orcamento_id).filter(Boolean))]
+    orcNo = {}
+    if (oids.length) { const { data: os } = await sb().from('orcamentos').select('id,numero').in('id', oids); for (const o of os || []) orcNo[o.id] = o.numero }
     divPorTarefa = {}
     const { data: vc } = await sb().from('vw_conciliacao_tarefa').select('tarefa_id,situacao')
     for (const r of vc || []) { if (r.situacao && r.situacao !== 'ok') divPorTarefa[r.tarefa_id] = (divPorTarefa[r.tarefa_id] || 0) + 1 }
@@ -119,15 +132,17 @@ const ConciliacaoApp = (() => {
     if (q) rows = rows.filter(t => normStr(cliNomes[t.cliente_id] || '').includes(q) || String(t.numero || '').includes(q))
     if (!rows.length) { box.innerHTML = '<div class="cc-empty">Nenhuma tarefa encontrada.</div>'; return }
     box.innerHTML = `<table class="cc-list"><thead><tr>
-        <th>Nº</th><th>Cliente</th><th>Status</th><th>Criada</th><th>Conciliação</th>
+        <th>Nº</th><th>Cliente</th><th>Status</th><th>Técnico</th><th>Agenda</th><th>Conciliação</th>
       </tr></thead><tbody>${rows.map(t => {
         const d = divPorTarefa[t.id] || 0
         const concil = d ? `<span class="pill pill-warn">${d} divergência${d > 1 ? 's' : ''}</span>` : '<span class="pill pill-ok">OK</span>'
+        const tec = t.tecnico_id ? esc(tecNomes[t.tecnico_id] || '—') : '<span class="pill pill-warn">atribuir</span>'
         return `<tr class="row-click" data-id="${esc(t.id)}">
           <td class="cc-num">${t.numero ?? '—'}</td>
           <td>${esc(cliNomes[t.cliente_id] || '—')}</td>
           <td><span class="st">${esc(STATUS_LABEL[t.status] || t.status || '—')}</span></td>
-          <td>${dmy(t.criado_em)}</td>
+          <td>${tec}</td>
+          <td>${t.data_agendada ? dmy(t.data_agendada) : '<span class="st">—</span>'}</td>
           <td>${concil}</td>
         </tr>`
       }).join('')}</tbody></table>`
@@ -141,9 +156,35 @@ const ConciliacaoApp = (() => {
     document.getElementById('cc-cliente').textContent = cur.cliente_nome
     document.getElementById('cc-docno').textContent = cur.numero != null ? `Tarefa Nº ${cur.numero}` : ''
     document.getElementById('cc-badge').textContent = STATUS_LABEL[cur.status] || cur.status || ''
+    // Card "Dados da Tarefa"
+    document.getElementById('cc-d-cliente').textContent = cur.cliente_nome
+    document.getElementById('cc-d-orc').textContent = t.orcamento_id ? `Orçamento Nº ${orcNo[t.orcamento_id] ?? '—'}` : 'Criada direto (sem orçamento)'
+    document.getElementById('cc-d-status').textContent = STATUS_LABEL[cur.status] || cur.status || '—'
+    document.getElementById('cc-d-tecnico').value = t.tecnico_id || ''
+    document.getElementById('cc-d-data').value = t.data_agendada || ''
+    document.getElementById('cc-d-orientacao').value = t.orientacao || ''
+    document.getElementById('cc-d-obs').value = t.observacoes || ''
+    document.getElementById('cc-d-hint').textContent = t.tecnico_id ? '' : 'Atribua um técnico e agende para a Tarefa aparecer no app do técnico.'
     limparAdd()
     await carregarLinhas()
     mostrar('detalhe')
+  }
+
+  async function salvarDados() {
+    if (!cur || !cur.id) return
+    const patch = {
+      tecnico_id: document.getElementById('cc-d-tecnico').value || null,
+      data_agendada: document.getElementById('cc-d-data').value || null,
+      orientacao: document.getElementById('cc-d-orientacao').value.trim() || null,
+      observacoes: document.getElementById('cc-d-obs').value.trim() || null,
+    }
+    const up = await sb().from('tarefas').update(patch).eq('id', cur.id)
+    if (up.error) return toast('Erro ao salvar: ' + up.error.message, 'err')
+    // atualiza cache local p/ a lista refletir sem novo fetch
+    const t = tarefas.find(x => x.id === cur.id)
+    if (t) Object.assign(t, patch)
+    document.getElementById('cc-d-hint').textContent = patch.tecnico_id ? '' : 'Atribua um técnico e agende para a Tarefa aparecer no app do técnico.'
+    toast('Dados da Tarefa salvos.', 'ok')
   }
 
   async function carregarLinhas() {
@@ -255,7 +296,7 @@ const ConciliacaoApp = (() => {
   function mostrar(sec) {
     document.getElementById('view-lista').style.display = sec === 'lista' ? 'block' : 'none'
     document.getElementById('view-detalhe').style.display = sec === 'detalhe' ? 'block' : 'none'
-    document.getElementById('topbar-title').textContent = sec === 'detalhe' ? 'Conciliação da Tarefa' : 'Conciliação'
+    document.getElementById('topbar-title').textContent = sec === 'detalhe' ? 'Tarefa' : 'Tarefas'
     const badge = document.getElementById('cc-badge')
     if (sec !== 'detalhe') { badge.style.display = 'none'; document.getElementById('cc-docno').textContent = '' }
     else badge.style.display = ''
