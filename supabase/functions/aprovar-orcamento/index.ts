@@ -79,17 +79,27 @@ Deno.serve(async (req: Request) => {
         const { data: prods } = await admin.from("produtos").select("id,codigo,descricao").in("id", pids)
         for (const p of prods || []) { cod[p.id] = p.codigo; des[p.id] = p.descricao }
       }
-      const rows = mats.map((m: any) => ({
-        tarefa_id: ins.data.id,
-        produto_id: m.produto_id || null,
-        codigo_produto: m.produto_id ? (cod[m.produto_id] || null) : null,
-        descricao: m.descricao || (m.produto_id ? des[m.produto_id] : null) || "(sem descrição)",
-        unidade: m.unidade || null,
-        preco_unitario: Number(m.preco_unitario) || 0,
-        qtd_orcada: Number(m.quantidade) || 0,
-        qtd_levada: 0,
-        origem: "orcamento",
-      }))
+      // Consolida por produto/descrição (uma linha por match_key — soma orçada de duplicatas).
+      const byKey = new Map<string, any>()
+      for (const m of mats) {
+        const desc = m.descricao || (m.produto_id ? des[m.produto_id] : null) || "(sem descrição)"
+        const key = m.produto_id ? String(m.produto_id) : desc.trim().toLowerCase()
+        const qtd = Number(m.quantidade) || 0
+        const ex = byKey.get(key)
+        if (ex) { ex.qtd_orcada += qtd }
+        else byKey.set(key, {
+          tarefa_id: ins.data.id,
+          produto_id: m.produto_id || null,
+          codigo_produto: m.produto_id ? (cod[m.produto_id] || null) : null,
+          descricao: desc,
+          unidade: m.unidade || null,
+          preco_unitario: Number(m.preco_unitario) || 0,
+          qtd_orcada: qtd,
+          qtd_levada: 0,
+          origem: "orcamento",
+        })
+      }
+      const rows = [...byKey.values()]
       const seed = await admin.from("tarefa_materiais").insert(rows)
       if (seed.error) {
         // não derruba a aprovação; sinaliza para o front

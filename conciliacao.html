@@ -1,0 +1,183 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Conciliação — Service Report</title>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="css/theme.css">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="js/utils.js"></script>
+<script src="js/supabase-client.js"></script>
+<script src="js/auth.js"></script>
+<script src="js/sidebar.js"></script>
+<script src="js/conciliacao.js"></script>
+<style>
+  /* Toolbar / filtros */
+  .cc-toolbar{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:16px;flex-wrap:wrap}
+  .cc-filtros{display:flex;gap:6px;flex-wrap:wrap}
+  .cc-filtros .chip{font:inherit;font-size:12px;padding:6px 11px;border:1px solid var(--bd);border-radius:20px;background:var(--sur);cursor:pointer;color:var(--tx2)}
+  .cc-filtros .chip.on{background:var(--ac);border-color:var(--ac);color:#fff}
+  #busca-tarefa{padding:8px 11px;border:1px solid var(--bd);border-radius:var(--r);font:inherit;font-size:13px;min-width:240px}
+  .cc-empty{text-align:center;color:var(--tx3);font-size:13px;padding:26px 0}
+
+  /* Lista de tarefas */
+  .cc-list{width:100%;border-collapse:collapse;font-size:13px}
+  .cc-list th{text-align:left;font-size:11px;text-transform:uppercase;letter-spacing:.04em;color:var(--tx3);padding:8px 10px;border-bottom:1px solid var(--bd)}
+  .cc-list td{padding:10px;border-bottom:1px solid var(--bd);color:var(--tx)}
+  .cc-list tr.row-click{cursor:pointer}
+  .cc-list tr.row-click:hover td{background:var(--sur2)}
+  .cc-num{font-family:var(--mono);font-size:12px;color:var(--tx2)}
+  .st{font-size:12px;color:var(--tx2)}
+  .pill{display:inline-block;font-size:11px;font-weight:600;padding:3px 9px;border-radius:999px}
+  .pill-ok{background:#E3F6EC;color:#0E7A4F}
+  .pill-warn{background:#FDEEDD;color:#9a5b16}
+
+  /* Detalhe */
+  .cc-head{display:flex;align-items:center;gap:14px;flex-wrap:wrap;margin-bottom:16px}
+  .cc-head .btn{flex:none}
+  .cc-head .cc-cli{font-size:15px;font-weight:700;color:var(--tx)}
+  .cc-card{background:var(--sur);border:1px solid var(--bd);border-radius:14px;padding:22px 24px;box-shadow:var(--sh);margin-bottom:18px}
+  .card-h{display:flex;align-items:center;gap:9px;margin-bottom:6px}
+  .card-h .dot{width:7px;height:7px;border-radius:50%;background:var(--ac)}
+  .card-h .t{font-size:13px;font-weight:700;letter-spacing:.2px;color:var(--tx)}
+  .card-sub{font-size:12px;color:var(--tx3);margin:0 0 14px 16px}
+
+  /* Tabela de conciliação (5 colunas) */
+  .cc-table{width:100%;border-collapse:collapse;font-size:13px}
+  .cc-table th{font-size:10px;letter-spacing:.5px;text-transform:uppercase;color:var(--tx3);padding:0 10px 9px;border-bottom:1px solid var(--bd);text-align:right;white-space:nowrap}
+  .cc-table th:first-child{text-align:left}
+  .cc-table td{padding:8px 10px;border-bottom:1px solid var(--sur2);vertical-align:middle}
+  .cc-table td.num{text-align:right;font-family:var(--mono);font-size:12.5px;white-space:nowrap}
+  .cc-table td.num .u{font-family:Inter,sans-serif;color:var(--tx3);font-size:11px}
+  .cc-table .dash{color:#aab0b8}
+  .cc-table td.neg{color:var(--re)}
+  .cc-mat{width:100%}
+  .cc-desc{color:var(--tx);font-weight:500}
+  .cc-cod{font-family:var(--mono);font-size:11px;color:var(--tx3)}
+  .cc-lev{width:90px;padding:6px 8px;border:1px solid var(--bd);border-radius:7px;font:inherit;font-size:12.5px;text-align:right;font-family:var(--mono)}
+  .cc-lev:focus{outline:none;border-color:var(--ac);box-shadow:0 0 0 3px var(--acl)}
+  tr.row-fora td{background:#FEF6F0}
+  tr.row-fora .cc-desc::after{content:" • fora da proposta";color:#b4541b;font-weight:600;font-size:11px}
+
+  /* Badges de situação */
+  .sit{display:inline-block;font-size:11px;font-weight:700;padding:3px 9px;border-radius:999px;white-space:nowrap}
+  .sit.s-ok{background:#E3F6EC;color:#0E7A4F}
+  .sit.s-dev{background:#E8F0FE;color:#1c54b8}
+  .sit.s-fora{background:#FDECEC;color:#C0241F}
+  .sit.s-falta{background:#FDECEC;color:#C0241F}
+  .sit.s-acima{background:#FDF3E2;color:#9a6a1a}
+
+  /* Adicionar material */
+  .cc-add{display:flex;gap:10px;align-items:flex-end;flex-wrap:wrap;background:#f3f6fc;border:1px solid #dbe3f0;border-radius:10px;padding:12px;margin-top:16px}
+  .cc-add .fg{display:flex;flex-direction:column;gap:5px}
+  .cc-add label{font-size:11px;font-weight:600;color:var(--tx2)}
+  .cc-add input{padding:9px 11px;border:1px solid var(--bd);border-radius:8px;font:inherit;font-size:13px;background:#fff}
+  .cc-add .fg-prod{flex:1;min-width:240px}
+  .cc-add .fg-desc{flex:1;min-width:180px}
+  .cc-add .fg-qtd input{width:110px;text-align:right;font-family:var(--mono)}
+  .cc-resumo{margin-top:14px}
+
+  /* Autocomplete */
+  .ac{position:relative}
+  .ac-list{position:absolute;left:0;right:0;top:calc(100% + 4px);z-index:30;background:#fff;border:1px solid #cfd8e6;border-radius:10px;max-height:320px;overflow-y:auto;box-shadow:0 14px 36px rgba(20,30,55,.18);display:none}
+  .ac-list.open{display:block}
+  .ac-item{padding:9px 12px;font-size:13px;cursor:pointer;border-top:1px solid var(--bd)}
+  .ac-item:first-child{border-top:none}
+  .ac-item:hover{background:#eef4ff}
+  .ac-empty{padding:10px 12px;font-size:13px;color:var(--tx3)}
+  .ac-prod{display:flex;align-items:baseline;gap:10px}
+  .ac-prod .ac-cod{font-family:var(--mono);font-size:11px;color:var(--tx3);min-width:74px;font-weight:600}
+  .ac-prod .ac-desc{flex:1;color:var(--tx);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+
+  .ed-badge{display:inline-block;font-size:11px;font-weight:700;padding:4px 11px;border-radius:999px;margin-left:10px;background:#FDF3E2;color:#9a6a1a;vertical-align:middle}
+  #cc-docno{margin-left:auto;font-size:12px;color:var(--tx3);font-weight:600}
+</style>
+</head>
+<body>
+
+<div id="sidebar-container"></div>
+
+<div class="main">
+  <div id="app-screen" style="display:none">
+    <div class="topbar">
+      <span class="topbar-title" id="topbar-title">Conciliação</span>
+      <span class="ed-badge" id="cc-badge" style="display:none"></span>
+      <span id="cc-docno"></span>
+    </div>
+    <div class="content">
+
+      <!-- LISTA -->
+      <div id="view-lista">
+        <div class="cc-toolbar">
+          <div class="cc-filtros" id="cc-filtros">
+            <button class="chip on" data-f="todas">Todas</button>
+            <button class="chip" data-f="divergencia">Com divergência</button>
+            <button class="chip" data-f="aguardando_execucao">Aguardando execução</button>
+            <button class="chip" data-f="em_execucao">Em execução</button>
+            <button class="chip" data-f="concluida">Concluída</button>
+          </div>
+          <input type="text" id="busca-tarefa" placeholder="Buscar por nº ou cliente…" autocomplete="off">
+        </div>
+        <div id="lista-box"></div>
+      </div>
+
+      <!-- DETALHE -->
+      <div id="view-detalhe" style="display:none">
+        <div class="cc-head">
+          <button class="btn" id="btn-voltar">← Voltar</button>
+          <span class="cc-cli" id="cc-cliente">—</span>
+        </div>
+
+        <div class="cc-card">
+          <div class="card-h"><span class="dot"></span><span class="t">Conciliação de material</span></div>
+          <p class="card-sub">Orçada (do orçamento) · <b>Levada</b> (estoque — você edita) · Utilizada (RATs do técnico) · Devolvida = Levada − Utilizada.</p>
+          <table class="cc-table">
+            <thead><tr>
+              <th>Material</th><th>Orçada</th><th>Levada</th><th>Utilizada</th><th>Devolvida</th><th style="text-align:left">Situação</th>
+            </tr></thead>
+            <tbody id="cc-tbody"></tbody>
+          </table>
+
+          <div class="cc-add">
+            <div class="fg fg-prod">
+              <label>Adicionar do catálogo</label>
+              <div class="ac">
+                <input type="text" id="cc-add-busca" placeholder="Buscar produto (código ou descrição)…" autocomplete="off">
+                <input type="hidden" id="cc-add-prod">
+                <div class="ac-list" id="cc-add-list"></div>
+              </div>
+            </div>
+            <div class="fg fg-desc">
+              <label>ou descrição avulsa</label>
+              <input type="text" id="cc-add-desc" placeholder="Ex.: Cabo Cat6A (m)">
+            </div>
+            <div class="fg fg-qtd">
+              <label>Levada</label>
+              <input type="number" id="cc-add-qtd" inputmode="decimal" min="0" step="any" placeholder="0">
+            </div>
+            <button class="btn btn-p" id="cc-add-btn">+ Adicionar</button>
+          </div>
+
+          <div class="cc-resumo" id="cc-resumo"></div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+</div>
+
+<div class="tc" id="tc"></div>
+
+<script>
+  // Tela administrativa — só admin/gestor leem tarefas e gerenciam a Levada.
+  window.PAGE_ALLOWED = ['admin', 'gestor_axis']
+  async function onPostLogin() {
+    renderSidebar('conciliacao')
+    await ConciliacaoApp.init()
+  }
+  renderSidebar('conciliacao')
+  initAuth()
+</script>
+</body>
+</html>
