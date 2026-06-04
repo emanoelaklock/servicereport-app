@@ -12,6 +12,11 @@
   let editTipoId = null
 
   const TIPOS_CAMPO = ['texto', 'texto_longo', 'numero', 'data', 'hora', 'selecao', 'tecnico', 'tecnicos', 'veiculo', 'produtos', 'foto', 'assinatura']
+  const TIPO_LABEL = {
+    texto: 'Texto curto', texto_longo: 'Texto longo', numero: 'Número', data: 'Data', hora: 'Hora',
+    selecao: 'Seleção (opções)', tecnico: 'Técnico (único)', tecnicos: 'Técnicos (vários)',
+    veiculo: 'Veículo', produtos: 'Produtos utilizados', foto: 'Fotos', assinatura: 'Assinatura',
+  }
   // Operadores das condições (regras de exibição). valor=false → não precisa de valor.
   const COND_OPS = [
     { v: 'igual', t: 'é igual a', valor: true },
@@ -117,33 +122,36 @@
     row.className = 'campo-wrap'
     row._key = 'r' + (++_rowSeq)
     if (campo && campo.id) row.dataset.id = campo.id
-    const opts = TIPOS_CAMPO.map(t => `<option value="${t}"${campo && campo.tipo === t ? ' selected' : ''}>${t}</option>`).join('')
-    const line = document.createElement('div')
-    line.className = 'campo-row'
-    line.innerHTML = `
-      <input class="cb-label" placeholder="Pergunta / rótulo" value="${campo ? esc(campo.label || '') : ''}">
-      <select class="cb-tipo">${opts}</select>
-      <input class="cb-opcoes" placeholder="opções (vírgula)" value="${campo && campo.opcoes ? esc(campo.opcoes.join(', ')) : ''}">
-      <label class="cb-obrig-l"><input type="checkbox" class="cb-obrig"${campo && campo.obrigatorio ? ' checked' : ''}> obrig.</label>
-      <button type="button" class="ab cb-cond" title="Condicional (mostrar se…)">⚙</button>
-      <button type="button" class="ab ab-d cb-del">×</button>`
-    const panel = document.createElement('div')
-    panel.className = 'cond-panel'
-    panel.innerHTML = `
-      <div class="cond-head">Mostrar este campo quando
-        <select class="cond-logica"><option value="E">TODAS (E)</option><option value="OU">QUALQUER (OU)</option></select>
-        das regras forem verdadeiras:</div>
-      <div class="cond-regras"></div>
-      <button type="button" class="btn btn-sm cond-add">+ regra</button>`
-    row.appendChild(line); row.appendChild(panel)
+    const opts = TIPOS_CAMPO.map(t => `<option value="${t}"${campo && campo.tipo === t ? ' selected' : ''}>${TIPO_LABEL[t] || t}</option>`).join('')
+    row.innerHTML = `
+      <div class="fld-h">
+        <span class="fld-move"><button type="button" class="fld-up" title="Subir">▲</button><button type="button" class="fld-down" title="Descer">▼</button></span>
+        <select class="cb-tipo">${opts}</select>
+        <span class="spacer"></span>
+        <label class="fld-obrig"><input type="checkbox" class="cb-obrig"${campo && campo.obrigatorio ? ' checked' : ''}> Obrigatório</label>
+        <button type="button" class="fld-cond-btn cb-cond" title="Mostrar só em certas condições">⚙ Condicional</button>
+        <button type="button" class="fld-del cb-del" title="Remover campo">🗑</button>
+      </div>
+      <input class="cb-label" placeholder="Pergunta / rótulo do campo" value="${campo ? esc(campo.label || '') : ''}">
+      <input class="cb-opcoes" placeholder="Opções separadas por vírgula (ex.: Sim, Não)" value="${campo && campo.opcoes ? esc(campo.opcoes.join(', ')) : ''}">
+      <div class="cond-panel">
+        <div class="cond-head">Mostrar este campo quando
+          <select class="cond-logica"><option value="E">TODAS (E)</option><option value="OU">QUALQUER (OU)</option></select>
+          das regras:</div>
+        <div class="cond-regras"></div>
+        <button type="button" class="btn btn-sm cond-add">+ regra</button>
+      </div>`
     box.appendChild(row)
 
-    const tipoSel = line.querySelector('.cb-tipo')
-    const opcoesInp = line.querySelector('.cb-opcoes')
+    const tipoSel = row.querySelector('.cb-tipo')
+    const opcoesInp = row.querySelector('.cb-opcoes')
     const toggleOpcoes = () => { opcoesInp.style.display = tipoSel.value === 'selecao' ? '' : 'none' }
     tipoSel.onchange = toggleOpcoes; toggleOpcoes()
-    line.querySelector('.cb-del').onclick = () => row.remove()
-    const cbCond = line.querySelector('.cb-cond')
+    row.querySelector('.cb-del').onclick = () => row.remove()
+    row.querySelector('.fld-up').onclick = () => { const p = row.previousElementSibling; if (p) box.insertBefore(row, p) }
+    row.querySelector('.fld-down').onclick = () => { const n = row.nextElementSibling; if (n) box.insertBefore(n, row) }
+    const cbCond = row.querySelector('.cb-cond')
+    const panel = row.querySelector('.cond-panel')
     cbCond.onclick = () => { const open = panel.classList.toggle('open'); cbCond.classList.toggle('on', open) }
     panel.querySelector('.cond-add').onclick = () => addRegraRow(panel, row)
     row._condPending = (campo && campo.cond) || null
