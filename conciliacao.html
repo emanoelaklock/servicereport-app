@@ -54,6 +54,22 @@
   .cc-dados-grid .ro{font-size:14px;color:var(--tx);padding:7px 0;font-weight:500}
   .cc-dados-foot{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-top:16px;flex-wrap:wrap}
 
+  /* Equipamentos relacionados */
+  .cc-eq-add{display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-bottom:14px}
+  .cc-chips{display:flex;flex-wrap:wrap;gap:8px}
+  .cc-chip{display:flex;align-items:center;gap:8px;background:var(--sur2);border:1px solid var(--bd);border-radius:8px;padding:7px 10px;font-size:13px;color:var(--tx)}
+  .cc-chip .cc-chip-sub{color:var(--tx3);font-size:11px;font-family:var(--mono)}
+  .cc-chip .x{border:none;background:none;color:var(--re);font-size:15px;cursor:pointer;line-height:1;padding:0}
+  .cc-empty-sm{color:var(--tx3);font-size:12.5px}
+
+  /* Anexos */
+  .cc-anexos{display:flex;flex-direction:column;gap:8px;margin-top:12px}
+  .cc-anx-item{display:flex;align-items:center;gap:10px;border:1px solid var(--bd);border-radius:8px;padding:8px 12px;font-size:13px}
+  .cc-anx-item .nome{flex:1;color:var(--ac);cursor:pointer;text-decoration:none;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .cc-anx-item .nome:hover{text-decoration:underline}
+  .cc-anx-item .sz{color:var(--tx3);font-size:11px;font-family:var(--mono);white-space:nowrap}
+  .cc-anx-item .x{border:none;background:none;color:var(--re);font-size:15px;cursor:pointer;line-height:1}
+
   /* Cards de resumo (custo / devoluções / divergências) */
   .cc-stats{display:flex;gap:12px;flex-wrap:wrap;margin:4px 0 18px}
   .stat{flex:1;min-width:158px;background:#F7F9FC;border:1px solid var(--bd);border-radius:11px;padding:12px 14px}
@@ -158,16 +174,37 @@
             <div class="fg"><label>Cliente</label><div class="ro" id="cc-d-cliente">—</div></div>
             <div class="fg"><label>Origem</label><div class="ro" id="cc-d-orc">—</div></div>
             <div class="fg"><label>Status</label><div class="ro" id="cc-d-status">—</div></div>
+            <div class="fg"><label>Tipo de tarefa</label><select id="cc-d-tipo"><option value="">— selecione —</option></select></div>
             <div class="fg"><label>Técnico responsável</label><select id="cc-d-tecnico"><option value="">— não atribuído —</option></select></div>
             <div class="fg"><label>Data agendada</label><input type="date" id="cc-d-data"></div>
-            <div class="fg"></div>
-            <div class="fg full"><label>Orientação ao técnico</label><textarea id="cc-d-orientacao" rows="2" placeholder="O que precisa ser feito no campo…"></textarea></div>
+            <div class="fg"><label>Pedido de Compra (PC)</label><input type="text" id="cc-d-pc" placeholder="Ex.: PC-2026-0123"></div>
+            <div class="fg full"><label>Orientação ao técnico</label><textarea id="cc-d-orientacao" rows="3" placeholder="O que precisa ser feito no campo…"></textarea></div>
             <div class="fg full"><label>Observações internas</label><textarea id="cc-d-obs" rows="2" placeholder="Notas do administrativo…"></textarea></div>
           </div>
           <div class="cc-dados-foot">
             <span class="muted" id="cc-d-hint"></span>
             <button class="btn btn-p" id="cc-d-salvar">Salvar dados</button>
           </div>
+        </div>
+
+        <div class="cc-card">
+          <div class="card-h"><span class="dot"></span><span class="t">Equipamentos relacionados</span></div>
+          <div class="cc-eq-add">
+            <div class="ac" style="flex:1;min-width:260px">
+              <input type="text" id="cc-eq-busca" placeholder="Buscar equipamento (modelo, PN ou serial)…" autocomplete="off">
+              <input type="hidden" id="cc-eq-sel">
+              <div class="ac-list" id="cc-eq-list"></div>
+            </div>
+            <button class="btn btn-p" id="cc-eq-btn">+ Vincular</button>
+          </div>
+          <div class="cc-chips" id="cc-eq-chips"></div>
+        </div>
+
+        <div class="cc-card">
+          <div class="card-h"><span class="dot"></span><span class="t">Anexos</span></div>
+          <input type="file" id="cc-anx-input" multiple style="display:none">
+          <button class="btn" id="cc-anx-btn">📎 Adicionar anexos</button>
+          <div class="cc-anexos" id="cc-anx-list"></div>
         </div>
 
         <div class="cc-card">

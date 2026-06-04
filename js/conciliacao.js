@@ -7,7 +7,7 @@
 const ConciliacaoApp = (() => {
   const sb = () => getSupabase()
   let user = { id: null }
-  let ref = { produtos: [], tecnicos: [] }
+  let ref = { produtos: [], tecnicos: [], tipos: [], equip: [] }
   let tarefas = []           // lista de tarefas
   let cliNomes = {}          // cliente_id -> nome
   let tecNomes = {}          // tecnico_id -> nome
@@ -35,19 +35,26 @@ const ConciliacaoApp = (() => {
   }
   const dmy = (iso) => { if (!iso) return '—'; const m = String(iso).match(/(\d{4})-(\d{2})-(\d{2})/); return m ? `${m[3]}/${m[2]}/${m[1]}` : '—' }
   const unid = (l) => l.unidade ? ` <span class="u">${esc(l.unidade)}</span>` : ''
+  const osNo = (n) => n != null ? String(n).padStart(5, '0') : '—'
+  const equipLabel = (e) => `${e.modelo || e.tipo || 'Equipamento'}${e.serial ? ' · S/N ' + e.serial : ''}${e.part_number ? ' · PN ' + e.part_number : ''}`
+  const fmtSize = (n) => { n = Number(n) || 0; return n < 1024 ? n + ' B' : n < 1048576 ? (n / 1024).toFixed(0) + ' KB' : (n / 1048576).toFixed(1) + ' MB' }
 
   async function init() {
     const { data: { user: u } } = await sb().auth.getUser()
     user.id = u?.id || null
-    const [prod, tec] = await Promise.all([
+    const [prod, tec, tip, eq] = await Promise.all([
       sb().from('produtos').select('id,codigo,descricao,unidade,preco_venda').eq('ativo', true).eq('oculto', false).order('descricao'),
       sb().from('usuarios').select('id,nome').eq('role', 'tecnico_campo').eq('ativo', true).order('nome'),
+      sb().from('tipos_servico').select('id,nome').eq('ativo', true).order('nome'),
+      sb().from('equipamentos_axis').select('id,tipo,part_number,modelo,serial').order('modelo'),
     ])
     ref.produtos = prod.data || []
     ref.tecnicos = tec.data || []
+    ref.tipos = tip.data || []
+    ref.equip = eq.data || []
     tecNomes = {}; for (const t of ref.tecnicos) tecNomes[t.id] = t.nome
-    const sel = document.getElementById('cc-d-tecnico')
-    sel.innerHTML = '<option value="">— não atribuído —</option>' + ref.tecnicos.map(t => `<option value="${esc(t.id)}">${esc(t.nome || '(sem nome)')}</option>`).join('')
+    document.getElementById('cc-d-tecnico').innerHTML = '<option value="">— não atribuído —</option>' + ref.tecnicos.map(t => `<option value="${esc(t.id)}">${esc(t.nome || '(sem nome)')}</option>`).join('')
+    document.getElementById('cc-d-tipo').innerHTML = '<option value="">— selecione —</option>' + ref.tipos.map(t => `<option value="${esc(t.id)}">${esc(t.nome || '')}</option>`).join('')
     bind()
     await carregarTarefas()
     mostrar('lista')
@@ -65,6 +72,9 @@ const ConciliacaoApp = (() => {
     if (bt) bt.oninput = debounce(() => renderLista(), 200)
     document.getElementById('cc-add-btn').onclick = adicionarMaterial
     document.getElementById('cc-d-salvar').onclick = salvarDados
+    document.getElementById('cc-eq-btn').onclick = vincularEquip
+    document.getElementById('cc-anx-btn').onclick = () => document.getElementById('cc-anx-input').click()
+    document.getElementById('cc-anx-input').onchange = (e) => adicionarAnexos(e.target.files)
     attachAutocomplete(
       document.getElementById('cc-add-busca'),
       document.getElementById('cc-add-prod'),
@@ -73,6 +83,15 @@ const ConciliacaoApp = (() => {
       p => ({ id: p.id, label: `${p.codigo ? p.codigo + ' · ' : ''}${p.descricao}`,
               html: `<div class="ac-prod"><span class="ac-cod">${esc(p.codigo || '—')}</span><span class="ac-desc">${esc(p.descricao || '')}</span></div>` }),
       () => { document.getElementById('cc-add-desc').value = '' },
+    )
+    attachAutocomplete(
+      document.getElementById('cc-eq-busca'),
+      document.getElementById('cc-eq-sel'),
+      document.getElementById('cc-eq-list'),
+      ref.equip,
+      e => ({ id: e.id, label: equipLabel(e),
+              html: `<div class="ac-prod"><span class="ac-desc">${esc(e.modelo || e.tipo || '—')}</span><span class="ac-cod">${esc(e.serial ? 'S/N ' + e.serial : (e.part_number ? 'PN ' + e.part_number : ''))}</span></div>` }),
+      null,
     )
   }
 
@@ -108,7 +127,7 @@ const ConciliacaoApp = (() => {
   // ─────────────────────────── Lista ───────────────────────────
   async function carregarTarefas() {
     const { data: ts, error } = await sb().from('tarefas')
-      .select('id,numero,status,criado_em,data_agendada,orcamento_id,cliente_id,tecnico_id,orientacao,observacoes')
+      .select('id,numero,status,criado_em,data_agendada,orcamento_id,cliente_id,tecnico_id,orientacao,observacoes,pedido_compra,tipo_servico_id')
       .order('numero', { ascending: false })
     if (error) { toast('Erro ao carregar tarefas: ' + error.message, 'err'); tarefas = []; return }
     tarefas = ts || []
@@ -138,7 +157,7 @@ const ConciliacaoApp = (() => {
         const concil = d ? `<span class="pill pill-warn">${d} divergência${d > 1 ? 's' : ''}</span>` : '<span class="pill pill-ok">OK</span>'
         const tec = t.tecnico_id ? esc(tecNomes[t.tecnico_id] || '—') : '<span class="pill pill-warn">atribuir</span>'
         return `<tr class="row-click" data-id="${esc(t.id)}">
-          <td class="cc-num">${t.numero ?? '—'}</td>
+          <td class="cc-num">${osNo(t.numero)}</td>
           <td>${esc(cliNomes[t.cliente_id] || '—')}</td>
           <td><span class="st">${esc(STATUS_LABEL[t.status] || t.status || '—')}</span></td>
           <td>${tec}</td>
@@ -152,29 +171,34 @@ const ConciliacaoApp = (() => {
   // ─────────────────────────── Detalhe ───────────────────────────
   async function abrirTarefa(id) {
     const t = tarefas.find(x => x.id === id); if (!t) return
-    cur = { id, numero: t.numero, status: t.status, cliente_nome: cliNomes[t.cliente_id] || '—' }
+    cur = { id, numero: t.numero, status: t.status, cliente_nome: cliNomes[t.cliente_id] || '—', equip: [], anexos: [] }
     document.getElementById('cc-cliente').textContent = cur.cliente_nome
-    document.getElementById('cc-docno').textContent = cur.numero != null ? `Tarefa Nº ${cur.numero}` : ''
+    document.getElementById('cc-docno').textContent = cur.numero != null ? `Tarefa Nº ${osNo(cur.numero)}` : ''
     document.getElementById('cc-badge').textContent = STATUS_LABEL[cur.status] || cur.status || ''
     // Card "Dados da Tarefa"
     document.getElementById('cc-d-cliente').textContent = cur.cliente_nome
     document.getElementById('cc-d-orc').textContent = t.orcamento_id ? `Orçamento Nº ${orcNo[t.orcamento_id] ?? '—'}` : 'Criada direto (sem orçamento)'
     document.getElementById('cc-d-status').textContent = STATUS_LABEL[cur.status] || cur.status || '—'
+    document.getElementById('cc-d-tipo').value = t.tipo_servico_id || ''
     document.getElementById('cc-d-tecnico').value = t.tecnico_id || ''
     document.getElementById('cc-d-data').value = t.data_agendada || ''
+    document.getElementById('cc-d-pc').value = t.pedido_compra || ''
     document.getElementById('cc-d-orientacao').value = t.orientacao || ''
     document.getElementById('cc-d-obs').value = t.observacoes || ''
     document.getElementById('cc-d-hint').textContent = t.tecnico_id ? '' : 'Atribua um técnico e agende para a Tarefa aparecer no app do técnico.'
     limparAdd()
-    await carregarLinhas()
+    document.getElementById('cc-eq-busca').value = ''; document.getElementById('cc-eq-sel').value = ''
+    await Promise.all([carregarLinhas(), carregarEquip(), carregarAnexos()])
     mostrar('detalhe')
   }
 
   async function salvarDados() {
     if (!cur || !cur.id) return
     const patch = {
+      tipo_servico_id: document.getElementById('cc-d-tipo').value || null,
       tecnico_id: document.getElementById('cc-d-tecnico').value || null,
       data_agendada: document.getElementById('cc-d-data').value || null,
+      pedido_compra: document.getElementById('cc-d-pc').value.trim() || null,
       orientacao: document.getElementById('cc-d-orientacao').value.trim() || null,
       observacoes: document.getElementById('cc-d-obs').value.trim() || null,
     }
@@ -185,6 +209,79 @@ const ConciliacaoApp = (() => {
     if (t) Object.assign(t, patch)
     document.getElementById('cc-d-hint').textContent = patch.tecnico_id ? '' : 'Atribua um técnico e agende para a Tarefa aparecer no app do técnico.'
     toast('Dados da Tarefa salvos.', 'ok')
+  }
+
+  // ───────────────────── Equipamentos relacionados ─────────────────────
+  async function carregarEquip() {
+    const { data, error } = await sb().from('tarefa_equipamentos').select('equipamento_id').eq('tarefa_id', cur.id)
+    cur.equip = error ? [] : (data || []).map(r => r.equipamento_id)
+    renderEquip()
+  }
+  function renderEquip() {
+    const box = document.getElementById('cc-eq-chips')
+    if (!cur.equip || !cur.equip.length) { box.innerHTML = '<span class="cc-empty-sm">Nenhum equipamento vinculado.</span>'; return }
+    box.innerHTML = cur.equip.map(id => {
+      const e = ref.equip.find(x => x.id === id) || {}
+      const sub = e.serial ? 'S/N ' + e.serial : (e.part_number ? 'PN ' + e.part_number : '')
+      return `<span class="cc-chip"><span>${esc(e.modelo || e.tipo || 'Equipamento')}</span>${sub ? `<span class="cc-chip-sub">${esc(sub)}</span>` : ''}<button class="x" data-eq="${esc(id)}" title="Remover">×</button></span>`
+    }).join('')
+    box.querySelectorAll('[data-eq]').forEach(b => b.onclick = () => removerEquip(b.dataset.eq))
+  }
+  async function vincularEquip() {
+    const id = document.getElementById('cc-eq-sel').value
+    if (!id) return toast('Selecione um equipamento na busca.', 'err')
+    if ((cur.equip || []).includes(id)) return toast('Equipamento já vinculado.', 'err')
+    const ins = await sb().from('tarefa_equipamentos').insert({ tarefa_id: cur.id, equipamento_id: id })
+    if (ins.error) return toast('Erro: ' + ins.error.message, 'err')
+    document.getElementById('cc-eq-busca').value = ''; document.getElementById('cc-eq-sel').value = ''
+    await carregarEquip()
+  }
+  async function removerEquip(id) {
+    const d = await sb().from('tarefa_equipamentos').delete().eq('tarefa_id', cur.id).eq('equipamento_id', id)
+    if (d.error) return toast('Erro: ' + d.error.message, 'err')
+    await carregarEquip()
+  }
+
+  // ───────────────────── Anexos ─────────────────────
+  async function carregarAnexos() {
+    const { data, error } = await sb().from('tarefa_anexos').select('*').eq('tarefa_id', cur.id).order('criado_em')
+    cur.anexos = error ? [] : (data || [])
+    renderAnexos()
+  }
+  function renderAnexos() {
+    const box = document.getElementById('cc-anx-list')
+    if (!cur.anexos || !cur.anexos.length) { box.innerHTML = '<span class="cc-empty-sm">Nenhum anexo.</span>'; return }
+    box.innerHTML = cur.anexos.map(a => `<div class="cc-anx-item"><span>📄</span><a class="nome" data-anx="${esc(a.id)}">${esc(a.nome)}</a><span class="sz">${fmtSize(a.tamanho)}</span><button class="x" data-del="${esc(a.id)}" title="Remover">×</button></div>`).join('')
+    box.querySelectorAll('[data-anx]').forEach(el => el.onclick = () => baixarAnexo(el.dataset.anx))
+    box.querySelectorAll('[data-del]').forEach(b => b.onclick = () => removerAnexo(b.dataset.del))
+  }
+  async function adicionarAnexos(files) {
+    if (!cur || !cur.id || !files || !files.length) return
+    for (const f of files) {
+      const ext = (f.name.split('.').pop() || 'bin').toLowerCase()
+      const path = `tarefas/${cur.id}/${crypto.randomUUID()}.${ext}`
+      const up = await sb().storage.from('rat-anexos').upload(path, f, { contentType: f.type || undefined })
+      if (up.error) { toast('Erro ao enviar ' + f.name + ': ' + up.error.message, 'err'); continue }
+      const ins = await sb().from('tarefa_anexos').insert({ tarefa_id: cur.id, nome: f.name, url: path, mime: f.type || null, tamanho: f.size, criado_por: user.id })
+      if (ins.error) toast('Erro ao registrar ' + f.name + ': ' + ins.error.message, 'err')
+    }
+    document.getElementById('cc-anx-input').value = ''
+    toast('Anexos enviados.', 'ok')
+    await carregarAnexos()
+  }
+  async function baixarAnexo(id) {
+    const a = (cur.anexos || []).find(x => x.id === id); if (!a) return
+    const { data, error } = await sb().storage.from('rat-anexos').createSignedUrl(a.url, 120)
+    if (error) return toast('Erro ao abrir: ' + error.message, 'err')
+    window.open(data.signedUrl, '_blank')
+  }
+  async function removerAnexo(id) {
+    const a = (cur.anexos || []).find(x => x.id === id); if (!a) return
+    if (!confirm('Remover este anexo?')) return
+    await sb().storage.from('rat-anexos').remove([a.url]).catch(() => {})
+    const d = await sb().from('tarefa_anexos').delete().eq('id', id)
+    if (d.error) return toast('Erro: ' + d.error.message, 'err')
+    await carregarAnexos()
   }
 
   async function carregarLinhas() {
