@@ -84,25 +84,27 @@ Artefato **próprio** do técnico (não é um campo dentro da RAT — esse é o 
 - **Ao finalizar:** gera **só o PDF** (sem e-mail automático). O comercial/admin envia ao cliente do jeito dele.
 - **O técnico não vê preço** — nem do produto, nem do orçamento (ver regra de dados em §10).
 
-### Layout do PDF (servidor — Edge Function `documentos`)
+### Layout do PDF do orçamento (CLIENT-SIDE — render do template + impressão)
 
-Referência visual fiel: **`docs/mockups/orcamento-pdf.html`** (fonte Inter no mockup; o PDF gerado usa Helvetica — pdf-lib no edge não embute Inter sem bundlar a TTF). Acento navy `#1B2A4A`, A4. Dados da empresa via envs **`EMPRESA_*`** (defaults = dados reais TSRV).
+Referência visual: **`docs/mockups/orcamento-pdf-v2.jpg`** (e o `orcamento-pdf.html` original). O **orçamento** é gerado **no navegador**: o `orcamentoHTML()` (em `js/orcamentos.js`) monta o HTML do template (fonte **Inter**, A4), **pagina em folhas via JS** e abre a impressão → "Salvar como PDF". *(pdf-lib na Edge Function `documentos` segue só para o e-mail do pré-orçamento.)* Acento **navy `#1B2A4A`** + **vermelho `#BE1622`** no Total. Numeração com prefixo do ano (`260001`, `270001`…).
 
 **Estrutura (ordem):**
-1. **Cabeçalho:** selo "TS" + "Traders Service" + tagline; bloco da empresa à direita (razão social, CNPJ·IE·IM, endereço, telefone). Borda navy.
-2. **"Proposta Comercial"** + **"Orçamento Nº X"** (ou "Pré-Orçamento Nº X") → **metas**: Emissão · Validade · Prazo de execução.
-3. **Cliente:** nome + documento/endereço.
-4. **Escopo do serviço:** card com a descrição + **Valor do serviço**.
-5. **Materiais:** tabela Descrição · Un. · Qtd · Valor unit. · Total.
-6. **Resumo financeiro:** Subtotal Serviços · Subtotal Materiais · **Total geral** (caixa navy em destaque).
-7. **Condições comerciais** (Forma de pagamento · Valor) **ao lado de Observações**.
-8. **Rodapé:** empresa/contato + "Gerado em DD/MM/AAAA por <usuário> · Página i de n".
+1. **Cabeçalho (pág. 1):** selo "TS" + "TRADERS SERVICE" + bloco da empresa à direita (razão social, CNPJ·IE·IM, endereço, telefone). **Pág. 2+: cabeçalho ENXUTO** (TS + "Proposta Nº X") — não repete o endereço.
+2. **"Proposta Nº X"** → **metas**: Emissão · Validade · Prazo de execução.
+3. **Cliente:** rótulo acima; nome (esq.) + documento/endereço (dir.) centralizados; endereço limpo (UF única "Itupeva/SP", CEP formatado).
+4. **Serviço:** card azul-claro — **1ª linha do `servico_descricao` = resumo em destaque**, demais linhas = **bullets** (lista nativa); **Valor do serviço abaixo** da descrição.
+5. **Materiais:** tabela Item · Descrição · Un. · Qtd · Vlr. Unit. · Total (com nº do item e zebra). O **cabeçalho da tabela repete** quando quebra de página. **Item sem preço** (fornecido pelo cliente) = **"—"** em unit/total e **fora do subtotal**.
+6. **Resumo:** Subtotais **só quando há os dois grupos** (serviço + materiais); com um grupo só, vai direto ao **Total** (card; valor em vermelho).
+7. **Condições comerciais** (= **Forma de pagamento**, **oculta a linha/seção quando vazia**) **ao lado de Observações**. **Validade aparece só no topo (metas)** — não repetir aqui.
+8. **Rodapé corrido em todas as páginas:** contato + "Página i de n".
 
-**Variantes (mesmo template, seções condicionais — mostra só o que existe):**
-- **Completo** (serviço + materiais) · **Só serviço** (oculta Materiais e Subtotal Materiais) · **Só materiais** (oculta Escopo e Subtotal Serviços) · **Pré-orçamento** (sem nenhum valor, sem resumo financeiro, sem condições/pagamento).
-- No resumo, **só os subtotais existentes**; com **um grupo só**, vai direto ao **Total**.
+**Normalização de exibição:** data sem shift de fuso (`YYYY-MM-DD` direto); prazo em caixa consistente ("15 dias", não "15 Dias"); unidade padronizada ("PÇ"→"PC"); dados do cliente em Title Case (siglas/UF preservadas).
 
-**Removido do modelo do Omie** (não usar): "Local de Estoque", "Previsão de Faturamento", "Ordem de Serviço incluído em" e linha de **desconto**. PDF enxuto.
+**Variantes (seções condicionais):** completo · só serviço · só materiais · pré-orçamento (sem valores/pagamento).
+
+**Paginação:** sem `position:absolute/fixed` no conteúdo (causava bullets fora de ordem); a folha tem cabeçalho/rodapé próprios por página; a tabela quebra repetindo o thead; resumo é bloco atômico (não racha). **Testar gerando o PDF de verdade** (Chrome headless ou impressão) — não confiar só no código.
+
+**Removido do modelo do Omie** (não usar): "Local de Estoque", "Previsão de Faturamento", "Ordem de Serviço incluído em", "Total do ISS"/Impostos, **desconto** e **Vencimentos**. PDF enxuto.
 
 ---
 
