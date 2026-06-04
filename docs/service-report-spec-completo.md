@@ -79,6 +79,7 @@ Artefato **próprio** do técnico (não é um campo dentro da RAT — esse é o 
 - **Estrutura (modelo atual):**
   - **Serviço = descrição livre (texto longo) + valor final.** É **um bloco único** no orçamento (colunas `orcamentos.servico_descricao` + `servico_valor`), **não** itemizado (sem qtd/unitário/total). *(Mudança: antes serviço era item de tabela.)*
   - **Materiais = itemizados** em `orcamento_itens` (tipo `material`/`avulso`): **do catálogo** (preço do **Omie**, editável) ou **avulso** (descrição + preço manual). Subtotal = `qtd × preço` (coluna gerada).
+  - **Fotos:** o orçamento tem campo de fotos (comercial sobe no editor) — reusa `relatorio_fotos` (+`orcamento_id`) no bucket `rat-anexos` sob `orcamentos/`, RLS office. Aparecem no PDF (§Registro fotográfico). **De um pré-orçamento:** botão "Trazer fotos do pré-orçamento" copia as fotos via Edge Function `orcamento-importar-fotos` (server-side, idempotente — comercial não lê a pasta do técnico).
   - **Campos do orçamento:** `prazo_execucao` (texto, ex.: "5 dias úteis") · `condicao_pagamento` (forma de pagamento) · `observacoes` (com checkbox que insere a frase-padrão "Serviço executado em horário comercial (segunda a sexta, das 7h às 17h)."). **Sem garantia, sem impostos.** Validade = padrão "15 dias" (constante, env `EMPRESA_VALIDADE`).
 - **Total** = valor do serviço + Σ subtotais dos materiais. **Orçamento vazio** (sem serviço e sem material) é **bloqueado**.
 - **Ao finalizar:** gera **só o PDF** (sem e-mail automático). O comercial/admin envia ao cliente do jeito dele.
@@ -96,7 +97,8 @@ Referência visual: **`docs/mockups/orcamento-pdf-v2.jpg`** (e o `orcamento-pdf.
 5. **Materiais:** tabela Item · Descrição · Un. · Qtd · Vlr. Unit. · Total (com nº do item e zebra). O **cabeçalho da tabela repete** quando quebra de página. **Item sem preço** (fornecido pelo cliente) = **"—"** em unit/total e **fora do subtotal**.
 6. **Resumo:** Subtotais **só quando há os dois grupos** (serviço + materiais); com um grupo só, vai direto ao **Total** (card; valor em vermelho).
 7. **Condições comerciais** (embaixo) = **Prazo de execução** (se houver) · **Validade** ("15 dias") · **Forma de pagamento** (oculta a linha quando vazia) — **ao lado de Observações**.
-8. **Rodapé corrido em todas as páginas:** contato + "Página i de n".
+8. **Registro fotográfico** (se houver fotos): grade 2 por linha (cada linha é bloco paginável), com legenda. Imagens por signed URL; impressão espera o load.
+9. **Rodapé corrido em todas as páginas:** contato + "Página i de n".
 
 **Normalização de exibição:** data sem shift de fuso (`YYYY-MM-DD` direto); prazo em caixa consistente ("15 dias", não "15 Dias"); unidade padronizada ("PÇ"→"PC"); dados do cliente em Title Case (siglas/UF preservadas).
 
