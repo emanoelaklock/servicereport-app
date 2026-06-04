@@ -17,6 +17,10 @@
     selecao: 'Seleção (opções)', tecnico: 'Técnico (único)', tecnicos: 'Técnicos (vários)',
     veiculo: 'Veículo', produtos: 'Produtos utilizados', foto: 'Fotos', assinatura: 'Assinatura',
   }
+  const TIPO_ICON = {
+    texto: '🔤', texto_longo: '📝', numero: '#️⃣', data: '📅', hora: '⏰',
+    selecao: '☑️', tecnico: '👤', tecnicos: '👥', veiculo: '🚗', produtos: '📦', foto: '📷', assinatura: '✍️',
+  }
   // Operadores das condições (regras de exibição). valor=false → não precisa de valor.
   const COND_OPS = [
     { v: 'igual', t: 'é igual a', valor: true },
@@ -50,7 +54,13 @@
     document.getElementById('btn-novo-form').onclick = () => abrirForm(null)
     document.getElementById('btn-novo-tipo').onclick = () => abrirTipo(null)
     document.getElementById('btn-novo-veic').onclick = () => abrirVeiculo(null)
-    document.getElementById('btn-add-campo').onclick = () => addCampoRow()
+    montarTipoPicker()
+    document.getElementById('btn-add-campo').onclick = (e) => { e.stopPropagation(); document.getElementById('cf-tipo-pick').classList.toggle('open') }
+    document.addEventListener('click', () => document.getElementById('cf-tipo-pick')?.classList.remove('open'))
+    // pré-visualização ao vivo reage a qualquer alteração nos campos
+    const cb = document.getElementById('campos-build')
+    cb.addEventListener('input', agendarPreview)
+    cb.addEventListener('change', agendarPreview)
     document.getElementById('btn-omie-test').onclick = testarOmie
     document.getElementById('btn-omie-sync').onclick = sincronizarOmie
     carregarOmieLog()
@@ -113,7 +123,26 @@
     const campos = (f && f.campos) || []
     if (campos.length) { campos.forEach(addCampoRow); restaurarCondicoes() }
     else addCampoRow()
+    atualizarEmpty()
+    renderPreview()
     abrir('modal-form')
+  }
+
+  // Seletor de tipo (ícones) ao adicionar campo.
+  function montarTipoPicker() {
+    const pick = document.getElementById('cf-tipo-pick'); if (!pick) return
+    pick.innerHTML = TIPOS_CAMPO.map(t =>
+      `<button type="button" class="cf-tipo-opt" data-tipo="${t}"><span class="ic">${TIPO_ICON[t] || '•'}</span>${esc(TIPO_LABEL[t] || t)}</button>`).join('')
+    pick.querySelectorAll('.cf-tipo-opt').forEach(b => b.onclick = () => {
+      pick.classList.remove('open')
+      addCampoRow({ tipo: b.dataset.tipo })
+      atualizarEmpty(); renderPreview()
+    })
+  }
+
+  function atualizarEmpty() {
+    const has = document.querySelectorAll('#campos-build .campo-wrap').length > 0
+    const e = document.getElementById('campos-empty'); if (e) e.style.display = has ? 'none' : 'block'
   }
 
   function addCampoRow(campo) {
@@ -122,11 +151,15 @@
     row.className = 'campo-wrap'
     row._key = 'r' + (++_rowSeq)
     if (campo && campo.id) row.dataset.id = campo.id
-    const opts = TIPOS_CAMPO.map(t => `<option value="${t}"${campo && campo.tipo === t ? ' selected' : ''}>${TIPO_LABEL[t] || t}</option>`).join('')
+    const tipo0 = (campo && campo.tipo) || 'texto'
+    const opts = TIPOS_CAMPO.map(t => `<option value="${t}"${tipo0 === t ? ' selected' : ''}>${TIPO_LABEL[t] || t}</option>`).join('')
     row.innerHTML = `
       <div class="fld-h">
+        <button type="button" class="fld-collapse" title="Recolher / expandir">▼</button>
+        <span class="fld-ic">${TIPO_ICON[tipo0] || '•'}</span>
         <span class="fld-move"><button type="button" class="fld-up" title="Subir">▲</button><button type="button" class="fld-down" title="Descer">▼</button></span>
         <select class="cb-tipo">${opts}</select>
+        <span class="fld-summary"></span>
         <span class="spacer"></span>
         <label class="fld-obrig"><input type="checkbox" class="cb-obrig"${campo && campo.obrigatorio ? ' checked' : ''}> Obrigatório</label>
         <button type="button" class="fld-cond-btn cb-cond" title="Mostrar só em certas condições">⚙ Condicional</button>
@@ -145,15 +178,25 @@
 
     const tipoSel = row.querySelector('.cb-tipo')
     const opcoesInp = row.querySelector('.cb-opcoes')
-    const toggleOpcoes = () => { opcoesInp.style.display = tipoSel.value === 'selecao' ? '' : 'none' }
-    tipoSel.onchange = toggleOpcoes; toggleOpcoes()
-    row.querySelector('.cb-del').onclick = () => row.remove()
-    row.querySelector('.fld-up').onclick = () => { const p = row.previousElementSibling; if (p) box.insertBefore(row, p) }
-    row.querySelector('.fld-down').onclick = () => { const n = row.nextElementSibling; if (n) box.insertBefore(n, row) }
+    const labelInp = row.querySelector('.cb-label')
+    const ic = row.querySelector('.fld-ic')
+    const sum = row.querySelector('.fld-summary')
+    const refreshMeta = () => {
+      ic.textContent = TIPO_ICON[tipoSel.value] || '•'
+      opcoesInp.style.display = tipoSel.value === 'selecao' ? '' : 'none'
+      sum.textContent = labelInp.value.trim() || '(sem rótulo)'
+    }
+    tipoSel.onchange = refreshMeta
+    labelInp.oninput = () => { sum.textContent = labelInp.value.trim() || '(sem rótulo)' }
+    refreshMeta()
+    row.querySelector('.fld-collapse').onclick = () => row.classList.toggle('collapsed')
+    row.querySelector('.cb-del').onclick = () => { row.remove(); atualizarEmpty(); renderPreview() }
+    row.querySelector('.fld-up').onclick = () => { const p = row.previousElementSibling; if (p) box.insertBefore(row, p); renderPreview() }
+    row.querySelector('.fld-down').onclick = () => { const n = row.nextElementSibling; if (n) box.insertBefore(n, row); renderPreview() }
     const cbCond = row.querySelector('.cb-cond')
     const panel = row.querySelector('.cond-panel')
     cbCond.onclick = () => { const open = panel.classList.toggle('open'); cbCond.classList.toggle('on', open) }
-    panel.querySelector('.cond-add').onclick = () => addRegraRow(panel, row)
+    panel.querySelector('.cond-add').onclick = () => { addRegraRow(panel, row); renderPreview() }
     row._condPending = (campo && campo.cond) || null
   }
 
@@ -186,7 +229,7 @@
     campoSel.onfocus = () => popularCampoSelect(campoSel, ownerRow)
     const toggleValor = () => { const o = COND_OPS.find(x => x.v === opSel.value); valorInp.style.display = (o && o.valor) ? '' : 'none' }
     opSel.onchange = toggleValor; toggleValor()
-    r.querySelector('.cr-del').onclick = () => r.remove()
+    r.querySelector('.cr-del').onclick = () => { r.remove(); agendarPreview() }
     return r
   }
 
@@ -209,17 +252,17 @@
     })
   }
 
-  function coletarCampos() {
+  function coletarCampos(incluirVazios) {
     const rows = Array.from(document.querySelectorAll('#campos-build .campo-wrap'))
     const usados = new Set()
     const info = []
     rows.forEach(row => {
       row._id = null
       const label = (row.querySelector('.cb-label').value || '').trim()
-      if (!label) return
+      if (!label && !incluirVazios) return
       const tipo = row.querySelector('.cb-tipo').value
       const obrigatorio = row.querySelector('.cb-obrig').checked
-      let id = row.dataset.id || slug(label)
+      let id = row.dataset.id || (label ? slug(label) : row._key)
       while (usados.has(id)) id = id + '_' + (usados.size + 1)
       usados.add(id); row._id = id
       const campo = { id, label, tipo, obrigatorio }
@@ -248,6 +291,87 @@
       campos.push(campo)
     }
     return campos
+  }
+
+  // ─────────────── Pré-visualização ao vivo (como o técnico vê) ───────────────
+  const agendarPreview = debounce(() => renderPreview(), 200)
+  const cssE = (s) => (window.CSS && CSS.escape) ? CSS.escape(s) : String(s).replace(/["\\]/g, '\\$&')
+
+  function lerPreviewRespostas() {
+    const r = {}
+    document.querySelectorAll('#form-preview [data-pcampo]').forEach(el => { r[el.dataset.pcampo] = el.value })
+    document.querySelectorAll('#form-preview [data-pmulti]:checked').forEach(chk => {
+      r[chk.dataset.pmulti] = (r[chk.dataset.pmulti] ? r[chk.dataset.pmulti] + ', ' : '') + chk.value
+    })
+    return r
+  }
+  function renderPreview() {
+    const box = document.getElementById('form-preview'); if (!box) return
+    const campos = coletarCampos(true)
+    const prev = lerPreviewRespostas()
+    if (!campos.length) { box.innerHTML = '<div class="pv-empty">Adicione campos para ver a pré-visualização.</div>'; return }
+    box.innerHTML = campos.map(c => previewCampoHtml(c, prev[c.id])).join('')
+    box.oninput = () => avaliarPreview(campos)
+    box.onchange = () => avaliarPreview(campos)
+    avaliarPreview(campos)
+  }
+  function previewCampoHtml(c, val) {
+    val = val == null ? '' : val
+    const req = c.obrigatorio ? ' <span class="req">*</span>' : ''
+    const lbl = `<label>${esc(c.label || '(sem rótulo)')}${req}</label>`
+    const d = `data-pcampo="${esc(c.id)}"`
+    let inner = ''
+    switch (c.tipo) {
+      case 'texto': inner = `<input type="text" ${d} value="${esc(val)}">`; break
+      case 'texto_longo': inner = `<textarea ${d}>${esc(val)}</textarea>`; break
+      case 'numero': inner = `<input type="number" ${d} value="${esc(val)}">`; break
+      case 'data': inner = `<input type="date" ${d} value="${esc(val)}">`; break
+      case 'hora': inner = `<input type="time" ${d} value="${esc(val)}">`; break
+      case 'selecao': {
+        const ops = (c.opcoes || []).map(o => `<option${o === val ? ' selected' : ''}>${esc(o)}</option>`).join('')
+        inner = `<select ${d}><option value="">Selecione…</option>${ops}</select>`; break
+      }
+      case 'tecnico': inner = `<select ${d}><option value="">Selecione…</option><option>Técnico A</option><option>Técnico B</option></select>`; break
+      case 'tecnicos': inner = `<div class="pv-multi"><label><input type="checkbox" data-pmulti="${esc(c.id)}" value="Técnico A"> Técnico A</label><label><input type="checkbox" data-pmulti="${esc(c.id)}" value="Técnico B"> Técnico B</label></div>`; break
+      case 'veiculo': inner = `<select ${d}><option value="">Selecione…</option><option>Modelo (placa)</option></select>`; break
+      case 'produtos': inner = '<div class="pv-ph">📦 Produtos do catálogo + quantidade</div>'; break
+      case 'foto': inner = '<div class="pv-ph">📷 Adicionar fotos</div>'; break
+      case 'assinatura': inner = '<div class="pv-ph">✍️ Área de assinatura</div>'; break
+      default: inner = `<input type="text" ${d} value="${esc(val)}">`
+    }
+    return `<div class="pv-campo" data-pfield="${esc(c.id)}">${lbl}${inner}</div>`
+  }
+  function pvValor(id, campos) {
+    const c = campos.find(x => x.id === id); if (!c) return ''
+    if (c.tipo === 'tecnicos') return Array.from(document.querySelectorAll(`#form-preview [data-pmulti="${cssE(id)}"]:checked`)).map(x => x.value).join(', ')
+    const el = document.querySelector(`#form-preview [data-pcampo="${cssE(id)}"]`)
+    return el ? String(el.value || '').trim() : ''
+  }
+  function pvAvaliar(c, campos, visivel) {
+    const cond = c.cond
+    if (!cond || !cond.regras || !cond.regras.length) return true
+    const res = cond.regras.map(rg => {
+      const val = (visivel[rg.campo] === false) ? '' : pvValor(rg.campo, campos)
+      const alvo = String(rg.valor == null ? '' : rg.valor)
+      switch (rg.op) {
+        case 'igual': return val === alvo
+        case 'diferente': return val !== alvo
+        case 'contem': return val.toLowerCase().includes(alvo.toLowerCase())
+        case 'preenchido': return val.trim() !== ''
+        case 'vazio': return val.trim() === ''
+        default: return true
+      }
+    })
+    return cond.logica === 'OU' ? res.some(Boolean) : res.every(Boolean)
+  }
+  function avaliarPreview(campos) {
+    const visivel = {}; campos.forEach(c => { visivel[c.id] = true })
+    for (let p = 0; p <= campos.length; p++) {
+      let changed = false
+      for (const c of campos) { const v = pvAvaliar(c, campos, visivel); if (v !== visivel[c.id]) { visivel[c.id] = v; changed = true } }
+      if (!changed) break
+    }
+    campos.forEach(c => { const w = document.querySelector(`#form-preview [data-pfield="${cssE(c.id)}"]`); if (w) w.style.display = visivel[c.id] ? '' : 'none' })
   }
 
   async function salvarForm() {
