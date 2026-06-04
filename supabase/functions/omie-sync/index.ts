@@ -57,6 +57,9 @@ Deno.serve(async (req: Request) => {
     }
 
     async function syncClientes(): Promise<number> {
+      // Clientes travados (editados ou excluídos manualmente) não são sobrescritos nem reimportados.
+      const { data: travados } = await admin.from("clientes").select("omie_cliente_id").eq("sync_omie", false)
+      const bloq = new Set((travados || []).map((r: { omie_cliente_id: string }) => String(r.omie_cliente_id)))
       let pagina = 1, total = 1, n = 0
       do {
         const r = await omie("geral/clientes", "ListarClientes", { pagina, registros_por_pagina: 50, apenas_importado_api: "N" })
@@ -69,7 +72,7 @@ Deno.serve(async (req: Request) => {
           nome: dec(c.nome_fantasia || c.razao_social || "(sem nome)"),
           documento: c.cnpj_cpf || null,
           endereco: dec([c.endereco, c.endereco_numero, c.bairro, c.cidade, c.estado, c.cep].filter(Boolean).join(", ")) || null,
-        }))
+        })).filter((row: { omie_cliente_id: string }) => !bloq.has(row.omie_cliente_id))
         if (rows.length) { const up = await admin.from("clientes").upsert(rows, { onConflict: "omie_cliente_id" }); if (up.error) throw up.error; n += rows.length }
         pagina++; await sleep(300)
       } while (pagina <= total && pagina <= 200)

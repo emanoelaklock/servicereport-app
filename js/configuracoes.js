@@ -377,7 +377,7 @@
 
   // ───────────────────── Clientes (cadastro, origem Omie) ─────────────────────
   async function buscarClientes(q) {
-    let query = getSupabase().from('clientes').select('id,nome,documento,oculto').order('nome').limit(50)
+    let query = getSupabase().from('clientes').select('id,nome,documento,endereco,oculto,sync_omie').order('nome').limit(50)
     if (q) query = query.ilike('nome', `%${q}%`)
     const { data, error } = await query
     renderCadastro('cli', error ? [] : (data || []), 'cliente')
@@ -396,14 +396,22 @@
     if (!rows.length) { tb.innerHTML = `<tr><td colspan="${cols}" class="dim" style="text-align:center;padding:20px">Nada encontrado.</td></tr>`; return }
     tb.innerHTML = rows.map(r => {
       const chk = `<td><input type="checkbox" class="row-chk" value="${esc(r.id)}"></td>`
-      const status = r.oculto ? '<span class="dim">Oculto</span>' : (kind === 'prod' && !r.ativo ? '<span class="dim">Inativo</span>' : '<span class="badge s-en"><span class="dot"></span>Visível</span>')
+      let status
+      if (kind === 'cli' && r.oculto && r.sync_omie === false) status = '<span class="dim">Excluído</span>'
+      else if (r.oculto) status = '<span class="dim">Oculto</span>'
+      else if (kind === 'cli' && r.sync_omie === false) status = '<span class="badge s-ai"><span class="dot"></span>Editado</span>'
+      else if (kind === 'prod' && !r.ativo) status = '<span class="dim">Inativo</span>'
+      else status = '<span class="badge s-en"><span class="dot"></span>Visível</span>'
+      const editar = kind === 'cli' ? `<button class="ab ab-c" data-edit="${esc(r.id)}">Editar</button>` : ''
       const acoes = `<div class="acts" style="opacity:1">
+          ${editar}
           <button class="ab ab-c" data-toggle="${esc(r.id)}" data-oc="${r.oculto ? 1 : 0}">${r.oculto ? 'Mostrar' : 'Ocultar'}</button>
           <button class="ab ab-d" data-del="${esc(r.id)}">Excluir</button>
         </div>`
       if (kind === 'cli') return `<tr>${chk}<td>${esc(r.nome || '—')}</td><td>${esc(r.documento || '—')}</td><td>${status}</td><td>${acoes}</td></tr>`
       return `<tr>${chk}<td>${esc(r.codigo || '—')}</td><td>${esc(r.descricao || '—')}</td><td>${esc(r.unidade || '—')}</td><td>${status}</td><td>${acoes}</td></tr>`
     }).join('')
+    tb.querySelectorAll('[data-edit]').forEach(b => b.onclick = () => editarCliente(b.dataset.edit))
     tb.querySelectorAll('[data-toggle]').forEach(b => b.onclick = () => toggleOculto(tipo, b.dataset.toggle, b.dataset.oc === '1'))
     tb.querySelectorAll('[data-del]').forEach(b => b.onclick = () => excluirCadastro(tipo, b.dataset.del))
   }
@@ -424,6 +432,13 @@
     const kind = tipo === 'cliente' ? 'cli' : 'prod'
     const ids = idsSelecionados(kind)
     if (!ids.length) return toast('Selecione ao menos um item.', 'err')
+    if (tipo === 'cliente') {
+      if (!confirm(`Excluir ${ids.length} cliente(s)? Somem do app e o Omie não os reimporta na sincronização.`)) return
+      const { error } = await getSupabase().from('clientes').update({ oculto: true, sync_omie: false }).in('id', ids)
+      if (error) return toast('Erro: ' + error.message, 'err')
+      toast(`${ids.length} cliente(s) excluído(s) — não serão reimportados.`, 'ok')
+      return recarregaCadastro(tipo)
+    }
     if (!confirm(`Excluir ${ids.length} ${tipo}(s)? Itens em uso por RAT são mantidos. O Omie pode reimportar.`)) return
     const sb = getSupabase()
     // descobre quais estão em uso (não dá pra excluir por FK) e exclui o resto
@@ -451,16 +466,49 @@
     recarregaCadastro(tipo)
   }
   async function excluirCadastro(tipo, id) {
+    if (tipo === 'cliente') {
+      if (!confirm('Excluir este cliente? Ele some do app e o Omie não o reimporta na sincronização.')) return
+      const { error } = await getSupabase().from('clientes').update({ oculto: true, sync_omie: false }).eq('id', id)
+      if (error) return toast('Erro: ' + error.message, 'err')
+      toast('Cliente excluído — não será reimportado.', 'ok')
+      return recarregaCadastro(tipo)
+    }
     if (!confirm(`Excluir este ${tipo}? O Omie pode reimportá-lo na próxima sincronização — para sumir de vez do app, use Ocultar.`)) return
-    const tabela = tipo === 'cliente' ? 'clientes' : 'produtos'
-    const { error } = await getSupabase().from(tabela).delete().eq('id', id)
+    const { error } = await getSupabase().from('produtos').delete().eq('id', id)
     if (error) return toast(error.code === '23503' ? `${tipo} em uso por uma RAT — use Ocultar.` : 'Erro: ' + error.message, 'err')
     toast(`${tipo} excluído.`, 'ok')
     recarregaCadastro(tipo)
   }
 
+  async function editarCliente(id) {
+    const { data, error } = await getSupabase().from('clientes').select('id,nome,documento,endereco').eq('id', id).single()
+    if (error || !data) return toast('Erro ao carregar cliente.', 'err')
+    document.getElementById('cc-id').value = data.id
+    document.getElementById('cc-nome').value = data.nome || ''
+    document.getElementById('cc-documento').value = data.documento || ''
+    document.getElementById('cc-endereco').value = data.endereco || ''
+    abrir('modal-cli')
+  }
+  async function salvarCliente() {
+    const id = document.getElementById('cc-id').value
+    const nome = document.getElementById('cc-nome').value.trim()
+    if (!id) return
+    if (!nome) return toast('Informe o nome.', 'err')
+    const patch = {
+      nome,
+      documento: document.getElementById('cc-documento').value.trim() || null,
+      endereco: document.getElementById('cc-endereco').value.trim() || null,
+      sync_omie: false,   // trava: alteração manual não é sobrescrita pelo Omie
+    }
+    const { error } = await getSupabase().from('clientes').update(patch).eq('id', id)
+    if (error) return toast('Erro ao salvar: ' + error.message, 'err')
+    toast('Cliente salvo.', 'ok')
+    fechar('modal-cli')
+    recarregaCadastro('cliente')
+  }
+
   const abrir = (id) => document.getElementById(id).classList.add('open')
   const fechar = (id) => document.getElementById(id).classList.remove('open')
 
-  window.ConfigApp = { init, salvarForm, salvarTipo, salvarVeiculo, salvarUsuario, excluirUsuario, fechar }
+  window.ConfigApp = { init, salvarForm, salvarTipo, salvarVeiculo, salvarUsuario, excluirUsuario, editarCliente, salvarCliente, fechar }
 })()

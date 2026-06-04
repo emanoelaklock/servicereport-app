@@ -222,6 +222,24 @@
   </div>
 </div>
 
+<!-- Modal: Cliente -->
+<div class="mback" id="modal-cli">
+  <div class="modal">
+    <div class="mh"><span class="mt">Editar cliente</span><button class="mx" onclick="ConfigApp.fechar('modal-cli')">✕</button></div>
+    <div class="mb">
+      <input type="hidden" id="cc-id">
+      <div class="fg"><label>Nome (exibição)</label><input type="text" id="cc-nome" placeholder="Nome fantasia / exibição"></div>
+      <div class="fg"><label>Documento (CNPJ/CPF)</label><input type="text" id="cc-documento" placeholder="00.000.000/0000-00"></div>
+      <div class="fg"><label>Endereço</label><input type="text" id="cc-endereco" placeholder="Rua, nº, bairro, cidade/UF, CEP"></div>
+      <p class="dim" style="font-size:12px;margin-top:4px">Ao salvar, este cliente deixa de ser atualizado pela sincronização do Omie (suas alterações são preservadas).</p>
+    </div>
+    <div class="mf">
+      <button class="btn" onclick="ConfigApp.fechar('modal-cli')">Cancelar</button>
+      <button class="btn btn-p" onclick="ConfigApp.salvarCliente()">Salvar</button>
+    </div>
+  </div>
+</div>
+
 <div class="tc" id="tc"></div>
 
 <script>
