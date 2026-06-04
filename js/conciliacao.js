@@ -75,6 +75,7 @@ const ConciliacaoApp = (() => {
     document.getElementById('cc-eq-btn').onclick = vincularEquip
     document.getElementById('cc-anx-btn').onclick = () => document.getElementById('cc-anx-input').click()
     document.getElementById('cc-anx-input').onchange = (e) => adicionarAnexos(e.target.files)
+    document.getElementById('cc-obs-salvar').onclick = salvarConcilObs
     attachAutocomplete(
       document.getElementById('cc-add-busca'),
       document.getElementById('cc-add-prod'),
@@ -127,7 +128,7 @@ const ConciliacaoApp = (() => {
   // ─────────────────────────── Lista ───────────────────────────
   async function carregarTarefas() {
     const { data: ts, error } = await sb().from('tarefas')
-      .select('id,numero,status,criado_em,data_agendada,orcamento_id,cliente_id,tecnico_id,orientacao,observacoes,pedido_compra,tipo_servico_id')
+      .select('id,numero,status,criado_em,data_agendada,orcamento_id,cliente_id,tecnico_id,orientacao,observacoes,pedido_compra,tipo_servico_id,conciliacao_obs')
       .order('numero', { ascending: false })
     if (error) { toast('Erro ao carregar tarefas: ' + error.message, 'err'); tarefas = []; return }
     tarefas = ts || []
@@ -186,6 +187,8 @@ const ConciliacaoApp = (() => {
     document.getElementById('cc-d-orientacao').value = t.orientacao || ''
     document.getElementById('cc-d-obs').value = t.observacoes || ''
     document.getElementById('cc-d-hint').textContent = t.tecnico_id ? '' : 'Atribua um técnico e agende para a Tarefa aparecer no app do técnico.'
+    document.getElementById('cc-obs').value = t.conciliacao_obs || ''
+    document.getElementById('cc-obs-hint').textContent = ''
     limparAdd()
     document.getElementById('cc-eq-busca').value = ''; document.getElementById('cc-eq-sel').value = ''
     await Promise.all([carregarLinhas(), carregarEquip(), carregarAnexos()])
@@ -209,6 +212,16 @@ const ConciliacaoApp = (() => {
     if (t) Object.assign(t, patch)
     document.getElementById('cc-d-hint').textContent = patch.tecnico_id ? '' : 'Atribua um técnico e agende para a Tarefa aparecer no app do técnico.'
     toast('Dados da Tarefa salvos.', 'ok')
+  }
+
+  async function salvarConcilObs() {
+    if (!cur || !cur.id) return
+    const val = document.getElementById('cc-obs').value.trim() || null
+    const up = await sb().from('tarefas').update({ conciliacao_obs: val }).eq('id', cur.id)
+    if (up.error) return toast('Erro ao salvar: ' + up.error.message, 'err')
+    const t = tarefas.find(x => x.id === cur.id); if (t) t.conciliacao_obs = val
+    document.getElementById('cc-obs-hint').textContent = 'Salvo.'
+    toast('Observações do material salvas.', 'ok')
   }
 
   // ───────────────────── Equipamentos relacionados ─────────────────────
