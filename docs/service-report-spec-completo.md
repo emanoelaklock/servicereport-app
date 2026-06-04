@@ -90,12 +90,12 @@ Referência visual: **`docs/mockups/orcamento-pdf-v2.jpg`** (e o `orcamento-pdf.
 
 **Estrutura (ordem):**
 1. **Cabeçalho (pág. 1):** selo "TS" + "TRADERS SERVICE" + bloco da empresa à direita (razão social, CNPJ·IE·IM, endereço, telefone). **Pág. 2+: cabeçalho ENXUTO** (TS + "Proposta Nº X") — não repete o endereço.
-2. **"Proposta Nº X"** → **metas**: Emissão · Validade · Prazo de execução.
+2. **"Proposta Nº X"** + **Emissão** (no topo fica **só** isso; Validade/Prazo vão para Condições comerciais).
 3. **Cliente:** rótulo acima; nome (esq.) + documento/endereço (dir.) centralizados; endereço limpo (UF única "Itupeva/SP", CEP formatado).
 4. **Serviço:** card azul-claro — **1ª linha do `servico_descricao` = resumo em destaque**, demais linhas = **bullets** (lista nativa); **Valor do serviço abaixo** da descrição.
 5. **Materiais:** tabela Item · Descrição · Un. · Qtd · Vlr. Unit. · Total (com nº do item e zebra). O **cabeçalho da tabela repete** quando quebra de página. **Item sem preço** (fornecido pelo cliente) = **"—"** em unit/total e **fora do subtotal**.
 6. **Resumo:** Subtotais **só quando há os dois grupos** (serviço + materiais); com um grupo só, vai direto ao **Total** (card; valor em vermelho).
-7. **Condições comerciais** (= **Forma de pagamento**, **oculta a linha/seção quando vazia**) **ao lado de Observações**. **Validade aparece só no topo (metas)** — não repetir aqui.
+7. **Condições comerciais** (embaixo) = **Prazo de execução** (se houver) · **Validade** ("15 dias") · **Forma de pagamento** (oculta a linha quando vazia) — **ao lado de Observações**.
 8. **Rodapé corrido em todas as páginas:** contato + "Página i de n".
 
 **Normalização de exibição:** data sem shift de fuso (`YYYY-MM-DD` direto); prazo em caixa consistente ("15 dias", não "15 Dias"); unidade padronizada ("PÇ"→"PC"); dados do cliente em Title Case (siglas/UF preservadas).
