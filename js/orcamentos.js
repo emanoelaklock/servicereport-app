@@ -585,7 +585,7 @@
     const obsParas = (o.observacoes || '').split('\n').map(s => s.trim()).filter(Boolean).map(p => `<p>${esc(p)}</p>`).join('')
     const condRows = []
     if (o.prazo_execucao) condRows.push(['Prazo de execução', esc(normPrazo(o.prazo_execucao))])
-    condRows.push(['Validade', '15 dias'])
+    condRows.push(['Validade da proposta', '15 dias'])
     if (o.condicao_pagamento && o.condicao_pagamento.trim()) condRows.push(['Forma de pagamento', esc(o.condicao_pagamento)])
     const condSec = `<section class="sec two">
         <div class="col">
@@ -668,7 +668,7 @@ body{font-family:'Inter',system-ui,sans-serif;color:var(--ink);-webkit-font-smoo
 .head-cont .cont-no{font-size:13px;font-weight:700;color:var(--ink);}
 
 /* título */
-.doc{display:flex;justify-content:space-between;align-items:flex-start;gap:24px;margin-top:6px;padding-bottom:16px;border-bottom:1px solid var(--line);}
+.doc{display:flex;justify-content:space-between;align-items:center;gap:24px;margin-top:6px;padding-bottom:16px;border-bottom:1px solid var(--line);}
 .doc h1{font-size:20px;font-weight:700;letter-spacing:-.2px;color:var(--ink);line-height:1.05;}
 .doc h1 .no{color:var(--ink);}
 .doc .sub{font-size:13px;color:var(--gray);margin-top:7px;max-width:430px;line-height:1.4;}
@@ -725,10 +725,11 @@ tbody td.dash{color:#b8bcc4;}
 
 /* condições + observações */
 .two{display:flex;gap:48px;align-items:flex-start;}
+.sec.two{margin-top:38px;}
 .two .col{flex:1;min-width:0;}
 .trow{display:flex;justify-content:space-between;align-items:baseline;font-size:12px;padding:10px 0;border-bottom:1px solid #f1f2f4;}
 .trow:last-child{border-bottom:none;}
-.trow .k{color:var(--gray);font-weight:500;text-transform:uppercase;font-size:9.5px;letter-spacing:.6px;white-space:nowrap;flex:none;padding-right:14px;}
+.trow .k{color:var(--gray);font-weight:500;font-size:11.5px;white-space:nowrap;flex:none;padding-right:14px;}
 .trow .v{color:var(--ink);font-weight:600;text-align:right;}
 .obs-text p{font-size:11px;line-height:1.6;color:#4a4e56;margin-bottom:9px;}
 .obs-text p:last-child{margin-bottom:0;}
