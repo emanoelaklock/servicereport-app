@@ -97,8 +97,6 @@
     document.getElementById('add-avulso').onclick = () => { addItem({ tipo: 'avulso', quantidade: 1, preco_unitario: 0 }); renderItens() }
     document.getElementById('add-material').onclick = adicionarMaterialSelecionado
     document.getElementById('e-servico-valor').oninput = recomputeTotais
-    document.getElementById('e-obs-horario').onchange = toggleObsHorario
-    document.getElementById('e-observacoes').oninput = syncObsHorarioCheckbox
     document.getElementById('e-foto-btn').onclick = () => document.getElementById('e-foto-input').click()
     document.getElementById('e-foto-input').onchange = () => adicionarFotos(document.getElementById('e-foto-input').files)
     document.getElementById('e-foto-import').onclick = importarFotosPreorc
@@ -220,7 +218,7 @@
     document.getElementById('e-servico-desc').value = preorc ? (preorc.descricao || '') : ''
     document.getElementById('e-servico-valor').value = ''
     document.getElementById('e-prazo').value = ''
-    document.getElementById('e-obs-horario').checked = false
+    setClausulas(CLAUSULAS.map(c => c.k))   // novas propostas já vêm com as cláusulas padrão marcadas
     document.getElementById('ed-status').textContent = ''
     renderItens()
     aplicarEstado()
@@ -267,7 +265,7 @@
     document.getElementById('e-servico-desc').value = o.servico_descricao || ''
     document.getElementById('e-servico-valor').value = (o.servico_valor != null && Number(o.servico_valor) !== 0) ? o.servico_valor : ''
     document.getElementById('e-prazo').value = o.prazo_execucao || ''
-    syncObsHorarioCheckbox()
+    setClausulas(o.clausulas || [])
     document.getElementById('ed-status').textContent = `Nº ${o.numero} · ${STATUS_LABEL[o.status] || o.status}`
     if (e2) toast('Aviso: itens não carregaram: ' + e2.message, 'err')
     renderItens()
@@ -328,17 +326,19 @@
     })
   }
 
-  // Frase-padrão de observação via checkbox (insere/remove sem digitar).
-  const OBS_HORARIO = 'Serviço executado em horário comercial (segunda a sexta, das 7h às 17h).'
-  function toggleObsHorario() {
-    const ta = document.getElementById('e-observacoes')
-    const on = document.getElementById('e-obs-horario').checked
-    const has = ta.value.includes(OBS_HORARIO)
-    if (on && !has) ta.value = (ta.value.trim() ? ta.value.trim() + ' ' : '') + OBS_HORARIO
-    else if (!on && has) ta.value = ta.value.replace(OBS_HORARIO, '').replace(/\s{2,}/g, ' ').trim()
+  // Cláusulas padrão (chaves estáveis -> texto). Marcadas entram no bloco "Observações" do PDF.
+  const CLAUSULAS = [
+    { k: 'horario', t: 'Serviço executado em horário comercial (segunda a sexta, das 7h às 17h).' },
+    { k: 'estoque', t: 'Materiais sujeitos à disponibilidade de estoque.' },
+    { k: 'escopo', t: 'Qualquer alteração no escopo poderá impactar prazo e valores apresentados.' },
+  ]
+  const clausulaTexto = (k) => (CLAUSULAS.find(c => c.k === k) || {}).t || ''
+  function setClausulas(arr) {
+    const set = new Set(arr || [])
+    document.querySelectorAll('#e-clausulas input[data-clausula]').forEach(cb => { cb.checked = set.has(cb.dataset.clausula) })
   }
-  function syncObsHorarioCheckbox() {
-    document.getElementById('e-obs-horario').checked = document.getElementById('e-observacoes').value.includes(OBS_HORARIO)
+  function getClausulas() {
+    return [...document.querySelectorAll('#e-clausulas input[data-clausula]:checked')].map(cb => cb.dataset.clausula)
   }
 
   // Valor do serviço (descrição livre + valor único — não é mais item).
@@ -375,6 +375,7 @@
       prazo_execucao: document.getElementById('e-prazo').value.trim() || null,
       observacoes: document.getElementById('e-observacoes').value.trim() || null,
       condicao_pagamento: document.getElementById('e-condicao').value.trim() || null,
+      clausulas: getClausulas(),
       valor_total,
       status: novoStatus,
     }
@@ -428,8 +429,9 @@
   }
 
   function setEditorEnabled(on) {
-    ['e-cliente-busca', 'e-servico-desc', 'e-servico-valor', 'e-prazo', 'e-obs-horario', 'e-observacoes', 'e-condicao', 'mat-busca', 'add-material', 'add-avulso', 'e-foto-btn']
+    ['e-cliente-busca', 'e-servico-desc', 'e-servico-valor', 'e-prazo', 'e-observacoes', 'e-condicao', 'mat-busca', 'add-material', 'add-avulso', 'e-foto-btn']
       .forEach(id => { const e = document.getElementById(id); if (e) e.disabled = !on })
+    document.querySelectorAll('#e-clausulas input[data-clausula]').forEach(cb => { cb.disabled = !on })
     document.querySelectorAll('#tb-material input').forEach(i => { i.disabled = !on })
     document.querySelectorAll('#tb-material .it-x').forEach(b => { b.style.display = on ? '' : 'none' })
   }
@@ -697,7 +699,9 @@
         </div>
       </div>` : ''
 
-    const obsParas = (o.observacoes || '').split('\n').map(s => s.trim()).filter(Boolean).map(p => `<p>${esc(p)}</p>`).join('')
+    const clausLis = (o.clausulas || []).map(k => clausulaTexto(k)).filter(Boolean).map(t => `<li>${esc(t)}</li>`).join('')
+    const clausHtml = clausLis ? `<ul class="obs-cl">${clausLis}</ul>` : ''
+    const obsParas = clausHtml + (o.observacoes || '').split('\n').map(s => s.trim()).filter(Boolean).map(p => `<p>${esc(p)}</p>`).join('')
     const condRows = []
     if (o.prazo_execucao) condRows.push(['Prazo de execução', esc(normPrazo(o.prazo_execucao))])
     condRows.push(['Validade da proposta', '15 dias'])
@@ -854,6 +858,11 @@ tbody td.dash{color:#b8bcc4;}
 .trow .v{color:var(--ink);font-weight:600;text-align:right;}
 .obs-text p{font-size:11.5px;line-height:1.6;color:#4a4e56;margin-bottom:9px;}
 .obs-text p:last-child{margin-bottom:0;}
+.obs-cl{list-style:disc;padding-left:18px;margin:0 0 9px;}
+.obs-cl:last-child{margin-bottom:0;}
+.obs-cl li{font-size:11.5px;line-height:1.55;color:#4a4e56;margin-bottom:6px;}
+.obs-cl li:last-child{margin-bottom:0;}
+.obs-cl li::marker{color:#9aa1b0;}
 
 /* rodapé */
 .foot{padding-top:14px;border-top:1px solid var(--line);display:flex;justify-content:space-between;align-items:center;font-size:10px;color:var(--gray);}

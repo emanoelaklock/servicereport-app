@@ -252,10 +252,12 @@
             </div>
             <div class="clauses-wrap">
               <label>Cláusulas padrão</label>
-              <div class="clauses">
-                <label class="ck"><input type="checkbox" id="e-obs-horario"> Serviço executado em horário comercial (segunda a sexta, das 7h às 17h).</label>
+              <div class="clauses" id="e-clausulas">
+                <label class="ck"><input type="checkbox" data-clausula="horario"> Serviço executado em horário comercial (segunda a sexta, das 7h às 17h).</label>
+                <label class="ck"><input type="checkbox" data-clausula="estoque"> Materiais sujeitos à disponibilidade de estoque.</label>
+                <label class="ck"><input type="checkbox" data-clausula="escopo"> Qualquer alteração no escopo poderá impactar prazo e valores apresentados.</label>
               </div>
-              <div class="hint">A cláusula marcada entra no bloco “Observações” do PDF.</div>
+              <div class="hint">As cláusulas marcadas entram no bloco “Observações” do PDF.</div>
             </div>
             <div id="ed-banner" style="display:none;margin-top:16px;padding:10px 12px;border-radius:8px;font-size:13px"></div>
           </div>
