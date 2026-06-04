@@ -64,7 +64,40 @@ Deno.serve(async (req: Request) => {
       if (ja) return json({ ok: true, already: true, tarefa_id: ja.id, tarefa_numero: ja.numero })
       return json({ error: "falha ao gerar Tarefa: " + ins.error.message }, 500)
     }
-    return json({ ok: true, tarefa_id: ins.data.id, tarefa_numero: ins.data.numero })
+
+    // #5.2: semeia a conciliação — copia os materiais do orçamento como "Orçada".
+    let materiaisOrcados = 0
+    const { data: itens } = await admin.from("orcamento_itens")
+      .select("produto_id,descricao,unidade,quantidade,preco_unitario,tipo")
+      .eq("orcamento_id", id)
+    const mats = (itens || []).filter((it: any) => it.tipo === "material" || it.tipo === "avulso")
+    if (mats.length) {
+      // códigos/descrições dos produtos do catálogo (fallback de descrição)
+      const pids = [...new Set(mats.map((m: any) => m.produto_id).filter(Boolean))]
+      const cod: Record<string, string> = {}, des: Record<string, string> = {}
+      if (pids.length) {
+        const { data: prods } = await admin.from("produtos").select("id,codigo,descricao").in("id", pids)
+        for (const p of prods || []) { cod[p.id] = p.codigo; des[p.id] = p.descricao }
+      }
+      const rows = mats.map((m: any) => ({
+        tarefa_id: ins.data.id,
+        produto_id: m.produto_id || null,
+        codigo_produto: m.produto_id ? (cod[m.produto_id] || null) : null,
+        descricao: m.descricao || (m.produto_id ? des[m.produto_id] : null) || "(sem descrição)",
+        unidade: m.unidade || null,
+        preco_unitario: Number(m.preco_unitario) || 0,
+        qtd_orcada: Number(m.quantidade) || 0,
+        qtd_levada: 0,
+        origem: "orcamento",
+      }))
+      const seed = await admin.from("tarefa_materiais").insert(rows)
+      if (seed.error) {
+        // não derruba a aprovação; sinaliza para o front
+        return json({ ok: true, tarefa_id: ins.data.id, tarefa_numero: ins.data.numero, seed_error: seed.error.message })
+      }
+      materiaisOrcados = rows.length
+    }
+    return json({ ok: true, tarefa_id: ins.data.id, tarefa_numero: ins.data.numero, materiais_orcados: materiaisOrcados })
   } catch (e) {
     return json({ error: String((e as Error)?.message || e) }, 500)
   }
