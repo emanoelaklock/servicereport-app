@@ -173,10 +173,31 @@ const ConciliacaoApp = (() => {
       }).join('')
       tb.querySelectorAll('.cc-lev').forEach(inp => inp.onchange = () => salvarLevada(Number(inp.dataset.i), inp.value))
     }
-    const div = linhas.filter(l => l.situacao !== 'ok').length
-    document.getElementById('cc-resumo').innerHTML = linhas.length
-      ? (div ? `<span class="pill pill-warn">${div} linha(s) com divergência</span>` : '<span class="pill pill-ok">Tudo conciliado</span>')
-      : ''
+    renderStats()
+  }
+
+  // Resumo de custo (Orçado × Utilizado → faturamento) e devoluções (→ estoque).
+  function renderStats() {
+    const box = document.getElementById('cc-stats')
+    if (!linhas.length) { box.innerHTML = ''; return }
+    let custoOrcado = 0, custoUtil = 0, devValor = 0, devItens = 0, div = 0
+    for (const l of linhas) {
+      const p = Number(l.preco_unitario) || 0
+      custoOrcado += (Number(l.qtd_orcada) || 0) * p
+      custoUtil   += (Number(l.qtd_utilizada) || 0) * p
+      const d = Number(l.qtd_devolvida) || 0
+      if (d > 0) { devItens++; devValor += d * p }
+      if (l.situacao !== 'ok') div++
+    }
+    const delta = custoUtil - custoOrcado
+    const dcls = delta > 0 ? 'up' : (delta < 0 ? 'down' : 'flat')
+    const dtxt = delta > 0 ? `↑ ${money(delta)} acima do orçado`
+               : delta < 0 ? `↓ ${money(-delta)} abaixo do orçado` : 'igual ao orçado'
+    box.innerHTML = `
+      <div class="stat"><div class="k">Custo orçado</div><div class="v">${money(custoOrcado)}</div><div class="d flat">o que foi vendido</div></div>
+      <div class="stat"><div class="k">Custo utilizado</div><div class="v">${money(custoUtil)}</div><div class="d ${dcls}">${dtxt}</div></div>
+      <div class="stat"><div class="k">A devolver ao estoque</div><div class="v">${money(devValor)}</div><div class="d flat">${devItens} item(ns)</div></div>
+      <div class="stat ${div ? 'warn' : ''}"><div class="k">Divergências</div><div class="v">${div}</div><div class="d flat">${div ? 'revisar linhas' : 'tudo conciliado'}</div></div>`
   }
 
   async function salvarLevada(i, val) {
