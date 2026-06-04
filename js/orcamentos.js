@@ -727,11 +727,11 @@ tbody td.dash{color:#b8bcc4;}
 .two{display:flex;gap:48px;align-items:flex-start;}
 .sec.two{margin-top:38px;}
 .two .col{flex:1;min-width:0;}
-.trow{display:flex;justify-content:space-between;align-items:baseline;font-size:12px;padding:10px 0;border-bottom:1px solid #f1f2f4;}
+.trow{display:flex;justify-content:space-between;align-items:baseline;font-size:11.5px;padding:10px 0;border-bottom:1px solid #f1f2f4;}
 .trow:last-child{border-bottom:none;}
 .trow .k{color:var(--gray);font-weight:500;font-size:11.5px;white-space:nowrap;flex:none;padding-right:14px;}
 .trow .v{color:var(--ink);font-weight:600;text-align:right;}
-.obs-text p{font-size:11px;line-height:1.6;color:#4a4e56;margin-bottom:9px;}
+.obs-text p{font-size:11.5px;line-height:1.6;color:#4a4e56;margin-bottom:9px;}
 .obs-text p:last-child{margin-bottom:0;}
 
 /* rodapé */
