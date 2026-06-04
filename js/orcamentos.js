@@ -545,7 +545,7 @@
         </div>
       </section>` : ''
 
-    const matRows = mats.map((m, i) => {
+    const matRowsArr = mats.map((m, i) => {
       const q = Number(m.quantidade) || 0, p = Number(m.preco_unitario) || 0, sem = p === 0
       return `<tr>
         <td class="c idx">${i + 1}</td>
@@ -554,16 +554,9 @@
         <td class="c num">${q.toLocaleString('pt-BR', { maximumFractionDigits: 3 })}</td>
         <td class="r num${sem ? ' dash' : ''}">${sem ? '—' : money(p)}</td>
         <td class="r tot num${sem ? ' dash' : ''}">${sem ? '—' : money(q * p)}</td></tr>`
-    }).join('')
-    const materiaisSec = hasMateriais ? `
-      <section class="sec">
-        <div class="eyebrow">Materiais</div>
-        <table>
-          <colgroup><col style="width:6%"><col style="width:52%"><col style="width:7%"><col style="width:9%"><col style="width:13%"><col style="width:13%"></colgroup>
-          <thead><tr><th class="c">Item</th><th class="l">Descrição</th><th class="c">Un.</th><th class="c">Qtd</th><th class="r">Vlr. Unit.</th><th class="r">Total</th></tr></thead>
-          <tbody>${matRows}</tbody>
-        </table>
-      </section>` : ''
+    })
+    const colgroupHtml = '<col style="width:6%"><col style="width:52%"><col style="width:7%"><col style="width:9%"><col style="width:13%"><col style="width:13%">'
+    const theadHtml = '<tr><th class="c">Item</th><th class="l">Descrição</th><th class="c">Un.</th><th class="c">Qtd</th><th class="r">Vlr. Unit.</th><th class="r">Total</th></tr>'
 
     const bothGroups = hasServico && hasMateriais
     const resumoSec = (hasServico || hasMateriais) ? `
@@ -589,6 +582,39 @@
         </div>
       </section>`
 
+    const introHtml = `<section class="doc">
+      <div>
+        <h1>Proposta <span class="no">Nº ${esc(numero)}</span></h1>
+        ${o.assunto ? `<div class="sub">${esc(o.assunto)}</div>` : ''}
+      </div>
+      <div class="meta">${meta.map(([k, v]) => `<div class="mi"><div class="k">${esc(k)}</div><div class="v">${v}</div></div>`).join('')}</div>
+    </section>`
+    const clienteHtml = `<section class="cli">
+      <div class="cli-l"><div class="eyebrow">Cliente</div><div class="cname">${esc(titleCase(cli.nome) || '—')}</div></div>
+      <div class="cli-r">${[cli.documento ? 'CNPJ ' + esc(cli.documento) : '', cli.endereco ? esc(titleCase(cli.endereco)) : ''].filter(Boolean).join('<br>') || '&nbsp;'}</div>
+    </section>`
+    const headerHtml = `<header class="head">
+      <div class="brand"><div class="logo">TS</div><div class="nm">TRADERS SERVICE</div></div>
+      <div class="firm"><b>Traders Service Soluções em Tecnologia LTDA</b>
+        CNPJ 10.923.494/0001-30 &nbsp;|&nbsp; IE 255882904 &nbsp;|&nbsp; IM 96456<br>
+        Rua Dona Francisca, 8300 – Vila Trieste, Prédio 2<br>
+        Zona Industrial Norte – Joinville/SC – CEP 89219-600
+        <span class="tel">(47) 3025-2660</span></div>
+    </header>`
+    const footerHtml = `<footer class="foot"><span>(47) 3025-2660</span><span>comercial@tsrv.com.br</span><span>www.tsrv.com.br</span><span class="pg">Página 1 de 1</span></footer>`
+
+    const blocks = []
+    blocks.push({ t: 'html', h: introHtml })
+    blocks.push({ t: 'html', h: clienteHtml })
+    if (hasServico) blocks.push({ t: 'html', h: servicoSec })
+    if (hasMateriais) {
+      blocks.push({ t: 'tstart', eyebrow: 'Materiais', col: colgroupHtml, thead: theadHtml })
+      matRowsArr.forEach(r => blocks.push({ t: 'row', h: r }))
+      blocks.push({ t: 'tend' })
+    }
+    if (hasServico || hasMateriais) blocks.push({ t: 'html', h: resumoSec })
+    blocks.push({ t: 'html', h: condSec })
+
     return `<!DOCTYPE html><html lang="pt-BR"><head><meta charset="UTF-8">
 <title>Orçamento Nº ${esc(numero)} — ${esc(cli.nome || 'Cliente')}</title>
 <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -599,7 +625,10 @@
 html,body{background:#e7eaef;}
 body{font-family:'Inter',system-ui,sans-serif;color:var(--ink);-webkit-font-smoothing:antialiased;font-variant-numeric:tabular-nums;line-height:1.5;-webkit-print-color-adjust:exact;print-color-adjust:exact;}
 .num{font-variant-numeric:tabular-nums;}
-.page{width:794px;min-height:1123px;margin:30px auto;background:#fff;padding:46px 56px 24px;display:flex;flex-direction:column;box-shadow:0 24px 64px rgba(20,30,55,.18);}
+.sheet{width:794px;height:1123px;margin:30px auto;background:#fff;padding:44px 56px;display:flex;flex-direction:column;box-shadow:0 24px 64px rgba(20,30,55,.18);overflow:hidden;}
+.sheet .hd{flex:none;}
+.sheet .bd{flex:1 1 auto;min-height:0;overflow:hidden;}
+.sheet .ft{flex:none;}
 .eyebrow{font-size:10px;font-weight:600;letter-spacing:1.2px;text-transform:uppercase;color:var(--gray);margin-bottom:11px;}
 
 /* header */
@@ -676,43 +705,26 @@ tbody td.dash{color:#b8bcc4;}
 .obs-text p:last-child{margin-bottom:0;}
 
 /* rodapé */
-.foot{margin-top:auto;padding-top:16px;border-top:1px solid var(--line);display:flex;justify-content:space-between;align-items:center;font-size:10px;color:var(--gray);}
-@media print{@page{size:A4;margin:0;}html,body{background:#fff;}.page{box-shadow:none;margin:0;width:210mm;min-height:297mm;}}
+.foot{padding-top:14px;border-top:1px solid var(--line);display:flex;justify-content:space-between;align-items:center;font-size:10px;color:var(--gray);}
+@media print{@page{size:A4;margin:0;}html,body{background:#fff;}.sheet{box-shadow:none;margin:0;width:210mm;height:297mm;page-break-after:always;}.sheet:last-child{page-break-after:auto;}}
 </style></head>
 <body>
-<div class="page">
-  <header class="head">
-    <div class="brand"><div class="logo">TS</div><div class="nm">TRADERS SERVICE</div></div>
-    <div class="firm"><b>Traders Service Soluções em Tecnologia LTDA</b>
-      CNPJ 10.923.494/0001-30 &nbsp;|&nbsp; IE 255882904 &nbsp;|&nbsp; IM 96456<br>
-      Rua Dona Francisca, 8300 – Vila Trieste, Prédio 2<br>
-      Zona Industrial Norte – Joinville/SC – CEP 89219-600
-      <span class="tel">(47) 3025-2660</span></div>
-  </header>
-
-  <section class="doc">
-    <div>
-      <h1>Proposta <span class="no">Nº ${esc(numero)}</span></h1>
-      ${o.assunto ? `<div class="sub">${esc(o.assunto)}</div>` : ''}
-    </div>
-    <div class="meta">${meta.map(([k, v]) => `<div class="mi"><div class="k">${esc(k)}</div><div class="v">${v}</div></div>`).join('')}</div>
-  </section>
-
-  <section class="cli">
-    <div class="cli-l"><div class="eyebrow">Cliente</div><div class="cname">${esc(titleCase(cli.nome) || '—')}</div></div>
-    <div class="cli-r">${[cli.documento ? 'CNPJ ' + esc(cli.documento) : '', cli.endereco ? esc(titleCase(cli.endereco)) : ''].filter(Boolean).join('<br>') || '&nbsp;'}</div>
-  </section>
-
-  ${servicoSec}
-  ${materiaisSec}
-  ${resumoSec}
-  ${condSec}
-
-  <footer class="foot">
-    <span>(47) 3025-2660</span><span>comercial@tsrv.com.br</span><span>www.tsrv.com.br</span><span>Página 1 de 1</span>
-  </footer>
-</div>
-<script>window.onload=function(){var p=function(){window.focus();window.print();};(document.fonts&&document.fonts.ready?document.fonts.ready:Promise.resolve()).then(function(){setTimeout(p,300)});};</script>
+<div id="sheets"></div>
+<script>
+var HEADER=${JSON.stringify(headerHtml)};
+var FOOTER=${JSON.stringify(footerHtml)};
+var BLOCKS=${JSON.stringify(blocks)};
+function el(t,c){var e=document.createElement(t);if(c)e.className=c;return e;}
+var sheets=document.getElementById('sheets'),cur=null,openTbody=null,curCol='',curThead='',ftrs=[];
+function newSheet(){var s=el('div','sheet');var hd=el('div','hd');hd.innerHTML=HEADER;var bd=el('div','bd');var ft=el('div','ft');ft.innerHTML=FOOTER;s.appendChild(hd);s.appendChild(bd);s.appendChild(ft);sheets.appendChild(s);ftrs.push(ft);cur={bd:bd};}
+function over(){return cur.bd.scrollHeight>cur.bd.clientHeight-10;}
+function addHTML(h){var d=el('div');d.innerHTML=h;var n=d.firstElementChild;if(!n)return;cur.bd.appendChild(n);if(over()&&cur.bd.children.length>1){cur.bd.removeChild(n);newSheet();cur.bd.appendChild(n);}}
+function makeTable(){var t=el('table');t.innerHTML='<colgroup>'+curCol+'</colgroup><thead>'+curThead+'</thead><tbody></tbody>';return t;}
+function startTable(b){curCol=b.col;curThead=b.thead;var wrap=el('div');wrap.innerHTML='<div class="eyebrow">'+b.eyebrow+'</div>';var t=makeTable();wrap.appendChild(t);cur.bd.appendChild(wrap);if(over()&&cur.bd.children.length>1){cur.bd.removeChild(wrap);newSheet();cur.bd.appendChild(wrap);}openTbody=t.querySelector('tbody');}
+function addRow(h){var tb=el('tbody');tb.innerHTML=h;var tr=tb.firstElementChild;if(!tr||!openTbody)return;openTbody.appendChild(tr);if(over()){openTbody.removeChild(tr);newSheet();var t=makeTable();cur.bd.appendChild(t);openTbody=t.querySelector('tbody');openTbody.appendChild(tr);}}
+function build(){newSheet();for(var i=0;i<BLOCKS.length;i++){var b=BLOCKS[i];if(b.t==='html')addHTML(b.h);else if(b.t==='tstart')startTable(b);else if(b.t==='row')addRow(b.h);else if(b.t==='tend')openTbody=null;}var N=ftrs.length;for(var k=0;k<ftrs.length;k++){var pg=ftrs[k].querySelector('.pg');if(pg)pg.textContent='Página '+(k+1)+' de '+N;}window.focus();setTimeout(function(){window.print();},200);}
+if(document.fonts&&document.fonts.ready){document.fonts.ready.then(function(){setTimeout(build,80);});}else{setTimeout(build,400);}
+</script>
 </body></html>`
   }
 
