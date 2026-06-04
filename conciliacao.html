@@ -150,6 +150,18 @@
 
   .ed-badge{display:inline-block;font-size:11px;font-weight:700;padding:4px 11px;border-radius:999px;margin-left:10px;background:#FDF3E2;color:#9a6a1a;vertical-align:middle}
   #cc-docno{margin-left:auto;font-size:12px;color:var(--tx3);font-weight:600}
+
+  /* Modal Nova tarefa */
+  .cc-modal{display:none;position:fixed;inset:0;background:rgba(20,30,55,.45);z-index:100;align-items:flex-start;justify-content:center;padding:60px 16px}
+  .cc-modal.open{display:flex}
+  .cc-modal-box{background:#fff;border-radius:14px;box-shadow:0 24px 64px rgba(20,30,55,.28);width:100%;max-width:440px;overflow:visible}
+  .cc-modal-h{display:flex;align-items:center;justify-content:space-between;padding:16px 20px;border-bottom:1px solid var(--bd);font-size:15px;font-weight:700;color:var(--tx)}
+  .cc-modal-x{border:none;background:none;font-size:18px;color:var(--tx3);cursor:pointer;line-height:1}
+  .cc-modal-b{padding:18px 20px}
+  .cc-modal-b label{display:block;font-size:12px;font-weight:600;color:var(--tx2);margin-bottom:5px}
+  .cc-modal-b input{width:100%;padding:10px 12px;border:1px solid var(--bd);border-radius:8px;font:inherit;font-size:14px;outline:none}
+  .cc-modal-b input:focus{border-color:var(--ac);box-shadow:0 0 0 3px var(--acl)}
+  .cc-modal-f{display:flex;justify-content:flex-end;gap:10px;padding:14px 20px;border-top:1px solid var(--bd)}
 </style>
 </head>
 <body>
@@ -175,7 +187,10 @@
             <button class="chip" data-f="em_execucao">Em execução</button>
             <button class="chip" data-f="concluida">Concluída</button>
           </div>
-          <input type="text" id="busca-tarefa" placeholder="Buscar por nº ou cliente…" autocomplete="off">
+          <div style="display:flex;gap:8px;align-items:center">
+            <input type="text" id="busca-tarefa" placeholder="Buscar por nº ou cliente…" autocomplete="off">
+            <button class="btn btn-p" id="btn-nova-tarefa">+ Nova tarefa</button>
+          </div>
         </div>
         <div id="lista-box"></div>
       </div>
@@ -259,6 +274,28 @@
         </div>
       </div>
 
+    </div>
+  </div>
+</div>
+
+<!-- Modal: Nova tarefa (criada direto, sem orçamento) -->
+<div class="cc-modal" id="modal-nova-tarefa">
+  <div class="cc-modal-box">
+    <div class="cc-modal-h"><span>Nova tarefa</span><button class="cc-modal-x" id="nt-fechar">✕</button></div>
+    <div class="cc-modal-b">
+      <div class="fg">
+        <label>Cliente *</label>
+        <div class="ac">
+          <input type="text" id="nt-cliente-busca" placeholder="Buscar cliente…" autocomplete="off">
+          <input type="hidden" id="nt-cliente">
+          <div class="ac-list" id="nt-cliente-list"></div>
+        </div>
+      </div>
+      <p class="muted" style="margin-top:4px">Criada sem orçamento — a conciliação começa direto na Levada/Utilizada. Você completa os dados (tipo, técnico, data, orientação) na tela seguinte.</p>
+    </div>
+    <div class="cc-modal-f">
+      <button class="btn" id="nt-cancelar">Cancelar</button>
+      <button class="btn btn-p" id="nt-criar">Criar tarefa</button>
     </div>
   </div>
 </div>

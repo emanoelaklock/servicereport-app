@@ -7,7 +7,7 @@
 const ConciliacaoApp = (() => {
   const sb = () => getSupabase()
   let user = { id: null }
-  let ref = { produtos: [], tecnicos: [], tipos: [], equip: [] }
+  let ref = { produtos: [], tecnicos: [], tipos: [], equip: [], clientes: [] }
   let tarefas = []           // lista de tarefas
   let cliNomes = {}          // cliente_id -> nome
   let tecNomes = {}          // tecnico_id -> nome
@@ -45,16 +45,18 @@ const ConciliacaoApp = (() => {
   async function init() {
     const { data: { user: u } } = await sb().auth.getUser()
     user.id = u?.id || null
-    const [prod, tec, tip, eq] = await Promise.all([
+    const [prod, tec, tip, eq, cli] = await Promise.all([
       sb().from('produtos').select('id,codigo,descricao,unidade,preco_venda').eq('ativo', true).eq('oculto', false).order('descricao'),
       sb().from('usuarios').select('id,nome').eq('role', 'tecnico_campo').eq('ativo', true).order('nome'),
       sb().from('tipos_servico').select('id,nome').eq('ativo', true).order('nome'),
       sb().from('equipamentos_axis').select('id,tipo,part_number,modelo,serial').order('modelo'),
+      sb().from('clientes').select('id,nome').eq('oculto', false).order('nome'),
     ])
     ref.produtos = prod.data || []
     ref.tecnicos = tec.data || []
     ref.tipos = tip.data || []
     ref.equip = eq.data || []
+    ref.clientes = cli.data || []
     tecNomes = {}; for (const t of ref.tecnicos) tecNomes[t.id] = t.nome
     document.getElementById('cc-d-tecnicos').innerHTML = ref.tecnicos.length
       ? ref.tecnicos.map(t => `<label><input type="checkbox" value="${esc(t.id)}"> ${esc(t.nome || '(sem nome)')}</label>`).join('')
@@ -75,6 +77,19 @@ const ConciliacaoApp = (() => {
     })
     const bt = document.getElementById('busca-tarefa')
     if (bt) bt.oninput = debounce(() => renderLista(), 200)
+    // Nova tarefa (criada direto, sem orçamento)
+    document.getElementById('btn-nova-tarefa').onclick = abrirModalNovaTarefa
+    document.getElementById('nt-fechar').onclick = fecharModalNovaTarefa
+    document.getElementById('nt-cancelar').onclick = fecharModalNovaTarefa
+    document.getElementById('nt-criar').onclick = criarTarefa
+    attachAutocomplete(
+      document.getElementById('nt-cliente-busca'),
+      document.getElementById('nt-cliente'),
+      document.getElementById('nt-cliente-list'),
+      ref.clientes,
+      c => ({ id: c.id, label: c.nome || '(sem nome)' }),
+      null,
+    )
     document.getElementById('cc-add-material').onclick = adicionarMaterialCatalogo
     document.getElementById('cc-add-avulso').onclick = adicionarMaterialAvulso
     document.getElementById('cc-d-salvar').onclick = salvarDados
@@ -177,6 +192,29 @@ const ConciliacaoApp = (() => {
         </tr>`
       }).join('')}</tbody></table>`
     box.querySelectorAll('.row-click').forEach(tr => tr.onclick = () => abrirTarefa(tr.dataset.id))
+  }
+
+  // ─────────────────────── Nova tarefa (sem orçamento) ───────────────────────
+  function abrirModalNovaTarefa() {
+    document.getElementById('nt-cliente').value = ''
+    document.getElementById('nt-cliente-busca').value = ''
+    document.getElementById('modal-nova-tarefa').classList.add('open')
+    document.getElementById('nt-cliente-busca').focus()
+  }
+  function fecharModalNovaTarefa() {
+    document.getElementById('modal-nova-tarefa').classList.remove('open')
+  }
+  async function criarTarefa() {
+    const cliId = document.getElementById('nt-cliente').value
+    if (!cliId) return toast('Selecione o cliente.', 'err')
+    const ins = await sb().from('tarefas')
+      .insert({ cliente_id: cliId, status: 'aguardando_execucao', criado_por: user.id })
+      .select('id,numero').single()
+    if (ins.error) return toast('Erro ao criar tarefa: ' + ins.error.message, 'err')
+    fecharModalNovaTarefa()
+    toast(`Tarefa Nº ${osNo(ins.data.numero)} criada.`, 'ok')
+    await carregarTarefas()
+    await abrirTarefa(ins.data.id)
   }
 
   // ─────────────────────────── Detalhe ───────────────────────────
