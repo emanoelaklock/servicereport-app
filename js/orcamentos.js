@@ -501,6 +501,17 @@
     })
   }
 
+  // Limpa endereço do Omie: UF duplicada (ex.: "Itupeva (SP), SP") -> "Itupeva/SP";
+  // formata CEP (8 dígitos -> 00000-000). Aplicar depois do titleCase.
+  function limparEndereco(e) {
+    if (!e) return e
+    let s = String(e).trim()
+    s = s.replace(/\s*\(\s*([A-Za-zÀ-ú]{2})\s*\)/g, '')
+    s = s.replace(/,\s*([A-Za-z]{2})\s*,\s*(\d{5})-?(\d{3})\s*$/, (_, uf, a, b) => '/' + uf.toUpperCase() + ' · ' + a + '-' + b)
+    s = s.replace(/(\d{5})-?(\d{3})\b/, '$1-$2')
+    return s.replace(/\s{2,}/g, ' ').trim()
+  }
+
   async function gerarPdf() {
     if (!cur || !cur.id) return toast('Salve o orçamento antes de gerar o PDF.', 'err')
     const [{ data: o, error: e1 }, { data: its, error: e2 }] = await Promise.all([
@@ -591,7 +602,7 @@
     </section>`
     const clienteHtml = `<section class="cli">
       <div class="cli-l"><div class="eyebrow">Cliente</div><div class="cname">${esc(titleCase(cli.nome) || '—')}</div></div>
-      <div class="cli-r">${[cli.documento ? 'CNPJ ' + esc(cli.documento) : '', cli.endereco ? esc(titleCase(cli.endereco)) : ''].filter(Boolean).join('<br>') || '&nbsp;'}</div>
+      <div class="cli-r">${[cli.documento ? 'CNPJ ' + esc(cli.documento) : '', cli.endereco ? esc(limparEndereco(titleCase(cli.endereco))) : ''].filter(Boolean).join('<br>') || '&nbsp;'}</div>
     </section>`
     const headerHtml = `<header class="head">
       <div class="brand"><div class="logo">TS</div><div class="nm">TRADERS SERVICE</div></div>
@@ -627,7 +638,7 @@ body{font-family:'Inter',system-ui,sans-serif;color:var(--ink);-webkit-font-smoo
 .num{font-variant-numeric:tabular-nums;}
 .sheet{width:794px;height:1123px;margin:30px auto;background:#fff;padding:44px 56px;display:flex;flex-direction:column;box-shadow:0 24px 64px rgba(20,30,55,.18);overflow:hidden;}
 .sheet .hd{flex:none;}
-.sheet .bd{flex:1 1 auto;min-height:0;overflow:hidden;}
+.sheet .bd{flex:1 1 auto;min-height:0;overflow:hidden;padding-top:16px;}
 .sheet .ft{flex:none;margin-top:14px;}
 .eyebrow{font-size:10px;font-weight:600;letter-spacing:1.2px;text-transform:uppercase;color:var(--gray);margin-bottom:11px;}
 
@@ -641,7 +652,7 @@ body{font-family:'Inter',system-ui,sans-serif;color:var(--ink);-webkit-font-smoo
 .firm .tel{display:block;color:var(--ink);font-weight:700;font-size:11.5px;margin-top:3px;}
 
 /* título */
-.doc{display:flex;justify-content:space-between;align-items:flex-start;gap:24px;margin-top:22px;padding-bottom:16px;border-bottom:1px solid var(--line);}
+.doc{display:flex;justify-content:space-between;align-items:flex-start;gap:24px;margin-top:6px;padding-bottom:16px;border-bottom:1px solid var(--line);}
 .doc h1{font-size:20px;font-weight:700;letter-spacing:-.2px;color:var(--ink);line-height:1.05;}
 .doc h1 .no{color:var(--ink);}
 .doc .sub{font-size:13px;color:var(--gray);margin-top:7px;max-width:430px;line-height:1.4;}
@@ -720,7 +731,7 @@ function newSheet(){var s=el('div','sheet');var hd=el('div','hd');hd.innerHTML=H
 function over(){return cur.bd.scrollHeight>cur.bd.clientHeight+1;}
 function addHTML(h){var d=el('div');d.innerHTML=h;var n=d.firstElementChild;if(!n)return;cur.bd.appendChild(n);if(over()&&cur.bd.children.length>1){cur.bd.removeChild(n);newSheet();cur.bd.appendChild(n);}}
 function makeTable(){var t=el('table');t.innerHTML='<colgroup>'+curCol+'</colgroup><thead>'+curThead+'</thead><tbody></tbody>';return t;}
-function startTable(b){curCol=b.col;curThead=b.thead;var wrap=el('div');wrap.innerHTML='<div class="eyebrow">'+b.eyebrow+'</div>';var t=makeTable();wrap.appendChild(t);cur.bd.appendChild(wrap);if(over()&&cur.bd.children.length>1){cur.bd.removeChild(wrap);newSheet();cur.bd.appendChild(wrap);}openTbody=t.querySelector('tbody');}
+function startTable(b){curCol=b.col;curThead=b.thead;var wrap=el('div');wrap.style.marginTop='22px';wrap.innerHTML='<div class="eyebrow">'+b.eyebrow+'</div>';var t=makeTable();wrap.appendChild(t);cur.bd.appendChild(wrap);if(over()&&cur.bd.children.length>1){cur.bd.removeChild(wrap);newSheet();cur.bd.appendChild(wrap);}openTbody=t.querySelector('tbody');}
 function addRow(h){var tb=el('tbody');tb.innerHTML=h;var tr=tb.firstElementChild;if(!tr||!openTbody)return;openTbody.appendChild(tr);if(over()){openTbody.removeChild(tr);newSheet();var t=makeTable();cur.bd.appendChild(t);openTbody=t.querySelector('tbody');openTbody.appendChild(tr);}}
 function build(){newSheet();for(var i=0;i<BLOCKS.length;i++){var b=BLOCKS[i];if(b.t==='html')addHTML(b.h);else if(b.t==='tstart')startTable(b);else if(b.t==='row')addRow(b.h);else if(b.t==='tend')openTbody=null;}var N=ftrs.length;for(var k=0;k<ftrs.length;k++){var pg=ftrs[k].querySelector('.pg');if(pg)pg.textContent='Página '+(k+1)+' de '+N;}window.focus();setTimeout(function(){window.print();},200);}
 if(document.fonts&&document.fonts.ready){document.fonts.ready.then(function(){setTimeout(build,80);});}else{setTimeout(build,400);}
