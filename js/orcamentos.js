@@ -601,8 +601,11 @@
       <div class="meta">${meta.map(([k, v]) => `<div class="mi"><div class="k">${esc(k)}</div><div class="v">${v}</div></div>`).join('')}</div>
     </section>`
     const clienteHtml = `<section class="cli">
-      <div class="cli-l"><div class="eyebrow">Cliente</div><div class="cname">${esc(titleCase(cli.nome) || '—')}</div></div>
-      <div class="cli-r">${[cli.documento ? 'CNPJ ' + esc(cli.documento) : '', cli.endereco ? esc(limparEndereco(titleCase(cli.endereco))) : ''].filter(Boolean).join('<br>') || '&nbsp;'}</div>
+      <div class="eyebrow">Cliente</div>
+      <div class="cli-row">
+        <div class="cli-l"><div class="cname">${esc(titleCase(cli.nome) || '—')}</div></div>
+        <div class="cli-r">${[cli.documento ? 'CNPJ ' + esc(cli.documento) : '', cli.endereco ? esc(limparEndereco(titleCase(cli.endereco))) : ''].filter(Boolean).join('<br>') || '&nbsp;'}</div>
+      </div>
     </section>`
     const headerHtml = `<header class="head">
       <div class="brand"><div class="logo">TS</div><div class="nm">TRADERS SERVICE</div></div>
@@ -664,7 +667,8 @@ body{font-family:'Inter',system-ui,sans-serif;color:var(--ink);-webkit-font-smoo
 .meta .v{font-size:12.5px;font-weight:600;color:var(--ink);margin-top:6px;white-space:nowrap;}
 
 /* cliente */
-.cli{display:flex;margin-top:20px;padding-bottom:16px;border-bottom:1px solid var(--line);}
+.cli{margin-top:20px;padding-bottom:16px;border-bottom:1px solid var(--line);}
+.cli-row{display:flex;align-items:flex-start;}
 .cli-l{flex:1;padding-right:32px;}
 .cli .cname{font-size:16px;font-weight:700;letter-spacing:-.2px;color:var(--ink);line-height:1.25;}
 .cli-r{flex:1;border-left:1px solid var(--line);padding-left:32px;font-size:11px;line-height:1.75;color:var(--gray);}
