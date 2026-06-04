@@ -13,6 +13,7 @@
   let user = { id: null, nome: null }
   let cur = null          // { id, pre_orcamento_id, status, data_envio }
   let itens = []          // { _rid, tipo, produto_id, descricao, unidade, quantidade, preco_unitario }
+  let fotos = []          // { id, url(path), legenda, signed }
   let filtro = 'ativos'
   let _seq = 0
 
@@ -89,6 +90,8 @@
     document.getElementById('e-servico-valor').oninput = recomputeTotais
     document.getElementById('e-obs-horario').onchange = toggleObsHorario
     document.getElementById('e-observacoes').oninput = syncObsHorarioCheckbox
+    document.getElementById('e-foto-btn').onclick = () => document.getElementById('e-foto-input').click()
+    document.getElementById('e-foto-input').onchange = () => adicionarFotos(document.getElementById('e-foto-input').files)
     document.querySelectorAll('#orc-filtros .chip').forEach(ch => {
       ch.onclick = () => {
         filtro = ch.dataset.f
@@ -207,6 +210,7 @@
     document.getElementById('ed-status').textContent = ''
     renderItens()
     aplicarEstado()
+    carregarFotos()
     mostrar('editor')
   }
 
@@ -254,6 +258,7 @@
     if (e2) toast('Aviso: itens não carregaram: ' + e2.message, 'err')
     renderItens()
     aplicarEstado()
+    carregarFotos()
     mostrar('editor')
   }
 
@@ -390,8 +395,9 @@
       if (insI.error) return toast('Erro ao salvar itens: ' + insI.error.message, 'err')
     }
     document.getElementById('ed-status').textContent = STATUS_LABEL[novoStatus] || novoStatus
-    toast(novoStatus === 'enviado' ? 'Orçamento marcado como enviado.' : 'Rascunho salvo.', 'ok')
+    toast(novoStatus === 'enviado' ? 'Orçamento marcado como enviado.' : 'Salvo.', 'ok')
     aplicarEstado()
+    carregarFotos()
   }
 
   // ─────────────────────── Status / aprovação ───────────────────────
@@ -409,7 +415,7 @@
   }
 
   function setEditorEnabled(on) {
-    ['e-cliente-busca', 'e-servico-desc', 'e-servico-valor', 'e-prazo', 'e-obs-horario', 'e-observacoes', 'e-condicao', 'mat-busca', 'add-material', 'add-avulso']
+    ['e-cliente-busca', 'e-servico-desc', 'e-servico-valor', 'e-prazo', 'e-obs-horario', 'e-observacoes', 'e-condicao', 'mat-busca', 'add-material', 'add-avulso', 'e-foto-btn']
       .forEach(id => { const e = document.getElementById(id); if (e) e.disabled = !on })
     document.querySelectorAll('#tb-material input').forEach(i => { i.disabled = !on })
     document.querySelectorAll('#tb-material .it-x').forEach(b => { b.style.display = on ? '' : 'none' })
@@ -474,11 +480,66 @@
     if (!cur || !cur.id) return toast('Nada para excluir.', 'err')
     if (cur.status === 'aprovado') return toast('Orçamento aprovado gerou uma Tarefa — arquive em vez de excluir.', 'err')
     if (!confirm('Excluir definitivamente este orçamento? Esta ação não pode ser desfeita.')) return
+    if (fotos.length) await sb().storage.from('rat-anexos').remove(fotos.map(f => f.url)).catch(() => {})
     const di = await sb().from('orcamento_itens').delete().eq('orcamento_id', cur.id)
     if (di.error) return toast('Erro ao excluir itens: ' + di.error.message, 'err')
     const d = await sb().from('orcamentos').delete().eq('id', cur.id)
     if (d.error) return toast('Erro ao excluir: ' + d.error.message, 'err')
     toast('Orçamento excluído.', 'ok'); cur = null; mostrar('lista'); await renderLista()
+  }
+
+  // ─────────────────────────── Fotos ───────────────────────────
+  async function carregarFotos() {
+    const hint = document.getElementById('fotos-hint')
+    const btn = document.getElementById('e-foto-btn')
+    const box = document.getElementById('e-thumbs')
+    if (!cur || !cur.id) { fotos = []; box.innerHTML = ''; hint.style.display = 'block'; btn.disabled = true; return }
+    const locked = cur.status === 'aprovado' || cur.arquivado
+    hint.style.display = 'none'; btn.disabled = !!locked
+    const { data, error } = await sb().from('relatorio_fotos').select('id,url,legenda').eq('orcamento_id', cur.id).order('criado_em')
+    if (error) { toast('Erro ao carregar fotos: ' + error.message, 'err'); return }
+    fotos = data || []
+    await renderFotos()
+  }
+  async function renderFotos() {
+    const box = document.getElementById('e-thumbs'); if (!box) return
+    if (fotos.length) {
+      const { data: signed } = await sb().storage.from('rat-anexos').createSignedUrls(fotos.map(f => f.url), 3600)
+      fotos.forEach((f, i) => { f.signed = (signed && signed[i] && signed[i].signedUrl) || '' })
+    }
+    const locked = cur && (cur.status === 'aprovado' || cur.arquivado)
+    box.innerHTML = fotos.map(f => `<div class="thumb-card">
+      <div class="thumb"><img src="${esc(f.signed || '')}" alt="">${locked ? '' : `<button type="button" class="thumb-x" data-id="${esc(f.id)}">×</button>`}</div>
+      <input type="text" class="thumb-leg" data-legid="${esc(f.id)}" placeholder="Legenda" value="${esc(f.legenda || '')}"${locked ? ' disabled' : ''}></div>`).join('')
+    box.querySelectorAll('.thumb-x').forEach(b => { b.onclick = () => removerFoto(b.dataset.id) })
+    box.querySelectorAll('.thumb-leg').forEach(inp => { inp.onchange = () => sb().from('relatorio_fotos').update({ legenda: inp.value.trim() || null }).eq('id', inp.dataset.legid) })
+  }
+  async function adicionarFotos(fileList) {
+    if (!cur || !cur.id) return toast('Salve o orçamento primeiro.', 'err')
+    const files = Array.from(fileList || []).filter(f => f.type.startsWith('image/'))
+    if (!files.length) return
+    const btn = document.getElementById('e-foto-btn'); const old = btn.textContent; btn.disabled = true; btn.textContent = 'Enviando…'
+    for (const f of files) {
+      const id = (crypto.randomUUID ? crypto.randomUUID() : String(Date.now()) + Math.random().toString(16).slice(2))
+      const ext = f.type.includes('png') ? 'png' : f.type.includes('webp') ? 'webp' : 'jpg'
+      const path = `orcamentos/${cur.id}/foto-${id}.${ext}`
+      const up = await sb().storage.from('rat-anexos').upload(path, f, { upsert: true, contentType: f.type || 'image/jpeg' })
+      if (up.error) { toast('Erro no upload: ' + up.error.message, 'err'); continue }
+      const ins = await sb().from('relatorio_fotos').insert({ id, orcamento_id: cur.id, url: path }).select('id,url,legenda').single()
+      if (ins.error) { toast('Erro ao salvar foto: ' + ins.error.message, 'err'); continue }
+      fotos.push(ins.data)
+    }
+    document.getElementById('e-foto-input').value = ''
+    btn.disabled = false; btn.textContent = old
+    await renderFotos()
+  }
+  async function removerFoto(id) {
+    const f = fotos.find(x => x.id === id); if (!f) return
+    if (!confirm('Remover esta foto?')) return
+    await sb().storage.from('rat-anexos').remove([f.url]).catch(() => {})
+    const d = await sb().from('relatorio_fotos').delete().eq('id', id)
+    if (d.error) return toast('Erro ao remover: ' + d.error.message, 'err')
+    fotos = fotos.filter(x => x.id !== id); await renderFotos()
   }
 
   // ─────────────────── PDF do orçamento (render do mockup → imprimir) ───────────────────
