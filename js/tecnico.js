@@ -17,6 +17,7 @@
   let tecnico = { id: null, nome: null }
   let cur = null            // RAT em edição: { client_uuid, campos: [], tarefa_id?, tarefa_numero? }
   let sig = null            // controlador do canvas de assinatura
+  let curVisivel = {}       // id do campo -> visível? (condicionais)
   const TAREFAS_KEY = 'sr_tarefas_v1'
   let tarefas = []          // tarefas atribuídas (cache)
   let tarefaAberta = null   // tarefa no detalhe
@@ -352,6 +353,7 @@
       }
     }
     atualizarTempo()
+    aplicarCondicionais()
     mostrar('form')
   }
 
@@ -369,17 +371,65 @@
     // ativar assinatura, se houver
     const sc = cont.querySelector('canvas.sig-pad')
     if (sc) { sig = initSignature(sc); sig.resize() }
-    // recalcula tempo trabalhado ao alterar qualquer campo
-    cont.oninput = atualizarTempo
-    cont.onchange = atualizarTempo
+    // recalcula tempo trabalhado e reavalia condicionais ao alterar qualquer campo
+    const onFormChange = () => { atualizarTempo(); aplicarCondicionais() }
+    cont.oninput = onFormChange
+    cont.onchange = onFormChange
     atualizarTempo()
+    aplicarCondicionais()
     // thumbnails de fotos existentes
     await refreshThumbs()
+  }
+
+  // ── Condicionais (E/OU): mostra/esconde campos conforme as respostas ──
+  function valorCampo(id) {
+    const c = (cur.campos || []).find(x => x.id === id)
+    if (!c) return ''
+    if (c.tipo === 'tecnicos') return Array.from(document.querySelectorAll(`[data-multi="${CSS.escape(id)}"]:checked`)).map(x => x.value).join(', ')
+    const el = document.querySelector(`#campos-container [data-campo="${CSS.escape(id)}"]`)
+    return el ? String(el.value || '').trim() : ''
+  }
+  function avaliarCond(c, visivel) {
+    const cond = c.cond
+    if (!cond || !cond.regras || !cond.regras.length) return true
+    const res = cond.regras.map(rg => {
+      const val = (visivel[rg.campo] === false) ? '' : valorCampo(rg.campo)   // ref oculto = vazio
+      const alvo = String(rg.valor == null ? '' : rg.valor)
+      switch (rg.op) {
+        case 'igual': return val === alvo
+        case 'diferente': return val !== alvo
+        case 'contem': return val.toLowerCase().includes(alvo.toLowerCase())
+        case 'preenchido': return val.trim() !== ''
+        case 'vazio': return val.trim() === ''
+        default: return true
+      }
+    })
+    return cond.logica === 'OU' ? res.some(Boolean) : res.every(Boolean)
+  }
+  function aplicarCondicionais() {
+    if (!cur || !cur.campos) return
+    const visivel = {}
+    cur.campos.forEach(c => { visivel[c.id] = true })
+    // ponto-fixo (uma condição pode depender de outro campo condicional)
+    for (let pass = 0; pass <= cur.campos.length; pass++) {
+      let changed = false
+      for (const c of cur.campos) {
+        const v = avaliarCond(c, visivel)
+        if (v !== visivel[c.id]) { visivel[c.id] = v; changed = true }
+      }
+      if (!changed) break
+    }
+    cur.campos.forEach(c => {
+      const w = document.querySelector(`#campos-container [data-field="${CSS.escape(c.id)}"]`)
+      if (w) w.style.display = visivel[c.id] ? '' : 'none'
+    })
+    curVisivel = visivel
   }
 
   function renderCampo(c) {
     const wrap = document.createElement('div')
     wrap.className = 'fg campo'
+    wrap.dataset.field = c.id
     const req = c.obrigatorio ? ' <span style="color:var(--re)">*</span>' : ''
     const label = `<label>${esc(c.label)}${req}</label>`
 
@@ -570,6 +620,7 @@
     const respostas = {}
     let faltando = []
     for (const c of cur.campos) {
+      if (curVisivel[c.id] === false) continue   // campo oculto por condição
       if (c.tipo === 'foto' || c.tipo === 'assinatura' || c.tipo === 'produtos') continue
       let v = ''
       if (c.tipo === 'tecnicos') {
@@ -594,13 +645,14 @@
     const { respostas, faltando } = coletarRespostas()
     const temFotoCampo = cur.campos.some(c => c.tipo === 'foto')
     const temAssinaturaCampo = cur.campos.some(c => c.tipo === 'assinatura')
-    const fotoObrig = cur.campos.some(c => c.tipo === 'foto' && c.obrigatorio)
-    const assinaturaObrig = cur.campos.some(c => c.tipo === 'assinatura' && c.obrigatorio)
+    const vis = (c) => curVisivel[c.id] !== false
+    const fotoObrig = cur.campos.some(c => c.tipo === 'foto' && c.obrigatorio && vis(c))
+    const assinaturaObrig = cur.campos.some(c => c.tipo === 'assinatura' && c.obrigatorio && vis(c))
 
     const fotos = await D().listarFotos(cur.client_uuid)
     if (faltando.length) return toast('Preencha: ' + faltando.join(', '), 'err')
     if (fotoObrig && fotos.length === 0) return toast('Anexe ao menos uma foto.', 'err')
-    const produtosObrig = cur.campos.some(c => c.tipo === 'produtos' && c.obrigatorio)
+    const produtosObrig = cur.campos.some(c => c.tipo === 'produtos' && c.obrigatorio && vis(c))
     if (produtosObrig && (await D().listarMateriais(cur.client_uuid)).length === 0) return toast('Adicione ao menos um produto.', 'err')
 
     let assinatura_local = null

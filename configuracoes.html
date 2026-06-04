@@ -21,11 +21,21 @@
   .cfg-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:12px}
   .cfg-head h2{font-size:15px;font-weight:600;color:var(--tx)}
   .modal.lg{max-width:640px}
-  .campo-row{display:grid;grid-template-columns:1fr 120px 1fr auto auto;gap:8px;align-items:center;margin-bottom:8px}
+  .campo-wrap{margin-bottom:8px}
+  .campo-wrap:has(.cond-panel.open){background:var(--sur2);border:1px solid var(--bd);border-radius:10px;padding:8px}
+  .campo-row{display:grid;grid-template-columns:1fr 120px 1fr auto auto auto;gap:8px;align-items:center}
   .campo-row input[type=text], .campo-row .cb-label, .campo-row .cb-opcoes{padding:7px 9px;border:1px solid var(--bd);border-radius:8px;font:inherit;font-size:13px}
   .campo-row .cb-tipo{padding:7px 9px;border:1px solid var(--bd);border-radius:8px;font:inherit;font-size:13px;background:var(--sur)}
   .cb-obrig-l{font-size:12px;color:var(--tx2);display:flex;align-items:center;gap:4px;white-space:nowrap}
-  @media(max-width:640px){ .campo-row{grid-template-columns:1fr 1fr;}.cb-obrig-l{grid-column:1/-1} }
+  .ab.cb-cond.on{color:var(--ac);font-weight:700}
+  /* Painel de condição (E/OU) */
+  .cond-panel{display:none;margin-top:8px;padding:10px 12px;background:#fff;border:1px solid var(--bd);border-radius:8px}
+  .cond-panel.open{display:block}
+  .cond-head{font-size:12px;color:var(--tx2);margin-bottom:8px;display:flex;align-items:center;gap:6px;flex-wrap:wrap}
+  .cond-head .cond-logica{padding:4px 6px;border:1px solid var(--bd);border-radius:6px;font:inherit;font-size:12px;background:var(--sur)}
+  .cond-regra{display:grid;grid-template-columns:1fr 150px 1fr auto;gap:6px;align-items:center;margin-bottom:6px}
+  .cond-regra select,.cond-regra input{padding:6px 8px;border:1px solid var(--bd);border-radius:7px;font:inherit;font-size:12.5px;background:#fff}
+  @media(max-width:640px){ .campo-row{grid-template-columns:1fr 1fr;}.cb-obrig-l{grid-column:1/-1} .cond-regra{grid-template-columns:1fr 1fr} }
 </style>
 </head>
 <body>

@@ -12,6 +12,15 @@
   let editTipoId = null
 
   const TIPOS_CAMPO = ['texto', 'texto_longo', 'numero', 'data', 'hora', 'selecao', 'tecnico', 'tecnicos', 'veiculo', 'produtos', 'foto', 'assinatura']
+  // Operadores das condições (regras de exibição). valor=false → não precisa de valor.
+  const COND_OPS = [
+    { v: 'igual', t: 'é igual a', valor: true },
+    { v: 'diferente', t: 'é diferente de', valor: true },
+    { v: 'contem', t: 'contém', valor: true },
+    { v: 'preenchido', t: 'está preenchido', valor: false },
+    { v: 'vazio', t: 'está vazio', valor: false },
+  ]
+  let _rowSeq = 0
   let veiculos = []
   let editVeicId = null
   const EFEITOS = ['nenhum', 'marcar_locado', 'devolver_estoque', 'marcar_manutencao']
@@ -97,7 +106,7 @@
     document.getElementById('cf-ativo').checked = f ? !!f.ativo : true
     const box = document.getElementById('campos-build'); box.innerHTML = ''
     const campos = (f && f.campos) || []
-    if (campos.length) campos.forEach(addCampoRow)
+    if (campos.length) { campos.forEach(addCampoRow); restaurarCondicoes() }
     else addCampoRow()
     abrir('modal-form')
   }
@@ -105,40 +114,129 @@
   function addCampoRow(campo) {
     const box = document.getElementById('campos-build')
     const row = document.createElement('div')
-    row.className = 'campo-row'
-    row.dataset.id = (campo && campo.id) || ''
+    row.className = 'campo-wrap'
+    row._key = 'r' + (++_rowSeq)
+    if (campo && campo.id) row.dataset.id = campo.id
     const opts = TIPOS_CAMPO.map(t => `<option value="${t}"${campo && campo.tipo === t ? ' selected' : ''}>${t}</option>`).join('')
-    row.innerHTML = `
+    const line = document.createElement('div')
+    line.className = 'campo-row'
+    line.innerHTML = `
       <input class="cb-label" placeholder="Pergunta / rótulo" value="${campo ? esc(campo.label || '') : ''}">
       <select class="cb-tipo">${opts}</select>
       <input class="cb-opcoes" placeholder="opções (vírgula)" value="${campo && campo.opcoes ? esc(campo.opcoes.join(', ')) : ''}">
       <label class="cb-obrig-l"><input type="checkbox" class="cb-obrig"${campo && campo.obrigatorio ? ' checked' : ''}> obrig.</label>
+      <button type="button" class="ab cb-cond" title="Condicional (mostrar se…)">⚙</button>
       <button type="button" class="ab ab-d cb-del">×</button>`
-    const tipoSel = row.querySelector('.cb-tipo')
-    const opcoesInp = row.querySelector('.cb-opcoes')
+    const panel = document.createElement('div')
+    panel.className = 'cond-panel'
+    panel.innerHTML = `
+      <div class="cond-head">Mostrar este campo quando
+        <select class="cond-logica"><option value="E">TODAS (E)</option><option value="OU">QUALQUER (OU)</option></select>
+        das regras forem verdadeiras:</div>
+      <div class="cond-regras"></div>
+      <button type="button" class="btn btn-sm cond-add">+ regra</button>`
+    row.appendChild(line); row.appendChild(panel)
+    box.appendChild(row)
+
+    const tipoSel = line.querySelector('.cb-tipo')
+    const opcoesInp = line.querySelector('.cb-opcoes')
     const toggleOpcoes = () => { opcoesInp.style.display = tipoSel.value === 'selecao' ? '' : 'none' }
     tipoSel.onchange = toggleOpcoes; toggleOpcoes()
-    row.querySelector('.cb-del').onclick = () => row.remove()
-    box.appendChild(row)
+    line.querySelector('.cb-del').onclick = () => row.remove()
+    const cbCond = line.querySelector('.cb-cond')
+    cbCond.onclick = () => { const open = panel.classList.toggle('open'); cbCond.classList.toggle('on', open) }
+    panel.querySelector('.cond-add').onclick = () => addRegraRow(panel, row)
+    row._condPending = (campo && campo.cond) || null
+  }
+
+  // Preenche o select de "campo de referência" de uma regra com os demais campos.
+  function popularCampoSelect(select, exceptRow, keep) {
+    const rows = Array.from(document.querySelectorAll('#campos-build .campo-wrap'))
+    const cur = keep != null ? keep : select.value
+    select.innerHTML = '<option value="">— campo —</option>' + rows.filter(r => r !== exceptRow).map(r => {
+      const lbl = (r.querySelector('.cb-label').value || '').trim() || '(sem rótulo)'
+      return `<option value="${r._key}">${esc(lbl)}</option>`
+    }).join('')
+    if (cur) select.value = cur
+  }
+
+  function addRegraRow(panel, ownerRow, regra) {
+    const box = panel.querySelector('.cond-regras')
+    const r = document.createElement('div')
+    r.className = 'cond-regra'
+    const opOpts = COND_OPS.map(o => `<option value="${o.v}"${regra && regra.op === o.v ? ' selected' : ''}>${o.t}</option>`).join('')
+    r.innerHTML = `
+      <select class="cr-campo"></select>
+      <select class="cr-op">${opOpts}</select>
+      <input class="cr-valor" placeholder="valor" value="${regra && regra.valor != null ? esc(regra.valor) : ''}">
+      <button type="button" class="ab ab-d cr-del">×</button>`
+    box.appendChild(r)
+    const campoSel = r.querySelector('.cr-campo')
+    const opSel = r.querySelector('.cr-op')
+    const valorInp = r.querySelector('.cr-valor')
+    popularCampoSelect(campoSel, ownerRow)
+    campoSel.onfocus = () => popularCampoSelect(campoSel, ownerRow)
+    const toggleValor = () => { const o = COND_OPS.find(x => x.v === opSel.value); valorInp.style.display = (o && o.valor) ? '' : 'none' }
+    opSel.onchange = toggleValor; toggleValor()
+    r.querySelector('.cr-del').onclick = () => r.remove()
+    return r
+  }
+
+  // Após todas as linhas existirem, restaura as condições salvas (resolve id → _key).
+  function restaurarCondicoes() {
+    const rows = Array.from(document.querySelectorAll('#campos-build .campo-wrap'))
+    const idToKey = {}
+    rows.forEach(r => { if (r.dataset.id) idToKey[r.dataset.id] = r._key })
+    rows.forEach(row => {
+      const cond = row._condPending
+      if (!cond || !cond.regras || !cond.regras.length) return
+      const panel = row.querySelector('.cond-panel')
+      panel.querySelector('.cond-logica').value = cond.logica === 'OU' ? 'OU' : 'E'
+      cond.regras.forEach(rg => {
+        const rr = addRegraRow(panel, row, { op: rg.op, valor: rg.valor })
+        popularCampoSelect(rr.querySelector('.cr-campo'), row, idToKey[rg.campo] || '')
+      })
+      panel.classList.add('open')
+      row.querySelector('.cb-cond').classList.add('on')
+    })
   }
 
   function coletarCampos() {
-    const rows = Array.from(document.querySelectorAll('#campos-build .campo-row'))
+    const rows = Array.from(document.querySelectorAll('#campos-build .campo-wrap'))
     const usados = new Set()
-    const campos = []
-    for (const r of rows) {
-      const label = r.querySelector('.cb-label').value.trim()
-      if (!label) continue
-      const tipo = r.querySelector('.cb-tipo').value
-      const obrigatorio = r.querySelector('.cb-obrig').checked
-      // id estável: preserva o existente; senão gera do label, garantindo unicidade
-      let id = r.dataset.id || slug(label)
+    const info = []
+    rows.forEach(row => {
+      row._id = null
+      const label = (row.querySelector('.cb-label').value || '').trim()
+      if (!label) return
+      const tipo = row.querySelector('.cb-tipo').value
+      const obrigatorio = row.querySelector('.cb-obrig').checked
+      let id = row.dataset.id || slug(label)
       while (usados.has(id)) id = id + '_' + (usados.size + 1)
-      usados.add(id)
+      usados.add(id); row._id = id
       const campo = { id, label, tipo, obrigatorio }
-      if (tipo === 'selecao') {
-        campo.opcoes = r.querySelector('.cb-opcoes').value.split(',').map(s => s.trim()).filter(Boolean)
-      }
+      if (tipo === 'selecao') campo.opcoes = row.querySelector('.cb-opcoes').value.split(',').map(s => s.trim()).filter(Boolean)
+      info.push({ row, campo })
+    })
+    const keyToId = {}; rows.forEach(r => { if (r._id) keyToId[r._key] = r._id })
+    const campos = []
+    for (const { row, campo } of info) {
+      const logica = row.querySelector('.cond-logica').value === 'OU' ? 'OU' : 'E'
+      const regras = []
+      row.querySelectorAll('.cond-regra').forEach(rr => {
+        const refId = keyToId[rr.querySelector('.cr-campo').value]
+        if (!refId) return
+        const op = rr.querySelector('.cr-op').value
+        const opDef = COND_OPS.find(o => o.v === op)
+        if (opDef && opDef.valor) {
+          const valor = rr.querySelector('.cr-valor').value.trim()
+          if (!valor) return
+          regras.push({ campo: refId, op, valor })
+        } else {
+          regras.push({ campo: refId, op })
+        }
+      })
+      if (regras.length) campo.cond = { logica, regras }
       campos.push(campo)
     }
     return campos
