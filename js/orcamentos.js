@@ -667,7 +667,8 @@ body{font-family:'Inter',system-ui,sans-serif;color:var(--ink);-webkit-font-smoo
 .meta .v{font-size:12.5px;font-weight:600;color:var(--ink);margin-top:6px;white-space:nowrap;}
 
 /* cliente */
-.cli{margin-top:20px;padding-bottom:16px;border-bottom:1px solid var(--line);}
+.cli{margin-top:12px;padding-bottom:10px;border-bottom:1px solid var(--line);}
+.cli .eyebrow{margin-bottom:6px;}
 .cli-row{display:flex;align-items:center;}
 .cli-l{flex:1;padding-right:32px;}
 .cli .cname{font-size:16px;font-weight:700;letter-spacing:-.2px;color:var(--ink);line-height:1.25;}
