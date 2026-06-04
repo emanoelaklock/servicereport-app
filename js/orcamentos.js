@@ -559,7 +559,7 @@
       <section class="sec">
         <div class="eyebrow">Materiais</div>
         <table>
-          <colgroup><col style="width:7%"><col style="width:43%"><col style="width:8%"><col style="width:10%"><col style="width:16%"><col style="width:16%"></colgroup>
+          <colgroup><col style="width:6%"><col style="width:52%"><col style="width:7%"><col style="width:9%"><col style="width:13%"><col style="width:13%"></colgroup>
           <thead><tr><th class="c">Item</th><th class="l">Descrição</th><th class="c">Un.</th><th class="c">Qtd</th><th class="r">Vlr. Unit.</th><th class="r">Total</th></tr></thead>
           <tbody>${matRows}</tbody>
         </table>
@@ -647,7 +647,7 @@ table{width:100%;border-collapse:collapse;}
 thead th{font-size:9.5px;font-weight:600;letter-spacing:.6px;text-transform:uppercase;color:var(--gray);background:#f4f5f7;padding:9px 10px;text-align:right;}
 thead th.l{text-align:left;}
 thead th.c{text-align:center;}
-tbody td{font-size:11.5px;padding:8px 10px;text-align:right;color:var(--ink);border-bottom:1px solid #eef0f3;}
+tbody td{font-size:10.5px;padding:7px 10px;text-align:right;color:var(--ink);border-bottom:1px solid #eef0f3;}
 tbody tr:nth-child(even) td{background:#f8f9fb;}
 tbody td.l{text-align:left;font-weight:500;line-height:1.4;}
 tbody td.c{text-align:center;color:var(--gray);}
