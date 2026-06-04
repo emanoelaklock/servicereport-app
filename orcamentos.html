@@ -180,7 +180,10 @@
             <h4>Fotos</h4>
             <div id="fotos-hint" class="muted" style="display:none;margin-bottom:8px">Salve o orçamento para poder anexar fotos.</div>
             <input type="file" id="e-foto-input" accept="image/*" multiple style="display:none">
-            <button class="btn btn-sm" id="e-foto-btn" style="margin-bottom:12px">📷 Adicionar fotos</button>
+            <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px">
+              <button class="btn btn-sm" id="e-foto-btn">📷 Adicionar fotos</button>
+              <button class="btn btn-sm" id="e-foto-import" style="display:none">⇩ Trazer fotos do pré-orçamento</button>
+            </div>
             <div class="thumbs" id="e-thumbs"></div>
           </div>
         </div>

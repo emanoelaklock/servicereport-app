@@ -92,6 +92,7 @@
     document.getElementById('e-observacoes').oninput = syncObsHorarioCheckbox
     document.getElementById('e-foto-btn').onclick = () => document.getElementById('e-foto-input').click()
     document.getElementById('e-foto-input').onchange = () => adicionarFotos(document.getElementById('e-foto-input').files)
+    document.getElementById('e-foto-import').onclick = importarFotosPreorc
     document.querySelectorAll('#orc-filtros .chip').forEach(ch => {
       ch.onclick = () => {
         filtro = ch.dataset.f
@@ -492,10 +493,12 @@
   async function carregarFotos() {
     const hint = document.getElementById('fotos-hint')
     const btn = document.getElementById('e-foto-btn')
+    const imp = document.getElementById('e-foto-import')
     const box = document.getElementById('e-thumbs')
-    if (!cur || !cur.id) { fotos = []; box.innerHTML = ''; hint.style.display = 'block'; btn.disabled = true; return }
+    if (!cur || !cur.id) { fotos = []; box.innerHTML = ''; hint.style.display = 'block'; btn.disabled = true; imp.style.display = 'none'; return }
     const locked = cur.status === 'aprovado' || cur.arquivado
     hint.style.display = 'none'; btn.disabled = !!locked
+    imp.style.display = (cur.pre_orcamento_id && !locked) ? '' : 'none'
     const { data, error } = await sb().from('relatorio_fotos').select('id,url,legenda').eq('orcamento_id', cur.id).order('criado_em')
     if (error) { toast('Erro ao carregar fotos: ' + error.message, 'err'); return }
     fotos = data || []
@@ -532,6 +535,16 @@
     document.getElementById('e-foto-input').value = ''
     btn.disabled = false; btn.textContent = old
     await renderFotos()
+  }
+  async function importarFotosPreorc() {
+    if (!cur || !cur.id) return toast('Salve o orçamento primeiro.', 'err')
+    const imp = document.getElementById('e-foto-import'); const old = imp.textContent; imp.disabled = true; imp.textContent = 'Importando…'
+    const r = await invoke('orcamento-importar-fotos', { id: cur.id })
+    imp.disabled = false; imp.textContent = old
+    if (!r) return
+    if (r.importadas > 0) toast(r.importadas + ' foto(s) trazida(s) do pré-orçamento.', 'ok')
+    else toast(r.motivo || 'Nenhuma foto nova para importar.', 'info')
+    await carregarFotos()
   }
   async function removerFoto(id) {
     const f = fotos.find(x => x.id === id); if (!f) return
@@ -587,13 +600,20 @@
     if (e2) return toast('Erro ao carregar itens: ' + e2.message, 'err')
     const cli = ref.clientes.find(c => c.id === o.cliente_id) || {}
     const mats = (its || []).filter(i => i.tipo === 'material' || i.tipo === 'avulso')
-    const html = orcamentoHTML(o, mats, cli, user.nome)
+    const { data: fdata } = await sb().from('relatorio_fotos').select('id,url,legenda').eq('orcamento_id', cur.id).order('criado_em')
+    const fotosArr = fdata || []
+    if (fotosArr.length) {
+      const { data: signed } = await sb().storage.from('rat-anexos').createSignedUrls(fotosArr.map(f => f.url), 3600)
+      fotosArr.forEach((f, i) => { f.signed = (signed && signed[i] && signed[i].signedUrl) || '' })
+    }
+    const html = orcamentoHTML(o, mats, cli, fotosArr)
     const w = window.open('', '_blank')
     if (!w) return toast('Permita pop-ups para gerar o PDF.', 'err')
     w.document.open(); w.document.write(html); w.document.close()
   }
 
-  function orcamentoHTML(o, mats, cli, geradoPor) {
+  function orcamentoHTML(o, mats, cli, fotosArr) {
+    fotosArr = fotosArr || []
     const servVal = Number(o.servico_valor) || 0
     const totMat = mats.reduce((s, m) => s + ((Number(m.preco_unitario) || 0) === 0 ? 0 : (Number(m.quantidade) || 0) * (Number(m.preco_unitario) || 0)), 0)
     const total = servVal + totMat
@@ -698,6 +718,12 @@
     }
     if (hasServico || hasMateriais) blocks.push({ t: 'html', h: resumoSec })
     blocks.push({ t: 'html', h: condSec })
+    // Registro fotográfico (2 fotos por linha; cada linha é um bloco paginável)
+    for (let i = 0; i < fotosArr.length; i += 2) {
+      const pair = fotosArr.slice(i, i + 2)
+      const eyebrow = i === 0 ? '<div class="eyebrow">Registro fotográfico</div>' : ''
+      blocks.push({ t: 'html', h: `<section class="sec fotos-sec">${eyebrow}<div class="fotos-row">${pair.map(f => `<div class="foto-card"><div class="foto-img"><img src="${esc(f.signed || '')}"></div>${f.legenda ? `<div class="foto-cap">${esc(f.legenda)}</div>` : ''}</div>`).join('')}${pair.length === 1 ? '<div class="foto-card"></div>' : ''}</div></section>` })
+    }
 
     return `<!DOCTYPE html><html lang="pt-BR"><head><meta charset="UTF-8">
 <title>Orçamento Nº ${esc(numero)} — ${esc(cli.nome || 'Cliente')}</title>
@@ -797,6 +823,12 @@ tbody td.dash{color:#b8bcc4;}
 
 /* rodapé */
 .foot{padding-top:14px;border-top:1px solid var(--line);display:flex;justify-content:space-between;align-items:center;font-size:10px;color:var(--gray);}
+.fotos-sec{margin-top:14px;}
+.fotos-row{display:flex;gap:14px;}
+.foto-card{flex:1;min-width:0;}
+.foto-img{width:100%;height:175px;border-radius:10px;overflow:hidden;border:1px solid var(--line);background:#f2f4f7;}
+.foto-img img{width:100%;height:100%;object-fit:cover;display:block;}
+.foto-cap{font-size:10px;color:var(--gray);margin-top:5px;line-height:1.3;}
 @media print{@page{size:A4;margin:0;}html,body{background:#fff;}.sheet{box-shadow:none;margin:0;width:210mm;height:297mm;page-break-after:always;}.sheet:last-child{page-break-after:auto;}}
 </style></head>
 <body>
@@ -814,7 +846,7 @@ function addHTML(h){var d=el('div');d.innerHTML=h;var n=d.firstElementChild;if(!
 function makeTable(){var t=el('table');t.innerHTML='<colgroup>'+curCol+'</colgroup><thead>'+curThead+'</thead><tbody></tbody>';return t;}
 function startTable(b){curCol=b.col;curThead=b.thead;var wrap=el('div');wrap.style.marginTop='22px';wrap.innerHTML='<div class="eyebrow">'+b.eyebrow+'</div>';var t=makeTable();wrap.appendChild(t);cur.bd.appendChild(wrap);if(over()&&cur.bd.children.length>1){cur.bd.removeChild(wrap);newSheet();cur.bd.appendChild(wrap);}openTbody=t.querySelector('tbody');}
 function addRow(h){var tb=el('tbody');tb.innerHTML=h;var tr=tb.firstElementChild;if(!tr||!openTbody)return;openTbody.appendChild(tr);if(over()){openTbody.removeChild(tr);newSheet();var t=makeTable();cur.bd.appendChild(t);openTbody=t.querySelector('tbody');openTbody.appendChild(tr);}}
-function build(){newSheet();for(var i=0;i<BLOCKS.length;i++){var b=BLOCKS[i];if(b.t==='html')addHTML(b.h);else if(b.t==='tstart')startTable(b);else if(b.t==='row')addRow(b.h);else if(b.t==='tend')openTbody=null;}var N=ftrs.length;for(var k=0;k<ftrs.length;k++){var pg=ftrs[k].querySelector('.pg');if(pg)pg.textContent='Página '+(k+1)+' de '+N;}window.focus();setTimeout(function(){window.print();},200);}
+function build(){newSheet();for(var i=0;i<BLOCKS.length;i++){var b=BLOCKS[i];if(b.t==='html')addHTML(b.h);else if(b.t==='tstart')startTable(b);else if(b.t==='row')addRow(b.h);else if(b.t==='tend')openTbody=null;}var N=ftrs.length;for(var k=0;k<ftrs.length;k++){var pg=ftrs[k].querySelector('.pg');if(pg)pg.textContent='Página '+(k+1)+' de '+N;}var imgs=Array.prototype.slice.call(document.images);var left=imgs.filter(function(im){return !im.complete});function go(){window.focus();window.print();}if(!left.length){setTimeout(go,200);return;}var done=0,fired=false;function one(){done++;if(done>=left.length&&!fired){fired=true;setTimeout(go,150);}}left.forEach(function(im){im.addEventListener('load',one);im.addEventListener('error',one);});setTimeout(function(){if(!fired){fired=true;go();}},7000);}
 if(document.fonts&&document.fonts.ready){document.fonts.ready.then(function(){setTimeout(build,80);});}else{setTimeout(build,400);}
 </script>
 </body></html>`
