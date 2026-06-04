@@ -668,7 +668,7 @@ body{font-family:'Inter',system-ui,sans-serif;color:var(--ink);-webkit-font-smoo
 
 /* cliente */
 .cli{margin-top:20px;padding-bottom:16px;border-bottom:1px solid var(--line);}
-.cli-row{display:flex;align-items:flex-start;}
+.cli-row{display:flex;align-items:center;}
 .cli-l{flex:1;padding-right:32px;}
 .cli .cname{font-size:16px;font-weight:700;letter-spacing:-.2px;color:var(--ink);line-height:1.25;}
 .cli-r{flex:1;border-left:1px solid var(--line);padding-left:32px;font-size:11px;line-height:1.75;color:var(--gray);}
