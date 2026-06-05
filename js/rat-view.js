@@ -293,7 +293,7 @@ window.RatView = (function () {
 
   const PDF_CSS = `
     *{box-sizing:border-box}
-    body{font-family:Inter,Arial,sans-serif;color:#1B2A4A;margin:20px 22px;font-size:12.5px}
+    body{font-family:Inter,Arial,sans-serif;color:#1B2A4A;margin:12px 14px;font-size:12.5px}
     .pdf-top{display:flex;justify-content:space-between;align-items:flex-end;border-bottom:3px solid #1B2A4A;padding-bottom:10px;margin-bottom:16px}
     .pdf-brand{font-size:20px;font-weight:800;letter-spacing:.04em;color:#1B2A4A}
     .pdf-doc{font-size:12px;color:#5b6b86;font-weight:600;text-transform:uppercase;letter-spacing:.05em}
@@ -326,7 +326,7 @@ window.RatView = (function () {
     .det-foto figcaption{font-size:10px;color:#5b6b86;line-height:1.2}
     .det-sig{max-width:280px;border:1px solid #d6deea;border-radius:8px;background:#fff}
     .pdf-foot{margin-top:26px;border-top:1px solid #d6deea;padding-top:8px;font-size:10px;color:#9aa7bd;text-align:center}
-    @media print{ body{margin:10mm 10mm} a{color:inherit;text-decoration:none} }`
+    @media print{ body{margin:6mm 6mm} a{color:inherit;text-decoration:none} }`
 
   return {
     RAT_SELECT, ensureForms, loadDetalhe, buildReportBody, coletarEdicao, salvarPrecos,
