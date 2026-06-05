@@ -23,6 +23,7 @@ const TarefaApp = (() => {
 
   const RAT_SIT = { em_andamento: 'Em andamento', concluida: 'Concluída', concluida_pendencia: 'Concluída c/ pendência' }
   const ratSit = (s) => RAT_SIT[s] || s || '—'
+  const PANES = ['dados', 'equip', 'anexos', 'rats', 'material', 'fat']
 
   const STATUS_LABEL = {
     aguardando_execucao: 'Aguardando execução', em_execucao: 'Em execução',
@@ -69,15 +70,17 @@ const TarefaApp = (() => {
       : '<span class="cc-empty-sm">Nenhum técnico ativo cadastrado.</span>'
     document.getElementById('cc-d-tipo').innerHTML = '<option value="">— selecione —</option>' + ref.tipos.map(t => `<option value="${esc(t.id)}">${esc(t.nome || '')}</option>`).join('')
     bind()
-    const f = new URLSearchParams(location.search).get('f')
+    const params = new URLSearchParams(location.search)
+    const f = params.get('f')
     if (f) { filtro = f; document.querySelectorAll('#cc-filtros .chip').forEach(c => c.classList.toggle('on', c.dataset.f === f)) }
     await carregarTarefas()
-    mostrar('lista')
-    renderLista()
+    const tid = params.get('t')
+    if (tid && tarefas.some(x => x.id === tid)) await abrirTarefa(tid, params.get('aba'))
+    else { mostrar('lista'); renderLista() }
   }
 
   function bind() {
-    document.getElementById('btn-voltar').onclick = () => { cur = null; mostrar('lista'); carregarTarefas().then(renderLista) }
+    document.getElementById('btn-voltar').onclick = () => { cur = null; history.replaceState(null, '', 'tarefa.html'); mostrar('lista'); carregarTarefas().then(renderLista) }
     document.querySelectorAll('#cc-filtros .chip').forEach(ch => ch.onclick = () => {
       filtro = ch.dataset.f
       document.querySelectorAll('#cc-filtros .chip').forEach(c => c.classList.toggle('on', c === ch))
@@ -264,10 +267,10 @@ const TarefaApp = (() => {
   }
 
   // ─────────────────────────── Detalhe ───────────────────────────
-  async function abrirTarefa(id) {
+  async function abrirTarefa(id, aba) {
     const t = tarefas.find(x => x.id === id); if (!t) return
     cur = { id, numero: t.numero, status: t.status, cliente_nome: cliNomes[t.cliente_id] || '—', equip: [], anexos: [] }
-    mostrarPane('dados')
+    mostrarPane(aba)
     document.getElementById('cc-cliente').textContent = cur.cliente_nome
     document.getElementById('cc-docno').textContent = cur.numero != null ? `Tarefa Nº ${osNo(cur.numero)}` : ''
     document.getElementById('cc-badge').textContent = STATUS_LABEL[cur.status] || cur.status || ''
@@ -326,6 +329,7 @@ const TarefaApp = (() => {
     if (error) return toast('Erro ao excluir: ' + error.message, 'err')
     toast('Tarefa excluída.', 'ok')
     cur = null
+    history.replaceState(null, '', 'tarefa.html')
     mostrar('lista')
     await carregarTarefas()
     renderLista()
@@ -686,10 +690,12 @@ const TarefaApp = (() => {
     else badge.style.display = ''
   }
 
-  // Abas do detalhe: mostra um card por vez.
+  // Abas do detalhe: mostra um card por vez e reflete na URL (tarefa.html?t=<id>&aba=<key>).
   function mostrarPane(key) {
+    if (!PANES.includes(key)) key = 'dados'
     document.querySelectorAll('#cc-tabs .cc-tab').forEach(b => b.classList.toggle('on', b.dataset.pane === key))
     document.querySelectorAll('#view-detalhe .cc-pane').forEach(p => p.classList.toggle('on', p.dataset.pane === key))
+    if (cur && cur.id) history.replaceState(null, '', `tarefa.html?t=${encodeURIComponent(cur.id)}&aba=${key}`)
   }
 
   return { init }
