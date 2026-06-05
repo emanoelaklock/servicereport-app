@@ -249,6 +249,18 @@ Registrar tudo na **unidade de consumo (ex.: metro)**, não na embalagem. Ex.: o
 
 > **Evolução futura (não agora):** rastrear a bobina/lote específico (saldo daquela bobina: 500 → 405 m) — camada de estoque mais avançada, no módulo de inventário.
 
+### Apresentação da tabela (back-office) — aba "Produtos"
+
+Referência visual: `docs/mockups/mockup-tarefa.html`. **Só apresentação** — os dados e termos não mudam (Orçada, Levada, Utilizada, Devolvida e os KPIs ficam intactos).
+
+- Coluna **Un.** única (PC, m, …); as quatro colunas de quantidade são **números puros, alinhados à direita**, sem unidade grudada no número (nomes mantidos, inclusive "Devolvida").
+- **Valor unit.** em **moeda formatada** (R$ 8.061,10), **read-only** (vem do orçamento congelado); só vira **editável** em **item avulso / fora da proposta**.
+- **Só a Levada é editável** (input discreto); o resto é texto.
+- **Zeros** = "0" em cinza suave; **"—"** só para N/A (ex.: Orçada de item fora da proposta).
+- **Devolvida nunca negativa na tela:** quando Utilizada > Levada, exibe Devolvida "—" e destaca a **Utilizada em vermelho**; o sinal fica no badge. (O cálculo interno continua.)
+- **Situação só no badge** (sem "• fora da proposta" inline); a linha fora-da-proposta ganha leve fundo. Badges: **OK** (verde) · **Devolver N** (âmbar, com a quantidade) · **Fora da proposta** (vermelho).
+- **KPI cards** mantidos, com moeda consistente.
+
 ---
 
 ## 10. Faturamento

@@ -437,19 +437,35 @@ const TarefaApp = (() => {
   function renderLinhas() {
     const tb = document.getElementById('cc-tbody')
     if (!linhas.length) {
-      tb.innerHTML = '<tr><td colspan="7" class="cc-empty">Sem produtos nesta tarefa. Adicione abaixo.</td></tr>'
+      tb.innerHTML = '<tr><td colspan="8" class="cc-empty">Sem produtos nesta tarefa. Adicione abaixo.</td></tr>'
     } else {
       tb.innerHTML = linhas.map((l, i) => {
         const sit = SIT[l.situacao] || { t: l.situacao, cls: '' }
         const fora = l.situacao === 'sem_orcada'
+        const orcada = Number(l.qtd_orcada) || 0
+        const lev = Number(l.qtd_levada) || 0
+        const util = Number(l.qtd_utilizada) || 0
+        const dev = Number(l.qtd_devolvida) || 0
+        const devNeg = dev < 0                 // usado sem ter sido levado: não imprime negativo
+        const semOrcada = orcada <= 0          // avulso/fora → preço editável, Orçada "—"
+        const preco = Number(l.preco_unitario) || 0
+        // células de número puro (sem unidade grudada); 0 = cinza; "—" = N/A
+        const cOrcada = orcada > 0 ? `<td class="qty">${qtd(orcada)}</td>` : `<td class="qty na">—</td>`
+        const cUtil = `<td class="qty ${devNeg ? 'alert' : (util === 0 ? 'zero' : '')}">${qtd(util)}</td>`
+        const cDev = devNeg ? `<td class="qty na">—</td>` : `<td class="qty ${dev === 0 ? 'zero' : ''}">${qtd(dev)}</td>`
+        const cPreco = semOrcada
+          ? `<td><input class="edit cc-preco" type="number" inputmode="decimal" min="0" step="0.01" value="${preco > 0 ? preco : ''}" data-i="${i}" placeholder="0,00"></td>`
+          : `<td class="money">${money(preco)}</td>`
+        const badgeTxt = (l.situacao === 'devolver' && dev > 0) ? `Devolver ${qtd(dev)}` : sit.t
         return `<tr class="${fora ? 'row-fora' : ''}">
-          <td class="cc-mat"><div class="cc-desc">${esc(l.descricao || '—')}</div>${l.codigo_produto ? `<div class="cc-cod">${esc(l.codigo_produto)}</div>` : ''}</td>
-          <td class="num"><input class="cc-preco num" type="number" inputmode="decimal" min="0" step="0.01" value="${Number(l.preco_unitario) > 0 ? l.preco_unitario : ''}" data-i="${i}" placeholder="0,00"></td>
-          <td class="num">${Number(l.qtd_orcada) > 0 ? qtd(l.qtd_orcada) + unid(l) : '<span class="dash">—</span>'}</td>
-          <td class="num"><input class="cc-lev num" type="number" inputmode="decimal" min="0" step="any" value="${Number(l.qtd_levada) > 0 ? l.qtd_levada : ''}" data-i="${i}" placeholder="0"></td>
-          <td class="num">${Number(l.qtd_utilizada) > 0 ? qtd(l.qtd_utilizada) + unid(l) : '<span class="dash">—</span>'}</td>
-          <td class="num ${Number(l.qtd_devolvida) < 0 ? 'neg' : ''}">${qtd(l.qtd_devolvida) + unid(l)}</td>
-          <td><span class="sit ${sit.cls}">${esc(sit.t)}</span></td>
+          <td class="l cc-mat"><div class="cc-desc">${esc(l.descricao || '—')}</div>${l.codigo_produto ? `<div class="cc-cod">${esc(l.codigo_produto)}</div>` : ''}</td>
+          <td class="c un">${esc(l.unidade || '—')}</td>
+          ${cPreco}
+          ${cOrcada}
+          <td><input class="edit cc-lev" type="number" inputmode="decimal" min="0" step="any" value="${lev}" data-i="${i}"></td>
+          ${cUtil}
+          ${cDev}
+          <td class="c"><span class="sit ${sit.cls}">${esc(badgeTxt)}</span></td>
         </tr>`
       }).join('')
       tb.querySelectorAll('.cc-lev').forEach(inp => inp.onchange = () => salvarLevada(Number(inp.dataset.i), inp.value))
