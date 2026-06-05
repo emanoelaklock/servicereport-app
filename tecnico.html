@@ -77,6 +77,8 @@
   .t-det-sec{margin-top:16px}
   .t-det-lbl{font-size:11px;font-weight:600;letter-spacing:.4px;text-transform:uppercase;color:var(--tx3);margin-bottom:6px}
   .t-det-orient{font-size:14px;color:var(--tx);line-height:1.5;white-space:pre-wrap}
+  .t-det-card{background:#F4F7FE;border:1px solid #E4ECFB;border-radius:12px;padding:13px 15px}
+  .t-det-card .t-det-lbl{margin-bottom:6px}
   .t-det-equip-item{font-size:13px;color:var(--tx);padding:6px 0;border-bottom:1px solid var(--bd)}
   .t-det-equip-item .sub{color:var(--tx3);font-family:var(--mono);font-size:11px}
   .t-det-mat-item{padding:11px 0;border-bottom:1px solid var(--bd)}
@@ -230,11 +232,11 @@
           <div class="t-det-cli" id="t-det-cli">—</div>
           <div class="t-det-row" id="t-det-agenda"></div>
           <div class="t-det-row" id="t-det-tipo" style="display:none"></div>
-          <div class="t-det-sec" id="t-det-orient-sec" style="display:none">
+          <div class="t-det-sec t-det-card" id="t-det-orient-sec" style="display:none">
             <div class="t-det-lbl">Orientação</div>
             <div class="t-det-orient" id="t-det-orient"></div>
           </div>
-          <div class="t-det-sec" id="t-det-obs-sec" style="display:none">
+          <div class="t-det-sec t-det-card" id="t-det-obs-sec" style="display:none">
             <div class="t-det-lbl">Observações</div>
             <div class="t-det-orient" id="t-det-obs"></div>
           </div>
