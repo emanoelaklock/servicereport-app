@@ -32,6 +32,12 @@ const TarefaApp = (() => {
     concluida: 'Concluída', concluida_pendencia: 'Concluída c/ pendência',
     devolvida: 'Devolvida', aprovada_faturamento: 'Aprovada p/ faturamento', faturada: 'Faturada',
   }
+  const STATUS_CLS = {
+    aguardando_execucao: 's-st-wait', em_execucao: 's-st-run',
+    concluida: 's-st-done', concluida_pendencia: 's-st-pend',
+    devolvida: 's-st-back', aprovada_faturamento: 's-st-appr', faturada: 's-st-fat',
+  }
+  const setStatusBadge = (s) => { const b = document.getElementById('cc-badge'); if (b) { b.textContent = STATUS_LABEL[s] || s || ''; b.className = 'ed-badge ' + (STATUS_CLS[s] || '') } }
   const SIT = {
     ok:            { t: 'OK',               cls: 's-ok' },
     devolver:      { t: 'Devolver',         cls: 's-dev' },
@@ -222,7 +228,7 @@ const TarefaApp = (() => {
         return `<tr class="row-click" data-id="${esc(t.id)}">
           <td class="cc-num">${osNo(t.numero)}</td>
           <td>${esc(cliNomes[t.cliente_id] || '—')}</td>
-          <td><span class="st">${esc(STATUS_LABEL[t.status] || t.status || '—')}</span>${t.faturado ? ' <span class="pill pill-fat">Faturada</span>' : ''}</td>
+          <td><span class="st-pill ${STATUS_CLS[t.status] || ''}">${esc(STATUS_LABEL[t.status] || t.status || '—')}</span>${(t.faturado && t.status !== 'faturada') ? ' <span class="pill pill-fat">Faturada</span>' : ''}</td>
           <td>${tec}</td>
           <td>${t.data_agendada ? dmy(t.data_agendada) : '<span class="st">—</span>'}</td>
           <td>${concil}</td>
@@ -277,7 +283,7 @@ const TarefaApp = (() => {
     mostrarPane(aba)
     document.getElementById('cc-cliente').textContent = cur.cliente_nome
     document.getElementById('cc-docno').textContent = cur.numero != null ? `Tarefa Nº ${osNo(cur.numero)}` : ''
-    document.getElementById('cc-badge').textContent = STATUS_LABEL[cur.status] || cur.status || ''
+    setStatusBadge(cur.status)
     // Card "Dados da Tarefa"
     document.getElementById('cc-d-cliente').textContent = cur.cliente_nome
     document.getElementById('cc-d-orc').textContent = t.orcamento_id ? `Orçamento Nº ${orcNo[t.orcamento_id] ?? '—'}` : 'Criada direto (sem orçamento)'
@@ -317,7 +323,7 @@ const TarefaApp = (() => {
     const up = await sb().from('tarefas').update(patch).eq('id', cur.id)
     if (up.error) return toast('Erro ao salvar: ' + up.error.message, 'err')
     cur.status = patch.status
-    document.getElementById('cc-badge').textContent = STATUS_LABEL[cur.status] || cur.status || ''
+    setStatusBadge(cur.status)
     // sincroniza técnicos (N:N): substitui o conjunto
     const tecIds = getTecnicosChecked()
     const del = await sb().from('tarefa_tecnicos').delete().eq('tarefa_id', cur.id)
