@@ -38,9 +38,6 @@ function renderSidebar(paginaAtiva) {
     <a class="sb-item${a==='painel'?' on':''}" href="painel.html">
       ${SVG.painel}<span class="sb-label">Painel</span>
     </a>
-    <a class="sb-item${a==='relatorios'?' on':''}" href="relatorios.html">
-      ${SVG.relatorios}<span class="sb-label">Relatórios</span>
-    </a>
 
     <div class="sb-section">Comercial</div>
 

@@ -11,6 +11,7 @@
 <script src="js/supabase-client.js"></script>
 <script src="js/auth.js"></script>
 <script src="js/sidebar.js"></script>
+<script src="js/rat-view.js"></script>
 <script src="js/conciliacao.js"></script>
 <style>
   /* Toolbar / filtros */
@@ -152,7 +153,7 @@
   #cc-docno{margin-left:auto;font-size:12px;color:var(--tx3);font-weight:600}
 
   /* Modal Nova tarefa */
-  .cc-modal{display:none;position:fixed;inset:0;background:rgba(20,30,55,.45);z-index:100;align-items:flex-start;justify-content:center;padding:60px 16px}
+  .cc-modal{display:none;position:fixed;inset:0;background:rgba(20,30,55,.45);z-index:100;align-items:flex-start;justify-content:center;padding:60px 16px;overflow-y:auto}
   .cc-modal.open{display:flex}
   .cc-modal-box{background:#fff;border-radius:14px;box-shadow:0 24px 64px rgba(20,30,55,.28);width:100%;max-width:440px;overflow:visible}
   .cc-modal-h{display:flex;align-items:center;justify-content:space-between;padding:16px 20px;border-bottom:1px solid var(--bd);font-size:15px;font-weight:700;color:var(--tx)}
@@ -161,7 +162,49 @@
   .cc-modal-b label{display:block;font-size:12px;font-weight:600;color:var(--tx2);margin-bottom:5px}
   .cc-modal-b input{width:100%;padding:10px 12px;border:1px solid var(--bd);border-radius:8px;font:inherit;font-size:14px;outline:none}
   .cc-modal-b input:focus{border-color:var(--ac);box-shadow:0 0 0 3px var(--acl)}
-  .cc-modal-f{display:flex;justify-content:flex-end;gap:10px;padding:14px 20px;border-top:1px solid var(--bd)}
+  .cc-modal-f{display:flex;justify-content:flex-end;gap:10px;padding:14px 20px;border-top:1px solid var(--bd);flex-wrap:wrap}
+  .cc-modal-box.wide{max-width:700px}
+
+  /* Faturamento */
+  .cc-fat{display:flex;align-items:center;gap:14px;flex-wrap:wrap}
+  .cc-fat .ft-status{font-size:14px;font-weight:600;color:var(--tx)}
+  .cc-fat input{padding:9px 11px;border:1px solid var(--bd);border-radius:8px;font:inherit;font-size:14px;max-width:200px}
+  .pill-fat{background:#E3F6EC;color:#0E7A4F}
+
+  /* Lista de RATs da tarefa */
+  .rat-list{display:flex;flex-direction:column;gap:8px;margin-top:6px}
+  .rat-item{display:flex;align-items:center;gap:12px;border:1px solid var(--bd);border-radius:10px;padding:10px 14px}
+  .rat-item .ri-main{flex:1;min-width:0}
+  .rat-item .ri-t{font-size:13px;font-weight:600;color:var(--tx)}
+  .rat-item .ri-sub{font-size:12px;color:var(--tx3);margin-top:2px}
+  .rat-item .ri-sit{font-size:11px;font-weight:700;padding:3px 9px;border-radius:999px;background:var(--sur2);color:var(--tx2);white-space:nowrap}
+  .rat-acts{display:flex;gap:8px;align-items:center;margin-bottom:12px;flex-wrap:wrap}
+
+  /* Detalhe da RAT (modal) — layout de relatório (tema claro) */
+  #rat-body .rd{font-size:13px}
+  #rat-body .rd + .rd{margin-top:22px;border-top:2px solid var(--bd);padding-top:18px}
+  .rd-head{margin-bottom:6px}
+  .rd-cli{font-size:18px;font-weight:700;color:var(--tx);line-height:1.2}
+  .rd-sub{font-size:13px;color:var(--ac);font-weight:600;margin-top:2px}
+  .rd-meta{display:flex;flex-wrap:wrap;gap:3px 16px;margin-top:7px;font-size:12px;color:var(--tx)}
+  .rd-meta b{color:var(--tx3);font-weight:500}
+  .rd-sec{margin-top:16px}
+  .rd-sec-t{font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--tx3);border-bottom:1px solid var(--bd);padding-bottom:5px;margin-bottom:9px}
+  .rd-grid{display:grid;grid-template-columns:1fr 1fr;gap:9px}
+  .rd-f{background:var(--sur2);border:1px solid var(--bd);border-radius:8px;padding:7px 10px}
+  .rd-f label{display:block;font-size:10px;text-transform:uppercase;letter-spacing:.05em;color:var(--tx3);margin-bottom:2px}
+  .rd-f .v{font-size:13px;color:var(--tx)}
+  .rd-f input,.rd-f select{width:100%;font:inherit;font-size:13px;margin-top:3px;padding:5px 7px;border:1px solid var(--ac);border-radius:6px;background:#fff;color:var(--tx);box-sizing:border-box}
+  .rd-long{white-space:pre-wrap;line-height:1.5;color:var(--tx)}
+  .rd-edit{width:100%;min-height:92px;resize:vertical;font:inherit;line-height:1.5;padding:9px 11px;border:1px solid var(--ac);border-radius:8px;background:#fff;color:var(--tx);box-sizing:border-box}
+  .rd-edit-hint{font-size:11px;color:var(--ac);margin:8px 0 14px}
+  .rd-prod{display:flex;flex-direction:column;gap:4px}
+  .rd-prod div{font-size:13px;color:var(--tx)}
+  .det-fotos{display:flex;flex-wrap:wrap;gap:10px;margin-top:6px}
+  .det-foto{display:flex;flex-direction:column;gap:3px;width:84px;margin:0}
+  .det-fotos img{width:84px;height:84px;object-fit:cover;border-radius:8px;border:1px solid var(--bd)}
+  .det-foto figcaption{font-size:10px;color:var(--tx3);line-height:1.2}
+  .det-sig{margin-top:6px;max-width:100%;border:1px solid var(--bd);border-radius:8px;background:#fff}
 </style>
 </head>
 <body>
@@ -186,6 +229,7 @@
             <button class="chip" data-f="aguardando_execucao">Aguardando execução</button>
             <button class="chip" data-f="em_execucao">Em execução</button>
             <button class="chip" data-f="concluida">Concluída</button>
+            <button class="chip" data-f="a_faturar">A faturar</button>
           </div>
           <div style="display:flex;gap:8px;align-items:center">
             <input type="text" id="busca-tarefa" placeholder="Buscar por nº ou cliente…" autocomplete="off">
@@ -243,6 +287,16 @@
         </div>
 
         <div class="cc-card">
+          <div class="card-h"><span class="dot"></span><span class="t">Relatórios de Atendimento (RATs)</span></div>
+          <p class="card-sub">Registros de execução do técnico. Veja individualmente, todas de uma vez, ou gere um PDF único para enviar ao cliente.</p>
+          <div class="rat-acts">
+            <button class="btn btn-sm" id="cc-rat-todas">👁 Ver todas</button>
+            <button class="btn btn-sm" id="cc-rat-pdf">⬇ PDF unificado</button>
+          </div>
+          <div class="rat-list" id="cc-rat-list"></div>
+        </div>
+
+        <div class="cc-card">
           <div class="card-h"><span class="dot"></span><span class="t">Conciliação de material</span></div>
           <p class="card-sub">Orçada (do orçamento) · <b>Levada</b> (estoque — você edita) · Utilizada (RATs do técnico) · Devolvida = Levada − Utilizada.</p>
           <div class="cc-stats" id="cc-stats"></div>
@@ -273,6 +327,17 @@
             </div>
           </div>
         </div>
+
+        <div class="cc-card">
+          <div class="card-h"><span class="dot"></span><span class="t">Faturamento</span></div>
+          <p class="card-sub">A Tarefa é a unidade de faturamento. Marque como faturada e registre o nº da nota.</p>
+          <div class="cc-fat">
+            <span class="ft-status" id="cc-fat-status">—</span>
+            <input type="text" id="cc-fat-nota" placeholder="Nº da nota (opcional)">
+            <button class="btn btn-p" id="cc-fat-btn">Marcar como faturada</button>
+            <button class="btn" id="cc-fat-undo" style="display:none">Desfazer faturamento</button>
+          </div>
+        </div>
       </div>
 
     </div>
@@ -297,6 +362,41 @@
     <div class="cc-modal-f">
       <button class="btn" id="nt-cancelar">Cancelar</button>
       <button class="btn btn-p" id="nt-criar">Criar tarefa</button>
+    </div>
+  </div>
+</div>
+
+<!-- Modal: Detalhe da RAT -->
+<div class="cc-modal" id="modal-rat">
+  <div class="cc-modal-box wide">
+    <div class="cc-modal-h"><span id="rat-modal-title">Detalhe da RAT</span><button class="cc-modal-x" id="rat-x">✕</button></div>
+    <div class="cc-modal-b" id="rat-body"></div>
+    <div class="cc-modal-f">
+      <button class="btn" id="rat-excluir" style="margin-right:auto;color:var(--re);border-color:var(--re)">🗑 Excluir</button>
+      <button class="btn" id="rat-cancelar" style="display:none">Cancelar</button>
+      <button class="btn" id="rat-editar">✎ Editar</button>
+      <button class="btn btn-g" id="rat-salvar" style="display:none">Salvar</button>
+      <button class="btn" id="rat-nova-tarefa">↻ Nova tarefa da pendência</button>
+      <button class="btn" id="rat-pdf">⬇ Baixar PDF</button>
+      <button class="btn" id="rat-fechar">Fechar</button>
+    </div>
+  </div>
+</div>
+
+<!-- Modal: Nova tarefa da pendência -->
+<div class="cc-modal" id="modal-pend">
+  <div class="cc-modal-box">
+    <div class="cc-modal-h"><span>Nova tarefa da pendência</span><button class="cc-modal-x" id="pend-x">✕</button></div>
+    <div class="cc-modal-b">
+      <p class="muted" id="pend-origem" style="margin-top:0"></p>
+      <div class="fg"><label>Cliente</label><div id="pend-cli" style="font-weight:600;padding:4px 0"></div></div>
+      <div class="fg" style="margin-top:8px"><label>Tipo de serviço</label><select id="pend-tipo"></select></div>
+      <div class="fg" style="margin-top:8px"><label>Orientação ao técnico (pendência)</label><textarea id="pend-orient" rows="5" placeholder="Descreva o que ficou pendente…" style="width:100%;padding:9px 11px;border:1px solid var(--bd);border-radius:8px;font:inherit;font-size:14px;line-height:1.5;resize:vertical"></textarea></div>
+      <p class="muted" style="margin-top:8px">Criada como <b>Aguardando execução</b>. Atribua o técnico na lista de Tarefas.</p>
+    </div>
+    <div class="cc-modal-f">
+      <button class="btn" id="pend-cancelar">Cancelar</button>
+      <button class="btn btn-p" id="pend-criar">Criar tarefa</button>
     </div>
   </div>
 </div>

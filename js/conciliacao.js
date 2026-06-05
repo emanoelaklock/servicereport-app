@@ -17,6 +17,12 @@ const ConciliacaoApp = (() => {
   let filtro = 'todas'
   let cur = null             // tarefa aberta
   let linhas = []            // conciliação da tarefa atual
+  let ratDet = null          // RAT aberta no modal { r, campos, ... }
+  let ratEdit = false        // modo edição do modal de RAT
+  let pendRat = null         // RAT base do modal "nova tarefa da pendência"
+
+  const RAT_SIT = { em_andamento: 'Em andamento', concluida: 'Concluída', concluida_pendencia: 'Concluída c/ pendência' }
+  const ratSit = (s) => RAT_SIT[s] || s || '—'
 
   const STATUS_LABEL = {
     aguardando_execucao: 'Aguardando execução', em_execucao: 'Em execução',
@@ -63,6 +69,8 @@ const ConciliacaoApp = (() => {
       : '<span class="cc-empty-sm">Nenhum técnico ativo cadastrado.</span>'
     document.getElementById('cc-d-tipo').innerHTML = '<option value="">— selecione —</option>' + ref.tipos.map(t => `<option value="${esc(t.id)}">${esc(t.nome || '')}</option>`).join('')
     bind()
+    const f = new URLSearchParams(location.search).get('f')
+    if (f) { filtro = f; document.querySelectorAll('#cc-filtros .chip').forEach(c => c.classList.toggle('on', c.dataset.f === f)) }
     await carregarTarefas()
     mostrar('lista')
     renderLista()
@@ -98,6 +106,24 @@ const ConciliacaoApp = (() => {
     document.getElementById('cc-anx-btn').onclick = () => document.getElementById('cc-anx-input').click()
     document.getElementById('cc-anx-input').onchange = (e) => adicionarAnexos(e.target.files)
     document.getElementById('cc-obs-salvar').onclick = salvarConcilObs
+    // RATs
+    document.getElementById('cc-rat-todas').onclick = verTodasRats
+    document.getElementById('cc-rat-pdf').onclick = pdfUnificado
+    document.getElementById('rat-x').onclick = () => fecharModal('modal-rat')
+    document.getElementById('rat-fechar').onclick = () => fecharModal('modal-rat')
+    document.getElementById('rat-editar').onclick = ratEntrarEdicao
+    document.getElementById('rat-cancelar').onclick = ratCancelarEdicao
+    document.getElementById('rat-salvar').onclick = ratSalvarEdicao
+    document.getElementById('rat-pdf').onclick = ratPdf
+    document.getElementById('rat-excluir').onclick = ratExcluir
+    document.getElementById('rat-nova-tarefa').onclick = abrirPend
+    // Faturamento
+    document.getElementById('cc-fat-btn').onclick = faturarTarefa
+    document.getElementById('cc-fat-undo').onclick = desfazerFaturamento
+    // Pendência -> nova tarefa
+    document.getElementById('pend-x').onclick = () => fecharModal('modal-pend')
+    document.getElementById('pend-cancelar').onclick = () => fecharModal('modal-pend')
+    document.getElementById('pend-criar').onclick = criarTarefaPendencia
     attachAutocomplete(
       document.getElementById('cc-add-busca'),
       document.getElementById('cc-add-prod'),
@@ -150,7 +176,7 @@ const ConciliacaoApp = (() => {
   // ─────────────────────────── Lista ───────────────────────────
   async function carregarTarefas() {
     const { data: ts, error } = await sb().from('tarefas')
-      .select('id,numero,status,criado_em,data_agendada,orcamento_id,cliente_id,orientacao,observacoes,pedido_compra,tipo_servico_id,conciliacao_obs,pendencias')
+      .select('id,numero,status,criado_em,data_agendada,orcamento_id,cliente_id,orientacao,observacoes,pedido_compra,tipo_servico_id,conciliacao_obs,pendencias,faturado,data_faturamento,numero_nota')
       .order('numero', { ascending: false })
     if (error) { toast('Erro ao carregar tarefas: ' + error.message, 'err'); tarefas = []; return }
     tarefas = ts || []
@@ -173,6 +199,7 @@ const ConciliacaoApp = (() => {
     const q = normStr(document.getElementById('busca-tarefa').value || '')
     let rows = tarefas
     if (filtro === 'divergencia') rows = rows.filter(t => divPorTarefa[t.id])
+    else if (filtro === 'a_faturar') rows = rows.filter(t => !t.faturado && (t.status === 'concluida' || t.status === 'concluida_pendencia'))
     else if (filtro !== 'todas') rows = rows.filter(t => t.status === filtro)
     if (q) rows = rows.filter(t => normStr(cliNomes[t.cliente_id] || '').includes(q) || String(t.numero || '').includes(q))
     if (!rows.length) { box.innerHTML = '<div class="cc-empty">Nenhuma tarefa encontrada.</div>'; return }
@@ -186,7 +213,7 @@ const ConciliacaoApp = (() => {
         return `<tr class="row-click" data-id="${esc(t.id)}">
           <td class="cc-num">${osNo(t.numero)}</td>
           <td>${esc(cliNomes[t.cliente_id] || '—')}</td>
-          <td><span class="st">${esc(STATUS_LABEL[t.status] || t.status || '—')}</span></td>
+          <td><span class="st">${esc(STATUS_LABEL[t.status] || t.status || '—')}</span>${t.faturado ? ' <span class="pill pill-fat">Faturada</span>' : ''}</td>
           <td>${tec}</td>
           <td>${t.data_agendada ? dmy(t.data_agendada) : '<span class="st">—</span>'}</td>
           <td>${concil}</td>
@@ -257,7 +284,8 @@ const ConciliacaoApp = (() => {
     document.getElementById('cc-obs-hint').textContent = ''
     limparAdd()
     document.getElementById('cc-eq-busca').value = ''; document.getElementById('cc-eq-sel').value = ''
-    await Promise.all([carregarLinhas(), carregarEquip(), carregarAnexos()])
+    renderFaturamento(t)
+    await Promise.all([carregarLinhas(), carregarEquip(), carregarAnexos(), carregarRats()])
     mostrar('detalhe')
   }
 
@@ -487,6 +515,164 @@ const ConciliacaoApp = (() => {
   function limparAdd() {
     document.getElementById('cc-add-busca').value = ''
     document.getElementById('cc-add-prod').value = ''
+  }
+
+  // ───────────────────── RATs da tarefa ─────────────────────
+  const abrirModal = (id) => document.getElementById(id).classList.add('open')
+  const fecharModal = (id) => document.getElementById(id).classList.remove('open')
+
+  async function carregarRats() {
+    const { data, error } = await sb().from('rats').select(RatView.RAT_SELECT)
+      .eq('tarefa_id', cur.id).order('data_tarefa', { ascending: true, nullsFirst: true })
+    cur.rats = error ? [] : (data || [])
+    renderRats()
+  }
+  function renderRats() {
+    const box = document.getElementById('cc-rat-list')
+    const rats = cur.rats || []
+    document.getElementById('cc-rat-todas').disabled = !rats.length
+    document.getElementById('cc-rat-pdf').disabled = !rats.length
+    if (!rats.length) { box.innerHTML = '<span class="cc-empty-sm">Nenhuma RAT registrada nesta tarefa ainda.</span>'; return }
+    box.innerHTML = rats.map(r => `<div class="rat-item">
+      <div class="ri-main">
+        <div class="ri-t">RAT · ${fdt(r.data_tarefa, { withTime: true })}</div>
+        <div class="ri-sub">${esc(r.tecnico_nome || '—')} · ${RatView.fmtMin(RatView.tempoRat(r))}</div>
+      </div>
+      <span class="ri-sit">${esc(ratSit(r.status))}</span>
+      <button class="btn btn-sm" data-ver="${esc(r.id)}">Ver</button>
+    </div>`).join('')
+    box.querySelectorAll('[data-ver]').forEach(b => b.onclick = () => verRat(b.dataset.ver))
+  }
+
+  let ratMulti = false, ratList = []
+  function toggleRatBtns(multi) {
+    const show = (id, v) => { document.getElementById(id).style.display = v ? '' : 'none' }
+    show('rat-editar', !multi && !ratEdit)
+    show('rat-salvar', !multi && ratEdit)
+    show('rat-cancelar', !multi && ratEdit)
+    show('rat-excluir', !multi && !ratEdit)
+    show('rat-nova-tarefa', !multi && !ratEdit)
+    show('rat-pdf', true)
+  }
+  function renderRatModal() {
+    document.getElementById('rat-modal-title').textContent = 'Detalhe da RAT'
+    document.getElementById('rat-body').innerHTML = RatView.buildReportBody(ratDet, ratEdit)
+    toggleRatBtns(false)
+  }
+  async function verRat(id) {
+    const r = (cur.rats || []).find(x => x.id === id); if (!r) return
+    ratMulti = false; ratEdit = false
+    ratDet = await RatView.loadDetalhe(r)
+    renderRatModal()
+    abrirModal('modal-rat')
+  }
+  function ratEntrarEdicao() { ratEdit = true; renderRatModal() }
+  function ratCancelarEdicao() { ratEdit = false; renderRatModal() }
+  async function ratSalvarEdicao() {
+    if (!ratDet) return
+    const { respostas, tempo } = RatView.coletarEdicao(document.getElementById('rat-body'), ratDet)
+    const upd = { respostas }; if (tempo != null) upd.tempo_trabalhado = tempo
+    const { error } = await sb().from('rats').update(upd).eq('id', ratDet.r.id)
+    if (error) return toast('Erro ao salvar: ' + error.message, 'err')
+    ratDet.r.respostas = respostas; if (tempo != null) ratDet.r.tempo_trabalhado = tempo
+    const c = (cur.rats || []).find(x => x.id === ratDet.r.id); if (c) { c.respostas = respostas; if (tempo != null) c.tempo_trabalhado = tempo }
+    ratEdit = false; renderRatModal(); renderRats()
+    toast('RAT atualizada.', 'ok')
+  }
+  function ratPdf() {
+    if (ratMulti) RatView.gerarPdf(ratList, `RATs Tarefa ${osNo(cur.numero)}`)
+    else if (ratDet) RatView.gerarPdf([ratDet], `RAT ${cur.cliente_nome || ''} ${osNo(cur.numero)}`.trim())
+  }
+  async function ratExcluir() {
+    if (!ratDet) return
+    if (!confirm('Excluir esta RAT? Remove os materiais e fotos dela. Esta ação não pode ser desfeita.')) return
+    const { error } = await sb().rpc('admin_excluir_rat', { p_rat: ratDet.r.id })
+    if (error) return toast('Erro ao excluir: ' + error.message, 'err')
+    toast('RAT excluída.', 'ok')
+    fecharModal('modal-rat')
+    await Promise.all([carregarRats(), carregarLinhas()])  // "Utilizada" depende das RATs
+  }
+  async function verTodasRats() {
+    const rats = cur.rats || []
+    if (!rats.length) return toast('Nenhuma RAT nesta tarefa.', 'err')
+    ratList = []
+    for (const r of rats) ratList.push(await RatView.loadDetalhe(r))
+    ratMulti = true; ratEdit = false
+    document.getElementById('rat-modal-title').textContent = `Todas as RATs (${ratList.length})`
+    document.getElementById('rat-body').innerHTML = ratList.map(d => RatView.buildReportBody(d, false)).join('')
+    toggleRatBtns(true)
+    abrirModal('modal-rat')
+  }
+  async function pdfUnificado() {
+    const rats = cur.rats || []
+    if (!rats.length) return toast('Nenhuma RAT para gerar PDF.', 'err')
+    const dets = []
+    for (const r of rats) dets.push(await RatView.loadDetalhe(r))
+    RatView.gerarPdf(dets, `RATs Tarefa ${osNo(cur.numero)}`)
+  }
+
+  // Nova tarefa a partir da pendência de uma RAT.
+  function abrirPend() {
+    const r = ratDet && ratDet.r; if (!r) return
+    pendRat = r
+    const resp = r.respostas || {}
+    const pend = (r.pendencias && r.pendencias.trim()) || (resp.observacoes && String(resp.observacoes).trim()) || ''
+    const tipoOrig = (r.tarefa && r.tarefa.tipo_servico_id) || ''
+    document.getElementById('pend-cli').textContent = r.cliente_nome || cur.cliente_nome || '—'
+    document.getElementById('pend-tipo').innerHTML = ref.tipos.map(t =>
+      `<option value="${esc(t.id)}"${t.id === tipoOrig ? ' selected' : ''}>${esc(t.nome)}</option>`).join('')
+    document.getElementById('pend-orient').value = pend
+    document.getElementById('pend-origem').textContent = cur.numero != null ? `Origem: Tarefa Nº ${osNo(cur.numero)}` : ''
+    abrirModal('modal-pend')
+  }
+  async function criarTarefaPendencia() {
+    if (!pendRat) return
+    const cliId = pendRat.cliente_id || (pendRat.tarefa && pendRat.tarefa.cliente_id)
+    const tipoId = document.getElementById('pend-tipo').value
+    const orient = document.getElementById('pend-orient').value.trim()
+    if (!cliId) return toast('RAT sem cliente vinculado.', 'err')
+    if (!tipoId) return toast('Selecione o tipo de serviço.', 'err')
+    const ins = await sb().from('tarefas').insert({
+      cliente_id: cliId, tipo_servico_id: tipoId, status: 'aguardando_execucao',
+      orientacao: orient || null,
+      observacoes: cur.numero != null ? `Gerada da pendência da Tarefa Nº ${osNo(cur.numero)}.` : 'Gerada de pendência de RAT.',
+      criado_por: user.id,
+    }).select('numero').single()
+    if (ins.error) return toast('Erro ao criar tarefa: ' + ins.error.message, 'err')
+    fecharModal('modal-pend')
+    toast(`Tarefa Nº ${osNo(ins.data.numero)} criada. Atribua o técnico na lista.`, 'ok')
+    await carregarTarefas()
+  }
+
+  // ───────────────────── Faturamento (por Tarefa) ─────────────────────
+  function renderFaturamento(t) {
+    const fat = !!(t && t.faturado)
+    document.getElementById('cc-fat-status').textContent = fat
+      ? `Faturada${t.numero_nota ? ' · Nota ' + t.numero_nota : ''}${t.data_faturamento ? ' · ' + dmy(t.data_faturamento) : ''}`
+      : 'Não faturada'
+    document.getElementById('cc-fat-nota').value = (t && t.numero_nota) || ''
+    document.getElementById('cc-fat-nota').style.display = fat ? 'none' : ''
+    document.getElementById('cc-fat-btn').style.display = fat ? 'none' : ''
+    document.getElementById('cc-fat-undo').style.display = fat ? '' : 'none'
+  }
+  async function faturarTarefa() {
+    if (!cur || !cur.id) return
+    const nota = document.getElementById('cc-fat-nota').value.trim() || null
+    const iso = new Date().toISOString()
+    const up = await sb().from('tarefas').update({ faturado: true, data_faturamento: iso, numero_nota: nota }).eq('id', cur.id)
+    if (up.error) return toast('Erro ao faturar: ' + up.error.message, 'err')
+    const t = tarefas.find(x => x.id === cur.id); if (t) { t.faturado = true; t.data_faturamento = iso; t.numero_nota = nota }
+    renderFaturamento({ faturado: true, data_faturamento: iso, numero_nota: nota })
+    toast('Tarefa marcada como faturada.', 'ok')
+  }
+  async function desfazerFaturamento() {
+    if (!cur || !cur.id) return
+    if (!confirm('Desfazer o faturamento desta tarefa?')) return
+    const up = await sb().from('tarefas').update({ faturado: false, data_faturamento: null, numero_nota: null }).eq('id', cur.id)
+    if (up.error) return toast('Erro: ' + up.error.message, 'err')
+    const t = tarefas.find(x => x.id === cur.id); if (t) { t.faturado = false; t.data_faturamento = null; t.numero_nota = null }
+    renderFaturamento({ faturado: false })
+    toast('Faturamento desfeito.', 'ok')
   }
 
   function mostrar(sec) {
