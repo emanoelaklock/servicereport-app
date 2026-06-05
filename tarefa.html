@@ -187,6 +187,12 @@
   .rat-item .ri-sub{font-size:12px;color:var(--tx3);margin-top:2px}
   .rat-item .ri-sit{font-size:11px;font-weight:700;padding:3px 9px;border-radius:999px;background:var(--sur2);color:var(--tx2);white-space:nowrap}
   .rat-acts{display:flex;gap:8px;align-items:center;margin-bottom:12px;flex-wrap:wrap}
+  /* RATs abertas (inline) */
+  .rat-open{border:1px solid var(--bd);border-radius:12px;padding:16px 18px;margin-bottom:14px;background:var(--sur)}
+  .rat-open-h{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;padding-bottom:10px;margin-bottom:4px;border-bottom:1px solid var(--bd);font-size:13px;color:var(--tx)}
+  .rat-open-h .ri-sit{font-size:11px;font-weight:700;padding:3px 9px;border-radius:999px;background:var(--sur2);color:var(--tx2);white-space:nowrap}
+  .rat-open .rd{font-size:13px}
+  .rat-open a.btn{text-decoration:none}
 
   /* Detalhe da RAT (modal) — layout de relatório (tema claro) */
   #rat-body .rd{font-size:13px}
@@ -318,7 +324,6 @@
           <div class="card-h"><span class="dot"></span><span class="t">Relatórios de Atendimento (RATs)</span></div>
           <p class="card-sub">Registros de execução do técnico. Veja individualmente, todas de uma vez, ou gere um PDF único para enviar ao cliente.</p>
           <div class="rat-acts">
-            <button class="btn btn-sm" id="cc-rat-todas">👁 Ver todas</button>
             <button class="btn btn-sm" id="cc-rat-pdf">⬇ PDF unificado</button>
           </div>
           <div class="rat-list" id="cc-rat-list"></div>

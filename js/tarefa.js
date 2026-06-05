@@ -116,7 +116,6 @@ const TarefaApp = (() => {
     // Abas do detalhe
     document.querySelectorAll('#cc-tabs .cc-tab').forEach(b => b.onclick = () => mostrarPane(b.dataset.pane))
     // RATs
-    document.getElementById('cc-rat-todas').onclick = verTodasRats
     document.getElementById('cc-rat-pdf').onclick = pdfUnificado
     document.getElementById('rat-x').onclick = () => fecharModal('modal-rat')
     document.getElementById('rat-fechar').onclick = () => fecharModal('modal-rat')
@@ -543,20 +542,28 @@ const TarefaApp = (() => {
     cur.rats = error ? [] : (data || [])
     renderRats()
   }
-  function renderRats() {
+  // Mostra as RATs já abertas (expandidas) dentro da aba.
+  async function renderRats() {
     const box = document.getElementById('cc-rat-list')
     const rats = cur.rats || []
-    document.getElementById('cc-rat-todas').disabled = !rats.length
     document.getElementById('cc-rat-pdf').disabled = !rats.length
     if (!rats.length) { box.innerHTML = '<span class="cc-empty-sm">Nenhuma RAT registrada nesta tarefa ainda.</span>'; return }
-    box.innerHTML = rats.map(r => `<div class="rat-item">
-      <div class="ri-main">
-        <div class="ri-t">RAT · ${fdt(r.data_tarefa, { withTime: true })}</div>
-        <div class="ri-sub">${esc(r.tecnico_nome || '—')} · ${RatView.fmtMin(RatView.tempoRat(r))}</div>
-      </div>
-      <span class="ri-sit">${esc(ratSit(r.status))}</span>
-      <a class="btn btn-sm" style="text-decoration:none" href="rat.html?id=${encodeURIComponent(r.id)}" target="_blank" rel="noopener">Ver ↗</a>
-    </div>`).join('')
+    box.innerHTML = '<span class="cc-empty-sm">Carregando RATs…</span>'
+    const dets = []
+    for (const r of rats) dets.push(await RatView.loadDetalhe(r))
+    box.innerHTML = dets.map(d => {
+      const r = d.r
+      return `<div class="rat-open">
+        <div class="rat-open-h">
+          <div><b>RAT · ${fdt(r.data_tarefa, { withTime: true })}</b> · ${esc(r.tecnico_nome || '—')} · ${RatView.fmtMin(RatView.tempoRat(r))}</div>
+          <div style="display:flex;align-items:center;gap:10px">
+            <span class="ri-sit">${esc(ratSit(r.status))}</span>
+            <a class="btn btn-sm" href="rat.html?id=${encodeURIComponent(r.id)}" target="_blank" rel="noopener">Abrir ↗</a>
+          </div>
+        </div>
+        ${RatView.buildReportBody(d, false, { noHeader: true })}
+      </div>`
+    }).join('')
   }
 
   let ratMulti = false, ratList = []
