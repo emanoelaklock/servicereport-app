@@ -437,13 +437,14 @@ const TarefaApp = (() => {
   function renderLinhas() {
     const tb = document.getElementById('cc-tbody')
     if (!linhas.length) {
-      tb.innerHTML = '<tr><td colspan="6" class="cc-empty">Sem produtos nesta tarefa. Adicione abaixo.</td></tr>'
+      tb.innerHTML = '<tr><td colspan="7" class="cc-empty">Sem produtos nesta tarefa. Adicione abaixo.</td></tr>'
     } else {
       tb.innerHTML = linhas.map((l, i) => {
         const sit = SIT[l.situacao] || { t: l.situacao, cls: '' }
         const fora = l.situacao === 'sem_orcada'
         return `<tr class="${fora ? 'row-fora' : ''}">
           <td class="cc-mat"><div class="cc-desc">${esc(l.descricao || '—')}</div>${l.codigo_produto ? `<div class="cc-cod">${esc(l.codigo_produto)}</div>` : ''}</td>
+          <td class="num"><input class="cc-preco num" type="number" inputmode="decimal" min="0" step="0.01" value="${Number(l.preco_unitario) > 0 ? l.preco_unitario : ''}" data-i="${i}" placeholder="0,00"></td>
           <td class="num">${Number(l.qtd_orcada) > 0 ? qtd(l.qtd_orcada) + unid(l) : '<span class="dash">—</span>'}</td>
           <td class="num"><input class="cc-lev num" type="number" inputmode="decimal" min="0" step="any" value="${Number(l.qtd_levada) > 0 ? l.qtd_levada : ''}" data-i="${i}" placeholder="0"></td>
           <td class="num">${Number(l.qtd_utilizada) > 0 ? qtd(l.qtd_utilizada) + unid(l) : '<span class="dash">—</span>'}</td>
@@ -452,6 +453,7 @@ const TarefaApp = (() => {
         </tr>`
       }).join('')
       tb.querySelectorAll('.cc-lev').forEach(inp => inp.onchange = () => salvarLevada(Number(inp.dataset.i), inp.value))
+      tb.querySelectorAll('.cc-preco').forEach(inp => inp.onchange = () => salvarPreco(Number(inp.dataset.i), inp.value))
     }
     renderStats()
   }
@@ -496,6 +498,26 @@ const TarefaApp = (() => {
     }
     if (err) return toast('Erro ao salvar Levada: ' + err.message, 'err')
     toast('Levada atualizada.', 'ok')
+    await carregarLinhas()
+  }
+
+  // Valor unitário de venda do produto (tarefa_materiais.preco_unitario).
+  async function salvarPreco(i, val) {
+    const l = linhas[i]; if (!l) return
+    const v = Number(val) || 0
+    let err
+    if (l.tm_id) {
+      err = (await sb().from('tarefa_materiais').update({ preco_unitario: v }).eq('id', l.tm_id)).error
+    } else {
+      // linha "fora da proposta" (sem linha orçada) — cria p/ registrar o valor
+      err = (await sb().from('tarefa_materiais').insert({
+        tarefa_id: cur.id, produto_id: l.produto_id || null, codigo_produto: l.codigo_produto || null,
+        descricao: l.descricao || '(sem descrição)', unidade: l.unidade || null,
+        preco_unitario: v, qtd_orcada: 0, qtd_levada: Number(l.qtd_levada) || 0, origem: 'avulso',
+      })).error
+    }
+    if (err) return toast('Erro ao salvar valor: ' + err.message, 'err')
+    toast('Valor unitário atualizado.', 'ok')
     await carregarLinhas()
   }
 
