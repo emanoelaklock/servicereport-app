@@ -515,13 +515,27 @@
     const sc = cont.querySelector('canvas.sig-pad')
     if (sc) { sig = initSignature(sc); sig.resize() }
     // recalcula tempo trabalhado e reavalia condicionais ao alterar qualquer campo
-    const onFormChange = () => { atualizarTempo(); aplicarCondicionais() }
+    const onFormChange = (e) => { aplicarEspelhos(e); atualizarTempo(); aplicarCondicionais() }
     cont.oninput = onFormChange
     cont.onchange = onFormChange
     atualizarTempo()
     aplicarCondicionais()
     // thumbnails de fotos existentes
     await refreshThumbs()
+  }
+
+  // ── Espelho: um campo copia o valor de outro quando este muda ──
+  // (ex.: "Hora de Início (execução)" = "Deslocamento final - Ida")
+  function aplicarEspelhos(e) {
+    if (!cur || !cur.campos) return
+    const src = (e && e.target && e.target.getAttribute) ? e.target.getAttribute('data-campo') : null
+    if (!src) return
+    for (const c of cur.campos) {
+      if (c.espelha !== src) continue
+      const tgt = document.querySelector(`#campos-container [data-campo="${CSS.escape(c.id)}"]`)
+      const srcEl = document.querySelector(`#campos-container [data-campo="${CSS.escape(src)}"]`)
+      if (tgt && srcEl) tgt.value = srcEl.value
+    }
   }
 
   // ── Condicionais (E/OU): mostra/esconde campos conforme as respostas ──
