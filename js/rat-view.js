@@ -268,26 +268,25 @@ window.RatView = (function () {
       pdets.push(Object.assign({}, d, { fotos, sigUrl }))
     }
 
-    const corpo = pdets.map((d, i) =>
-      `<div class="rat-wrap"${i > 0 ? ' style="page-break-before:always"' : ''}>` +
-      (pdets.length > 1 ? `<div class="rat-sep">Relatório ${i + 1} de ${pdets.length}</div>` : '') +
-      buildReportBody(d, false) + `</div>`).join('')
+    const bodies = pdets.map(d => buildReportBody(d, false)).join('')
+    const HEADER = `<div class="pdf-top"><div class="pdf-brand">TRADERS SERVICE</div><div class="pdf-doc">Relatório de Atendimento Técnico</div></div>`
+    const HEADERC = `<div class="pdf-topc"><span>TRADERS SERVICE</span><span>Relatório de Atendimento Técnico</span></div>`
+    const FOOTER = `<div class="pdf-foot"><span>Documento gerado pela plataforma Service Report.</span><span class="pg"></span></div>`
     const doc = `<!doctype html><html lang="pt-BR"><head><meta charset="utf-8"><title>${esc(titulo || 'RAT')}</title>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
-<style>${PDF_CSS}</style></head><body>
-  <table class="pdf-sheet">
-    <thead><tr><td><div class="pdf-top"><div class="pdf-brand">TRADERS SERVICE</div><div class="pdf-doc">Relatório de Atendimento Técnico</div></div></td></tr></thead>
-    <tfoot><tr><td><div class="pdf-foot">Documento gerado pela plataforma Service Report.</div></td></tr></tfoot>
-    <tbody><tr><td>${corpo}</td></tr></tbody>
-  </table>
+<style>${PDF_CSS}${SHEET_CSS}</style></head><body>
+  <div id="raw">${bodies}</div>
+  <div id="sheets"></div>
   <script>
-    window.addEventListener('load', function () {
-      var imgs = Array.prototype.slice.call(document.images)
-      var imgsP = imgs.map(function (i) { return i.complete ? 1 : new Promise(function (res) { i.onload = i.onerror = res }) })
-      var fontsP = (document.fonts && document.fonts.ready) ? document.fonts.ready : Promise.resolve()
-      Promise.all(imgsP.concat([fontsP]))
-        .then(function () { setTimeout(function () { window.print() }, 200) })
-    })
+    var HEADER=${JSON.stringify(HEADER)},HEADERC=${JSON.stringify(HEADERC)},FOOTER=${JSON.stringify(FOOTER)};
+    function el(t,c){var e=document.createElement(t);if(c)e.className=c;return e}
+    var raw=document.getElementById('raw'),sheets=document.getElementById('sheets'),cur=null,ftrs=[],blocks=[];
+    var rds=raw.querySelectorAll('.rd');for(var ri=0;ri<rds.length;ri++){var ch=rds[ri].children;for(var i=0;i<ch.length;i++){blocks.push({h:ch[i].outerHTML,brk:(ri>0&&i===0)});}}
+    function newSheet(){var first=ftrs.length===0;var s=el('div','sheet');var hd=el('div','hd');hd.innerHTML=first?HEADER:HEADERC;var bd=el('div','bd');var ft=el('div','ft');ft.innerHTML=FOOTER;s.appendChild(hd);s.appendChild(bd);s.appendChild(ft);sheets.appendChild(s);ftrs.push(ft);cur={bd:bd};}
+    function over(){return cur.bd.scrollHeight>cur.bd.clientHeight+1;}
+    function addHTML(h){var d=el('div');d.innerHTML=h;var n=d.firstElementChild;if(!n)return;cur.bd.appendChild(n);if(over()&&cur.bd.children.length>1){cur.bd.removeChild(n);newSheet();cur.bd.appendChild(n);}}
+    function build(){newSheet();for(var i=0;i<blocks.length;i++){if(blocks[i].brk)newSheet();addHTML(blocks[i].h);}if(raw.parentNode)raw.parentNode.removeChild(raw);var N=ftrs.length;for(var k=0;k<N;k++){var pg=ftrs[k].querySelector('.pg');if(pg)pg.textContent='Página '+(k+1)+' de '+N;}var imgs=Array.prototype.slice.call(document.images);var left=imgs.filter(function(im){return !im.complete});function go(){window.focus();window.print();}if(!left.length){setTimeout(go,200);return;}var done=0,fired=false;function one(){done++;if(done>=left.length&&!fired){fired=true;setTimeout(go,150);}}left.forEach(function(im){im.addEventListener('load',one);im.addEventListener('error',one);});setTimeout(function(){if(!fired){fired=true;go();}},7000);}
+    if(document.fonts&&document.fonts.ready){document.fonts.ready.then(function(){setTimeout(build,80);});}else{setTimeout(build,400);}
   <\/script>
 </body></html>`
     win.document.open(); win.document.write(doc); win.document.close()
@@ -333,7 +332,20 @@ window.RatView = (function () {
     .det-foto figcaption{font-size:10px;color:#5b6b86;line-height:1.2}
     .det-sig{max-width:280px;border:1px solid #d6deea;border-radius:8px;background:#fff}
     .pdf-foot{margin-top:14px;border-top:1px solid #d6deea;padding-top:8px;font-size:10px;color:#9aa7bd;text-align:center}
-    @media print{ body{margin:6mm 6mm} a{color:inherit;text-decoration:none} }`
+    @media print{ a{color:inherit;text-decoration:none} }`
+
+  // Layout paginado em folhas A4 (cabeçalho/rodapé por página, via JS).
+  const SHEET_CSS = `
+    body{margin:0;background:#eceff3}
+    #raw{position:absolute;left:-99999px;top:0;width:726px}
+    .sheet{width:794px;height:1123px;margin:16px auto;background:#fff;padding:32px 34px;display:flex;flex-direction:column;box-shadow:0 10px 30px rgba(20,30,55,.12);overflow:hidden}
+    .sheet .hd{flex:none}
+    .sheet .bd{flex:1 1 auto;min-height:0;overflow:hidden}
+    .sheet .ft{flex:none}
+    .pdf-top{margin-bottom:14px}
+    .pdf-topc{display:flex;justify-content:space-between;align-items:center;border-bottom:2px solid #1B2A4A;padding-bottom:8px;margin-bottom:14px;font-size:11px;font-weight:700;color:#1B2A4A;text-transform:uppercase;letter-spacing:.04em}
+    .pdf-foot{display:flex;justify-content:space-between;align-items:center;text-align:left}
+    @media print{ @page{size:A4;margin:0} body{margin:0;background:#fff} .sheet{box-shadow:none;margin:0;width:210mm;height:297mm;page-break-after:always} .sheet:last-child{page-break-after:auto} #raw{display:none} }`
 
   return {
     RAT_SELECT, ensureForms, loadDetalhe, buildReportBody, coletarEdicao, salvarPrecos,
