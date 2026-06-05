@@ -539,9 +539,8 @@ const ConciliacaoApp = (() => {
         <div class="ri-sub">${esc(r.tecnico_nome || '—')} · ${RatView.fmtMin(RatView.tempoRat(r))}</div>
       </div>
       <span class="ri-sit">${esc(ratSit(r.status))}</span>
-      <button class="btn btn-sm" data-ver="${esc(r.id)}">Ver</button>
+      <a class="btn btn-sm" style="text-decoration:none" href="rat.html?id=${encodeURIComponent(r.id)}" target="_blank" rel="noopener">Ver ↗</a>
     </div>`).join('')
-    box.querySelectorAll('[data-ver]').forEach(b => b.onclick = () => verRat(b.dataset.ver))
   }
 
   let ratMulti = false, ratList = []

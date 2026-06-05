@@ -1,0 +1,120 @@
+/* ═══════════════════════════════════════════════
+   Service Report — rat-page.js
+   Página dedicada de UMA RAT (rat.html?id=<id>), com link próprio.
+   Reutiliza window.RatView (render/edição/PDF). Office-only.
+═══════════════════════════════════════════════ */
+const RatPage = (() => {
+  const sb = () => getSupabase()
+  let user = { id: null }
+  let det = null
+  let editMode = false
+  let tipos = []
+  let ratId = null
+
+  async function init() {
+    ratId = new URLSearchParams(location.search).get('id')
+    const body = document.getElementById('rp-body')
+    if (!ratId) { body.innerHTML = '<p class="rp-msg">RAT não informada.</p>'; barra(false); return }
+    const { data: { user: u } } = await sb().auth.getUser()
+    user.id = u ? u.id : null
+
+    const { data, error } = await sb().from('rats').select(RatView.RAT_SELECT).eq('id', ratId).single()
+    if (error || !data) { body.innerHTML = '<p class="rp-msg">RAT não encontrada (ou sem permissão).</p>'; barra(false); return }
+    det = await RatView.loadDetalhe(data)
+
+    const tarefaNo = det.r.tarefa && det.r.tarefa.numero != null ? String(det.r.tarefa.numero).padStart(5, '0') : null
+    document.title = `RAT ${det.r.cliente_nome || ''}${tarefaNo ? ' · ' + tarefaNo : ''}`.trim()
+    document.getElementById('rp-title').textContent = `${det.r.cliente_nome || 'RAT'}${tarefaNo ? ' · Tarefa Nº ' + tarefaNo : ''}`
+
+    bind()
+    render()
+  }
+
+  function barra(show) { document.getElementById('rp-actions').style.display = show ? '' : 'none' }
+
+  function bind() {
+    document.getElementById('rp-editar').onclick = () => { editMode = true; render() }
+    document.getElementById('rp-cancelar').onclick = () => { editMode = false; render() }
+    document.getElementById('rp-salvar').onclick = salvar
+    document.getElementById('rp-pdf').onclick = () => {
+      const t = det.r.tarefa && det.r.tarefa.numero != null ? String(det.r.tarefa.numero).padStart(5, '0') : ''
+      RatView.gerarPdf([det], `RAT ${det.r.cliente_nome || ''} ${t}`.trim())
+    }
+    document.getElementById('rp-excluir').onclick = excluir
+    document.getElementById('rp-nova').onclick = abrirPend
+    document.getElementById('pend-x').onclick = fecharPend
+    document.getElementById('pend-cancelar').onclick = fecharPend
+    document.getElementById('pend-criar').onclick = criarPend
+    document.getElementById('btn-voltar').onclick = () => { if (history.length > 1) history.back(); else window.close() }
+  }
+
+  function render() {
+    document.getElementById('rp-body').innerHTML = RatView.buildReportBody(det, editMode)
+    const show = (id, v) => { document.getElementById(id).style.display = v ? '' : 'none' }
+    show('rp-editar', !editMode)
+    show('rp-salvar', editMode)
+    show('rp-cancelar', editMode)
+    show('rp-nova', !editMode)
+    show('rp-pdf', !editMode)
+    show('rp-excluir', !editMode)
+  }
+
+  async function salvar() {
+    const { respostas, tempo } = RatView.coletarEdicao(document.getElementById('rp-body'), det)
+    const upd = { respostas }; if (tempo != null) upd.tempo_trabalhado = tempo
+    const { error } = await sb().from('rats').update(upd).eq('id', det.r.id)
+    if (error) return toast('Erro ao salvar: ' + error.message, 'err')
+    det.r.respostas = respostas; if (tempo != null) det.r.tempo_trabalhado = tempo
+    editMode = false; render()
+    toast('RAT atualizada.', 'ok')
+  }
+
+  async function excluir() {
+    if (!confirm('Excluir esta RAT? Remove os materiais e fotos dela. Esta ação não pode ser desfeita.')) return
+    const { error } = await sb().rpc('admin_excluir_rat', { p_rat: det.r.id })
+    if (error) return toast('Erro ao excluir: ' + error.message, 'err')
+    toast('RAT excluída.', 'ok')
+    document.getElementById('rp-body').innerHTML = '<p class="rp-msg">RAT excluída.</p>'
+    barra(false)
+    setTimeout(() => { window.close() }, 800)
+  }
+
+  // ── Nova tarefa da pendência ──
+  async function abrirPend() {
+    if (!tipos.length) {
+      const { data } = await sb().from('tipos_servico').select('id,nome,ativo').eq('ativo', true).order('nome')
+      tipos = data || []
+    }
+    const r = det.r
+    const resp = r.respostas || {}
+    const pend = (r.pendencias && r.pendencias.trim()) || (resp.observacoes && String(resp.observacoes).trim()) || ''
+    const tipoOrig = (r.tarefa && r.tarefa.tipo_servico_id) || ''
+    const tarefaNo = r.tarefa && r.tarefa.numero != null ? String(r.tarefa.numero).padStart(5, '0') : null
+    document.getElementById('pend-cli').textContent = r.cliente_nome || '—'
+    document.getElementById('pend-tipo').innerHTML = tipos.map(t => `<option value="${esc(t.id)}"${t.id === tipoOrig ? ' selected' : ''}>${esc(t.nome)}</option>`).join('')
+    document.getElementById('pend-orient').value = pend
+    document.getElementById('pend-origem').textContent = tarefaNo ? `Origem: Tarefa Nº ${tarefaNo}` : ''
+    document.getElementById('modal-pend').classList.add('open')
+  }
+  function fecharPend() { document.getElementById('modal-pend').classList.remove('open') }
+  async function criarPend() {
+    const r = det.r
+    const cliId = r.cliente_id || (r.tarefa && r.tarefa.cliente_id)
+    const tipoId = document.getElementById('pend-tipo').value
+    const orient = document.getElementById('pend-orient').value.trim()
+    if (!cliId) return toast('RAT sem cliente vinculado.', 'err')
+    if (!tipoId) return toast('Selecione o tipo de serviço.', 'err')
+    const tarefaNo = r.tarefa && r.tarefa.numero != null ? String(r.tarefa.numero).padStart(5, '0') : null
+    const ins = await sb().from('tarefas').insert({
+      cliente_id: cliId, tipo_servico_id: tipoId, status: 'aguardando_execucao',
+      orientacao: orient || null,
+      observacoes: tarefaNo ? `Gerada da pendência da Tarefa Nº ${tarefaNo}.` : 'Gerada de pendência de RAT.',
+      criado_por: user.id,
+    }).select('numero').single()
+    if (ins.error) return toast('Erro ao criar tarefa: ' + ins.error.message, 'err')
+    fecharPend()
+    toast(`Tarefa Nº ${String(ins.data.numero).padStart(5, '0')} criada. Atribua o técnico em Tarefas.`, 'ok')
+  }
+
+  return { init }
+})()

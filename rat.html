@@ -1,0 +1,107 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>RAT — Service Report</title>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="css/theme.css">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="js/utils.js"></script>
+<script src="js/supabase-client.js"></script>
+<script src="js/auth.js"></script>
+<script src="js/rat-view.js"></script>
+<script src="js/rat-page.js"></script>
+<style>
+  body{background:#eef1f6}
+  .rp-top{position:sticky;top:0;z-index:10;display:flex;align-items:center;gap:14px;flex-wrap:wrap;
+          background:#fff;border-bottom:1px solid var(--bd);padding:12px 20px;box-shadow:0 1px 6px rgba(20,30,55,.06)}
+  .rp-title{font-size:15px;font-weight:700;color:var(--tx);flex:1;min-width:160px}
+  .rp-actions{display:flex;gap:8px;flex-wrap:wrap}
+  .rp-doc{max-width:840px;margin:24px auto;background:#fff;border:1px solid var(--bd);border-radius:14px;
+          box-shadow:0 10px 30px rgba(20,30,55,.08);padding:26px 30px}
+  .rp-msg{color:var(--tx3);font-size:14px;text-align:center;padding:40px 0}
+
+  /* Detalhe da RAT — layout de relatório */
+  #rp-body .rd{font-size:13.5px}
+  .rd-head{margin-bottom:6px}
+  .rd-cli{font-size:20px;font-weight:700;color:var(--tx);line-height:1.2}
+  .rd-sub{font-size:13px;color:var(--ac);font-weight:600;margin-top:2px}
+  .rd-meta{display:flex;flex-wrap:wrap;gap:3px 18px;margin-top:8px;font-size:12.5px;color:var(--tx)}
+  .rd-meta b{color:var(--tx3);font-weight:500}
+  .rd-sec{margin-top:18px}
+  .rd-sec-t{font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--tx3);border-bottom:1px solid var(--bd);padding-bottom:5px;margin-bottom:10px}
+  .rd-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+  .rd-f{background:var(--sur2);border:1px solid var(--bd);border-radius:8px;padding:8px 11px}
+  .rd-f label{display:block;font-size:10px;text-transform:uppercase;letter-spacing:.05em;color:var(--tx3);margin-bottom:2px}
+  .rd-f .v{font-size:13.5px;color:var(--tx)}
+  .rd-f input,.rd-f select{width:100%;font:inherit;font-size:13.5px;margin-top:3px;padding:6px 8px;border:1px solid var(--ac);border-radius:6px;background:#fff;color:var(--tx);box-sizing:border-box}
+  .rd-long{white-space:pre-wrap;line-height:1.55;color:var(--tx)}
+  .rd-edit{width:100%;min-height:100px;resize:vertical;font:inherit;line-height:1.55;padding:10px 12px;border:1px solid var(--ac);border-radius:8px;background:#fff;color:var(--tx);box-sizing:border-box}
+  .rd-edit-hint{font-size:11.5px;color:var(--ac);margin:8px 0 14px}
+  .rd-prod{display:flex;flex-direction:column;gap:4px}
+  .rd-prod div{font-size:13.5px;color:var(--tx)}
+  .det-fotos{display:flex;flex-wrap:wrap;gap:12px;margin-top:6px}
+  .det-foto{display:flex;flex-direction:column;gap:3px;width:120px;margin:0}
+  .det-fotos img{width:120px;height:120px;object-fit:cover;border-radius:8px;border:1px solid var(--bd)}
+  .det-foto figcaption{font-size:10.5px;color:var(--tx3);line-height:1.2}
+  .det-sig{margin-top:6px;max-width:280px;border:1px solid var(--bd);border-radius:8px;background:#fff}
+
+  /* Modal: Nova tarefa da pendência */
+  .rp-modal{display:none;position:fixed;inset:0;background:rgba(20,30,55,.45);z-index:100;align-items:flex-start;justify-content:center;padding:60px 16px;overflow-y:auto}
+  .rp-modal.open{display:flex}
+  .rp-modal-box{background:#fff;border-radius:14px;box-shadow:0 24px 64px rgba(20,30,55,.28);width:100%;max-width:460px}
+  .rp-modal-h{display:flex;align-items:center;justify-content:space-between;padding:16px 20px;border-bottom:1px solid var(--bd);font-size:15px;font-weight:700;color:var(--tx)}
+  .rp-modal-x{border:none;background:none;font-size:18px;color:var(--tx3);cursor:pointer;line-height:1}
+  .rp-modal-b{padding:18px 20px}
+  .rp-modal-b label{display:block;font-size:12px;font-weight:600;color:var(--tx2);margin-bottom:5px}
+  .rp-modal-b select,.rp-modal-b textarea{width:100%;padding:10px 12px;border:1px solid var(--bd);border-radius:8px;font:inherit;font-size:14px;outline:none;box-sizing:border-box}
+  .rp-modal-b textarea{line-height:1.5;resize:vertical}
+  .rp-modal-f{display:flex;justify-content:flex-end;gap:10px;padding:14px 20px;border-top:1px solid var(--bd)}
+</style>
+</head>
+<body>
+
+<div id="app-screen" style="display:none">
+  <div class="rp-top">
+    <button class="btn" id="btn-voltar">← Voltar</button>
+    <span class="rp-title" id="rp-title">RAT</span>
+    <span class="rp-actions" id="rp-actions">
+      <button class="btn" id="rp-editar">✎ Editar</button>
+      <button class="btn btn-g" id="rp-salvar" style="display:none">Salvar</button>
+      <button class="btn" id="rp-cancelar" style="display:none">Cancelar</button>
+      <button class="btn" id="rp-nova">↻ Nova tarefa da pendência</button>
+      <button class="btn" id="rp-pdf">⬇ Baixar PDF</button>
+      <button class="btn" id="rp-excluir" style="color:var(--re);border-color:var(--re)">🗑 Excluir</button>
+    </span>
+  </div>
+  <div class="rp-doc"><div id="rp-body"><p class="rp-msg">Carregando…</p></div></div>
+</div>
+
+<!-- Modal: Nova tarefa da pendência -->
+<div class="rp-modal" id="modal-pend">
+  <div class="rp-modal-box">
+    <div class="rp-modal-h"><span>Nova tarefa da pendência</span><button class="rp-modal-x" id="pend-x">✕</button></div>
+    <div class="rp-modal-b">
+      <p class="muted" id="pend-origem" style="margin-top:0"></p>
+      <div style="margin-bottom:10px"><label>Cliente</label><div id="pend-cli" style="font-weight:600"></div></div>
+      <div style="margin-bottom:10px"><label>Tipo de serviço</label><select id="pend-tipo"></select></div>
+      <div><label>Orientação ao técnico (pendência)</label><textarea id="pend-orient" rows="5" placeholder="Descreva o que ficou pendente…"></textarea></div>
+      <p class="muted" style="margin-top:8px">Criada como <b>Aguardando execução</b>. Atribua o técnico em Tarefas.</p>
+    </div>
+    <div class="rp-modal-f">
+      <button class="btn" id="pend-cancelar">Cancelar</button>
+      <button class="btn btn-p" id="pend-criar">Criar tarefa</button>
+    </div>
+  </div>
+</div>
+
+<div class="tc" id="tc"></div>
+
+<script>
+  window.PAGE_ALLOWED = ['admin', 'gestor_axis']
+  async function onPostLogin() { await RatPage.init() }
+  initAuth()
+</script>
+</body>
+</html>
