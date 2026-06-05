@@ -8,8 +8,17 @@
 window.RatView = (function () {
   let forms = {}   // id do formulário -> array de campos
 
-  // Colunas necessárias para montar o detalhe de uma RAT.
-  const RAT_SELECT = 'id,cliente_id,cliente_nome,tecnico_nome,data_tarefa,status,sync_status,pendencias,assinatura_url,respostas,tempo_trabalhado,formulario_id,tipos_servico(nome),tarefa:tarefas(id,numero,cliente_id,tipo_servico_id,tipo:tipos_servico(nome))'
+  // Dados do emitente (cabeçalho do documento) — mesmos do orçamento/TSRV.
+  const EMPRESA = {
+    nome: 'Traders Service Soluções em Tecnologia',
+    cnpj: '10.923.494/0001-30',
+    tel: '(47) 3025-2660',
+    email: 'suporte@tsrv.com.br',
+    endereco: 'R. Dona Francisca, 8300 — Via Trieste, Prédio 02 · Perini Business Park · Joinville-SC · 89.219-600',
+  }
+
+  // Colunas necessárias para montar o detalhe de uma RAT (inclui dados fiscais do cliente e da OS).
+  const RAT_SELECT = 'id,cliente_id,cliente_nome,tecnico_nome,data_tarefa,status,sync_status,pendencias,assinatura_url,respostas,tempo_trabalhado,formulario_id,tipos_servico(nome),cliente:clientes(nome,documento,endereco),tarefa:tarefas(id,numero,cliente_id,tipo_servico_id,orientacao,tipo:tipos_servico(nome))'
 
   async function ensureForms() {
     if (Object.keys(forms).length) return
@@ -98,12 +107,37 @@ window.RatView = (function () {
         </div>
       </div>`
 
-    if (edit) h += `<div class="rd-edit-hint">✎ Modo edição — você pode ajustar qualquer campo. O tempo trabalhado é recalculado automaticamente ao salvar.</div>`
+    if (edit) h += `<div class="rd-edit-hint">✎ Modo edição — você pode ajustar qualquer campo e o valor unitário dos produtos. O tempo é recalculado ao salvar.</div>`
 
+    // Emitente
+    if (!opts.semEmitente) h += `<div class="rd-sec"><div class="rd-sec-t">Emitente</div>
+      <div class="rd-emit"><b>${esc(EMPRESA.nome)}</b><br>CNPJ ${esc(EMPRESA.cnpj)} · ${esc(EMPRESA.tel)} · ${esc(EMPRESA.email)}<br>${esc(EMPRESA.endereco)}</div></div>`
+
+    // Informações do cliente
+    const cli = r.cliente || {}
+    h += `<div class="rd-sec"><div class="rd-sec-t">Informações do cliente</div><div class="rd-grid">
+      <div class="rd-f"><label>Nome do cliente</label><div class="v">${esc(r.cliente_nome || cli.nome || '—')}</div></div>
+      <div class="rd-f"><label>CPF/CNPJ</label><div class="v">${esc(cli.documento || '—')}</div></div>
+      <div class="rd-f" style="grid-column:1/-1"><label>Endereço</label><div class="v">${esc(cli.endereco || '—')}</div></div>
+    </div></div>`
+
+    // Dados da OS
+    const tf = r.tarefa || {}
+    h += `<div class="rd-sec"><div class="rd-sec-t">Dados da OS</div><div class="rd-grid">
+      <div class="rd-f"><label>Nº da OS</label><div class="v">${tarefaNo ? '#' + tarefaNo : '—'}</div></div>
+      <div class="rd-f"><label>Data / Hora</label><div class="v">${fdt(r.data_tarefa, { withTime: true })}</div></div>
+      <div class="rd-f"><label>Tipo de tarefa</label><div class="v">${esc(tipoNomeRat(r))}</div></div>
+      <div class="rd-f"><label>Duração</label><div class="v">${fmtMin(tempoRat(r))}</div></div>
+      ${tf.orientacao ? `<div class="rd-f" style="grid-column:1/-1"><label>Orientação</label><div class="v">${escMulti(tf.orientacao)}</div></div>` : ''}
+    </div></div>`
+
+    // Intervalos (almoço/pausa) saem da grade no modo leitura — viram a tabela "Pausas".
+    const EXC_GRID = new Set(['almoco', 'almoco_inicio', 'almoco_termino', 'pausa', 'pausa_inicio', 'pausa_termino', 'pausa_motivo'])
     const grid = []
     const longSecs = []
     for (const c of campos) {
       if (SKIP.has(c.tipo)) continue
+      if (!edit && EXC_GRID.has(c.id)) continue
       const isLong = c.tipo === 'texto_longo'
       const val = resp[c.id]
       const vazio = val == null || String(val).trim() === ''
@@ -119,13 +153,37 @@ window.RatView = (function () {
           (edit ? editInput(c, val) : `<div class="v">${escMulti(val) || '—'}</div>`) + `</div>`)
       }
     }
-    if (grid.length) h += `<div class="rd-sec"><div class="rd-sec-t">Dados do atendimento</div><div class="rd-grid">${grid.join('')}</div></div>`
+    if (grid.length) h += `<div class="rd-sec"><div class="rd-sec-t">RAT — dados do atendimento</div><div class="rd-grid">${grid.join('')}</div></div>`
     h += longSecs.join('')
 
+    // Produtos com preço (editável no modo edição) + Resumo de Valores
     if (mats && mats.length) {
-      h += `<div class="rd-sec"><div class="rd-sec-t">Produtos utilizados</div><div class="rd-prod">` +
-        mats.map(m => `<div>${esc(m.descricao || m.codigo_produto || '—')} — <b>${esc(String(m.quantidade))}</b></div>`).join('') + `</div></div>`
+      const total = mats.reduce((s, m) => s + (Number(m.subtotal) || 0), 0)
+      h += `<div class="rd-sec"><div class="rd-sec-t">Produtos</div>
+        <table class="rd-prodtbl"><thead><tr><th>Produto</th><th class="num">Qtd</th><th class="num">Valor unit.</th><th class="num">Subtotal</th></tr></thead><tbody>` +
+        mats.map(m => `<tr>
+          <td>${esc(m.descricao || m.codigo || '—')}</td>
+          <td class="num">${esc(String(m.quantidade))}</td>
+          <td class="num">${edit ? `<input class="rd-preco" data-mat="${esc(m.id)}" type="number" step="0.01" min="0" value="${m.preco}">` : money(m.preco)}</td>
+          <td class="num">${money(m.subtotal)}</td>
+        </tr>`).join('') +
+        `</tbody></table><div class="rd-total">Total <b>${money(total)}</b></div></div>`
     }
+
+    // Pausas (almoço + pausa) — tabela no modo leitura.
+    if (!edit) {
+      const pausas = []
+      if (resp.almoco === 'Sim' && (resp.almoco_inicio || resp.almoco_termino)) pausas.push({ ini: resp.almoco_inicio, fim: resp.almoco_termino, motivo: 'Almoço' })
+      if (resp.pausa === 'Sim' && (resp.pausa_inicio || resp.pausa_termino || resp.pausa_motivo)) pausas.push({ ini: resp.pausa_inicio, fim: resp.pausa_termino, motivo: resp.pausa_motivo || 'Pausa' })
+      if (pausas.length) {
+        const durStr = (a, b) => { const x = minutosDe(a), y = minutosDe(b); return (x == null || y == null) ? '—' : fmtMin(Math.max(0, y - x)) }
+        h += `<div class="rd-sec"><div class="rd-sec-t">Pausas na tarefa</div>
+          <table class="rd-pausas"><thead><tr><th>Início</th><th>Fim</th><th>Tempo</th><th>Justificativa/Motivo</th></tr></thead><tbody>` +
+          pausas.map(p => `<tr><td>${esc(p.ini || '—')}</td><td>${esc(p.fim || '—')}</td><td>${durStr(p.ini, p.fim)}</td><td>${esc(p.motivo)}</td></tr>`).join('') +
+          `</tbody></table></div>`
+      }
+    }
+
     if (fotos && fotos.length) {
       h += `<div class="rd-sec"><div class="rd-sec-t">Fotos</div><div class="det-fotos">` +
         fotos.map(f => `<figure class="det-foto"><a href="${f.url}" target="_blank"><img src="${f.url}" alt=""></a>${f.legenda ? `<figcaption>${esc(f.legenda)}</figcaption>` : ''}</figure>`).join('') + `</div></div>`
@@ -135,12 +193,24 @@ window.RatView = (function () {
     return h
   }
 
-  // Carrega tudo de uma RAT (form, materiais usados, fotos e assinatura assinadas).
+  // Carrega tudo de uma RAT (form, materiais usados c/ preço, fotos e assinatura assinadas).
   async function loadDetalhe(r) {
     await ensureForms()
     const sb = getSupabase()
     const campos = forms[r.formulario_id] || []
-    const { data: mats } = await sb.from('materiais').select('descricao,codigo_produto,quantidade').eq('rat_id', r.id).eq('origem', 'usado')
+    const { data: matsRaw } = await sb.from('materiais')
+      .select('id,produto_id,codigo_produto,descricao,quantidade,preco_unitario').eq('rat_id', r.id).eq('origem', 'usado')
+    const pids = [...new Set((matsRaw || []).map(m => m.produto_id).filter(Boolean))]
+    const precoCat = {}
+    if (pids.length) {
+      const { data: ps } = await sb.from('produtos').select('id,preco_venda').in('id', pids)
+      ; (ps || []).forEach(p => { precoCat[p.id] = Number(p.preco_venda) || 0 })
+    }
+    const mats = (matsRaw || []).map(m => {
+      const preco = m.preco_unitario != null ? Number(m.preco_unitario) : (m.produto_id ? (precoCat[m.produto_id] || 0) : 0)
+      const qtd = Number(m.quantidade) || 0
+      return { id: m.id, descricao: m.descricao, codigo: m.codigo_produto, quantidade: qtd, preco, subtotal: qtd * preco }
+    })
     const { data: fotosRaw } = await sb.from('relatorio_fotos').select('url,legenda').eq('rat_id', r.id)
     const comUrl = (fotosRaw || []).filter(f => f.url)
     let fotos = []
@@ -157,11 +227,20 @@ window.RatView = (function () {
     return { r, campos, mats: mats || [], fotos, sigUrl }
   }
 
-  // Coleta as respostas editadas do container e devolve {respostas, tempo}.
+  // Coleta as respostas e os preços editados do container e devolve {respostas, tempo, precos}.
   function coletarEdicao(container, det) {
     const resp = Object.assign({}, det.r.respostas || {})
     container.querySelectorAll('[data-campo]').forEach(el => { resp[el.getAttribute('data-campo')] = el.value })
-    return { respostas: resp, tempo: calcTempoDe(resp) }
+    const precos = []
+    container.querySelectorAll('[data-mat]').forEach(el => { precos.push({ id: el.getAttribute('data-mat'), preco: el.value === '' ? null : Number(el.value) }) })
+    return { respostas: resp, tempo: calcTempoDe(resp), precos }
+  }
+
+  // Persiste os preços editados dos produtos (materiais.preco_unitario).
+  async function salvarPrecos(precos) {
+    if (!precos || !precos.length) return
+    const sb = getSupabase()
+    for (const p of precos) await sb.from('materiais').update({ preco_unitario: p.preco }).eq('id', p.id)
   }
 
   // PDF: 1 ou várias RATs no mesmo documento (para envio manual ao cliente).
@@ -208,7 +287,16 @@ window.RatView = (function () {
     .rd-f label{display:block;font-size:9.5px;text-transform:uppercase;letter-spacing:.05em;color:#7a89a3;margin-bottom:2px}
     .rd-f .v{font-size:12.5px}
     .rd-long{white-space:pre-wrap;line-height:1.5}
-    .rd-prod{display:flex;flex-direction:column;gap:3px}
+    .rd-emit{font-size:12px;line-height:1.5}
+    .rd-prodtbl{width:100%;border-collapse:collapse;font-size:12px}
+    .rd-prodtbl th{text-align:left;font-size:9px;text-transform:uppercase;letter-spacing:.04em;color:#7a89a3;padding:0 8px 6px;border-bottom:1px solid #d6deea}
+    .rd-prodtbl th.num,.rd-prodtbl td.num{text-align:right;font-family:'IBM Plex Mono',monospace;white-space:nowrap}
+    .rd-prodtbl td{padding:6px 8px;border-bottom:1px solid #eef2f8}
+    .rd-total{display:flex;justify-content:flex-end;gap:12px;margin-top:9px;font-size:13px}
+    .rd-total b{font-family:'IBM Plex Mono',monospace}
+    .rd-pausas{width:100%;border-collapse:collapse;font-size:12px}
+    .rd-pausas th{text-align:left;font-size:9px;text-transform:uppercase;letter-spacing:.04em;color:#7a89a3;padding:0 8px 6px;border-bottom:1px solid #d6deea}
+    .rd-pausas td{padding:6px 8px;border-bottom:1px solid #eef2f8}
     .det-fotos{display:flex;flex-wrap:wrap;gap:12px}
     .det-foto{display:flex;flex-direction:column;gap:4px;width:150px;margin:0}
     .det-fotos img{width:150px;height:150px;object-fit:cover;border-radius:8px;border:1px solid #d6deea}
@@ -218,7 +306,7 @@ window.RatView = (function () {
     @media print{ body{margin:14mm 12mm} a{color:inherit;text-decoration:none} }`
 
   return {
-    RAT_SELECT, ensureForms, loadDetalhe, buildReportBody, coletarEdicao,
+    RAT_SELECT, ensureForms, loadDetalhe, buildReportBody, coletarEdicao, salvarPrecos,
     gerarPdf, calcTempoDe, tempoRat, fmtMin, tipoNomeRat, statusInfo,
   }
 })()

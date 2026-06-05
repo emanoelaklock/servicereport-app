@@ -79,12 +79,14 @@ const RatPage = (() => {
   }
 
   async function salvar() {
-    const { respostas, tempo } = RatView.coletarEdicao(document.getElementById('rp-body'), det)
+    const { respostas, tempo, precos } = RatView.coletarEdicao(document.getElementById('rp-body'), det)
     const upd = { respostas }; if (tempo != null) upd.tempo_trabalhado = tempo
     const { error } = await sb().from('rats').update(upd).eq('id', det.r.id)
     if (error) return toast('Erro ao salvar: ' + error.message, 'err')
+    await RatView.salvarPrecos(precos)
     det.r.respostas = respostas; if (tempo != null) det.r.tempo_trabalhado = tempo
-    editMode = false; render()
+    det = await RatView.loadDetalhe(det.r)   // recarrega produtos c/ novos preços/subtotais
+    editMode = false; renderHero(); render()
     toast('RAT atualizada.', 'ok')
   }
 
