@@ -177,7 +177,7 @@ const ConciliacaoApp = (() => {
     if (q) rows = rows.filter(t => normStr(cliNomes[t.cliente_id] || '').includes(q) || String(t.numero || '').includes(q))
     if (!rows.length) { box.innerHTML = '<div class="cc-empty">Nenhuma tarefa encontrada.</div>'; return }
     box.innerHTML = `<table class="cc-list"><thead><tr>
-        <th>Nº</th><th>Cliente</th><th>Status</th><th>Técnico</th><th>Agenda</th><th>Conciliação</th>
+        <th>Nº</th><th>Cliente</th><th>Status</th><th>Técnico</th><th>Agenda</th><th>Conciliação</th><th>Ações</th>
       </tr></thead><tbody>${rows.map(t => {
         const d = divPorTarefa[t.id] || 0
         const concil = d ? `<span class="pill pill-warn">${d} divergência${d > 1 ? 's' : ''}</span>` : '<span class="pill pill-ok">OK</span>'
@@ -190,9 +190,27 @@ const ConciliacaoApp = (() => {
           <td>${tec}</td>
           <td>${t.data_agendada ? dmy(t.data_agendada) : '<span class="st">—</span>'}</td>
           <td>${concil}</td>
+          <td class="cc-acts">
+            <button class="cc-act" data-ver="${esc(t.id)}" title="Ver">👁</button>
+            <button class="cc-act" data-edit="${esc(t.id)}" title="Editar">✏️</button>
+            <button class="cc-act cc-act-del" data-del="${esc(t.id)}" title="Excluir">🗑</button>
+          </td>
         </tr>`
       }).join('')}</tbody></table>`
-    box.querySelectorAll('.row-click').forEach(tr => tr.onclick = () => abrirTarefa(tr.dataset.id))
+    box.querySelectorAll('.row-click').forEach(tr => tr.onclick = (e) => { if (e.target.closest('.cc-act')) return; abrirTarefa(tr.dataset.id) })
+    box.querySelectorAll('[data-ver]').forEach(b => b.onclick = (e) => { e.stopPropagation(); abrirTarefa(b.dataset.ver) })
+    box.querySelectorAll('[data-edit]').forEach(b => b.onclick = (e) => { e.stopPropagation(); abrirTarefa(b.dataset.edit) })
+    box.querySelectorAll('[data-del]').forEach(b => b.onclick = (e) => { e.stopPropagation(); excluirTarefaLista(b.dataset.del) })
+  }
+
+  async function excluirTarefaLista(id) {
+    const t = tarefas.find(x => x.id === id)
+    if (!confirm(`Excluir a Tarefa Nº ${osNo(t && t.numero)}? Remove conciliação, RATs, materiais, anexos e equipamentos. Esta ação não pode ser desfeita.`)) return
+    const { error } = await sb().rpc('admin_excluir_tarefa', { p_tarefa: id })
+    if (error) return toast('Erro ao excluir: ' + error.message, 'err')
+    toast('Tarefa excluída.', 'ok')
+    await carregarTarefas()
+    renderLista()
   }
 
   // ─────────────────────── Nova tarefa (sem orçamento) ───────────────────────
