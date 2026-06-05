@@ -198,8 +198,8 @@ const TarefaApp = (() => {
     orcNo = {}
     if (oids.length) { const { data: os } = await sb().from('orcamentos').select('id,numero').in('id', oids); for (const o of os || []) orcNo[o.id] = o.numero }
     divPorTarefa = {}
-    const { data: vc } = await sb().from('vw_conciliacao_tarefa').select('tarefa_id,situacao')
-    for (const r of vc || []) { if (r.situacao && r.situacao !== 'ok') divPorTarefa[r.tarefa_id] = (divPorTarefa[r.tarefa_id] || 0) + 1 }
+    const { data: vc } = await sb().from('vw_conciliacao_tarefa').select('tarefa_id,situacao,revisado')
+    for (const r of vc || []) { if (r.situacao && r.situacao !== 'ok' && !r.revisado) divPorTarefa[r.tarefa_id] = (divPorTarefa[r.tarefa_id] || 0) + 1 }
   }
 
   function renderLista() {
@@ -215,7 +215,7 @@ const TarefaApp = (() => {
         <th>Nº</th><th>Cliente</th><th>Status</th><th>Técnico</th><th>Agenda</th><th>Conciliação</th><th>Ações</th>
       </tr></thead><tbody>${rows.map(t => {
         const d = divPorTarefa[t.id] || 0
-        const concil = d ? `<span class="pill pill-warn">${d} divergência${d > 1 ? 's' : ''}</span>` : '<span class="pill pill-ok">OK</span>'
+        const concil = d ? `<span class="pill pill-warn">${d} a revisar</span>` : '<span class="pill pill-ok">OK</span>'
         const tids = tecPorTarefa[t.id] || []
         const tec = tids.length ? esc(tids.map(id => tecNomes[id] || '—').join(', ')) : '<span class="pill pill-warn">atribuir</span>'
         return `<tr class="row-click" data-id="${esc(t.id)}">
