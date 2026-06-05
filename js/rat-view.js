@@ -240,6 +240,7 @@ window.RatView = (function () {
       (dets.length > 1 ? `<div class="rat-sep">Relatório ${i + 1} de ${dets.length}</div>` : '') +
       buildReportBody(d, false) + `</div>`).join('')
     const doc = `<!doctype html><html lang="pt-BR"><head><meta charset="utf-8"><title>${esc(titulo || 'RAT')}</title>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
 <style>${PDF_CSS}</style></head><body>
   <div class="pdf-top"><div class="pdf-brand">TRADERS SERVICE</div><div class="pdf-doc">Relatório de Atendimento Técnico</div></div>
   ${corpo}
@@ -247,8 +248,10 @@ window.RatView = (function () {
   <script>
     window.addEventListener('load', function () {
       var imgs = Array.prototype.slice.call(document.images)
-      Promise.all(imgs.map(function (i) { return i.complete ? 1 : new Promise(function (res) { i.onload = i.onerror = res }) }))
-        .then(function () { setTimeout(function () { window.print() }, 150) })
+      var imgsP = imgs.map(function (i) { return i.complete ? 1 : new Promise(function (res) { i.onload = i.onerror = res }) })
+      var fontsP = (document.fonts && document.fonts.ready) ? document.fonts.ready : Promise.resolve()
+      Promise.all(imgsP.concat([fontsP]))
+        .then(function () { setTimeout(function () { window.print() }, 200) })
     })
   <\/script>
 </body></html>`
@@ -278,10 +281,9 @@ window.RatView = (function () {
     .rd-emit{font-size:12px;line-height:1.5}
     .rd-prodtbl{width:100%;border-collapse:collapse;font-size:12px}
     .rd-prodtbl th{text-align:left;font-size:9px;text-transform:uppercase;letter-spacing:.04em;color:#7a89a3;padding:0 8px 6px;border-bottom:1px solid #d6deea}
-    .rd-prodtbl th.num,.rd-prodtbl td.num{text-align:right;font-family:'IBM Plex Mono',monospace;white-space:nowrap}
+    .rd-prodtbl th.num,.rd-prodtbl td.num{text-align:right;white-space:nowrap}
     .rd-prodtbl td{padding:6px 8px;border-bottom:1px solid #eef2f8}
     .rd-total{display:flex;justify-content:flex-end;gap:12px;margin-top:9px;font-size:13px}
-    .rd-total b{font-family:'IBM Plex Mono',monospace}
     .rd-pausas{width:100%;border-collapse:collapse;font-size:12px}
     .rd-pausas th{text-align:left;font-size:9px;text-transform:uppercase;letter-spacing:.04em;color:#7a89a3;padding:0 8px 6px;border-bottom:1px solid #d6deea}
     .rd-pausas td{padding:6px 8px;border-bottom:1px solid #eef2f8}
