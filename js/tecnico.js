@@ -332,7 +332,7 @@
       const qz = (n) => Number(n) || 0
       const fmt = (n, u) => { const v = qz(n); return (v ? v.toLocaleString('pt-BR', { maximumFractionDigits: 3 }) : '—') + (v && u ? ' ' + u : '') }
       box.innerHTML = data.map(m => `<div class="t-det-mat-item">
-        <div class="nome">${esc(m.descricao || m.codigo_produto || '—')}</div>
+        <div class="nome">${esc(tcase(m.descricao || m.codigo_produto || '—'))}</div>
         <div class="t-det-mat-chips">
           <span class="t-mat-chip orc${qz(m.qtd_orcada) ? '' : ' zero'}"><span class="k">Orçado</span>${fmt(m.qtd_orcada, m.unidade)}</span>
           <span class="t-mat-chip lev${qz(m.qtd_levada) ? '' : ' zero'}"><span class="k">Levado</span>${fmt(m.qtd_levada, m.unidade)}</span>
