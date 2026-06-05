@@ -122,7 +122,18 @@
     if (r.faturado) html += `<div style="margin-top:12px" class="dim">Faturada ${fdt(r.data_faturamento)} · Nota ${esc(r.numero_nota || '—')}</div>`
 
     document.getElementById('ver-body').innerHTML = html
+    document.getElementById('ver-excluir').onclick = () => excluirRat(id)
     abrir('modal-ver')
+  }
+
+  async function excluirRat(id) {
+    if (!confirm('Excluir esta RAT? Remove também os materiais e fotos dela. Esta ação não pode ser desfeita.')) return
+    const { error } = await getSupabase().rpc('admin_excluir_rat', { p_rat: id })
+    if (error) return toast('Erro ao excluir: ' + error.message, 'err')
+    toast('RAT excluída.', 'ok')
+    fechar('modal-ver')
+    await carregar()
+    render()
   }
 
   // ── Faturar ──

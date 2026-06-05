@@ -93,6 +93,7 @@ const ConciliacaoApp = (() => {
     document.getElementById('cc-add-material').onclick = adicionarMaterialCatalogo
     document.getElementById('cc-add-avulso').onclick = adicionarMaterialAvulso
     document.getElementById('cc-d-salvar').onclick = salvarDados
+    document.getElementById('cc-d-excluir').onclick = excluirTarefa
     document.getElementById('cc-eq-btn').onclick = vincularEquip
     document.getElementById('cc-anx-btn').onclick = () => document.getElementById('cc-anx-input').click()
     document.getElementById('cc-anx-input').onchange = (e) => adicionarAnexos(e.target.files)
@@ -269,6 +270,18 @@ const ConciliacaoApp = (() => {
     if (t) Object.assign(t, patch)
     document.getElementById('cc-d-hint').textContent = tecIds.length ? '' : 'Atribua um ou mais técnicos e agende para a Tarefa aparecer no app do técnico.'
     toast('Dados da Tarefa salvos.', 'ok')
+  }
+
+  async function excluirTarefa() {
+    if (!cur || !cur.id) return
+    if (!confirm(`Excluir a Tarefa Nº ${osNo(cur.numero)}? Remove a conciliação, RATs, materiais, anexos e equipamentos desta tarefa. Esta ação não pode ser desfeita.`)) return
+    const { error } = await sb().rpc('admin_excluir_tarefa', { p_tarefa: cur.id })
+    if (error) return toast('Erro ao excluir: ' + error.message, 'err')
+    toast('Tarefa excluída.', 'ok')
+    cur = null
+    mostrar('lista')
+    await carregarTarefas()
+    renderLista()
   }
 
   async function salvarConcilObs() {
