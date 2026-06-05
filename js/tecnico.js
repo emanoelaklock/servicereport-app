@@ -409,22 +409,27 @@
   }
 
   async function iniciarRatDaTarefa(t) {
-    const rat = await D().novoRat({ tarefa_id: t.id, cliente_id: t.cliente_id || null, cliente_nome: cliNomeDe(t.cliente_id, null) })
+    const tipoId = t.tipo_servico_id || ''
+    const rat = await D().novoRat({ tarefa_id: t.id, cliente_id: t.cliente_id || null, cliente_nome: cliNomeDe(t.cliente_id, null), tipo_servico_id: tipoId || null })
     cur = { client_uuid: rat.client_uuid, campos: [], tarefa_id: t.id, tarefa_numero: t.numero }
     document.getElementById('form-titulo').textContent = 'Nova RAT'
+    const tipoNome = (ref.tipos.find(x => x.id === tipoId) || {}).nome
     const banner = document.getElementById('f-tarefa-banner')
     banner.style.display = 'block'
-    banner.textContent = `RAT da Tarefa Nº ${osNo(t.numero)} · ${cliNomeDe(t.cliente_id)}`
+    banner.textContent = `RAT da Tarefa Nº ${osNo(t.numero)} · ${cliNomeDe(t.cliente_id)}${tipoNome ? ' · ' + tipoNome : ''}`
     // cliente travado (vem da tarefa)
     document.getElementById('f-cliente').value = t.cliente_id || ''
     const cb = document.getElementById('f-cliente-busca')
     cb.value = cliNomeDe(t.cliente_id); cb.readOnly = true
-    document.getElementById('f-tipo').value = ''
+    // tipo herdado da tarefa: esconde o seletor e carrega o formulário do tipo
+    document.getElementById('f-tipo').value = tipoId
+    document.getElementById('f-tipo-wrap').style.display = tipoId ? 'none' : 'block'
     document.getElementById('f-status').value = 'em_andamento'
     document.getElementById('f-pendencias').value = ''
     togglePendencias()
     document.getElementById('campos-container').innerHTML = ''
     mostrar('form')
+    if (tipoId) await onTipoChange()
   }
 
   // ─────────────────────── Navegação (home + módulos) ───────────────────────
@@ -461,14 +466,17 @@
     document.getElementById('form-titulo').textContent = 'Editar RAT'
     const banner = document.getElementById('f-tarefa-banner')
     const cb = document.getElementById('f-cliente-busca')
+    const tipoNomeR = (ref.tipos.find(x => x.id === rat.tipo_servico_id) || {}).nome
     if (rat.tarefa_id) {
       banner.style.display = 'block'
-      banner.textContent = `RAT da Tarefa Nº ${osNo(rat.tarefa_numero)} · ${cliNomeDe(rat.cliente_id, rat.cliente_nome)}`
+      banner.textContent = `RAT da Tarefa Nº ${osNo(rat.tarefa_numero)} · ${cliNomeDe(rat.cliente_id, rat.cliente_nome)}${tipoNomeR ? ' · ' + tipoNomeR : ''}`
       cb.readOnly = true
     } else { banner.style.display = 'none'; cb.readOnly = false }
     document.getElementById('f-cliente').value = rat.cliente_id || ''
     cb.value = (ref.clientes.find(c => c.id === rat.cliente_id) || {}).nome || rat.cliente_nome || ''
     document.getElementById('f-tipo').value = rat.tipo_servico_id || ''
+    // tipo herdado da tarefa: esconde o seletor quando já definido
+    document.getElementById('f-tipo-wrap').style.display = rat.tipo_servico_id ? 'none' : 'block'
     document.getElementById('f-status').value = RAT_SIT_LABEL[rat.status] ? rat.status : 'em_andamento'
     document.getElementById('f-pendencias').value = rat.pendencias || ''
     togglePendencias()
