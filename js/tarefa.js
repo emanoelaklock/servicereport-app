@@ -71,6 +71,7 @@ const TarefaApp = (() => {
       ? ref.tecnicos.map(t => `<label><input type="checkbox" value="${esc(t.id)}"> ${esc(t.nome || '(sem nome)')}</label>`).join('')
       : '<span class="cc-empty-sm">Nenhum técnico ativo cadastrado.</span>'
     document.getElementById('cc-d-tipo').innerHTML = '<option value="">— selecione —</option>' + ref.tipos.map(t => `<option value="${esc(t.id)}">${esc(t.nome || '')}</option>`).join('')
+    document.getElementById('cc-d-status-sel').innerHTML = Object.entries(STATUS_LABEL).map(([k, v]) => `<option value="${esc(k)}">${esc(v)}</option>`).join('')
     bind()
     const params = new URLSearchParams(location.search)
     const f = params.get('f')
@@ -280,8 +281,8 @@ const TarefaApp = (() => {
     // Card "Dados da Tarefa"
     document.getElementById('cc-d-cliente').textContent = cur.cliente_nome
     document.getElementById('cc-d-orc').textContent = t.orcamento_id ? `Orçamento Nº ${orcNo[t.orcamento_id] ?? '—'}` : 'Criada direto (sem orçamento)'
-    document.getElementById('cc-d-status').textContent = (STATUS_LABEL[cur.status] || cur.status || '—') +
-      (cur.status === 'concluida_pendencia' && t.pendencias ? ' — ' + t.pendencias : '')
+    document.getElementById('cc-d-status-sel').value = cur.status || 'aguardando_execucao'
+    document.getElementById('cc-d-pend-note').textContent = (cur.status === 'concluida_pendencia' && t.pendencias) ? 'Pendência: ' + t.pendencias : ''
     document.getElementById('cc-d-tipo').value = t.tipo_servico_id || ''
     setTecnicosChecked(tecPorTarefa[id] || [])
     document.getElementById('cc-d-data').value = t.data_agendada || ''
@@ -307,6 +308,7 @@ const TarefaApp = (() => {
     if (!cur || !cur.id) return
     const patch = {
       tipo_servico_id: document.getElementById('cc-d-tipo').value || null,
+      status: document.getElementById('cc-d-status-sel').value,
       data_agendada: document.getElementById('cc-d-data').value || null,
       pedido_compra: document.getElementById('cc-d-pc').value.trim() || null,
       orientacao: document.getElementById('cc-d-orientacao').value.trim() || null,
@@ -314,6 +316,8 @@ const TarefaApp = (() => {
     }
     const up = await sb().from('tarefas').update(patch).eq('id', cur.id)
     if (up.error) return toast('Erro ao salvar: ' + up.error.message, 'err')
+    cur.status = patch.status
+    document.getElementById('cc-badge').textContent = STATUS_LABEL[cur.status] || cur.status || ''
     // sincroniza técnicos (N:N): substitui o conjunto
     const tecIds = getTecnicosChecked()
     const del = await sb().from('tarefa_tecnicos').delete().eq('tarefa_id', cur.id)
