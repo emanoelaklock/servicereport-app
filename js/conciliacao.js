@@ -190,15 +190,13 @@ const ConciliacaoApp = (() => {
           <td>${tec}</td>
           <td>${t.data_agendada ? dmy(t.data_agendada) : '<span class="st">—</span>'}</td>
           <td>${concil}</td>
-          <td class="cc-acts">
-            <button class="cc-act" data-ver="${esc(t.id)}" title="Ver">👁</button>
-            <button class="cc-act" data-edit="${esc(t.id)}" title="Editar">✏️</button>
-            <button class="cc-act cc-act-del" data-del="${esc(t.id)}" title="Excluir">🗑</button>
-          </td>
+          <td><div class="acts" style="opacity:1">
+            <button class="ab ab-v" data-edit="${esc(t.id)}">Editar</button>
+            <button class="ab ab-d" data-del="${esc(t.id)}">Excluir</button>
+          </div></td>
         </tr>`
       }).join('')}</tbody></table>`
-    box.querySelectorAll('.row-click').forEach(tr => tr.onclick = (e) => { if (e.target.closest('.cc-act')) return; abrirTarefa(tr.dataset.id) })
-    box.querySelectorAll('[data-ver]').forEach(b => b.onclick = (e) => { e.stopPropagation(); abrirTarefa(b.dataset.ver) })
+    box.querySelectorAll('.row-click').forEach(tr => tr.onclick = (e) => { if (e.target.closest('.acts')) return; abrirTarefa(tr.dataset.id) })
     box.querySelectorAll('[data-edit]').forEach(b => b.onclick = (e) => { e.stopPropagation(); abrirTarefa(b.dataset.edit) })
     box.querySelectorAll('[data-del]').forEach(b => b.onclick = (e) => { e.stopPropagation(); excluirTarefaLista(b.dataset.del) })
   }
