@@ -437,7 +437,7 @@ const TarefaApp = (() => {
   function renderLinhas() {
     const tb = document.getElementById('cc-tbody')
     if (!linhas.length) {
-      tb.innerHTML = '<tr><td colspan="8" class="cc-empty">Sem produtos nesta tarefa. Adicione abaixo.</td></tr>'
+      tb.innerHTML = '<tr><td colspan="9" class="cc-empty">Sem produtos nesta tarefa. Adicione abaixo.</td></tr>'
     } else {
       tb.innerHTML = linhas.map((l, i) => {
         const sit = SIT[l.situacao] || { t: l.situacao, cls: '' }
@@ -458,16 +458,19 @@ const TarefaApp = (() => {
         const cPreco = semOrcada
           ? `<td><input class="edit cc-preco" type="number" inputmode="decimal" min="0" step="0.01" value="${preco > 0 ? preco : ''}" data-i="${i}" placeholder="0,00"></td>`
           : `<td>${box(money(preco), 'money')}</td>`
+        const sub = util * preco
+        const cSub = `<td>${box(money(sub), 'money' + (sub === 0 ? ' zero' : ''))}</td>`
         const badgeTxt = (l.situacao === 'devolver' && dev > 0) ? `Devolver ${qtd(dev)}` : sit.t
         return `<tr class="${fora ? 'row-fora' : ''}">
           <td class="l cc-mat"><div class="cc-desc">${esc(l.descricao || '—')}</div>${l.codigo_produto ? `<div class="cc-cod">${esc(l.codigo_produto)}</div>` : ''}</td>
           <td class="c un">${esc(l.unidade || '—')}</td>
-          ${cPreco}
           ${cOrcada}
           <td><input class="edit cc-lev" type="number" inputmode="decimal" min="0" step="any" value="${lev}" data-i="${i}"></td>
           ${cUtil}
           ${cDev}
           <td class="c"><span class="sit ${sit.cls}">${esc(badgeTxt)}</span></td>
+          ${cPreco}
+          ${cSub}
         </tr>`
       }).join('')
       tb.querySelectorAll('.cc-lev').forEach(inp => inp.onchange = () => salvarLevada(Number(inp.dataset.i), inp.value))
