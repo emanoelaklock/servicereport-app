@@ -1024,7 +1024,7 @@
     const box = document.getElementById('po-prod-list')
     if (!box || !curPo) return
     const itens = await D().listarItensPreorc(curPo.client_uuid)
-    if (!itens.length) { box.innerHTML = '<span class="dim">Nenhum material necessário adicionado.</span>'; return }
+    if (!itens.length) { box.innerHTML = '<span class="dim">Nenhum produto necessário adicionado.</span>'; return }
     box.innerHTML = itens.map(m => `<div class="prod-item">
       <span>${esc(m.descricao || m.codigo_produto || '—')}</span>
       <span class="prod-qtd">${m.quantidade}${m.unidade ? ' ' + esc(m.unidade) : ''}</span>

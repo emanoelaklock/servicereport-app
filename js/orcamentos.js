@@ -244,7 +244,7 @@
       })
     })
     renderItens()
-    if (data && data.length) toast(`${data.length} material(is) trazido(s) do pré-orçamento.`, 'ok')
+    if (data && data.length) toast(`${data.length} produto(s) trazido(s) do pré-orçamento.`, 'ok')
   }
 
   async function abrirOrcamento(id) {
@@ -303,7 +303,7 @@
 
   function renderItens() {
     const tbM = document.getElementById('tb-material')
-    tbM.innerHTML = itens.length ? itens.map(linhaHTML).join('') : '<tr><td colspan="5" class="muted">Nenhum material.</td></tr>'
+    tbM.innerHTML = itens.length ? itens.map(linhaHTML).join('') : '<tr><td colspan="5" class="muted">Nenhum produto.</td></tr>'
     bindLinhas()
     recomputeTotais()
   }
@@ -329,7 +329,7 @@
   // Cláusulas padrão (chaves estáveis -> texto). Marcadas entram no bloco "Observações" do PDF.
   const CLAUSULAS = [
     { k: 'horario', t: 'Serviço executado em horário comercial (segunda a sexta, das 7h às 17h).' },
-    { k: 'estoque', t: 'Materiais sujeitos à disponibilidade de estoque.' },
+    { k: 'estoque', t: 'Produtos sujeitos à disponibilidade de estoque.' },
     { k: 'escopo', t: 'Qualquer alteração no escopo poderá impactar prazo e valores apresentados.' },
   ]
   const clausulaTexto = (k) => (CLAUSULAS.find(c => c.k === k) || {}).t || ''
@@ -364,7 +364,7 @@
     const matVal = somaMateriais()
     const temServico = !!servDesc || servVal > 0
     const temMaterial = itens.some(i => (i.descricao || '').trim() || i.produto_id)
-    if (!temServico && !temMaterial) return toast('Orçamento vazio: informe ao menos um serviço ou um material.', 'err')
+    if (!temServico && !temMaterial) return toast('Orçamento vazio: informe ao menos um serviço ou um produto.', 'err')
     const valor_total = servVal + matVal
     const payload = {
       cliente_id: cliId,
@@ -694,9 +694,9 @@
     const bothGroups = hasServico && hasMateriais
     const resumoSec = (hasServico || hasMateriais) ? `
       <div class="mat-foot">
-        <div class="obs-note">${hasMateriais ? 'Observação: Materiais inclusos para execução do serviço.' : ''}</div>
+        <div class="obs-note">${hasMateriais ? 'Observação: Produtos inclusos para execução do serviço.' : ''}</div>
         <div class="resumo">
-          ${bothGroups ? `<div class="rrow"><span>Serviços</span><span class="num">${money(servVal)}</span></div><div class="rrow"><span>Materiais</span><span class="num">${money(totMat)}</span></div>` : ''}
+          ${bothGroups ? `<div class="rrow"><span>Serviços</span><span class="num">${money(servVal)}</span></div><div class="rrow"><span>Produtos</span><span class="num">${money(totMat)}</span></div>` : ''}
           <div class="rtot"><span>Total</span><span class="rtv num">${money(total)}</span></div>
         </div>
       </div>` : ''
@@ -752,7 +752,7 @@
     blocks.push({ t: 'html', h: clienteHtml })
     if (hasServico) blocks.push({ t: 'html', h: servicoSec })
     if (hasMateriais) {
-      blocks.push({ t: 'tstart', eyebrow: 'Materiais', col: colgroupHtml, thead: theadHtml })
+      blocks.push({ t: 'tstart', eyebrow: 'Produtos', col: colgroupHtml, thead: theadHtml })
       matRowsArr.forEach(r => blocks.push({ t: 'row', h: r }))
       blocks.push({ t: 'tend' })
     }
