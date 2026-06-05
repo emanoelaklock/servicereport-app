@@ -130,6 +130,12 @@
   tr.row-fora td{background:#FEF7F6}
 
   /* Badges de situação — OK (verde) · Devolver (âmbar) · Fora da proposta (vermelho) */
+  /* situação + botão revisar (empilhados) */
+  .cc-sit{display:inline-flex;flex-direction:column;align-items:center;gap:5px}
+  .cc-rev{font:inherit;font-size:10.5px;font-weight:600;border:1px solid var(--bd);background:#fff;color:var(--tx2);border-radius:999px;padding:2px 10px;cursor:pointer;white-space:nowrap}
+  .cc-rev:hover{border-color:var(--ac);color:var(--ac)}
+  .cc-rev.on{background:#E7F6EF;border-color:#bfe6d2;color:#0E9F6E}
+  tr.row-rev td{opacity:.72}
   .sit{display:inline-block;font-size:11px;font-weight:700;padding:3px 10px;border-radius:999px;white-space:nowrap}
   .sit.s-ok{background:#E7F6EF;color:#0E9F6E}
   .sit.s-dev{background:#FDF3E2;color:#B7791F}

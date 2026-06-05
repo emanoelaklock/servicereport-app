@@ -461,20 +461,28 @@ const TarefaApp = (() => {
         const sub = util * preco
         const cSub = `<td>${box(money(sub), 'money' + (sub === 0 ? ' zero' : ''))}</td>`
         const badgeTxt = (l.situacao === 'devolver' && dev > 0) ? `Devolver ${qtd(dev)}` : sit.t
-        return `<tr class="${fora ? 'row-fora' : ''}">
+        const rev = !!l.revisado
+        const cSit = l.situacao === 'ok'
+          ? `<td class="c"><span class="sit ${sit.cls}">${esc(badgeTxt)}</span></td>`
+          : `<td class="c"><div class="cc-sit">
+               <span class="sit ${sit.cls}">${esc(badgeTxt)}</span>
+               <button class="cc-rev${rev ? ' on' : ''}" data-i="${i}">${rev ? '✓ Revisado' : 'Revisar'}</button>
+             </div></td>`
+        return `<tr class="${fora ? 'row-fora' : ''}${rev ? ' row-rev' : ''}">
           <td class="l cc-mat"><div class="cc-desc">${esc(l.descricao || '—')}</div>${l.codigo_produto ? `<div class="cc-cod">${esc(l.codigo_produto)}</div>` : ''}</td>
           <td class="c un">${esc(l.unidade || '—')}</td>
           ${cOrcada}
           <td><input class="edit cc-lev" type="number" inputmode="decimal" min="0" step="any" value="${lev}" data-i="${i}"></td>
           ${cUtil}
           ${cDev}
-          <td class="c"><span class="sit ${sit.cls}">${esc(badgeTxt)}</span></td>
+          ${cSit}
           ${cPreco}
           ${cSub}
         </tr>`
       }).join('')
       tb.querySelectorAll('.cc-lev').forEach(inp => inp.onchange = () => salvarLevada(Number(inp.dataset.i), inp.value))
       tb.querySelectorAll('.cc-preco').forEach(inp => inp.onchange = () => salvarPreco(Number(inp.dataset.i), inp.value))
+      tb.querySelectorAll('.cc-rev').forEach(btn => btn.onclick = () => salvarRevisado(Number(btn.dataset.i), !linhas[Number(btn.dataset.i)].revisado))
     }
     renderStats()
   }
@@ -483,14 +491,14 @@ const TarefaApp = (() => {
   function renderStats() {
     const box = document.getElementById('cc-stats')
     if (!linhas.length) { box.innerHTML = ''; return }
-    let custoOrcado = 0, custoUtil = 0, devValor = 0, devItens = 0, div = 0
+    let custoOrcado = 0, custoUtil = 0, devValor = 0, devItens = 0, div = 0, aRevisar = 0
     for (const l of linhas) {
       const p = Number(l.preco_unitario) || 0
       custoOrcado += (Number(l.qtd_orcada) || 0) * p
       custoUtil   += (Number(l.qtd_utilizada) || 0) * p
       const d = Number(l.qtd_devolvida) || 0
       if (d > 0) { devItens++; devValor += d * p }
-      if (l.situacao !== 'ok') div++
+      if (l.situacao !== 'ok') { div++; if (!l.revisado) aRevisar++ }
     }
     const delta = custoUtil - custoOrcado
     const dcls = delta > 0 ? 'up' : (delta < 0 ? 'down' : 'flat')
@@ -500,7 +508,7 @@ const TarefaApp = (() => {
       <div class="stat"><div class="k">Valor orçado</div><div class="v">${money(custoOrcado)}</div><div class="d flat">venda (do orçamento)</div></div>
       <div class="stat"><div class="k">Valor utilizado</div><div class="v">${money(custoUtil)}</div><div class="d ${dcls}">${dtxt}</div></div>
       <div class="stat"><div class="k">A devolver ao estoque</div><div class="v">${money(devValor)}</div><div class="d flat">${devItens} item(ns)</div></div>
-      <div class="stat ${div ? 'warn' : ''}"><div class="k">Divergências</div><div class="v">${div}</div><div class="d flat">${div ? 'revisar linhas' : 'tudo conciliado'}</div></div>`
+      <div class="stat ${aRevisar ? 'warn' : ''}"><div class="k">A revisar</div><div class="v">${aRevisar}</div><div class="d flat">${div ? (aRevisar ? `${aRevisar} de ${div} divergência${div > 1 ? 's' : ''}` : 'tudo revisado') : 'tudo conciliado'}</div></div>`
   }
 
   async function salvarLevada(i, val) {
@@ -539,6 +547,24 @@ const TarefaApp = (() => {
     }
     if (err) return toast('Erro ao salvar valor: ' + err.message, 'err')
     toast('Valor unitário atualizado.', 'ok')
+    await carregarLinhas()
+  }
+
+  // Marca/desmarca a linha como revisada pelo admin.
+  async function salvarRevisado(i, val) {
+    const l = linhas[i]; if (!l) return
+    let err
+    if (l.tm_id) {
+      err = (await sb().from('tarefa_materiais').update({ revisado: val }).eq('id', l.tm_id)).error
+    } else {
+      err = (await sb().from('tarefa_materiais').insert({
+        tarefa_id: cur.id, produto_id: l.produto_id || null, codigo_produto: l.codigo_produto || null,
+        descricao: l.descricao || '(sem descrição)', unidade: l.unidade || null,
+        preco_unitario: Number(l.preco_unitario) || 0, qtd_orcada: 0, qtd_levada: Number(l.qtd_levada) || 0,
+        origem: 'avulso', revisado: val,
+      })).error
+    }
+    if (err) return toast('Erro ao salvar revisão: ' + err.message, 'err')
     await carregarLinhas()
   }
 
