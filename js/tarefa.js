@@ -447,15 +447,17 @@ const TarefaApp = (() => {
         const util = Number(l.qtd_utilizada) || 0
         const dev = Number(l.qtd_devolvida) || 0
         const devNeg = dev < 0                 // usado sem ter sido levado: não imprime negativo
-        const semOrcada = orcada <= 0          // avulso/fora → preço editável, Orçada "—"
+        const devShown = Math.max(0, dev)
+        const semOrcada = orcada <= 0          // avulso/fora → preço editável
         const preco = Number(l.preco_unitario) || 0
-        // células de número puro (sem unidade grudada); 0 = cinza; "—" = N/A
-        const cOrcada = orcada > 0 ? `<td class="qty">${qtd(orcada)}</td>` : `<td class="qty na">—</td>`
-        const cUtil = `<td class="qty ${devNeg ? 'alert' : (util === 0 ? 'zero' : '')}">${qtd(util)}</td>`
-        const cDev = devNeg ? `<td class="qty na">—</td>` : `<td class="qty ${dev === 0 ? 'zero' : ''}">${qtd(dev)}</td>`
+        // caixa somente-leitura (igual à da Levada); 0 em cinza; sem "—"
+        const box = (v, cls) => `<div class="cc-box${cls ? ' ' + cls : ''}">${v}</div>`
+        const cOrcada = `<td>${box(qtd(orcada), orcada === 0 ? 'zero' : '')}</td>`
+        const cUtil = `<td>${box(qtd(util), devNeg ? 'alert' : (util === 0 ? 'zero' : ''))}</td>`
+        const cDev = `<td>${box(qtd(devShown), devShown === 0 ? 'zero' : '')}</td>`
         const cPreco = semOrcada
           ? `<td><input class="edit cc-preco" type="number" inputmode="decimal" min="0" step="0.01" value="${preco > 0 ? preco : ''}" data-i="${i}" placeholder="0,00"></td>`
-          : `<td class="money">${money(preco)}</td>`
+          : `<td>${box(money(preco), 'money')}</td>`
         const badgeTxt = (l.situacao === 'devolver' && dev > 0) ? `Devolver ${qtd(dev)}` : sit.t
         return `<tr class="${fora ? 'row-fora' : ''}">
           <td class="l cc-mat"><div class="cc-desc">${esc(l.descricao || '—')}</div>${l.codigo_produto ? `<div class="cc-cod">${esc(l.codigo_produto)}</div>` : ''}</td>

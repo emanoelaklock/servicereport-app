@@ -121,9 +121,12 @@
   .cc-mat{width:100%}
   .cc-desc{color:var(--tx);font-weight:600}
   .cc-cod{font-size:11px;color:var(--tx3);margin-top:2px}
-  /* inputs discretos (Levada sempre; Valor unit. só avulso/fora) */
-  .cc-table .edit{width:66px;padding:5px 9px;border:1px solid var(--bd);border-radius:7px;font:inherit;font-size:13px;text-align:right;font-weight:600;font-variant-numeric:tabular-nums;background:#fff}
-  .cc-table .edit.cc-preco{width:104px}
+  /* caixas: Levada/Valor-avulso editáveis (.edit) e demais só-leitura (.cc-box) — mesmo visual */
+  .cc-table .edit,.cc-table .cc-box{width:66px;padding:5px 9px;border:1px solid var(--bd);border-radius:7px;font:inherit;font-size:13px;text-align:right;font-weight:600;font-variant-numeric:tabular-nums;background:#fff;color:var(--tx)}
+  .cc-table .edit.cc-preco,.cc-table .cc-box.money{width:104px}
+  .cc-table .cc-box{display:inline-block;box-sizing:border-box}
+  .cc-table .cc-box.zero{color:#9aa1ad;font-weight:500}
+  .cc-table .cc-box.alert{color:var(--re);font-weight:700}
   .cc-table .edit:focus{outline:none;border-color:var(--ac);box-shadow:0 0 0 3px var(--acl)}
   tr.row-fora td{background:#FEF7F6}
 
