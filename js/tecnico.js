@@ -294,9 +294,20 @@
     document.getElementById('t-det-agenda').textContent = t.data_agendada ? 'Agendada para ' + fdt(t.data_agendada) : 'Sem data agendada'
     const oSec = document.getElementById('t-det-orient-sec')
     if (t.orientacao) { document.getElementById('t-det-orient').textContent = t.orientacao; oSec.style.display = 'block' } else oSec.style.display = 'none'
-    // botões de concluir (override) — escondidos quando a tarefa já foi para faturamento
+    // concluir exige ≥1 RAT salva desta tarefa (não dá pra concluir sem registro)
     const podeConcluir = !['aprovada_faturamento', 'faturada'].includes(t.status)
-    document.getElementById('t-det-concluir').style.display = podeConcluir ? 'grid' : 'none'
+    const todas = await D().listarRats()
+    // RAT "completa" = salva (o salvar() só promove de rascunho após validar os obrigatórios) e questionário ok
+    let temRat = (todas || []).some(r => r.tarefa_id === id && r.sync_status !== D().STATUS.RASCUNHO && r.questionario_ok !== false)
+    if (!temRat && navigator.onLine) {
+      try {
+        const { count } = await getSupabase().from('rats').select('id', { count: 'exact', head: true })
+          .eq('tarefa_id', id).eq('questionario_ok', true)
+        temRat = (count || 0) > 0
+      } catch (e) { /* offline/erro: mantém o que tem local */ }
+    }
+    document.getElementById('t-det-concluir').style.display = (podeConcluir && temRat) ? 'grid' : 'none'
+    document.getElementById('t-det-concluir-hint').style.display = (podeConcluir && !temRat) ? 'block' : 'none'
     mostrar('tarefa-det')
     await carregarEquipDaTarefa(id)
     await renderRatsDaTarefa(id)
