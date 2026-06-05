@@ -476,8 +476,8 @@ const TarefaApp = (() => {
     const dtxt = delta > 0 ? `↑ ${money(delta)} acima do orçado`
                : delta < 0 ? `↓ ${money(-delta)} abaixo do orçado` : 'igual ao orçado'
     box.innerHTML = `
-      <div class="stat"><div class="k">Custo orçado</div><div class="v">${money(custoOrcado)}</div><div class="d flat">o que foi vendido</div></div>
-      <div class="stat"><div class="k">Custo utilizado</div><div class="v">${money(custoUtil)}</div><div class="d ${dcls}">${dtxt}</div></div>
+      <div class="stat"><div class="k">Valor orçado</div><div class="v">${money(custoOrcado)}</div><div class="d flat">venda (do orçamento)</div></div>
+      <div class="stat"><div class="k">Valor utilizado</div><div class="v">${money(custoUtil)}</div><div class="d ${dcls}">${dtxt}</div></div>
       <div class="stat"><div class="k">A devolver ao estoque</div><div class="v">${money(devValor)}</div><div class="d flat">${devItens} item(ns)</div></div>
       <div class="stat ${div ? 'warn' : ''}"><div class="k">Divergências</div><div class="v">${div}</div><div class="d flat">${div ? 'revisar linhas' : 'tudo conciliado'}</div></div>`
   }
