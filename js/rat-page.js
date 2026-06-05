@@ -27,7 +27,26 @@ const RatPage = (() => {
     document.getElementById('rp-title').textContent = `${det.r.cliente_nome || 'RAT'}${tarefaNo ? ' · Tarefa Nº ' + tarefaNo : ''}`
 
     bind()
+    renderHero()
     render()
+  }
+
+  function renderHero() {
+    const r = det.r
+    const tarefaNo = r.tarefa && r.tarefa.numero != null ? String(r.tarefa.numero).padStart(5, '0') : null
+    const st = RatView.statusInfo(r.status)
+    document.getElementById('rp-hero').innerHTML = `
+      <div class="doc-band"><div class="db-brand">TRADERS SERVICE</div><div class="db-doc">Relatório de Atendimento Técnico</div></div>
+      <div class="doc-hero">
+        <div class="dh-cli">${esc(r.cliente_nome || '—')}</div>
+        <div class="dh-sub">${esc(RatView.tipoNomeRat(r))}${tarefaNo ? ' · Tarefa Nº ' + tarefaNo : ''}</div>
+        <div class="dh-chips">
+          <span class="chip"><i>Técnico</i>${esc(r.tecnico_nome || '—')}</span>
+          <span class="chip"><i>Data</i>${fdt(r.data_tarefa, { withTime: true })}</span>
+          <span class="chip"><i>Tempo trabalhado</i>${RatView.fmtMin(RatView.tempoRat(r))}</span>
+          <span class="badge ${st.cls}">${esc(st.label)}</span>
+        </div>
+      </div>`
   }
 
   function barra(show) { document.getElementById('rp-actions').style.display = show ? '' : 'none' }
@@ -49,7 +68,7 @@ const RatPage = (() => {
   }
 
   function render() {
-    document.getElementById('rp-body').innerHTML = RatView.buildReportBody(det, editMode)
+    document.getElementById('rp-body').innerHTML = RatView.buildReportBody(det, editMode, { noHeader: true })
     const show = (id, v) => { document.getElementById(id).style.display = v ? '' : 'none' }
     show('rp-editar', !editMode)
     show('rp-salvar', editMode)

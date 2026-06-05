@@ -21,6 +21,13 @@ window.RatView = (function () {
   const escMulti = (s) => esc(String(s == null ? '' : s)).replace(/\n/g, '<br>')
   const tipoNomeRat = (r) => (r.tarefa && r.tarefa.tipo && r.tarefa.tipo.nome) || (r.tipos_servico && r.tipos_servico.nome) || '—'
 
+  const STATUS = {
+    em_andamento:        { label: 'Em andamento',           cls: 'st-run' },
+    concluida:           { label: 'Concluída',              cls: 'st-ok' },
+    concluida_pendencia: { label: 'Concluída c/ pendência', cls: 'st-pend' },
+  }
+  const statusInfo = (s) => STATUS[s] || { label: s || '—', cls: '' }
+
   // ── Tempo trabalhado (mesma regra do app do técnico): janela desloc Sim →
   //    ida→retorno; senão → execução; desconta almoço e pausa. ──
   const minutosDe = (hhmm) => { if (!hhmm) return null; const [h, m] = String(hhmm).split(':').map(Number); return (isNaN(h) || isNaN(m)) ? null : h * 60 + m }
@@ -70,20 +77,23 @@ window.RatView = (function () {
   }
 
   // Monta o corpo de UMA RAT (modal e PDF compartilham). edit=true torna campos editáveis.
-  function buildReportBody(d, edit) {
+  // opts.noHeader: omite o cabeçalho interno (a página desenha o seu próprio).
+  function buildReportBody(d, edit, opts) {
+    opts = opts || {}
     const { r, campos, mats, fotos, sigUrl } = d
     const resp = r.respostas || {}
     const SKIP = new Set(['foto', 'produtos', 'assinatura'])
     const tarefaNo = r.tarefa && r.tarefa.numero != null ? String(r.tarefa.numero).padStart(5, '0') : null
 
-    let h = `<div class="rd">
+    let h = `<div class="rd">`
+    if (!opts.noHeader) h += `
       <div class="rd-head">
         <div class="rd-cli">${esc(r.cliente_nome || '—')}</div>
         <div class="rd-sub">${esc(tipoNomeRat(r))}${tarefaNo ? ' · Tarefa Nº ' + tarefaNo : ''}</div>
         <div class="rd-meta">
           <span><b>Técnico:</b> ${esc(r.tecnico_nome || '—')}</span>
           <span><b>Data:</b> ${fdt(r.data_tarefa, { withTime: true })}</span>
-          <span><b>Status:</b> ${esc(r.status || '—')}</span>
+          <span><b>Status:</b> ${esc(statusInfo(r.status).label)}</span>
           <span><b>Tempo:</b> ${fmtMin(tempoRat(r))}</span>
         </div>
       </div>`
@@ -209,6 +219,6 @@ window.RatView = (function () {
 
   return {
     RAT_SELECT, ensureForms, loadDetalhe, buildReportBody, coletarEdicao,
-    gerarPdf, calcTempoDe, tempoRat, fmtMin, tipoNomeRat,
+    gerarPdf, calcTempoDe, tempoRat, fmtMin, tipoNomeRat, statusInfo,
   }
 })()
