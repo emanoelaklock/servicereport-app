@@ -79,6 +79,11 @@
   .t-det-orient{font-size:14px;color:var(--tx);line-height:1.5;white-space:pre-wrap}
   .t-det-equip-item{font-size:13px;color:var(--tx);padding:6px 0;border-bottom:1px solid var(--bd)}
   .t-det-equip-item .sub{color:var(--tx3);font-family:var(--mono);font-size:11px}
+  .t-det-mat-item{display:flex;justify-content:space-between;gap:10px;font-size:13px;padding:6px 0;border-bottom:1px solid var(--bd)}
+  .t-det-mat-item .q{font-family:var(--mono);font-size:12px;color:var(--tx2);white-space:nowrap}
+  .t-det-anx{display:flex;align-items:center;gap:8px;font-size:13px;padding:7px 0;border-bottom:1px solid var(--bd)}
+  .t-det-anx a{color:var(--ac);text-decoration:none;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .t-det-anx a:hover{text-decoration:underline}
   #f-tarefa-banner{background:#EEF4FF;border:1px solid #cfe0ff;border-radius:10px;padding:10px 12px;margin-bottom:14px;font-size:13px;color:#1c54b8}
 
   /* Form */
@@ -217,13 +222,26 @@
           </div>
           <div class="t-det-cli" id="t-det-cli">—</div>
           <div class="t-det-row" id="t-det-agenda"></div>
+          <div class="t-det-row" id="t-det-tipo" style="display:none"></div>
           <div class="t-det-sec" id="t-det-orient-sec" style="display:none">
             <div class="t-det-lbl">Orientação</div>
             <div class="t-det-orient" id="t-det-orient"></div>
           </div>
+          <div class="t-det-sec" id="t-det-obs-sec" style="display:none">
+            <div class="t-det-lbl">Observações</div>
+            <div class="t-det-orient" id="t-det-obs"></div>
+          </div>
+          <div class="t-det-sec" id="t-det-mat-sec" style="display:none">
+            <div class="t-det-lbl">Material</div>
+            <div id="t-det-mat"></div>
+          </div>
           <div class="t-det-sec" id="t-det-equip-sec" style="display:none">
             <div class="t-det-lbl">Equipamentos</div>
             <div id="t-det-equip"></div>
+          </div>
+          <div class="t-det-sec" id="t-det-anexos-sec" style="display:none">
+            <div class="t-det-lbl">Anexos</div>
+            <div id="t-det-anexos"></div>
           </div>
           <div class="t-det-sec" id="t-det-rats-sec" style="display:none">
             <div class="t-det-lbl">RATs desta tarefa</div>

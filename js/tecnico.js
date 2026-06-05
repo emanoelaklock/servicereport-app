@@ -239,7 +239,7 @@
     try {
       const sb = getSupabase()
       const { data, error } = await sb.from('tarefas')
-        .select('id,numero,status,data_agendada,cliente_id,orientacao')
+        .select('id,numero,status,data_agendada,cliente_id,orientacao,observacoes,tipo_servico_id')
         .neq('status', 'faturada')
         .order('data_agendada', { ascending: true, nullsFirst: false })
         .order('numero', { ascending: false })
@@ -292,8 +292,14 @@
     const badge = document.getElementById('t-det-badge'); badge.textContent = st.t; badge.className = 't-det-badge ' + st.c
     document.getElementById('t-det-cli').textContent = cliNomeDe(t.cliente_id)
     document.getElementById('t-det-agenda').textContent = t.data_agendada ? 'Agendada para ' + fdt(t.data_agendada) : 'Sem data agendada'
+    // Tipo de tarefa
+    const tipoNome = (ref.tipos.find(x => x.id === t.tipo_servico_id) || {}).nome
+    const tSec = document.getElementById('t-det-tipo')
+    if (tipoNome) { tSec.textContent = 'Tipo: ' + tipoNome; tSec.style.display = 'block' } else tSec.style.display = 'none'
     const oSec = document.getElementById('t-det-orient-sec')
     if (t.orientacao) { document.getElementById('t-det-orient').textContent = t.orientacao; oSec.style.display = 'block' } else oSec.style.display = 'none'
+    const obSec = document.getElementById('t-det-obs-sec')
+    if (t.observacoes) { document.getElementById('t-det-obs').textContent = t.observacoes; obSec.style.display = 'block' } else obSec.style.display = 'none'
     // concluir exige ≥1 RAT salva desta tarefa (não dá pra concluir sem registro)
     const podeConcluir = !['aprovada_faturamento', 'faturada'].includes(t.status)
     const todas = await D().listarRats()
@@ -309,8 +315,45 @@
     document.getElementById('t-det-concluir').style.display = (podeConcluir && temRat) ? 'grid' : 'none'
     document.getElementById('t-det-concluir-hint').style.display = (podeConcluir && !temRat) ? 'block' : 'none'
     mostrar('tarefa-det')
+    await carregarMaterialDaTarefa(id)
     await carregarEquipDaTarefa(id)
+    await carregarAnexosDaTarefa(id)
     await renderRatsDaTarefa(id)
+  }
+
+  // Material orçado/levado (view sem preço) — leitura
+  async function carregarMaterialDaTarefa(id) {
+    const sec = document.getElementById('t-det-mat-sec')
+    const box = document.getElementById('t-det-mat')
+    try {
+      const { data } = await getSupabase().from('vw_tarefa_materiais_tecnico')
+        .select('descricao,codigo_produto,unidade,qtd_orcada,qtd_levada').eq('tarefa_id', id)
+      if (!data || !data.length) { sec.style.display = 'none'; return }
+      const q = (n, u) => { const v = Number(n) || 0; return v ? v.toLocaleString('pt-BR', { maximumFractionDigits: 3 }) + (u ? ' ' + u : '') : '—' }
+      box.innerHTML = data.map(m => `<div class="t-det-mat-item">
+        <span>${esc(m.descricao || m.codigo_produto || '—')}</span>
+        <span class="q">Orçado ${q(m.qtd_orcada, m.unidade)} · Levado ${q(m.qtd_levada, m.unidade)}</span>
+      </div>`).join('')
+      sec.style.display = 'block'
+    } catch (e) { sec.style.display = 'none' }
+  }
+
+  // Anexos da tarefa — download por link assinado
+  async function carregarAnexosDaTarefa(id) {
+    const sec = document.getElementById('t-det-anexos-sec')
+    const box = document.getElementById('t-det-anexos')
+    try {
+      const { data } = await getSupabase().from('tarefa_anexos').select('nome,url').eq('tarefa_id', id).order('criado_em')
+      if (!data || !data.length) { sec.style.display = 'none'; return }
+      box.innerHTML = data.map((a, i) => `<div class="t-det-anx"><span>📄</span><a data-anx="${i}">${esc(a.nome || 'arquivo')}</a></div>`).join('')
+      box.querySelectorAll('[data-anx]').forEach(el => el.onclick = async () => {
+        const a = data[Number(el.dataset.anx)]
+        const { data: s, error } = await getSupabase().storage.from('rat-anexos').createSignedUrl(a.url, 120)
+        if (error) return toast('Erro ao abrir: ' + error.message, 'err')
+        window.open(s.signedUrl, '_blank')
+      })
+      sec.style.display = 'block'
+    } catch (e) { sec.style.display = 'none' }
   }
 
   async function concluirTarefa(comPendencia) {
