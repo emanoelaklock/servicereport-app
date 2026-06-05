@@ -299,6 +299,9 @@ const TarefaApp = (() => {
     renderFaturamento(t)
     await Promise.all([carregarLinhas(), carregarEquip(), carregarAnexos(), carregarRats()])
     mostrar('detalhe')
+    // recalcula a altura só depois do detalhe ficar visível (scrollHeight=0 se oculto)
+    autoGrow(document.getElementById('cc-d-orientacao'))
+    autoGrow(document.getElementById('cc-d-obs'))
   }
 
   async function salvarDados() {
