@@ -24,6 +24,8 @@ const TarefaApp = (() => {
   const RAT_SIT = { em_andamento: 'Em andamento', concluida: 'Concluída', concluida_pendencia: 'Concluída c/ pendência' }
   const ratSit = (s) => RAT_SIT[s] || s || '—'
   const PANES = ['dados', 'equip', 'anexos', 'rats', 'material', 'fat']
+  // Cresce o textarea para caber todo o conteúdo (sem barra de rolagem).
+  const autoGrow = (el) => { if (!el) return; el.style.height = 'auto'; el.style.height = (el.scrollHeight + 2) + 'px' }
 
   const STATUS_LABEL = {
     aguardando_execucao: 'Aguardando execução', em_execucao: 'Em execução',
@@ -109,6 +111,8 @@ const TarefaApp = (() => {
     document.getElementById('cc-anx-btn').onclick = () => document.getElementById('cc-anx-input').click()
     document.getElementById('cc-anx-input').onchange = (e) => adicionarAnexos(e.target.files)
     document.getElementById('cc-obs-salvar').onclick = salvarConcilObs
+    document.getElementById('cc-d-orientacao').oninput = (e) => autoGrow(e.target)
+    document.getElementById('cc-d-obs').oninput = (e) => autoGrow(e.target)
     // Abas do detalhe
     document.querySelectorAll('#cc-tabs .cc-tab').forEach(b => b.onclick = () => mostrarPane(b.dataset.pane))
     // RATs
@@ -285,6 +289,8 @@ const TarefaApp = (() => {
     document.getElementById('cc-d-pc').value = t.pedido_compra || ''
     document.getElementById('cc-d-orientacao').value = t.orientacao || ''
     document.getElementById('cc-d-obs').value = t.observacoes || ''
+    autoGrow(document.getElementById('cc-d-orientacao'))
+    autoGrow(document.getElementById('cc-d-obs'))
     document.getElementById('cc-d-hint').textContent = (tecPorTarefa[id] || []).length ? '' : 'Atribua um ou mais técnicos e agende para a Tarefa aparecer no app do técnico.'
     document.getElementById('cc-obs').value = t.conciliacao_obs || ''
     document.getElementById('cc-obs-hint').textContent = ''
@@ -695,6 +701,7 @@ const TarefaApp = (() => {
     if (!PANES.includes(key)) key = 'dados'
     document.querySelectorAll('#cc-tabs .cc-tab').forEach(b => b.classList.toggle('on', b.dataset.pane === key))
     document.querySelectorAll('#view-detalhe .cc-pane').forEach(p => p.classList.toggle('on', p.dataset.pane === key))
+    if (key === 'dados') { autoGrow(document.getElementById('cc-d-orientacao')); autoGrow(document.getElementById('cc-d-obs')) }
     if (cur && cur.id) history.replaceState(null, '', `tarefa.html?t=${encodeURIComponent(cur.id)}&aba=${key}`)
   }
 
