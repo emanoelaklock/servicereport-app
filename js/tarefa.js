@@ -239,7 +239,7 @@ const TarefaApp = (() => {
 
   async function excluirTarefaLista(id) {
     const t = tarefas.find(x => x.id === id)
-    if (!confirm(`Excluir a Tarefa Nº ${osNo(t && t.numero)}? Remove conciliação, RATs, materiais, anexos e equipamentos. Esta ação não pode ser desfeita.`)) return
+    if (!confirm(`Excluir a Tarefa Nº ${osNo(t && t.numero)}? Remove conciliação, RATs, produtos, anexos e equipamentos. Esta ação não pode ser desfeita.`)) return
     const { error } = await sb().rpc('admin_excluir_tarefa', { p_tarefa: id })
     if (error) return toast('Erro ao excluir: ' + error.message, 'err')
     toast('Tarefa excluída.', 'ok')
@@ -330,7 +330,7 @@ const TarefaApp = (() => {
 
   async function excluirTarefa() {
     if (!cur || !cur.id) return
-    if (!confirm(`Excluir a Tarefa Nº ${osNo(cur.numero)}? Remove a conciliação, RATs, materiais, anexos e equipamentos desta tarefa. Esta ação não pode ser desfeita.`)) return
+    if (!confirm(`Excluir a Tarefa Nº ${osNo(cur.numero)}? Remove a conciliação, RATs, produtos, anexos e equipamentos desta tarefa. Esta ação não pode ser desfeita.`)) return
     const { error } = await sb().rpc('admin_excluir_tarefa', { p_tarefa: cur.id })
     if (error) return toast('Erro ao excluir: ' + error.message, 'err')
     toast('Tarefa excluída.', 'ok')
@@ -348,7 +348,7 @@ const TarefaApp = (() => {
     if (up.error) return toast('Erro ao salvar: ' + up.error.message, 'err')
     const t = tarefas.find(x => x.id === cur.id); if (t) t.conciliacao_obs = val
     document.getElementById('cc-obs-hint').textContent = 'Salvo.'
-    toast('Observações do material salvas.', 'ok')
+    toast('Observações dos produtos salvas.', 'ok')
   }
 
   // ───────────────────── Equipamentos relacionados ─────────────────────
@@ -435,7 +435,7 @@ const TarefaApp = (() => {
   function renderLinhas() {
     const tb = document.getElementById('cc-tbody')
     if (!linhas.length) {
-      tb.innerHTML = '<tr><td colspan="6" class="cc-empty">Sem materiais nesta tarefa. Adicione abaixo.</td></tr>'
+      tb.innerHTML = '<tr><td colspan="6" class="cc-empty">Sem produtos nesta tarefa. Adicione abaixo.</td></tr>'
     } else {
       tb.innerHTML = linhas.map((l, i) => {
         const sit = SIT[l.situacao] || { t: l.situacao, cls: '' }
@@ -517,11 +517,11 @@ const TarefaApp = (() => {
       qtd_orcada: 0, qtd_levada: 0, origem: 'avulso',
     })
     if (ins.error) {
-      if (ins.error.code === '23505') return toast('Esse material já está na lista — edite a Levada na linha.', 'err')
+      if (ins.error.code === '23505') return toast('Esse produto já está na lista — edite a Levada na linha.', 'err')
       return toast('Erro: ' + ins.error.message, 'err')
     }
     limparAdd()
-    toast('Material adicionado — informe a Levada na linha.', 'ok')
+    toast('Produto adicionado — informe a Levada na linha.', 'ok')
     await carregarLinhas()
   }
 
@@ -597,7 +597,7 @@ const TarefaApp = (() => {
   }
   async function ratExcluir() {
     if (!ratDet) return
-    if (!confirm('Excluir esta RAT? Remove os materiais e fotos dela. Esta ação não pode ser desfeita.')) return
+    if (!confirm('Excluir esta RAT? Remove os produtos e fotos dela. Esta ação não pode ser desfeita.')) return
     const { error } = await sb().rpc('admin_excluir_rat', { p_rat: ratDet.r.id })
     if (error) return toast('Erro ao excluir: ' + error.message, 'err')
     toast('RAT excluída.', 'ok')

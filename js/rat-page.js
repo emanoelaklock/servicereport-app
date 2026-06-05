@@ -91,7 +91,7 @@ const RatPage = (() => {
   }
 
   async function excluir() {
-    if (!confirm('Excluir esta RAT? Remove os materiais e fotos dela. Esta ação não pode ser desfeita.')) return
+    if (!confirm('Excluir esta RAT? Remove os produtos e fotos dela. Esta ação não pode ser desfeita.')) return
     const { error } = await sb().rpc('admin_excluir_rat', { p_rat: det.r.id })
     if (error) return toast('Erro ao excluir: ' + error.message, 'err')
     toast('RAT excluída.', 'ok')
