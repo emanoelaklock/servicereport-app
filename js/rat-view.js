@@ -231,13 +231,46 @@ window.RatView = (function () {
     for (const p of precos) await sb.from('materiais').update({ preco_unitario: p.preco }).eq('id', p.id)
   }
 
+  // Reduz/comprime uma imagem (foto/assinatura) para o PDF não ficar pesado.
+  // Redimensiona p/ no máx maxPx no maior lado e recomprime em JPEG.
+  function shrinkImg(url, maxPx, q) {
+    return new Promise((resolve) => {
+      const img = new Image()
+      img.crossOrigin = 'anonymous'
+      img.onload = () => {
+        try {
+          let w = img.naturalWidth || img.width, h = img.naturalHeight || img.height
+          const scale = Math.min(1, maxPx / Math.max(w, h))
+          w = Math.max(1, Math.round(w * scale)); h = Math.max(1, Math.round(h * scale))
+          const c = document.createElement('canvas'); c.width = w; c.height = h
+          c.getContext('2d').drawImage(img, 0, 0, w, h)
+          resolve(c.toDataURL('image/jpeg', q))
+        } catch (e) { resolve(url) }   // CORS/canvas "tainted" → mantém original
+      }
+      img.onerror = () => resolve(url)
+      img.src = url
+    })
+  }
+
   // PDF: 1 ou várias RATs no mesmo documento (para envio manual ao cliente).
-  function gerarPdf(dets, titulo) {
+  // Abre a janela já (gesto do usuário), comprime as imagens e então escreve o doc.
+  async function gerarPdf(dets, titulo) {
     const win = window.open('', '_blank')
     if (!win) { try { toast('Permita pop-ups para gerar o PDF.', 'err') } catch (e) {} return }
-    const corpo = dets.map((d, i) =>
+    try { win.document.write('<!doctype html><meta charset="utf-8"><body style="font-family:Inter,Arial,sans-serif;color:#1B2A4A;padding:28px">Gerando PDF…</body>') } catch (e) {}
+
+    // Versão dos dets com imagens reduzidas (fotos ~1100px / assinatura ~700px).
+    const pdets = []
+    for (const d of dets) {
+      const fotos = []
+      for (const f of (d.fotos || [])) fotos.push(Object.assign({}, f, { url: await shrinkImg(f.url, 1100, 0.72) }))
+      const sigUrl = d.sigUrl ? await shrinkImg(d.sigUrl, 700, 0.85) : null
+      pdets.push(Object.assign({}, d, { fotos, sigUrl }))
+    }
+
+    const corpo = pdets.map((d, i) =>
       `<div class="rat-wrap"${i > 0 ? ' style="page-break-before:always"' : ''}>` +
-      (dets.length > 1 ? `<div class="rat-sep">Relatório ${i + 1} de ${dets.length}</div>` : '') +
+      (pdets.length > 1 ? `<div class="rat-sep">Relatório ${i + 1} de ${pdets.length}</div>` : '') +
       buildReportBody(d, false) + `</div>`).join('')
     const doc = `<!doctype html><html lang="pt-BR"><head><meta charset="utf-8"><title>${esc(titulo || 'RAT')}</title>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
