@@ -96,6 +96,36 @@
   const fmtMin = (t) => (t == null) ? '—' : `${Math.floor(t / 60)}h ${String(t % 60).padStart(2, '0')}min`
   const escMulti = (s) => esc(String(s == null ? '' : s)).replace(/\n/g, '<br>')
 
+  // Tempo trabalhado a partir das respostas (mesma regra do app do técnico):
+  // janela deslocamento Sim → ida→retorno; senão → execução; desconta almoço e pausa.
+  const minutosDe = (hhmm) => { if (!hhmm) return null; const [h, m] = String(hhmm).split(':').map(Number); return (isNaN(h) || isNaN(m)) ? null : h * 60 + m }
+  function calcTempoDe(resp) {
+    resp = resp || {}
+    const dur = (ini, fim) => { const a = minutosDe(ini), b = minutosDe(fim); return (a == null || b == null) ? 0 : Math.max(0, b - a) }
+    let ini, fim
+    if (resp.deslocamento === 'Sim') { ini = resp.desloc_inicial_ida; fim = resp.desloc_final_retorno }
+    else { ini = resp.hora_inicio; fim = resp.hora_termino }
+    const a = minutosDe(ini), b = minutosDe(fim)
+    if (a == null || b == null) return null
+    const t = (b - a) - dur(resp.almoco_inicio, resp.almoco_termino) - dur(resp.pausa_inicio, resp.pausa_termino)
+    return t < 0 ? 0 : t
+  }
+  const tempoRat = (r) => { const t = calcTempoDe(r.respostas); return t == null ? r.tempo_trabalhado : t }
+
+  // Campo editável conforme o tipo (modo edição do admin).
+  function editInput(c, val) {
+    const v = val == null ? '' : String(val)
+    const a = `data-campo="${esc(c.id)}"`
+    if (c.tipo === 'selecao') {
+      const ops = Array.isArray(c.opcoes) ? c.opcoes : []
+      return `<select ${a}><option value=""></option>` + ops.map(o => `<option${o === v ? ' selected' : ''}>${esc(o)}</option>`).join('') + `</select>`
+    }
+    if (c.tipo === 'hora')   return `<input type="time" ${a} value="${esc(v)}">`
+    if (c.tipo === 'data')   return `<input type="date" ${a} value="${esc(v)}">`
+    if (c.tipo === 'numero') return `<input type="number" ${a} value="${esc(v)}">`
+    return `<input type="text" ${a} value="${esc(v)}">`
+  }
+
   async function carregarForms() {
     const { data } = await getSupabase().from('formulario_modelos').select('id,campos')
     forms = {}; (data || []).forEach(f => { forms[f.id] = f.campos || [] })
@@ -134,30 +164,30 @@
           <span><b>Técnico:</b> ${esc(r.tecnico_nome || '—')}</span>
           <span><b>Data:</b> ${fdt(r.data_tarefa, { withTime: true })}</span>
           <span><b>Status:</b> ${esc(r.status || '—')}</span>
-          <span><b>Tempo:</b> ${fmtMin(r.tempo_trabalhado)}</span>
+          <span><b>Tempo:</b> ${fmtMin(tempoRat(r))}</span>
         </div>
       </div>`
 
-    if (edit) h += `<div class="rd-edit-hint">✎ Modo edição — ajuste as descrições e clique em <b>Salvar</b>. Os demais dados são do técnico.</div>`
+    if (edit) h += `<div class="rd-edit-hint">✎ Modo edição — você pode ajustar qualquer campo. O tempo trabalhado é recalculado automaticamente ao salvar.</div>`
 
     // campos curtos -> grid ; textos longos -> seção própria (em ordem do formulário)
     const grid = []
     const longSecs = []
     for (const c of campos) {
       if (SKIP.has(c.tipo)) continue
-      const editable = c.tipo === 'texto_longo'
-      const vis = campoVisivel(c, resp)
+      const isLong = c.tipo === 'texto_longo'
       const val = resp[c.id]
       const vazio = val == null || String(val).trim() === ''
-      if (!vis && !(editable && edit)) continue
-      if (vazio && !(editable && edit)) continue
-      if (editable) {
+      if (!campoVisivel(c, resp)) continue   // condicional não aplicável: oculto
+      if (!edit && vazio) continue           // visualização: oculta vazios (edição mostra todos)
+      if (isLong) {
         longSecs.push(`<div class="rd-sec"><div class="rd-sec-t">${esc(c.label)}</div>` +
           (edit
             ? `<textarea class="rd-edit" data-campo="${esc(c.id)}" rows="5">${esc(String(val || ''))}</textarea>`
             : `<div class="rd-long">${escMulti(val) || '—'}</div>`) + `</div>`)
       } else {
-        grid.push(`<div class="rd-f"><label>${esc(c.label)}</label><div class="v">${escMulti(val) || '—'}</div></div>`)
+        grid.push(`<div class="rd-f"><label>${esc(c.label)}</label>` +
+          (edit ? editInput(c, val) : `<div class="v">${escMulti(val) || '—'}</div>`) + `</div>`)
       }
     }
     if (grid.length) h += `<div class="rd-sec"><div class="rd-sec-t">Dados do atendimento</div><div class="rd-grid">${grid.join('')}</div></div>`
@@ -222,14 +252,18 @@
   async function salvarEdicao() {
     if (!det) return
     const resp = Object.assign({}, det.r.respostas || {})
-    document.querySelectorAll('#ver-body .rd-edit').forEach(t => { resp[t.getAttribute('data-campo')] = t.value })
-    const { error } = await getSupabase().from('rats').update({ respostas: resp }).eq('id', det.r.id)
+    document.querySelectorAll('#ver-body [data-campo]').forEach(el => { resp[el.getAttribute('data-campo')] = el.value })
+    const tempo = calcTempoDe(resp)
+    const upd = { respostas: resp }
+    if (tempo != null) upd.tempo_trabalhado = tempo
+    const { error } = await getSupabase().from('rats').update(upd).eq('id', det.r.id)
     if (error) return toast('Erro ao salvar: ' + error.message, 'err')
-    det.r.respostas = resp
-    const c = cache.find(x => x.id === det.r.id); if (c) c.respostas = resp
+    det.r.respostas = resp; if (tempo != null) det.r.tempo_trabalhado = tempo
+    const c = cache.find(x => x.id === det.r.id); if (c) { c.respostas = resp; if (tempo != null) c.tempo_trabalhado = tempo }
     editMode = false
     renderDetalhe()
-    toast('Descrições atualizadas.', 'ok')
+    render()
+    toast('RAT atualizada.', 'ok')
   }
 
   // PDF para envio manual: abre janela com layout de impressão e dispara o print ("Salvar como PDF").

@@ -759,19 +759,27 @@
     if (isNaN(h) || isNaN(m)) return null
     return h * 60 + m
   }
-  function calcTempo() {
-    const val = (id) => { const el = document.querySelector(`[data-campo="${CSS.escape(id)}"]`); return el ? el.value : '' }
-    const desloc = val('deslocamento')
+  // Cálculo puro a partir das respostas (compartilhado com o back-office).
+  // Janela: deslocamento Sim → ida→retorno; senão → execução. Desconta almoço e pausa.
+  function calcTempoDe(resp) {
+    const dur = (ini, fim) => { const a = minutosDe(ini), b = minutosDe(fim); return (a == null || b == null) ? 0 : Math.max(0, b - a) }
     let ini, fim
-    if (desloc === 'Sim') { ini = val('desloc_inicial_ida'); fim = val('desloc_final_retorno') }
-    else if (desloc === 'Não') { ini = val('hora_inicio'); fim = val('hora_termino') }
-    else return null
+    if (resp.deslocamento === 'Sim') { ini = resp.desloc_inicial_ida; fim = resp.desloc_final_retorno }
+    else { ini = resp.hora_inicio; fim = resp.hora_termino }
     const a = minutosDe(ini), b = minutosDe(fim)
     if (a == null || b == null) return null
-    const almoco = Number(val('tempo_almoco')) || 0
-    const pausa = Number(val('tempo_pausa')) || 0
-    const t = b - a - almoco - pausa
+    const t = (b - a) - dur(resp.almoco_inicio, resp.almoco_termino) - dur(resp.pausa_inicio, resp.pausa_termino)
     return t < 0 ? 0 : t
+  }
+  function calcTempo() {
+    const val = (id) => { const el = document.querySelector(`[data-campo="${CSS.escape(id)}"]`); return el ? el.value : '' }
+    return calcTempoDe({
+      deslocamento: val('deslocamento'),
+      desloc_inicial_ida: val('desloc_inicial_ida'), desloc_final_retorno: val('desloc_final_retorno'),
+      hora_inicio: val('hora_inicio'), hora_termino: val('hora_termino'),
+      almoco_inicio: val('almoco_inicio'), almoco_termino: val('almoco_termino'),
+      pausa_inicio: val('pausa_inicio'), pausa_termino: val('pausa_termino'),
+    })
   }
   const fmtMin = (t) => t == null ? '—' : `${Math.floor(t / 60)}h ${String(t % 60).padStart(2, '0')}min`
   function atualizarTempo() {
