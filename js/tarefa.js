@@ -1,10 +1,10 @@
 /* ═══════════════════════════════════════════════
-   Service Report — conciliacao.js  (#5.3)
+   Service Report — tarefa.js  (#5.3)
    Tela admin: lista de Tarefas + conciliação de material (5 colunas).
    Admin edita a coluna "Levada" e adiciona materiais (catálogo ou avulso).
    Orçada vem do orçamento; Utilizada vem das RATs do técnico (view).
 ═══════════════════════════════════════════════ */
-const ConciliacaoApp = (() => {
+const TarefaApp = (() => {
   const sb = () => getSupabase()
   let user = { id: null }
   let ref = { produtos: [], tecnicos: [], tipos: [], equip: [], clientes: [] }

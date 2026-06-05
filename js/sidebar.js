@@ -47,7 +47,7 @@ function renderSidebar(paginaAtiva) {
 
     <div class="sb-section">Execução</div>
 
-    <a class="sb-item${a==='conciliacao'?' on':''}" href="tarefa.html">
+    <a class="sb-item${a==='tarefas'?' on':''}" href="tarefa.html">
       ${SVG.tarefas}<span class="sb-label">Tarefas</span>
     </a>
 

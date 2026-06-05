@@ -12,7 +12,7 @@
 <script src="js/auth.js"></script>
 <script src="js/sidebar.js"></script>
 <script src="js/rat-view.js"></script>
-<script src="js/conciliacao.js"></script>
+<script src="js/tarefa.js"></script>
 <style>
   /* Toolbar / filtros */
   .cc-toolbar{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:16px;flex-wrap:wrap}
@@ -418,10 +418,10 @@
   // Tela administrativa — só admin/gestor leem tarefas e gerenciam a Levada.
   window.PAGE_ALLOWED = ['admin', 'gestor_axis']
   async function onPostLogin() {
-    renderSidebar('conciliacao')
-    await ConciliacaoApp.init()
+    renderSidebar('tarefas')
+    await TarefaApp.init()
   }
-  renderSidebar('conciliacao')
+  renderSidebar('tarefas')
   initAuth()
 </script>
 </body>
