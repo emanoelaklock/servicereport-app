@@ -55,6 +55,7 @@
   .tm-x{border:none;background:none;font-size:18px;color:var(--tx3);cursor:pointer}
   .tm-b{padding:16px 18px}
   .tm-b label{display:block;font-size:12px;font-weight:600;color:var(--tx2);margin-bottom:5px}
+  .tm-b select,.tm-b input[type=date]{width:100%;padding:9px 11px;border:1px solid var(--bd);border-radius:8px;font:inherit;font-size:14px;background:#fff;outline:none}
   .tm-f{display:flex;justify-content:flex-end;gap:10px;padding:12px 18px;border-top:1px solid var(--bd)}
 
   /* Tarefas (atribuídas) */
@@ -385,7 +386,11 @@
         <input type="hidden" id="nt-cliente">
         <div class="ac-list" id="nt-cliente-list"></div>
       </div>
-      <p class="dim" style="margin-top:8px">A tarefa será criada e atribuída a você. Depois é só tocar em “Iniciar RAT”.</p>
+      <label style="margin-top:12px">Tipo de serviço</label>
+      <select id="nt-tipo"><option value="">— selecione —</option></select>
+      <label style="margin-top:12px">Data agendada</label>
+      <input type="date" id="nt-data">
+      <p class="dim" style="margin-top:10px">A tarefa será criada e atribuída a você. Depois é só tocar em “Iniciar RAT”.</p>
     </div>
     <div class="tm-f">
       <button class="btn" id="nt-cancelar">Cancelar</button>

@@ -98,7 +98,11 @@
     document.getElementById('nav-os').onclick = async () => { mostrar('lista'); await renderLista() }
     document.getElementById('nav-tarefas').onclick = async () => { mostrar('tarefas'); await renderTarefas() }
     document.getElementById('btn-tarefas-sync').onclick = async () => { await renderTarefas(true) }
-    document.getElementById('btn-nova-tarefa').onclick = () => { document.getElementById('nt-cliente').value = ''; document.getElementById('nt-cliente-busca').value = ''; document.getElementById('modal-nt').classList.add('open') }
+    document.getElementById('btn-nova-tarefa').onclick = () => {
+      document.getElementById('nt-cliente').value = ''; document.getElementById('nt-cliente-busca').value = ''
+      document.getElementById('nt-tipo').value = ''; document.getElementById('nt-data').value = ''
+      document.getElementById('modal-nt').classList.add('open')
+    }
     document.getElementById('nt-fechar').onclick = () => document.getElementById('modal-nt').classList.remove('open')
     document.getElementById('nt-cancelar').onclick = () => document.getElementById('modal-nt').classList.remove('open')
     document.getElementById('nt-criar').onclick = criarTarefaTecnico
@@ -162,9 +166,9 @@
       document.getElementById('nt-cliente-list'),
       ref.clientes, c => ({ id: c.id, label: c.nome })
     )
-    const selT = document.getElementById('f-tipo')
-    selT.innerHTML = '<option value="">Selecione…</option>' +
-      ref.tipos.map(t => `<option value="${esc(t.id)}">${esc(t.nome)}</option>`).join('')
+    const tipoOpts = ref.tipos.map(t => `<option value="${esc(t.id)}">${esc(t.nome)}</option>`).join('')
+    document.getElementById('f-tipo').innerHTML = '<option value="">Selecione…</option>' + tipoOpts
+    document.getElementById('nt-tipo').innerHTML = '<option value="">— selecione —</option>' + tipoOpts
   }
 
   // ─────────────────────────── Lista ───────────────────────────
@@ -266,7 +270,11 @@
     if (!navigator.onLine) return toast('Sem conexão — crie a tarefa quando estiver online.', 'err')
     const sb = getSupabase()
     const newId = crypto.randomUUID()
-    const ins = await sb.from('tarefas').insert({ id: newId, cliente_id: cliId, status: 'aguardando_execucao', criado_por: tecnico.id })
+    const ins = await sb.from('tarefas').insert({
+      id: newId, cliente_id: cliId, status: 'aguardando_execucao', criado_por: tecnico.id,
+      tipo_servico_id: document.getElementById('nt-tipo').value || null,
+      data_agendada: document.getElementById('nt-data').value || null,
+    })
     if (ins.error) return toast('Erro ao criar tarefa: ' + ins.error.message, 'err')
     const at = await sb.from('tarefa_tecnicos').insert({ tarefa_id: newId, tecnico_id: tecnico.id })
     if (at.error) return toast('Tarefa criada, mas falha ao atribuir: ' + at.error.message, 'err')
