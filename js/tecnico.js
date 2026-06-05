@@ -88,8 +88,7 @@
   }
 
   function bind() {
-    // RAT (Ordens de Serviço — fluxo atual)
-    document.getElementById('btn-nova').onclick = novaRat
+    // RAT — sempre criada DENTRO de uma Tarefa (não há criação avulsa).
     document.getElementById('btn-cancelar').onclick = cancelar
     document.getElementById('btn-salvar').onclick = salvar
     document.getElementById('f-tipo').onchange = onTipoChange
@@ -175,7 +174,7 @@
     const rats = await D().listarRats()
     const box = document.getElementById('lista-rats')
     if (!rats.length) {
-      box.innerHTML = '<p class="dim" style="padding:14px 2px">Nenhuma RAT no aparelho. Toque em “+ Nova RAT”.</p>'
+      box.innerHTML = '<p class="dim" style="padding:14px 2px">Nenhuma RAT no aparelho. Abra uma tarefa em <b>Minhas Tarefas</b> e toque em <b>“Iniciar RAT”</b>.</p>'
       return
     }
     box.innerHTML = rats.map(r => `
@@ -337,21 +336,6 @@
     if (screen === 'preorc-form') return cancelarPreorc()
     if (screen === 'tarefa-det') return mostrar('tarefas')
     mostrar('home')
-  }
-
-  async function novaRat() {
-    const rat = await D().novoRat({})
-    cur = { client_uuid: rat.client_uuid, campos: [] }
-    document.getElementById('f-tarefa-banner').style.display = 'none'
-    document.getElementById('f-cliente').value = ''
-    const cb = document.getElementById('f-cliente-busca'); cb.value = ''; cb.readOnly = false
-    document.getElementById('f-tipo').value = ''
-    document.getElementById('f-status').value = 'em_andamento'
-    document.getElementById('f-pendencias').value = ''
-    togglePendencias()
-    document.getElementById('campos-container').innerHTML = ''
-    document.getElementById('form-titulo').textContent = 'Nova RAT'
-    mostrar('form')
   }
 
   async function abrirExistente(client_uuid) {
