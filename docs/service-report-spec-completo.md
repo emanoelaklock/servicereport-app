@@ -67,58 +67,71 @@ Levantamento técnico em campo, para o comercial depois precificar.
 
 ### 4.1 Deslocamento (pernoite) — artefato à parte
 
-Artefato **próprio** do técnico (não é um campo dentro da RAT — esse é o bloco de deslocamento/tempo). Registra **viagens com pernoite**. **Continua valendo** (decisão confirmada). Formulário **fixo**, registro próprio (tabela `deslocamentos`), **offline-first** como os demais artefatos de campo. *(Formulários do técnico — pré-orçamento e deslocamento — são fixos; a RAT segue configurável por tipo de serviço, §8.)*
+Artefato **próprio** do técnico (não é um campo dentro da RAT — esse é o bloco de deslocamento/tempo). Registra **viagens com pernoite**. **Continua valendo** (decisão confirmada).
 
-> **Recuperado do §15 do doc antigo (já arquivado):** lá a §15 era **ela própria um placeholder** — não havia definição fechada, só exemplos. Campos sugeridos (a fechar com o time): **destino · data/hora de ida e volta · nº de pernoites · quem viajou · veículo · despesas? · observações · fotos?**. **Pendente de especificação antes de construir** — não reinventar; fechar os campos com o time primeiro.
+> ⚠️ **Recuperar a definição completa** (campos, regras) do `especificacao-consolidada.md` (§15) — ela foi decidida em sessão anterior e ficou de fora desta consolidação. Não reinventar: trazer o que já existe no doc antigo.
 
 ---
 
 ## 5. Orçamento
 
 - **Quem cria:** **comercial**. Pode ser **transformado de um pré-orçamento** ou **criado novo** (`pre_orcamento_id` opcional).
-- **Estrutura (modelo atual):**
-  - **Serviço = descrição livre (texto longo) + valor final.** É **um bloco único** no orçamento (colunas `orcamentos.servico_descricao` + `servico_valor`), **não** itemizado (sem qtd/unitário/total). *(Mudança: antes serviço era item de tabela.)*
-  - **Materiais = itemizados** em `orcamento_itens` (tipo `material`/`avulso`): **do catálogo** (preço do **Omie**, editável) ou **avulso** (descrição + preço manual). Subtotal = `qtd × preço` (coluna gerada).
-  - **Fotos:** o orçamento tem campo de fotos (comercial sobe no editor) — reusa `relatorio_fotos` (+`orcamento_id`) no bucket `rat-anexos` sob `orcamentos/`, RLS office. Aparecem no PDF (§Registro fotográfico). **De um pré-orçamento:** botão "Trazer fotos do pré-orçamento" copia as fotos via Edge Function `orcamento-importar-fotos` (server-side, idempotente — comercial não lê a pasta do técnico).
-  - **Campos do orçamento:** `prazo_execucao` (texto, ex.: "5 dias úteis") · `condicao_pagamento` (forma de pagamento) · `observacoes` (com checkbox que insere a frase-padrão "Serviço executado em horário comercial (segunda a sexta, das 7h às 17h)."). **Sem garantia, sem impostos.** Validade = padrão "15 dias" (constante, env `EMPRESA_VALIDADE`).
-- **Total** = valor do serviço + Σ subtotais dos materiais. **Orçamento vazio** (sem serviço e sem material) é **bloqueado**.
-- **Ao finalizar:** gera **só o PDF** (sem e-mail automático). O comercial/admin envia ao cliente do jeito dele.
+- **Serviço:** **descrição livre (texto longo)** + **valor final** digitado na hora. **Sem quantidade, valor unitário ou valor total** (isso é só de materiais).
+- **Material do catálogo:** itemizado (descrição, unidade, qtd, valor unit., total). Preço puxa do **Omie**, mas **editável**.
+- **Item avulso:** itemizado, preço digitado na mão.
+- **Ao finalizar:** gera **só o PDF** (sem e-mail automático). O comercial/admin envia ao cliente do jeito dele (e-mail próprio, WhatsApp…).
 - **O técnico não vê preço** — nem do produto, nem do orçamento (ver regra de dados em §10).
 
-### Layout do PDF do orçamento (CLIENT-SIDE — render do template + impressão)
+### Layout do PDF (pré-orçamento e orçamento)
 
-Referência visual: **`docs/mockups/orcamento-pdf-v2.jpg`** (e o `orcamento-pdf.html` original). O **orçamento** é gerado **no navegador**: o `orcamentoHTML()` (em `js/orcamentos.js`) monta o HTML do template (fonte **Inter**, A4), **pagina em folhas via JS** e abre a impressão → "Salvar como PDF". *(pdf-lib na Edge Function `documentos` segue só para o e-mail do pré-orçamento.)* Acento **navy `#1B2A4A`** + **vermelho `#BE1622`** no Total. Numeração com prefixo do ano (`260001`, `270001`…).
+Referência visual: PDFs reais `Pré-orçamento_4698.pdf` e `Orçamento_4698.pdf`. **Mesmo template, dois modos** — a única diferença é o preço. Reusa o serviço de PDF compartilhado (§12).
 
-**Estrutura (ordem):**
-1. **Cabeçalho (pág. 1):** selo "TS" + "TRADERS SERVICE" + bloco da empresa à direita (razão social, CNPJ·IE·IM, endereço, telefone). **Pág. 2+: cabeçalho ENXUTO** (TS + "Proposta Nº X") — não repete o endereço.
-2. **"Proposta Nº X"** + **Emissão** (no topo fica **só** isso; Validade/Prazo vão para Condições comerciais).
-3. **Cliente:** rótulo acima; nome (esq.) + documento/endereço (dir.) centralizados; endereço limpo (UF única "Itupeva/SP", CEP formatado).
-4. **Serviço:** card azul-claro — **1ª linha do `servico_descricao` = resumo em destaque**, demais linhas = **bullets** (lista nativa); **Valor do serviço abaixo** da descrição.
-5. **Materiais:** tabela Item · Descrição · Un. · Qtd · Vlr. Unit. · Total (com nº do item e zebra). O **cabeçalho da tabela repete** quando quebra de página. **Item sem preço** (fornecido pelo cliente) = **"—"** em unit/total e **fora do subtotal**.
-6. **Resumo:** Subtotais **só quando há os dois grupos** (serviço + materiais); com um grupo só, vai direto ao **Total** (card; valor em vermelho).
-7. **Condições comerciais** (embaixo) = **Prazo de execução** (se houver) · **Validade** ("15 dias") · **Forma de pagamento** (oculta a linha quando vazia) — **ao lado de Observações**.
-8. **Registro fotográfico** (se houver fotos): grade 2 por linha (cada linha é bloco paginável), com legenda. Imagens por signed URL; impressão espera o load.
-9. **Rodapé corrido em todas as páginas:** contato + "Página i de n".
+Estrutura comum:
+- **Cabeçalho:** dados da empresa (TSRV: CNPJ, IE, IM, endereço, telefone) + logo.
+- **Título:** "Pré-Orçamento Nº X" ou "Orçamento Nº X".
+- **Informações do Cliente:** nome, CNPJ, endereço, e-mail, telefone.
+- **Lista de Serviços:** **descrição livre (texto longo)** + **valor final** (no orçamento). **Sem colunas de qtd/unitário/total.**
+- **Lista de Produtos:** descrição + unidade + quantidade.
+- **Rodapé:** "Gerado em DD/MM/AAAA às HH:MM por <usuário>".
 
-**Normalização de exibição:** data sem shift de fuso (`YYYY-MM-DD` direto); prazo em caixa consistente ("15 dias", não "15 Dias"); unidade padronizada ("PÇ"→"PC"); dados do cliente em Title Case (siglas/UF preservadas).
+Diferença **pré-orçamento → orçamento**:
+- Orçamento **acrescenta**: o **valor** do serviço; colunas **Valor Unit./Total** nos materiais; **totais** (serviços, materiais, total geral em destaque); **condição de pagamento**; e **observações**.
+- Pré-orçamento **não tem** valores nem condição de pagamento.
 
-**Variantes (seções condicionais):** completo · só serviço · só materiais · pré-orçamento (sem valores/pagamento).
+**Devem aparecer no PDF do orçamento (estavam faltando):** **observações** e **forma/condição de pagamento**.
 
-**Paginação:** sem `position:absolute/fixed` no conteúdo (causava bullets fora de ordem); a folha tem cabeçalho/rodapé próprios por página; a tabela quebra repetindo o thead; resumo é bloco atômico (não racha). **Testar gerando o PDF de verdade** (Chrome headless ou impressão) — não confiar só no código.
+**Layout final aprovado:** `mockup-orcamento-pdf.html`. Fonte **Inter**, acento **vermelho** (`#A61E22`; navy `#1B2A4A` é só trocar a variável), página **A4** (com CSS de impressão). Marca: selo "TS" + "Traders Service" + dados da empresa no cabeçalho.
 
-**Removido do modelo do Omie** (não usar): "Local de Estoque", "Previsão de Faturamento", "Ordem de Serviço incluído em", "Total do ISS"/Impostos, **desconto** e **Vencimentos**. PDF enxuto.
+Estrutura: título **"ORÇAMENTO Nº X"** + subtítulo (resumo curto do serviço) → metas (**Emissão · Validade · Prazo de execução**) → **Cliente** → **Escopo do serviço** (descrição livre **com bullets/markdown** + valor, exibido ao lado) → **Materiais** (tabela **com coluna Item**; material pode ser **"fornecimento pelo cliente"** → sem preço, exibido como "—" e **fora do subtotal**) → **Resumo financeiro** (Subtotal Serviços · Subtotal Materiais · **Total geral** em destaque) → **Condições comerciais** (Forma de pagamento · Vencimento) **ao lado** das **Observações** → rodapé (telefone · e-mail · site · página).
+- Campos: **Prazo de execução** no topo. **Validade** só no topo (não repetir em Condições). **Observações** num bloco só. **Sem garantia.**
+
+**Variantes (mesmo layout, seções condicionais — mostra só o que existe):**
+- **Completo:** serviço + materiais.
+- **Só serviço:** oculta a seção Materiais e o Subtotal · Materiais.
+- **Só materiais:** oculta o Escopo do serviço e o Subtotal · Serviços.
+- **Pré-orçamento:** sem valores nem condição de pagamento.
+- No resumo, aparecem só os subtotais existentes; com um grupo só, vai direto ao **Total**. Orçamento exige **pelo menos um** (serviço ou material).
+
+O PDF cru anterior (só tabelas) **não** é o alvo.
+
+**Moeda (decisão atual):** orçamento **somente em R$** por enquanto.
+*Futuro (já desenhado, é só plugar):* material poderá ter valor em **US$**, convertido por **PTAX venda** do último dia útil (busca na API pública do BCB/Olinda) + **spread %** opcional, com **PTAX + data + spread + taxa efetiva congelados ao aprovar**. No PDF, itens em US$ ganham uma marcação + nota citando a fonte (ex.: *"PTAX venda de 03/06/2026 · US$ 1,00 = R$ 5,40"*). Modelo previsto: material `moeda`·`valor_unit_origem`·`valor_unit_brl`; orçamento `cambio_ptax`·`cambio_data`·`cambio_spread`·`cambio_efetivo`.
+
+**Removido do modelo do Omie** (não usar): "Local de Estoque", "Previsão de Faturamento", "Ordem de Serviço incluído em" e linha de **desconto**. PDF enxuto.
 
 ---
 
 ## 6. Status do orçamento
 
-Quem marca: **comercial**, quando o cliente responde.
+**Sem "rascunho".** Ao **salvar**, o orçamento já nasce **"Aguardando aprovação"**. O comercial marca Aprovado/Não aprovado quando o cliente responde.
 
 | Status | O que acontece |
 |--------|----------------|
+| **Aguardando aprovação** | Estado inicial (ao salvar). Continua **editável/revisável**; pode gerar PDF e enviar ao cliente. |
 | **Aprovado** | Gera a **OS/Tarefa** e **congela o orçado** (material e quantidades viram base imutável). |
 | **Não aprovado** | Sistema **avisa**; uma pessoa decide **excluir (arquivar) ou manter**. |
-| **Sem retorno há 90 dias** | Sistema **avisa** (nada automático); pessoa decide **excluir (arquivar) ou manter**. |
+| **Arquivado** | Soft delete — some das listas ativas, mantém histórico. |
+| **Sem retorno há 90 dias** | (orçamento ainda "Aguardando aprovação") Sistema **avisa** (nada automático); pessoa decide excluir (arquivar) ou manter. |
 
 - **"Excluir" = arquivar (soft delete):** some das listas ativas, mantém o histórico (permite analisar orçamentos perdidos, taxa de aprovação, etc.). Nunca apaga de vez.
 - Orçamento **não excluído** pode ser **revisado e reenviado** (nova versão do mesmo).
@@ -282,17 +295,15 @@ Por **Tarefa**. Decisão do **administrativo** (na mão).
 - Integração Omie **Fase 1** (leitura de clientes/produtos via Edge Function `omie-sync`).
 - **Papel `comercial`** liberado (banco + tela de Usuários + roteamento). *(commit e4f8efd)*
 - **Preço de venda do Omie** em `produtos.preco_venda` + sync (1714 produtos com preço). *(commit e4f8efd)*
-- **Reestruturação dois níveis** (`tarefas`→`rats`; nova `tarefas` OS/job; `rats.tarefa_id`; filhas `tarefa_id`→`rat_id`). Validada no ar. *(commit bc485a4)*
-- **#4.1 Schema comercial** — `pre_orcamentos`(+itens), `orcamentos`(+itens c/ preço e subtotal gerado), links opcionais, status + arquivar, RLS por papel (técnico sem acesso a orçamento). *(commit 7fa68ac)*
-- **#4.2 Pré-orçamento (app de campo, offline)** — form **fixo** (cliente, descrição, materiais necessários sem preço, fotos, bloco de tempo), sync idempotente por `client_uuid`, numeração server-side (IDENTITY), ACK `recebido_em`→confirmado. Home **interina** de 3 botões (substituível pelo hub §7). *(commits 201e36e, f33c77b, 4844790)*
 
 **Pendente (próximos passos):**
-1. **Módulo comercial (em andamento):** ✅ 4.1 schema · ✅ 4.2 pré-orçamento · ⏭️ **4.3 Orçamento** (comercial: criar do zero ou de um pré-orçamento; itens com preço; total; condição de pagamento; PDF **sem** e-mail) · 4.4 status/arquivo · 4.5 **PDF (servidor) + e-mail (Resend)** — construído quando o primeiro consumidor precisar (no "concluir" do pré-orçamento; já marcado como TODO no código).
-2. **Material/conciliação** com as 5 colunas + permissões por papel + preço oculto no nível de dados.
-3. **Faturamento:** revisão do admin, escrita da OS no Omie ("a Faturar") com idempotência, retorno do status faturado.
-4. **App do técnico (UI):** home em **hub de 5 áreas** (§7: OS para hoje · OS Pendentes · Agenda · Pré Orçamento · Deslocamento) + telas "OS para hoje" e "Agenda" + fluxo **RAT dentro de OS** (ver mockups). Sync com estado; sem R$. A home interina de 3 botões fica **até o fluxo de OS existir**.
-5. **Deslocamento (pernoite)** — fechar os campos com o time (§4.1) e construir (form fixo, offline, tabela `deslocamentos`).
-6. Regras: 1 RAT por (OS, dia); 1 almoço por (técnico, dia); status em dois eixos; concluir exige campos obrigatórios.
+1. **CONFIRMAR/Fazer a reestruturação dois níveis** (renomear `tarefas`→`rats`; criar `tarefas` pai; `rats.tarefa_id`). **Pré-requisito do módulo comercial** (o "aprovado gera Tarefa" e a conciliação dependem disso). Validar no ar antes de empilhar.
+2. **Módulo comercial:** pré-orçamento (campo, offline), orçamento, status, exclusão/arquivo. PDF **no servidor**; e-mail via **Resend** (verificar domínio tsrv.com.br).
+3. **Material/conciliação** com as 5 colunas + permissões por papel + preço oculto no nível de dados.
+4. **Faturamento:** revisão do admin, escrita da OS no Omie ("a Faturar") com idempotência, retorno do status faturado.
+5. **PDF + e-mail ao finalizar** (serviço compartilhado).
+6. **App do técnico (UI):** home em hub de 4 áreas + telas "OS para hoje" e "Agenda" (ver §7 e mockups). Sync com estado; sem R$; sem prioridade/marcador de pendência.
+7. Regras: 1 RAT por (OS, dia); 1 almoço por (técnico, dia); status em dois eixos; concluir exige campos obrigatórios.
 
 ---
 

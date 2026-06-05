@@ -44,7 +44,7 @@
   async function carregar() {
     const sb = getSupabase()
     const { data, error } = await sb.from('rats')
-      .select('id,cliente_nome,tecnico_nome,data_tarefa,status,sync_status,relatorio_completo,pendencias,faturado,data_faturamento,numero_nota,assinatura_url,respostas,tempo_trabalhado,tipos_servico(nome)')
+      .select('id,cliente_nome,tecnico_nome,data_tarefa,status,sync_status,relatorio_completo,pendencias,faturado,data_faturamento,numero_nota,assinatura_url,respostas,tempo_trabalhado,tipos_servico(nome),tarefa:tarefas(numero,tipo:tipos_servico(nome))')
       .order('data_tarefa', { ascending: false, nullsFirst: false }).limit(500)
     if (error) { toast('Erro ao carregar: ' + error.message, 'err'); cache = [] }
     else cache = data || []
@@ -57,6 +57,9 @@
     return rows
   }
 
+  // Tipo de serviço vem da Tarefa (a RAT não registra mais o tipo); fallback p/ RATs antigas.
+  const tipoNome = (r) => (r.tarefa && r.tarefa.tipo && r.tarefa.tipo.nome) || (r.tipos_servico && r.tipos_servico.nome) || '—'
+
   function render() {
     const rows = filtrar(cache)
     const tb = document.getElementById('tbody-rel')
@@ -68,7 +71,7 @@
       <tr>
         <td>${fdt(r.data_tarefa, { withTime: true })}</td>
         <td>${esc(r.cliente_nome || '—')}</td>
-        <td>${esc(r.tipos_servico && r.tipos_servico.nome || '—')}</td>
+        <td>${esc(tipoNome(r))}</td>
         <td>${statusBadge(r.status)}</td>
         <td>${r.relatorio_completo ? '<span class="badge s-en"><span class="dot"></span>Completo</span>' : '<span class="badge s-ai"><span class="dot"></span>Pendente</span>'}</td>
         <td>${syncBadge(r.sync_status)}</td>
@@ -87,7 +90,7 @@
     const r = cache.find(x => x.id === id); if (!r) return
     const sb = getSupabase()
     const fmtMin = (t) => (t == null) ? '—' : `${Math.floor(t / 60)}h ${String(t % 60).padStart(2, '0')}min`
-    let html = `<div style="margin-bottom:12px"><b style="font-size:15px">${esc(r.cliente_nome || '—')}</b> · ${esc(r.tipos_servico && r.tipos_servico.nome || '—')}
+    let html = `<div style="margin-bottom:12px"><b style="font-size:15px">${esc(r.cliente_nome || '—')}</b> · ${esc(tipoNome(r))}
       <div class="dim" style="margin-top:2px">Técnico: ${esc(r.tecnico_nome || '—')} · ${fdt(r.data_tarefa, { withTime: true })}</div>
       <div class="dim" style="margin-top:2px">Status: ${esc(r.status || '—')} · Tempo trabalhado: ${fmtMin(r.tempo_trabalhado)}</div></div>`
 

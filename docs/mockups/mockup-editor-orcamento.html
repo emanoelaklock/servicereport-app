@@ -1,0 +1,239 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Editor de Orçamento — Service Report</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --navy:#1B2A4A; --blue:#2563EB;
+    --ink:#1d2533; --gray:#6B7280; --gray-2:#9aa1ad;
+    --line:#E3E7ED; --line-soft:#EEF1F5;
+    --bg:#F1F3F6; --card:#fff; --red:#DC2626;
+  }
+  *{box-sizing:border-box;margin:0;padding:0;}
+  body{font-family:'Inter',system-ui,sans-serif;color:var(--ink);background:var(--bg);-webkit-font-smoothing:antialiased;font-variant-numeric:tabular-nums;font-feature-settings:"tnum" 1;}
+  .num{font-variant-numeric:tabular-nums;}
+  .app{display:flex;min-height:100vh;}
+
+  /* sidebar */
+  .sb{width:228px;flex:none;background:var(--navy);color:#cdd5e3;display:flex;flex-direction:column;padding:18px 14px;}
+  .sb .logo{display:flex;align-items:center;gap:10px;padding:4px 8px 18px;}
+  .sb .logo .mk{width:30px;height:30px;border-radius:8px;background:#2f4170;display:grid;place-items:center;color:#fff;font-weight:800;font-size:13px;}
+  .sb .logo .nm{color:#fff;font-weight:700;font-size:14px;line-height:1.1;}
+  .sb .logo .sub{font-size:10px;color:#8f9bb5;}
+  .sb .grp{font-size:9.5px;letter-spacing:1.2px;text-transform:uppercase;color:#6b7895;margin:16px 8px 6px;}
+  .sb a{display:flex;align-items:center;gap:10px;padding:8px 10px;border-radius:8px;font-size:13px;color:#cdd5e3;text-decoration:none;margin-bottom:2px;}
+  .sb a.on{background:#2f4170;color:#fff;font-weight:600;}
+  .sb a .ic{width:16px;text-align:center;opacity:.85;}
+  .sb .user{margin-top:auto;display:flex;align-items:center;gap:10px;padding:10px 8px 2px;border-top:1px solid #2c3c61;}
+  .sb .user .av{width:30px;height:30px;border-radius:50%;background:#3a4d7d;display:grid;place-items:center;color:#fff;font-weight:700;font-size:12px;}
+  .sb .user .nm{color:#fff;font-size:12.5px;font-weight:600;line-height:1.2;}
+  .sb .user .rl{font-size:10.5px;color:#8f9bb5;}
+
+  /* main */
+  .main{flex:1;display:flex;flex-direction:column;min-width:0;}
+  .topbar{display:flex;align-items:center;gap:14px;padding:16px 30px;background:#fff;border-bottom:1px solid var(--line);position:sticky;top:0;z-index:5;}
+  .topbar h1{font-size:18px;font-weight:800;letter-spacing:-.3px;}
+  .badge{font-size:11px;font-weight:700;padding:4px 10px;border-radius:999px;letter-spacing:.3px;}
+  .badge.aguardando{background:#FDF3E2;color:#9a6a1a;}
+  .topbar .docno{margin-left:auto;font-size:12px;color:var(--gray);}
+
+  .scroll{flex:1;overflow:auto;padding:26px 30px 110px;}
+  .wrap{max-width:1120px;margin:0 auto;}
+
+  /* card */
+  .card{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:22px 24px;margin-bottom:18px;}
+  .card-h{display:flex;align-items:center;gap:9px;margin-bottom:16px;}
+  .card-h .dot{width:7px;height:7px;border-radius:50%;background:var(--navy);}
+  .card-h .t{font-size:13px;font-weight:700;letter-spacing:.2px;color:var(--ink);}
+
+  .grid2{display:grid;grid-template-columns:1fr 1fr;gap:18px;}
+  .f{display:flex;flex-direction:column;}
+  .f.full{grid-column:1/-1;}
+  label{font-size:10px;font-weight:600;letter-spacing:.7px;text-transform:uppercase;color:var(--gray);margin-bottom:6px;}
+  input.in,textarea.in,select.in{font-family:inherit;font-size:13px;color:var(--ink);border:1px solid var(--line);border-radius:9px;padding:10px 12px;background:#fff;width:100%;}
+  textarea.in{resize:vertical;line-height:1.5;}
+  input.in:focus,textarea.in:focus,select.in:focus{outline:none;border-color:var(--blue);box-shadow:0 0 0 3px rgba(37,99,235,.12);}
+  .hint{font-size:11px;color:var(--gray-2);margin-top:5px;}
+
+  /* serviço */
+  .svc{display:grid;grid-template-columns:1fr 220px;gap:22px;align-items:start;margin-top:4px;}
+  .subtotal-box{background:#F7F9FC;border:1px solid var(--line);border-radius:11px;padding:12px 14px;}
+  .subtotal-box .k{font-size:9.5px;font-weight:600;letter-spacing:.7px;text-transform:uppercase;color:var(--gray);}
+  .subtotal-box .v{font-size:18px;font-weight:800;color:var(--ink);margin-top:5px;}
+
+  /* toolbar materiais */
+  .mtools{display:flex;gap:10px;align-items:center;margin:4px 0 14px;}
+  .mtools .search{flex:1;position:relative;}
+  .mtools .search input{padding-left:34px;}
+  .mtools .search .mag{position:absolute;left:11px;top:50%;transform:translateY(-50%);color:var(--gray-2);font-size:13px;}
+
+  /* materiais table */
+  .mtab{width:100%;border-collapse:collapse;}
+  .mtab th{font-size:9.5px;font-weight:600;letter-spacing:.6px;text-transform:uppercase;color:var(--gray);padding:0 8px 9px;text-align:right;border-bottom:1px solid var(--line);}
+  .mtab th.l{text-align:left;} .mtab th.c{text-align:center;}
+  .mtab td{padding:7px 8px;border-bottom:1px solid var(--line-soft);vertical-align:middle;}
+  .mtab td.l{width:100%;}
+  .mtab .prod{border:1px solid transparent;border-radius:7px;padding:7px 9px;font-size:12.5px;font-weight:500;}
+  .mtab tr:hover .prod{border-color:var(--line);background:#fcfdfe;}
+  .cell-in{border:1px solid var(--line);border-radius:7px;padding:6px 8px;font-family:inherit;font-size:12.5px;text-align:right;}
+  .cell-in.qty{width:54px;text-align:center;}
+  .cell-in.val{width:104px;}
+  .sub{text-align:right;font-size:12.5px;font-weight:700;white-space:nowrap;}
+  .sub.dash{color:#aab0b8;font-weight:500;}
+  .rm{color:var(--red);cursor:pointer;font-size:13px;opacity:.6;padding:0 4px;}
+  .mtab tr:hover .rm{opacity:1;}
+  .empty{text-align:center;color:var(--gray-2);font-size:12.5px;padding:22px 0;border-bottom:1px solid var(--line-soft);}
+  .matfoot{display:flex;justify-content:flex-end;margin-top:14px;}
+
+  /* checkboxes cláusulas */
+  .clauses{display:flex;flex-direction:column;gap:10px;margin-top:4px;}
+  .ck{display:flex;align-items:flex-start;gap:10px;font-size:12.5px;color:#3b4049;line-height:1.4;}
+  .ck input{margin-top:2px;width:15px;height:15px;accent-color:var(--blue);flex:none;}
+
+  /* sticky total bar */
+  .totalbar{position:fixed;left:228px;right:0;bottom:0;background:#fff;border-top:1px solid var(--line);padding:12px 30px;display:flex;align-items:center;gap:20px;box-shadow:0 -6px 20px rgba(20,30,55,.05);}
+  .totalbar .sums{font-size:12.5px;color:var(--gray);}
+  .totalbar .sums b{color:var(--ink);font-weight:700;}
+  .totalbar .tot{font-size:13px;color:var(--gray);}
+  .totalbar .tot b{font-size:22px;color:var(--ink);font-weight:800;letter-spacing:-.5px;margin-left:6px;}
+  .totalbar .actions{margin-left:auto;display:flex;align-items:center;gap:9px;}
+  .btn{font-family:inherit;font-size:13px;font-weight:600;border-radius:9px;padding:9px 16px;border:1px solid var(--line);background:#fff;color:var(--ink);cursor:pointer;}
+  .btn.ghost{color:var(--gray);}
+  .btn.primary{background:var(--blue);border-color:var(--blue);color:#fff;}
+  .btn.danger{color:var(--red);border-color:#f2c9c9;}
+  .btn.approve{background:#0E9F6E;border-color:#0E9F6E;color:#fff;}
+  .btn.link{border:none;background:none;color:var(--gray);}
+</style>
+</head>
+<body>
+<div class="app">
+
+  <!-- SIDEBAR -->
+  <aside class="sb">
+    <div class="logo">
+      <div class="mk">SR</div>
+      <div><div class="nm">Service Report</div><div class="sub">Atendimento técnico</div></div>
+    </div>
+    <a href="#"><span class="ic">▦</span> Painel</a>
+    <a href="#"><span class="ic">▤</span> Relatórios</a>
+    <div class="grp">Comercial</div>
+    <a href="#" class="on"><span class="ic">▦</span> Orçamentos</a>
+    <div class="grp">Material</div>
+    <a href="#"><span class="ic">◐</span> Conciliação</a>
+    <div class="grp">Sistema</div>
+    <a href="#"><span class="ic">⚙</span> Configurações</a>
+    <div class="user">
+      <div class="av">S</div>
+      <div><div class="nm">Emanoela Klock</div><div class="rl">Administrador</div></div>
+    </div>
+  </aside>
+
+  <!-- MAIN -->
+  <div class="main">
+    <div class="topbar">
+      <h1>Orçamento</h1>
+      <span class="badge aguardando">Aguardando aprovação</span>
+      <span class="docno">Nº 260003</span>
+    </div>
+
+    <div class="scroll">
+      <div class="wrap">
+
+        <!-- Cliente -->
+        <div class="card">
+          <div class="card-h"><span class="dot"></span><span class="t">Cliente</span></div>
+          <div class="grid2">
+            <div class="f"><label>Cliente *</label><input class="in" value="WESTROCK, CELULOSE, PAPEL E EMBALAGENS LTDA"></div>
+            <div class="f"><label>Origem</label><input class="in" value="Novo (sem pré-orçamento)"></div>
+          </div>
+        </div>
+
+        <!-- Serviço -->
+        <div class="card">
+          <div class="card-h"><span class="dot"></span><span class="t">Serviço</span></div>
+          <div class="svc">
+            <div class="f">
+              <label>Descrição</label>
+              <textarea class="in" rows="6">Adequação da Saída 02 para operação como entrada e saída.
+
+• Desmobilização dos totens existentes;
+• Desconexão dos componentes eletrônicos;
+• Transferência dos totens para os novos pontos;
+• Realocação das câmeras frontal e traseira;
+• Testes de comunicação e validação funcional.</textarea>
+              <div class="hint">Aceita bullets — comece a linha com “• ” ou “- ”. Será renderizado como lista no PDF.</div>
+            </div>
+            <div>
+              <div class="f"><label>Valor do serviço (R$)</label><input class="in num" value="24.520,00"></div>
+              <div class="subtotal-box" style="margin-top:14px;"><div class="k">Subtotal serviços</div><div class="v num">R$ 24.520,00</div></div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Materiais -->
+        <div class="card">
+          <div class="card-h"><span class="dot"></span><span class="t">Materiais</span></div>
+          <div class="mtools">
+            <div class="search"><span class="mag">🔍</span><input class="in" placeholder="Buscar produto do catálogo (código ou descrição)…"></div>
+            <button class="btn primary">+ Adicionar</button>
+            <button class="btn">+ Item avulso</button>
+          </div>
+          <table class="mtab">
+            <thead><tr><th class="l">Produto / descrição</th><th class="c">Qtd</th><th>Valor unit.</th><th>Subtotal</th><th></th></tr></thead>
+            <tbody>
+              <tr><td class="l"><div class="prod">AXIS A1210 Network Door Controller 02369-001</div></td><td class="c"><input class="cell-in qty num" value="1"></td><td><input class="cell-in val num" value="6.490,00"></td><td class="sub num">R$ 6.490,00</td><td><span class="rm">✕</span></td></tr>
+              <tr><td class="l"><div class="prod">AXIS A8105-E Clear Dome 5801-471</div></td><td class="c"><input class="cell-in qty num" value="1"></td><td><input class="cell-in val num" value="463,00"></td><td class="sub num">R$ 463,00</td><td><span class="rm">✕</span></td></tr>
+              <tr><td class="l"><div class="prod">Cabo de rede Cat6A U/FTP LSZH (4 pares)</div></td><td class="c"><input class="cell-in qty num" value="30"></td><td><input class="cell-in val num" value="9,72"></td><td class="sub num">R$ 291,60</td><td><span class="rm">✕</span></td></tr>
+              <tr><td class="l"><div class="prod">Patch panel 24 portas Cat6A blindado</div></td><td class="c"><input class="cell-in qty num" value="1"></td><td><input class="cell-in val num" value="680,00"></td><td class="sub num">R$ 680,00</td><td><span class="rm">✕</span></td></tr>
+              <tr><td class="l"><div class="prod">Câmera IP 4MP — fornecimento pelo cliente</div></td><td class="c"><input class="cell-in qty num" value="1"></td><td style="text-align:right;color:#aab0b8;">—</td><td class="sub dash">—</td><td><span class="rm">✕</span></td></tr>
+            </tbody>
+          </table>
+          <div class="matfoot">
+            <div class="subtotal-box"><div class="k">Subtotal materiais</div><div class="v num">R$ 7.924,60</div></div>
+          </div>
+        </div>
+
+        <!-- Condições comerciais -->
+        <div class="card">
+          <div class="card-h"><span class="dot"></span><span class="t">Condições comerciais</span></div>
+          <div class="grid2">
+            <div class="f"><label>Condição de pagamento</label><input class="in" placeholder="Ex.: 50% entrada, 50% na entrega / 30 dias"></div>
+            <div class="f"><label>Prazo de execução</label><input class="in" value="15 dias"></div>
+            <div class="f full"><label>Observações (texto livre)</label><textarea class="in" rows="2" placeholder="Notas específicas desta proposta…"></textarea></div>
+          </div>
+          <div style="margin-top:18px;">
+            <label>Cláusulas padrão</label>
+            <div class="clauses">
+              <label class="ck"><input type="checkbox" checked> Serviço executado em horário comercial (segunda a sexta, das 7h às 17h).</label>
+              <label class="ck"><input type="checkbox" checked> Materiais sujeitos à disponibilidade de estoque.</label>
+              <label class="ck"><input type="checkbox" checked> Qualquer alteração no escopo poderá impactar prazo e valores apresentados.</label>
+            </div>
+            <div class="hint">As cláusulas marcadas + as observações entram no bloco “Observações” do PDF.</div>
+          </div>
+        </div>
+
+      </div>
+    </div>
+
+    <!-- sticky totals + actions -->
+    <div class="totalbar">
+      <span class="sums">Serviços <b class="num">R$ 24.520,00</b> · Materiais <b class="num">R$ 7.924,60</b></span>
+      <span class="tot">Total <b class="num">R$ 32.444,60</b></span>
+      <span class="actions">
+        <button class="btn link">← Voltar</button>
+        <button class="btn ghost">⋯</button>
+        <button class="btn ghost">Gerar PDF</button>
+        <button class="btn ghost">Não aprovado</button>
+        <button class="btn approve">✓ Aprovar</button>
+        <button class="btn primary">Salvar</button>
+      </span>
+    </div>
+  </div>
+</div>
+</body>
+</html>

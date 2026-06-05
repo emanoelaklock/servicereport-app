@@ -199,7 +199,7 @@
           <span style="display:flex;align-items:center;gap:8px">${badge(r.sync_status)}<button type="button" class="rat-del" data-del="${esc(r.client_uuid)}" title="Excluir RAT">🗑</button></span>
         </div>
         <div class="rat-meta">
-          <span>${esc(r.tipo_servico_nome || '—')}${r.status ? ' · ' + esc(ratSit(r.status)) : ''}</span>
+          <span>${esc(ratSit(r.status || 'em_andamento'))}</span>
           <span>${fdt(r.criado_em, { withTime: true })}</span>
         </div>
       </div>`).join('')
@@ -401,7 +401,7 @@
     const dela = (todas || []).filter(r => r.tarefa_id === id)
     if (!dela.length) { sec.style.display = 'none'; return }
     box.innerHTML = dela.map(r => `<div class="rat-card" data-uuid="${esc(r.client_uuid)}">
-      <div class="rat-card-top"><span class="rat-cli">${esc(r.tipo_servico_nome || 'RAT')}</span>${badge(r.sync_status)}</div>
+      <div class="rat-card-top"><span class="rat-cli">RAT</span>${badge(r.sync_status)}</div>
       <div class="rat-meta"><span>${esc(ratSit(r.status))}</span><span>${fdt(r.criado_em, { withTime: true })}</span></div>
     </div>`).join('')
     box.querySelectorAll('.rat-card').forEach(el => el.onclick = () => abrirExistente(el.dataset.uuid))
@@ -410,7 +410,7 @@
 
   async function iniciarRatDaTarefa(t) {
     const tipoId = t.tipo_servico_id || ''
-    const rat = await D().novoRat({ tarefa_id: t.id, cliente_id: t.cliente_id || null, cliente_nome: cliNomeDe(t.cliente_id, null), tipo_servico_id: tipoId || null })
+    const rat = await D().novoRat({ tarefa_id: t.id, tarefa_numero: t.numero || null, cliente_id: t.cliente_id || null, cliente_nome: cliNomeDe(t.cliente_id, null) })
     cur = { client_uuid: rat.client_uuid, campos: [], tarefa_id: t.id, tarefa_numero: t.numero }
     document.getElementById('form-titulo').textContent = 'Nova RAT'
     const tipoNome = (ref.tipos.find(x => x.id === tipoId) || {}).nome
@@ -466,7 +466,9 @@
     document.getElementById('form-titulo').textContent = 'Editar RAT'
     const banner = document.getElementById('f-tarefa-banner')
     const cb = document.getElementById('f-cliente-busca')
-    const tipoNomeR = (ref.tipos.find(x => x.id === rat.tipo_servico_id) || {}).nome
+    // tipo é da Tarefa (não da RAT): busca pelo vínculo da tarefa, só para exibir
+    const tarefaDela = tarefas.find(x => x.id === rat.tarefa_id)
+    const tipoNomeR = (ref.tipos.find(x => x.id === (tarefaDela ? tarefaDela.tipo_servico_id : null)) || {}).nome
     if (rat.tarefa_id) {
       banner.style.display = 'block'
       banner.textContent = `RAT da Tarefa Nº ${osNo(rat.tarefa_numero)} · ${cliNomeDe(rat.cliente_id, rat.cliente_nome)}${tipoNomeR ? ' · ' + tipoNomeR : ''}`
@@ -474,13 +476,12 @@
     } else { banner.style.display = 'none'; cb.readOnly = false }
     document.getElementById('f-cliente').value = rat.cliente_id || ''
     cb.value = (ref.clientes.find(c => c.id === rat.cliente_id) || {}).nome || rat.cliente_nome || ''
-    document.getElementById('f-tipo').value = rat.tipo_servico_id || ''
-    // tipo herdado da tarefa: esconde o seletor quando já definido
-    document.getElementById('f-tipo-wrap').style.display = rat.tipo_servico_id ? 'none' : 'block'
+    document.getElementById('f-tipo-wrap').style.display = 'none'
     document.getElementById('f-status').value = RAT_SIT_LABEL[rat.status] ? rat.status : 'em_andamento'
     document.getElementById('f-pendencias').value = rat.pendencias || ''
     togglePendencias()
-    await onTipoChange()
+    // carrega o formulário que a RAT respondeu (snapshot), independente do tipo
+    await carregarFormularioPorId(rat.formulario_id || (tarefaDela && ref.tipos.find(x => x.id === tarefaDela.tipo_servico_id)?.formulario_id) || null)
     // repopula respostas
     if (rat.respostas) {
       for (const c of cur.campos) {
@@ -500,27 +501,27 @@
     mostrar('form')
   }
 
+  // Tipo de serviço é da TAREFA; a RAT só guarda qual formulário respondeu (formulario_id).
   async function onTipoChange() {
-    const tipoId = document.getElementById('f-tipo').value
+    const tipo = ref.tipos.find(t => t.id === document.getElementById('f-tipo').value)
+    await carregarFormularioPorId(tipo ? tipo.formulario_id : null)
+  }
+  async function carregarFormularioPorId(formId) {
     const cont = document.getElementById('campos-container')
-    const tipo = ref.tipos.find(t => t.id === tipoId)
     cur.campos = []
-    if (!tipo) { cont.innerHTML = ''; return }
-    const form = tipo.formulario_id ? ref.formularios[tipo.formulario_id] : null
-    if (!form) { cont.innerHTML = '<p class="dim">Este tipo de serviço ainda não tem formulário configurado.</p>'; return }
+    cur.formulario_id = formId || null
+    const form = formId ? ref.formularios[formId] : null
+    if (!form) { cont.innerHTML = formId ? '<p class="dim">Formulário não encontrado.</p>' : '<p class="dim">Esta tarefa não tem tipo de serviço/formulário configurado — peça ao administrativo.</p>'; return }
     cur.campos = form.campos || []
     cont.innerHTML = ''
     for (const c of cur.campos) cont.appendChild(renderCampo(c))
-    // ativar assinatura, se houver
     const sc = cont.querySelector('canvas.sig-pad')
     if (sc) { sig = initSignature(sc); sig.resize() }
-    // recalcula tempo trabalhado e reavalia condicionais ao alterar qualquer campo
     const onFormChange = (e) => { aplicarEspelhos(e); atualizarTempo(); aplicarCondicionais() }
     cont.oninput = onFormChange
     cont.onchange = onFormChange
     atualizarTempo()
     aplicarCondicionais()
-    // thumbnails de fotos existentes
     await refreshThumbs()
   }
 
@@ -795,9 +796,8 @@
   async function salvar() {
     if (!cur) return
     const cliId = document.getElementById('f-cliente').value
-    const tipoId = document.getElementById('f-tipo').value
     if (!cliId) return toast('Selecione o cliente.', 'err')
-    if (!tipoId) return toast('Selecione o tipo de serviço.', 'err')
+    if (!cur.formulario_id) return toast('Esta tarefa não tem formulário configurado.', 'err')
 
     const { respostas, faltando } = coletarRespostas()
     const temFotoCampo = cur.campos.some(c => c.tipo === 'foto')
@@ -822,16 +822,13 @@
     if (sit === 'concluida_pendencia' && !pendencias) return toast('Descreva a pendência.', 'err')
 
     const cli = ref.clientes.find(c => c.id === cliId)
-    const tipo = ref.tipos.find(t => t.id === tipoId)
 
     await D().salvarRat(cur.client_uuid, {
       tarefa_id: cur.tarefa_id || null,
       tarefa_numero: cur.tarefa_numero || null,
       cliente_id: cliId,
       cliente_nome: cli?.nome || null,
-      tipo_servico_id: tipoId,
-      tipo_servico_nome: tipo?.nome || null,
-      formulario_id: tipo?.formulario_id || null,
+      formulario_id: cur.formulario_id || null,
       tecnico_id: tecnico.id,
       tecnico_nome: tecnico.nome,
       status: sit,
