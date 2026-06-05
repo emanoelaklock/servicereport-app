@@ -106,6 +106,8 @@ const TarefaApp = (() => {
     document.getElementById('cc-anx-btn').onclick = () => document.getElementById('cc-anx-input').click()
     document.getElementById('cc-anx-input').onchange = (e) => adicionarAnexos(e.target.files)
     document.getElementById('cc-obs-salvar').onclick = salvarConcilObs
+    // Abas do detalhe
+    document.querySelectorAll('#cc-tabs .cc-tab').forEach(b => b.onclick = () => mostrarPane(b.dataset.pane))
     // RATs
     document.getElementById('cc-rat-todas').onclick = verTodasRats
     document.getElementById('cc-rat-pdf').onclick = pdfUnificado
@@ -265,6 +267,7 @@ const TarefaApp = (() => {
   async function abrirTarefa(id) {
     const t = tarefas.find(x => x.id === id); if (!t) return
     cur = { id, numero: t.numero, status: t.status, cliente_nome: cliNomes[t.cliente_id] || '—', equip: [], anexos: [] }
+    mostrarPane('dados')
     document.getElementById('cc-cliente').textContent = cur.cliente_nome
     document.getElementById('cc-docno').textContent = cur.numero != null ? `Tarefa Nº ${osNo(cur.numero)}` : ''
     document.getElementById('cc-badge').textContent = STATUS_LABEL[cur.status] || cur.status || ''
@@ -681,6 +684,12 @@ const TarefaApp = (() => {
     const badge = document.getElementById('cc-badge')
     if (sec !== 'detalhe') { badge.style.display = 'none'; document.getElementById('cc-docno').textContent = '' }
     else badge.style.display = ''
+  }
+
+  // Abas do detalhe: mostra um card por vez.
+  function mostrarPane(key) {
+    document.querySelectorAll('#cc-tabs .cc-tab').forEach(b => b.classList.toggle('on', b.dataset.pane === key))
+    document.querySelectorAll('#view-detalhe .cc-pane').forEach(p => p.classList.toggle('on', p.dataset.pane === key))
   }
 
   return { init }

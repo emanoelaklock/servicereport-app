@@ -44,6 +44,14 @@
   .card-h .t{font-size:13px;font-weight:700;letter-spacing:.2px;color:var(--tx)}
   .card-sub{font-size:12px;color:var(--tx3);margin:0 0 14px 16px}
 
+  /* Abas do detalhe da Tarefa */
+  .cc-tabs{display:flex;gap:2px;flex-wrap:wrap;border-bottom:1px solid var(--bd);margin-bottom:18px}
+  .cc-tab{font:inherit;font-size:13px;font-weight:600;color:var(--tx2);background:none;border:none;border-bottom:2px solid transparent;padding:10px 15px;cursor:pointer;white-space:nowrap;margin-bottom:-1px}
+  .cc-tab:hover{color:var(--tx)}
+  .cc-tab.on{color:var(--ac);border-bottom-color:var(--ac)}
+  .cc-pane{display:none}
+  .cc-pane.on{display:block}
+
   /* Dados da Tarefa */
   .cc-dados-grid{display:grid;grid-template-columns:1fr 1fr 1fr;gap:14px}
   .cc-dados-grid .full{grid-column:1/-1}
@@ -257,7 +265,16 @@
           <span class="cc-cli" id="cc-cliente">—</span>
         </div>
 
-        <div class="cc-card">
+        <div class="cc-tabs" id="cc-tabs">
+          <button class="cc-tab on" data-pane="dados">Dados da Tarefa</button>
+          <button class="cc-tab" data-pane="equip">Equipamentos</button>
+          <button class="cc-tab" data-pane="anexos">Anexos</button>
+          <button class="cc-tab" data-pane="rats">RATs</button>
+          <button class="cc-tab" data-pane="material">Conciliação de material</button>
+          <button class="cc-tab" data-pane="fat">Faturamento</button>
+        </div>
+
+        <div class="cc-card cc-pane on" data-pane="dados">
           <div class="card-h"><span class="dot"></span><span class="t">Dados da Tarefa</span></div>
           <div class="cc-dados-grid">
             <div class="fg"><label>Cliente</label><div class="ro" id="cc-d-cliente">—</div></div>
@@ -277,7 +294,7 @@
           </div>
         </div>
 
-        <div class="cc-card">
+        <div class="cc-card cc-pane" data-pane="equip">
           <div class="card-h"><span class="dot"></span><span class="t">Equipamentos relacionados</span></div>
           <div class="cc-eq-add">
             <div class="ac" style="flex:1;min-width:260px">
@@ -290,14 +307,14 @@
           <div class="cc-chips" id="cc-eq-chips"></div>
         </div>
 
-        <div class="cc-card">
+        <div class="cc-card cc-pane" data-pane="anexos">
           <div class="card-h"><span class="dot"></span><span class="t">Anexos</span></div>
           <input type="file" id="cc-anx-input" multiple style="display:none">
           <button class="btn" id="cc-anx-btn">📎 Adicionar anexos</button>
           <div class="cc-anexos" id="cc-anx-list"></div>
         </div>
 
-        <div class="cc-card">
+        <div class="cc-card cc-pane" data-pane="rats">
           <div class="card-h"><span class="dot"></span><span class="t">Relatórios de Atendimento (RATs)</span></div>
           <p class="card-sub">Registros de execução do técnico. Veja individualmente, todas de uma vez, ou gere um PDF único para enviar ao cliente.</p>
           <div class="rat-acts">
@@ -307,7 +324,7 @@
           <div class="rat-list" id="cc-rat-list"></div>
         </div>
 
-        <div class="cc-card">
+        <div class="cc-card cc-pane" data-pane="material">
           <div class="card-h"><span class="dot"></span><span class="t">Conciliação de material</span></div>
           <p class="card-sub">Orçada (do orçamento) · <b>Levada</b> (estoque — você edita) · Utilizada (RATs do técnico) · Devolvida = Levada − Utilizada.</p>
           <div class="cc-stats" id="cc-stats"></div>
@@ -339,7 +356,7 @@
           </div>
         </div>
 
-        <div class="cc-card">
+        <div class="cc-card cc-pane" data-pane="fat">
           <div class="card-h"><span class="dot"></span><span class="t">Faturamento</span></div>
           <p class="card-sub">A Tarefa é a unidade de faturamento. Marque como faturada e registre o nº da nota.</p>
           <div class="cc-fat">
