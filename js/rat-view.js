@@ -275,9 +275,11 @@ window.RatView = (function () {
     const doc = `<!doctype html><html lang="pt-BR"><head><meta charset="utf-8"><title>${esc(titulo || 'RAT')}</title>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
 <style>${PDF_CSS}</style></head><body>
-  <div class="pdf-top"><div class="pdf-brand">TRADERS SERVICE</div><div class="pdf-doc">Relatório de Atendimento Técnico</div></div>
-  ${corpo}
-  <div class="pdf-foot">Documento gerado pela plataforma Service Report.</div>
+  <table class="pdf-sheet">
+    <thead><tr><td><div class="pdf-top"><div class="pdf-brand">TRADERS SERVICE</div><div class="pdf-doc">Relatório de Atendimento Técnico</div></div></td></tr></thead>
+    <tfoot><tr><td><div class="pdf-foot">Documento gerado pela plataforma Service Report.</div></td></tr></tfoot>
+    <tbody><tr><td>${corpo}</td></tr></tbody>
+  </table>
   <script>
     window.addEventListener('load', function () {
       var imgs = Array.prototype.slice.call(document.images)
@@ -294,6 +296,11 @@ window.RatView = (function () {
   const PDF_CSS = `
     *{box-sizing:border-box}
     body{font-family:Inter,Arial,sans-serif;color:#1B2A4A;margin:12px 14px;font-size:12.5px}
+    /* tabela-envelope: cabeçalho/rodapé repetem em todas as páginas (print) */
+    .pdf-sheet{width:100%;border-collapse:collapse}
+    .pdf-sheet>thead{display:table-header-group}
+    .pdf-sheet>tfoot{display:table-footer-group}
+    .pdf-sheet>thead>tr>td,.pdf-sheet>tfoot>tr>td,.pdf-sheet>tbody>tr>td{padding:0;border:0;vertical-align:top}
     .pdf-top{display:flex;justify-content:space-between;align-items:flex-end;border-bottom:3px solid #1B2A4A;padding-bottom:10px;margin-bottom:16px}
     .pdf-brand{font-size:20px;font-weight:800;letter-spacing:.04em;color:#1B2A4A}
     .pdf-doc{font-size:12px;color:#5b6b86;font-weight:600;text-transform:uppercase;letter-spacing:.05em}
@@ -325,7 +332,7 @@ window.RatView = (function () {
     .det-fotos img{width:150px;height:150px;object-fit:cover;border-radius:8px;border:1px solid #d6deea}
     .det-foto figcaption{font-size:10px;color:#5b6b86;line-height:1.2}
     .det-sig{max-width:280px;border:1px solid #d6deea;border-radius:8px;background:#fff}
-    .pdf-foot{margin-top:26px;border-top:1px solid #d6deea;padding-top:8px;font-size:10px;color:#9aa7bd;text-align:center}
+    .pdf-foot{margin-top:14px;border-top:1px solid #d6deea;padding-top:8px;font-size:10px;color:#9aa7bd;text-align:center}
     @media print{ body{margin:6mm 6mm} a{color:inherit;text-decoration:none} }`
 
   return {
