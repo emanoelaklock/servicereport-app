@@ -760,18 +760,26 @@ const TarefaApp = (() => {
     if (!cur || !cur.id) return
     const nota = document.getElementById('cc-fat-nota').value.trim() || null
     const iso = new Date().toISOString()
-    const up = await sb().from('tarefas').update({ faturado: true, data_faturamento: iso, numero_nota: nota }).eq('id', cur.id)
+    const up = await sb().from('tarefas').update({ faturado: true, data_faturamento: iso, numero_nota: nota, status: 'faturada' }).eq('id', cur.id)
     if (up.error) return toast('Erro ao faturar: ' + up.error.message, 'err')
-    const t = tarefas.find(x => x.id === cur.id); if (t) { t.faturado = true; t.data_faturamento = iso; t.numero_nota = nota }
+    const t = tarefas.find(x => x.id === cur.id); if (t) { t.faturado = true; t.data_faturamento = iso; t.numero_nota = nota; t.status = 'faturada' }
+    cur.status = 'faturada'
+    document.getElementById('cc-d-status-sel').value = 'faturada'
+    setStatusBadge('faturada')
     renderFaturamento({ faturado: true, data_faturamento: iso, numero_nota: nota })
     toast('Tarefa marcada como faturada.', 'ok')
   }
   async function desfazerFaturamento() {
     if (!cur || !cur.id) return
     if (!confirm('Desfazer o faturamento desta tarefa?')) return
-    const up = await sb().from('tarefas').update({ faturado: false, data_faturamento: null, numero_nota: null }).eq('id', cur.id)
+    // Volta para o passo anterior à faturada (se o status estava 'faturada').
+    const novoStatus = cur.status === 'faturada' ? 'aprovada_faturamento' : cur.status
+    const up = await sb().from('tarefas').update({ faturado: false, data_faturamento: null, numero_nota: null, status: novoStatus }).eq('id', cur.id)
     if (up.error) return toast('Erro: ' + up.error.message, 'err')
-    const t = tarefas.find(x => x.id === cur.id); if (t) { t.faturado = false; t.data_faturamento = null; t.numero_nota = null }
+    const t = tarefas.find(x => x.id === cur.id); if (t) { t.faturado = false; t.data_faturamento = null; t.numero_nota = null; t.status = novoStatus }
+    cur.status = novoStatus
+    document.getElementById('cc-d-status-sel').value = novoStatus
+    setStatusBadge(novoStatus)
     renderFaturamento({ faturado: false })
     toast('Faturamento desfeito.', 'ok')
   }
