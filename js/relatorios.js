@@ -10,6 +10,7 @@
   let filtro = 'todas'
   let faturarId = null
   let forms = {}        // id do formulário -> array de campos
+  let tipos = []        // tipos de serviço (para "nova tarefa da pendência")
   let det = null        // detalhe atualmente aberto { r, campos, mats, fotos, sigUrl }
   let editMode = false
 
@@ -40,6 +41,7 @@
     document.getElementById('ver-cancelar').onclick = cancelarEdicao
     document.getElementById('ver-salvar').onclick = salvarEdicao
     document.getElementById('ver-pdf').onclick = gerarPdf
+    document.getElementById('ver-nova-tarefa').onclick = abrirNovaTarefa
     marcarChips()
     await carregar()
   }
@@ -51,7 +53,7 @@
   async function carregar() {
     const sb = getSupabase()
     const { data, error } = await sb.from('rats')
-      .select('id,cliente_nome,tecnico_nome,data_tarefa,status,sync_status,relatorio_completo,pendencias,faturado,data_faturamento,numero_nota,assinatura_url,respostas,tempo_trabalhado,formulario_id,tipos_servico(nome),tarefa:tarefas(numero,tipo:tipos_servico(nome))')
+      .select('id,cliente_id,cliente_nome,tecnico_nome,data_tarefa,status,sync_status,relatorio_completo,pendencias,faturado,data_faturamento,numero_nota,assinatura_url,respostas,tempo_trabalhado,formulario_id,tipos_servico(nome),tarefa:tarefas(id,numero,cliente_id,tipo_servico_id,tipo:tipos_servico(nome))')
       .order('data_tarefa', { ascending: false, nullsFirst: false }).limit(500)
     if (error) { toast('Erro ao carregar: ' + error.message, 'err'); cache = [] }
     else cache = data || []
@@ -243,6 +245,8 @@
     document.getElementById('ver-cancelar').style.display = editMode ? '' : 'none'
     document.getElementById('ver-pdf').style.display      = editMode ? 'none' : ''
     document.getElementById('ver-excluir').style.display  = editMode ? 'none' : ''
+    const bnt = document.getElementById('ver-nova-tarefa')
+    if (bnt) bnt.style.display = editMode ? 'none' : ''
     document.getElementById('ver-excluir').onclick = () => det && excluirRat(det.r.id)
   }
 
@@ -349,8 +353,53 @@
     render()
   }
 
+  // ── Nova tarefa a partir da pendência da RAT ──
+  async function carregarTipos() {
+    if (tipos.length) return
+    const { data } = await getSupabase().from('tipos_servico').select('id,nome,ativo').eq('ativo', true).order('nome')
+    tipos = data || []
+  }
+  async function abrirNovaTarefa() {
+    if (!det) return
+    await carregarTipos()
+    const r = det.r
+    const resp = r.respostas || {}
+    const pend = (r.pendencias && r.pendencias.trim()) || (resp.observacoes && String(resp.observacoes).trim()) || ''
+    const tipoOrig = r.tarefa && r.tarefa.tipo_servico_id
+    const tarefaNo = r.tarefa && r.tarefa.numero != null ? String(r.tarefa.numero).padStart(5, '0') : null
+    document.getElementById('nt-cli-nome').textContent = r.cliente_nome || '—'
+    document.getElementById('nt-tipo').innerHTML = tipos.map(t =>
+      `<option value="${esc(t.id)}"${t.id === tipoOrig ? ' selected' : ''}>${esc(t.nome)}</option>`).join('')
+    document.getElementById('nt-orient').value = pend
+    document.getElementById('nt-origem').textContent = tarefaNo ? `Origem: Tarefa Nº ${tarefaNo} (${r.cliente_nome || ''})` : ''
+    abrir('modal-nova-tarefa')
+  }
+  async function criarNovaTarefa() {
+    if (!det) return
+    const r = det.r
+    const cliId = r.cliente_id || (r.tarefa && r.tarefa.cliente_id)
+    const tipoId = document.getElementById('nt-tipo').value
+    const orient = document.getElementById('nt-orient').value.trim()
+    if (!cliId) return toast('RAT sem cliente vinculado.', 'err')
+    if (!tipoId) return toast('Selecione o tipo de serviço.', 'err')
+    const sb = getSupabase()
+    const { data: { user } } = await sb.auth.getUser()
+    const tarefaNo = r.tarefa && r.tarefa.numero != null ? String(r.tarefa.numero).padStart(5, '0') : null
+    const ins = await sb.from('tarefas').insert({
+      cliente_id: cliId,
+      tipo_servico_id: tipoId,
+      status: 'aguardando_execucao',
+      orientacao: orient || null,
+      observacoes: tarefaNo ? `Gerada da pendência da Tarefa Nº ${tarefaNo}.` : 'Gerada de pendência de RAT.',
+      criado_por: user ? user.id : null,
+    }).select('numero').single()
+    if (ins.error) return toast('Erro ao criar tarefa: ' + ins.error.message, 'err')
+    fechar('modal-nova-tarefa')
+    toast(`Tarefa Nº ${String(ins.data.numero).padStart(5, '0')} criada. Atribua o técnico em Tarefas.`, 'ok')
+  }
+
   const abrir = (id) => document.getElementById(id).classList.add('open')
   const fechar = (id) => document.getElementById(id).classList.remove('open')
 
-  window.RelatoriosApp = { init, fechar, confirmarFaturar }
+  window.RelatoriosApp = { init, fechar, confirmarFaturar, criarNovaTarefa }
 })()
