@@ -466,7 +466,7 @@ const TarefaApp = (() => {
         const cUtil = `<td>${box(qtd(util), devNeg ? 'alert' : (util === 0 ? 'zero' : ''))}</td>`
         const cDev = `<td>${box(qtd(devShown), devShown === 0 ? 'zero' : '')}</td>`
         const cPreco = semOrcada
-          ? `<td><input class="edit cc-preco" type="number" inputmode="decimal" min="0" step="0.01" value="${preco > 0 ? preco : ''}" data-i="${i}" placeholder="0,00"></td>`
+          ? `<td><span class="cc-edit-money"><span class="rs">R$</span><input class="cc-preco" type="number" inputmode="decimal" min="0" step="0.01" value="${preco > 0 ? preco : ''}" data-i="${i}" placeholder="0,00"></span></td>`
           : `<td>${box(money(preco), 'money')}</td>`
         const sub = util * preco
         const cSub = `<td>${box(money(sub), 'money' + (sub === 0 ? ' zero' : ''))}</td>`

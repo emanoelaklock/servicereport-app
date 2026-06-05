@@ -123,6 +123,11 @@
   /* caixas: Levada/Valor-avulso editáveis (.edit) e demais só-leitura (.cc-box) — mesmo visual */
   .cc-table .edit,.cc-table .cc-box{width:66px;padding:5px 9px;border:1px solid var(--bd);border-radius:7px;font:inherit;font-size:13px;text-align:right;font-weight:600;font-variant-numeric:tabular-nums;background:#fff;color:var(--tx)}
   .cc-table .edit.cc-preco,.cc-table .cc-box.money{width:104px}
+  /* valor unit. editável (avulso/fora) com prefixo R$, no mesmo formato da caixa */
+  .cc-table .cc-edit-money{display:inline-flex;align-items:center;gap:3px;justify-content:flex-end;width:104px;padding:5px 9px;border:1px solid var(--bd);border-radius:7px;background:#fff;font-size:13px;font-weight:600;font-variant-numeric:tabular-nums;box-sizing:border-box}
+  .cc-table .cc-edit-money .rs{color:var(--tx3)}
+  .cc-table .cc-edit-money input{border:none;outline:none;background:transparent;width:100%;text-align:right;font:inherit;font-weight:600;font-variant-numeric:tabular-nums;padding:0;margin:0}
+  .cc-table .cc-edit-money:focus-within{border-color:var(--ac);box-shadow:0 0 0 3px var(--acl)}
   .cc-table .cc-box{display:inline-block;box-sizing:border-box}
   .cc-table .cc-box.zero{color:#9aa1ad;font-weight:500}
   .cc-table .cc-box.alert{color:var(--re);font-weight:700}
