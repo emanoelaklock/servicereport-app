@@ -98,6 +98,10 @@
     document.getElementById('nav-os').onclick = async () => { mostrar('lista'); await renderLista() }
     document.getElementById('nav-tarefas').onclick = async () => { mostrar('tarefas'); await renderTarefas() }
     document.getElementById('btn-tarefas-sync').onclick = async () => { await renderTarefas(true) }
+    document.getElementById('btn-nova-tarefa').onclick = () => { document.getElementById('nt-cliente').value = ''; document.getElementById('nt-cliente-busca').value = ''; document.getElementById('modal-nt').classList.add('open') }
+    document.getElementById('nt-fechar').onclick = () => document.getElementById('modal-nt').classList.remove('open')
+    document.getElementById('nt-cancelar').onclick = () => document.getElementById('modal-nt').classList.remove('open')
+    document.getElementById('nt-criar').onclick = criarTarefaTecnico
     document.getElementById('btn-iniciar-rat').onclick = () => { if (tarefaAberta) iniciarRatDaTarefa(tarefaAberta) }
     document.getElementById('btn-concluir').onclick = () => concluirTarefa(false)
     document.getElementById('btn-concluir-pend').onclick = () => concluirTarefa(true)
@@ -151,6 +155,13 @@
       document.getElementById('ac-cliente-list'),
       ref.clientes, c => ({ id: c.id, label: c.nome })
     )
+    // cliente no modal "Nova tarefa" (técnico)
+    attachAutocomplete(
+      document.getElementById('nt-cliente-busca'),
+      document.getElementById('nt-cliente'),
+      document.getElementById('nt-cliente-list'),
+      ref.clientes, c => ({ id: c.id, label: c.nome })
+    )
     const selT = document.getElementById('f-tipo')
     selT.innerHTML = '<option value="">Selecione…</option>' +
       ref.tipos.map(t => `<option value="${esc(t.id)}">${esc(t.nome)}</option>`).join('')
@@ -181,7 +192,7 @@
       <div class="rat-card" data-uuid="${esc(r.client_uuid)}">
         <div class="rat-card-top">
           <span class="rat-cli">${esc(r.cliente_nome || 'Sem cliente')}</span>
-          ${badge(r.sync_status)}
+          <span style="display:flex;align-items:center;gap:8px">${badge(r.sync_status)}<button type="button" class="rat-del" data-del="${esc(r.client_uuid)}" title="Excluir RAT">🗑</button></span>
         </div>
         <div class="rat-meta">
           <span>${esc(r.tipo_servico_nome || '—')}${r.status ? ' · ' + esc(ratSit(r.status)) : ''}</span>
@@ -189,8 +200,31 @@
         </div>
       </div>`).join('')
     box.querySelectorAll('.rat-card').forEach(el => {
-      el.onclick = () => abrirExistente(el.dataset.uuid)
+      el.onclick = (e) => { if (e.target.closest('[data-del]')) return; abrirExistente(el.dataset.uuid) }
     })
+    box.querySelectorAll('[data-del]').forEach(b => { b.onclick = (e) => { e.stopPropagation(); excluirRat(b.dataset.del) } })
+  }
+
+  async function excluirRat(client_uuid) {
+    if (!confirm('Excluir esta RAT? Esta ação não pode ser desfeita.')) return
+    const rat = await D().obterRat(client_uuid)
+    // se já foi sincronizada, remove também do servidor (materiais → fotos → rat)
+    if (rat && rat.recebido_em && navigator.onLine) {
+      try {
+        const sb = getSupabase()
+        const { data: srv } = await sb.from('rats').select('id').eq('client_uuid', client_uuid).maybeSingle()
+        if (srv) {
+          await sb.from('materiais').delete().eq('rat_id', srv.id)
+          await sb.from('relatorio_fotos').delete().eq('rat_id', srv.id)
+          await sb.from('rats').delete().eq('id', srv.id)
+        }
+      } catch (e) { toast('Removida do aparelho; falha ao remover do servidor: ' + (e.message || e), 'err') }
+    } else if (rat && rat.recebido_em && !navigator.onLine) {
+      toast('Sem conexão — removida do aparelho, mas ainda está no servidor.', 'info')
+    }
+    await D().removerRat(client_uuid)
+    toast('RAT excluída.', 'ok')
+    await renderLista()
   }
 
   // ─────────────────────── Tarefas atribuídas (#7) ───────────────────────
@@ -224,6 +258,22 @@
       </div>`
     }).join('')
     box.querySelectorAll('.t-card').forEach(el => el.onclick = () => abrirTarefaDet(el.dataset.id))
+  }
+
+  async function criarTarefaTecnico() {
+    const cliId = document.getElementById('nt-cliente').value
+    if (!cliId) return toast('Selecione o cliente.', 'err')
+    if (!navigator.onLine) return toast('Sem conexão — crie a tarefa quando estiver online.', 'err')
+    const sb = getSupabase()
+    const newId = crypto.randomUUID()
+    const ins = await sb.from('tarefas').insert({ id: newId, cliente_id: cliId, status: 'aguardando_execucao', criado_por: tecnico.id })
+    if (ins.error) return toast('Erro ao criar tarefa: ' + ins.error.message, 'err')
+    const at = await sb.from('tarefa_tecnicos').insert({ tarefa_id: newId, tecnico_id: tecnico.id })
+    if (at.error) return toast('Tarefa criada, mas falha ao atribuir: ' + at.error.message, 'err')
+    document.getElementById('modal-nt').classList.remove('open')
+    toast('Tarefa criada.', 'ok')
+    await renderTarefas()
+    await abrirTarefaDet(newId)
   }
 
   async function abrirTarefaDet(id) {

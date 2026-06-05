@@ -46,6 +46,16 @@
   .rat-card-top{display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:6px}
   .rat-cli{font-weight:600;color:var(--tx);font-size:14px}
   .rat-meta{display:flex;align-items:center;justify-content:space-between;font-size:12px;color:var(--tx3)}
+  .rat-del{border:none;background:none;color:var(--re);font-size:15px;cursor:pointer;line-height:1;padding:2px}
+  /* Modal (genérico do app do técnico) */
+  .tm-back{display:none;position:fixed;inset:0;background:rgba(20,30,55,.5);z-index:200;align-items:flex-start;justify-content:center;padding:60px 16px}
+  .tm-back.open{display:flex}
+  .tm-box{background:#fff;border-radius:14px;width:100%;max-width:420px;box-shadow:0 24px 64px rgba(20,30,55,.3);overflow:visible}
+  .tm-h{display:flex;align-items:center;justify-content:space-between;padding:15px 18px;border-bottom:1px solid var(--bd);font-weight:700;font-size:15px}
+  .tm-x{border:none;background:none;font-size:18px;color:var(--tx3);cursor:pointer}
+  .tm-b{padding:16px 18px}
+  .tm-b label{display:block;font-size:12px;font-weight:600;color:var(--tx2);margin-bottom:5px}
+  .tm-f{display:flex;justify-content:flex-end;gap:10px;padding:12px 18px;border-top:1px solid var(--bd)}
 
   /* Tarefas (atribuídas) */
   .t-card{background:var(--sur);border:1px solid var(--bd);border-radius:12px;padding:13px 14px;margin-bottom:10px;box-shadow:var(--sh);cursor:pointer}
@@ -189,7 +199,10 @@
       <div id="view-tarefas" style="display:none">
         <div class="lista-head">
           <h2>Minhas Tarefas</h2>
-          <button class="btn" id="btn-tarefas-sync" title="Atualizar">↻ Atualizar</button>
+          <div style="display:flex;gap:8px">
+            <button class="btn" id="btn-tarefas-sync" title="Atualizar">↻ Atualizar</button>
+            <button class="btn btn-p" id="btn-nova-tarefa">+ Nova tarefa</button>
+          </div>
         </div>
         <div id="lista-tarefas"></div>
       </div>
@@ -357,6 +370,26 @@
         </div>
       </div>
 
+    </div>
+  </div>
+</div>
+
+<!-- Modal: Nova tarefa (técnico) -->
+<div class="tm-back" id="modal-nt">
+  <div class="tm-box">
+    <div class="tm-h"><span>Nova tarefa</span><button class="tm-x" id="nt-fechar">✕</button></div>
+    <div class="tm-b">
+      <label>Cliente *</label>
+      <div class="ac">
+        <input type="text" id="nt-cliente-busca" placeholder="Buscar cliente…" autocomplete="off">
+        <input type="hidden" id="nt-cliente">
+        <div class="ac-list" id="nt-cliente-list"></div>
+      </div>
+      <p class="dim" style="margin-top:8px">A tarefa será criada e atribuída a você. Depois é só tocar em “Iniciar RAT”.</p>
+    </div>
+    <div class="tm-f">
+      <button class="btn" id="nt-cancelar">Cancelar</button>
+      <button class="btn btn-p" id="nt-criar">Criar tarefa</button>
     </div>
   </div>
 </div>
