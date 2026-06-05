@@ -109,18 +109,6 @@ window.RatView = (function () {
 
     if (edit) h += `<div class="rd-edit-hint">✎ Modo edição — você pode ajustar qualquer campo e o valor unitário dos produtos. O tempo é recalculado ao salvar.</div>`
 
-    // Emitente
-    if (!opts.semEmitente) h += `<div class="rd-sec"><div class="rd-sec-t">Emitente</div>
-      <div class="rd-emit"><b>${esc(EMPRESA.nome)}</b><br>CNPJ ${esc(EMPRESA.cnpj)} · ${esc(EMPRESA.tel)} · ${esc(EMPRESA.email)}<br>${esc(EMPRESA.endereco)}</div></div>`
-
-    // Informações do cliente
-    const cli = r.cliente || {}
-    h += `<div class="rd-sec"><div class="rd-sec-t">Informações do cliente</div><div class="rd-grid">
-      <div class="rd-f"><label>Nome do cliente</label><div class="v">${esc(r.cliente_nome || cli.nome || '—')}</div></div>
-      <div class="rd-f"><label>CPF/CNPJ</label><div class="v">${esc(cli.documento || '—')}</div></div>
-      <div class="rd-f" style="grid-column:1/-1"><label>Endereço</label><div class="v">${esc(cli.endereco || '—')}</div></div>
-    </div></div>`
-
     // Dados da OS
     const tf = r.tarefa || {}
     h += `<div class="rd-sec"><div class="rd-sec-t">Dados da OS</div><div class="rd-grid">
