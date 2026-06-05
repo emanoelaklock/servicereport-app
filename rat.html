@@ -40,7 +40,8 @@
   .st-run{background:#E8F0FE;color:#1c54b8}
 
   /* Detalhe da RAT — layout de relatório */
-  #rp-body .rd{font-size:13.5px}
+  #rp-body .rd{font-size:13px;font-family:Inter,sans-serif}
+  #rp-body .rd *{font-family:Inter,sans-serif}
   .rd-head{margin-bottom:6px}
   .rd-cli{font-size:20px;font-weight:700;color:var(--tx);line-height:1.2}
   .rd-sub{font-size:13px;color:var(--ac);font-weight:600;margin-top:2px}
@@ -48,25 +49,24 @@
   .rd-meta b{color:var(--tx3);font-weight:500}
   .rd-sec{margin-top:18px}
   .rd-sec-t{font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--tx3);border-bottom:1px solid var(--bd);padding-bottom:5px;margin-bottom:10px}
-  .rd-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px}
-  .rd-f{background:var(--sur2);border:1px solid var(--bd);border-radius:8px;padding:8px 11px}
-  .rd-f label{display:block;font-size:10px;text-transform:uppercase;letter-spacing:.05em;color:var(--tx3);margin-bottom:2px}
-  .rd-f .v{font-size:13.5px;color:var(--tx)}
-  .rd-f input,.rd-f select{width:100%;font:inherit;font-size:13.5px;margin-top:3px;padding:6px 8px;border:1px solid var(--ac);border-radius:6px;background:#fff;color:var(--tx);box-sizing:border-box}
+  .rd-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:7px}
+  .rd-f{background:var(--sur2);border:1px solid var(--bd);border-radius:7px;padding:6px 9px}
+  .rd-f label{display:block;font-size:9.5px;text-transform:uppercase;letter-spacing:.05em;color:var(--tx3);margin-bottom:1px}
+  .rd-f .v{font-size:12.5px;color:var(--tx);line-height:1.35}
+  .rd-f input,.rd-f select{width:100%;font:inherit;font-size:12.5px;margin-top:3px;padding:5px 7px;border:1px solid var(--ac);border-radius:6px;background:#fff;color:var(--tx);box-sizing:border-box}
   .rd-long{white-space:pre-wrap;line-height:1.55;color:var(--tx)}
   .rd-edit{width:100%;min-height:100px;resize:vertical;font:inherit;line-height:1.55;padding:10px 12px;border:1px solid var(--ac);border-radius:8px;background:#fff;color:var(--tx);box-sizing:border-box}
   .rd-edit-hint{font-size:11.5px;color:var(--ac);margin:8px 0 14px}
   .rd-prod{display:flex;flex-direction:column;gap:4px}
   .rd-prod div{font-size:13.5px;color:var(--tx)}
   .rd-emit{font-size:13px;line-height:1.55;color:var(--tx)}
-  .rd-prodtbl{width:100%;border-collapse:collapse;font-size:13px}
+  .rd-prodtbl{width:100%;border-collapse:collapse;font-size:12.5px}
   .rd-prodtbl th{text-align:left;font-size:10px;text-transform:uppercase;letter-spacing:.04em;color:var(--tx3);padding:0 8px 7px;border-bottom:1px solid var(--bd)}
   .rd-prodtbl th.num,.rd-prodtbl td.num{text-align:right;font-family:var(--mono);white-space:nowrap}
   .rd-prodtbl td{padding:8px;border-bottom:1px solid var(--sur2);color:var(--tx)}
   .rd-prodtbl input.rd-preco{width:104px;text-align:right;font:inherit;font-family:var(--mono);padding:5px 7px;border:1px solid var(--ac);border-radius:6px;box-sizing:border-box}
-  .rd-total{display:flex;justify-content:flex-end;gap:14px;margin-top:11px;font-size:14.5px;color:var(--tx)}
-  .rd-total b{font-family:var(--mono)}
-  .rd-pausas{width:100%;border-collapse:collapse;font-size:13px}
+  .rd-total{display:flex;justify-content:flex-end;gap:14px;margin-top:11px;font-size:13.5px;color:var(--tx)}
+  .rd-pausas{width:100%;border-collapse:collapse;font-size:12.5px}
   .rd-pausas th{text-align:left;font-size:10px;text-transform:uppercase;letter-spacing:.04em;color:var(--tx3);padding:0 8px 7px;border-bottom:1px solid var(--bd)}
   .rd-pausas td{padding:8px;border-bottom:1px solid var(--sur2);color:var(--tx)}
   .det-fotos{display:flex;flex-wrap:wrap;gap:12px;margin-top:6px}
