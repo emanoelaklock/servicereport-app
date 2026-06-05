@@ -266,13 +266,15 @@
 
   async function criarTarefaTecnico() {
     const cliId = document.getElementById('nt-cliente').value
+    const tipoId = document.getElementById('nt-tipo').value
     if (!cliId) return toast('Selecione o cliente.', 'err')
+    if (!tipoId) return toast('Selecione o tipo de serviço.', 'err')
     if (!navigator.onLine) return toast('Sem conexão — crie a tarefa quando estiver online.', 'err')
     const sb = getSupabase()
     const newId = crypto.randomUUID()
     const ins = await sb.from('tarefas').insert({
       id: newId, cliente_id: cliId, status: 'aguardando_execucao', criado_por: tecnico.id,
-      tipo_servico_id: document.getElementById('nt-tipo').value || null,
+      tipo_servico_id: tipoId,
       data_agendada: document.getElementById('nt-data').value || null,
     })
     if (ins.error) return toast('Erro ao criar tarefa: ' + ins.error.message, 'err')
@@ -421,15 +423,17 @@
     document.getElementById('f-cliente').value = t.cliente_id || ''
     const cb = document.getElementById('f-cliente-busca')
     cb.value = cliNomeDe(t.cliente_id); cb.readOnly = true
-    // tipo herdado da tarefa: esconde o seletor e carrega o formulário do tipo
+    // tipo é SEMPRE da tarefa: o seletor nunca aparece na RAT
     document.getElementById('f-tipo').value = tipoId
-    document.getElementById('f-tipo-wrap').style.display = tipoId ? 'none' : 'block'
+    document.getElementById('f-tipo-wrap').style.display = 'none'
     document.getElementById('f-status').value = 'em_andamento'
     document.getElementById('f-pendencias').value = ''
     togglePendencias()
     document.getElementById('campos-container').innerHTML = ''
     mostrar('form')
-    if (tipoId) await onTipoChange()
+    // carrega o formulário do tipo da tarefa (ou mostra aviso se a tarefa não tem tipo)
+    const formId = (ref.tipos.find(x => x.id === tipoId) || {}).formulario_id || null
+    await carregarFormularioPorId(formId)
   }
 
   // ─────────────────────── Navegação (home + módulos) ───────────────────────
