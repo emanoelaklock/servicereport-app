@@ -64,7 +64,11 @@
     document.getElementById('btn-omie-test').onclick = testarOmie
     document.getElementById('btn-omie-sync').onclick = sincronizarOmie
     carregarOmieLog()
-    const bc = document.getElementById('busca-cli'); if (bc) bc.oninput = debounce(() => buscarClientes(bc.value.trim()), 300)
+    const bc = document.getElementById('busca-cli'); if (bc) bc.oninput = debounce(() => { cliPage = 0; buscarClientes(bc.value.trim()) }, 300)
+    document.getElementById('cli-prev').onclick = () => { if (cliPage > 0) { cliPage--; buscarClientes(bc.value.trim()) } }
+    document.getElementById('cli-next').onclick = () => { cliPage++; buscarClientes(bc.value.trim()) }
+    document.getElementById('btn-nova-empresa').onclick = novaEmpresa
+    document.getElementById('cc-cnpj-buscar').onclick = buscarCNPJ
     const bp = document.getElementById('busca-prod'); if (bp) bp.oninput = debounce(() => buscarProdutos(bp.value.trim()), 300)
     const ca = document.getElementById('chkall-cli'); if (ca) ca.onclick = () => document.querySelectorAll('#tbody-cli .row-chk').forEach(c => { c.checked = ca.checked })
     const pa = document.getElementById('chkall-prod'); if (pa) pa.onclick = () => document.querySelectorAll('#tbody-prod .row-chk').forEach(c => { c.checked = pa.checked })
@@ -606,14 +610,22 @@
   }
 
   // ───────────────────── Clientes (cadastro, origem Omie) ─────────────────────
+  let cliPage = 0
+  const CLI_PG = 50
   async function buscarClientes(q) {
-    let query = getSupabase().from('clientes').select('id,nome,documento,endereco,oculto,sync_omie')
+    const from = cliPage * CLI_PG
+    let query = getSupabase().from('clientes').select('id,nome,documento,endereco,oculto,sync_omie', { count: 'exact' })
       // esconde só os "excluídos" (oculto + não reimporta) — filtra no servidor, antes do limite
       .or('oculto.is.false,oculto.is.null,sync_omie.is.null,sync_omie.neq.false')
-      .order('nome').limit(50)
-    if (q) query = query.ilike('nome', `%${q}%`)
-    const { data, error } = await query
+      .order('nome').range(from, from + CLI_PG - 1)
+    if (q) { const qq = q.replace(/[%,()]/g, '').trim(); if (qq) query = query.or(`nome.ilike.%${qq}%,documento.ilike.%${qq}%`) }
+    const { data, error, count } = await query
     renderCadastro('cli', error ? [] : (data || []), 'cliente')
+    const total = count || 0, fim = Math.min(from + CLI_PG, total)
+    const info = document.getElementById('cli-pag-info'); if (info) info.textContent = total ? `${total ? from + 1 : 0}–${fim} de ${total}` : 'nenhuma empresa'
+    const prev = document.getElementById('cli-prev'), next = document.getElementById('cli-next')
+    if (prev) prev.disabled = cliPage === 0
+    if (next) next.disabled = fim >= total
   }
   async function buscarProdutos(q) {
     let query = getSupabase().from('produtos').select('id,codigo,descricao,unidade,ativo,oculto').order('descricao').limit(50)
@@ -718,9 +730,44 @@
     document.getElementById('cc-vh-wrap').style.display = isHora ? '' : 'none'
     document.getElementById('cc-dc-wrap').style.display = isHora ? 'flex' : 'none'
   }
+  const formatCNPJ = (s) => { s = (s || '').replace(/\D/g, '').slice(0, 14); return s.length === 14 ? s.replace(/^(\d{2})(\d{3})(\d{3})(\d{4})(\d{2})$/, '$1.$2.$3/$4-$5') : s }
+  function novaEmpresa() {
+    document.getElementById('cc-modal-tt').textContent = 'Nova empresa'
+    document.getElementById('cc-id').value = ''
+    document.getElementById('cc-nome').value = ''
+    document.getElementById('cc-documento').value = ''
+    document.getElementById('cc-endereco').value = ''
+    document.getElementById('cc-modalidade').value = ''
+    document.getElementById('cc-vh').value = ''
+    document.getElementById('cc-dc').checked = false
+    document.getElementById('cc-modalidade').onchange = toggleModalidadeCli
+    toggleModalidadeCli()
+    abrir('modal-cli')
+  }
+  // Auto-preenche pelo CNPJ (BrasilAPI, pública/CORS).
+  async function buscarCNPJ() {
+    const raw = (document.getElementById('cc-documento').value || '').replace(/\D/g, '')
+    if (raw.length !== 14) return toast('Digite um CNPJ com 14 dígitos.', 'err')
+    const btn = document.getElementById('cc-cnpj-buscar'); const old = btn.textContent; btn.disabled = true; btn.textContent = 'Buscando…'
+    try {
+      const r = await fetch('https://brasilapi.com.br/api/cnpj/v1/' + raw)
+      if (!r.ok) throw new Error('CNPJ não encontrado')
+      const d = await r.json()
+      document.getElementById('cc-documento').value = formatCNPJ(raw)
+      const nm = d.nome_fantasia || d.razao_social || ''
+      if (nm) document.getElementById('cc-nome').value = nm
+      const cep = d.cep ? String(d.cep).replace(/\D/g, '').replace(/^(\d{5})(\d{3})$/, '$1-$2') : ''
+      const rua = [d.descricao_tipo_de_logradouro, d.logradouro].filter(Boolean).join(' ')
+      const linha = [[rua, d.numero].filter(Boolean).join(', '), d.bairro, [d.municipio, d.uf].filter(Boolean).join('/'), cep].filter(Boolean).join(' · ')
+      if (linha.trim()) document.getElementById('cc-endereco').value = linha
+      toast('Dados do CNPJ preenchidos.', 'ok')
+    } catch (e) { toast('Não foi possível buscar o CNPJ: ' + (e.message || e), 'err') }
+    finally { btn.disabled = false; btn.textContent = old }
+  }
   async function editarCliente(id) {
     const { data, error } = await getSupabase().from('clientes').select('id,nome,documento,endereco,modalidade_padrao,valor_hora_padrao,dia_continuo').eq('id', id).single()
     if (error || !data) return toast('Erro ao carregar cliente.', 'err')
+    document.getElementById('cc-modal-tt').textContent = 'Editar empresa'
     document.getElementById('cc-id').value = data.id
     document.getElementById('cc-nome').value = data.nome || ''
     document.getElementById('cc-documento').value = data.documento || ''
@@ -735,21 +782,23 @@
   async function salvarCliente() {
     const id = document.getElementById('cc-id').value
     const nome = document.getElementById('cc-nome').value.trim()
-    if (!id) return
     if (!nome) return toast('Informe o nome.', 'err')
     const mod = document.getElementById('cc-modalidade').value || null
-    const patch = {
+    const dados = {
       nome,
       documento: document.getElementById('cc-documento').value.trim() || null,
       endereco: document.getElementById('cc-endereco').value.trim() || null,
       modalidade_padrao: mod,
       valor_hora_padrao: mod === 'por_hora' ? (Number(document.getElementById('cc-vh').value) || null) : null,
       dia_continuo: mod === 'por_hora' ? document.getElementById('cc-dc').checked : false,
-      sync_omie: false,   // trava: alteração manual não é sobrescrita pelo Omie
+      sync_omie: false,   // trava: cadastro/edição manual não é sobrescrito pelo Omie
     }
-    const { error } = await getSupabase().from('clientes').update(patch).eq('id', id)
+    const sb = getSupabase()
+    const { error } = id
+      ? await sb.from('clientes').update(dados).eq('id', id)
+      : await sb.from('clientes').insert(dados)
     if (error) return toast('Erro ao salvar: ' + error.message, 'err')
-    toast('Cliente salvo.', 'ok')
+    toast(id ? 'Empresa salva.' : 'Empresa cadastrada.', 'ok')
     fechar('modal-cli')
     recarregaCadastro('cliente')
   }

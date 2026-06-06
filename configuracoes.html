@@ -103,7 +103,7 @@
         <button class="cfg-tab on" data-sec="formularios">Formulários</button>
         <button class="cfg-tab" data-sec="tipos">Tipos de Serviço</button>
         <button class="cfg-tab" data-sec="veiculos">Veículos</button>
-        <button class="cfg-tab" data-sec="clientes">Clientes</button>
+        <button class="cfg-tab" data-sec="clientes">Empresas</button>
         <button class="cfg-tab" data-sec="produtos">Produtos</button>
         <button class="cfg-tab" data-sec="omie">Omie</button>
       </div>
@@ -159,19 +159,25 @@
       <!-- Clientes (origem Omie) -->
       <div class="cfg-card cfg-section" id="sec-clientes" style="display:none">
         <div class="cfg-head">
-          <h2>Clientes</h2>
+          <h2>Empresas</h2>
           <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
-            <input type="text" id="busca-cli" placeholder="Buscar cliente…" autocomplete="off" style="padding:8px 11px;border:1px solid var(--bd);border-radius:var(--r);font:inherit;font-size:13px;min-width:220px">
+            <input type="text" id="busca-cli" placeholder="Buscar empresa (nome ou CNPJ)…" autocomplete="off" style="padding:8px 11px;border:1px solid var(--bd);border-radius:var(--r);font:inherit;font-size:13px;min-width:220px">
             <button class="btn btn-sm" id="bulk-cli-ocultar">Ocultar sel.</button>
             <button class="btn btn-sm" id="bulk-cli-mostrar">Mostrar sel.</button>
             <button class="btn btn-sm" id="bulk-cli-excluir" style="color:var(--re);border-color:var(--re)">Excluir sel.</button>
+            <button class="btn btn-p btn-sm" id="btn-nova-empresa">+ Nova empresa</button>
           </div>
         </div>
-        <p class="dim" style="margin:-6px 0 10px">Vêm do Omie. <b>Ocultar</b> some do app do técnico e sobrevive ao sync; <b>Excluir</b> apaga (o Omie pode reimportar).</p>
+        <p class="dim" style="margin:-6px 0 10px">Vêm do Omie ou cadastradas aqui. <b>Ocultar</b> some do app do técnico e sobrevive ao sync; <b>Excluir</b> remove do app e não reimporta.</p>
         <div class="tcard"><div class="twrap"><table>
           <thead><tr><th style="width:34px"><input type="checkbox" id="chkall-cli"></th><th>Nome</th><th>Documento</th><th>Status</th><th>Ações</th></tr></thead>
           <tbody id="tbody-cli"><tr><td colspan="5" class="dim" style="text-align:center;padding:20px">Carregando…</td></tr></tbody>
         </table></div></div>
+        <div style="display:flex;align-items:center;gap:10px;margin-top:12px">
+          <button class="btn btn-sm" id="cli-prev">← Anterior</button>
+          <span class="dim" id="cli-pag-info" style="font-size:12px"></span>
+          <button class="btn btn-sm" id="cli-next">Próxima →</button>
+        </div>
       </div>
 
       <!-- Produtos (origem Omie) -->
@@ -299,11 +305,16 @@
 <!-- Modal: Cliente -->
 <div class="mback" id="modal-cli">
   <div class="modal">
-    <div class="mh"><span class="mt">Editar cliente</span><button class="mx" onclick="ConfigApp.fechar('modal-cli')">✕</button></div>
+    <div class="mh"><span class="mt" id="cc-modal-tt">Editar empresa</span><button class="mx" onclick="ConfigApp.fechar('modal-cli')">✕</button></div>
     <div class="mb">
       <input type="hidden" id="cc-id">
+      <div class="fg"><label>Documento (CNPJ/CPF)</label>
+        <div style="display:flex;gap:8px">
+          <input type="text" id="cc-documento" placeholder="00.000.000/0000-00" style="flex:1">
+          <button class="btn btn-sm" id="cc-cnpj-buscar" type="button">🔎 Buscar CNPJ</button>
+        </div>
+      </div>
       <div class="fg"><label>Nome (exibição)</label><input type="text" id="cc-nome" placeholder="Nome fantasia / exibição"></div>
-      <div class="fg"><label>Documento (CNPJ/CPF)</label><input type="text" id="cc-documento" placeholder="00.000.000/0000-00"></div>
       <div class="fg"><label>Endereço</label><input type="text" id="cc-endereco" placeholder="Rua, nº, bairro, cidade/UF, CEP"></div>
       <hr style="border:none;border-top:1px solid var(--bd);margin:14px 0">
       <div class="fg"><label>Modalidade de faturamento (padrão desta obra/cliente)</label>
