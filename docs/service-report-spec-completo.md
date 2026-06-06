@@ -295,7 +295,12 @@ Cada **contrato/obra** (não o cliente puro) tem uma **modalidade**, que define 
 
 **Demais contratos: modo normal** — tarefa abre/fecha independente, buraco é irrelevante (tempo é só controle interno).
 
-> **Status de implementação:** especificado, **não implementado**. Implica modelar **contrato/obra** com `modalidade` (entre cliente e tarefa, ou uma tabela de obra), derivar a modalidade na tarefa, classificação pendente na revisão, e o motor de "dia contínuo" (segmentos + arredondamento 5min) para os contratos por hora.
+> **Status de implementação — IMPLEMENTADO (SW v153):**
+> - **Modalidade na Tarefa** (aba Faturamento): por_hora/projeto_fechado/contrato/nao_faturavel; null = pendente de classificação. Cálculo **por hora** = Σ tempo das RATs **arredondado p/ cima 30 min** × valor/hora. (migração 0030)
+> - **Modalidade padrão no Cliente/obra** (Config → Clientes) → **deriva** p/ a tarefa (sugestão "confirme ao salvar"). (migração 0031) — modelado no cliente porque no Omie os clientes já são por obra (ex. "WestRock - FBTB"). Se precisar de várias obras por cadastro de cliente, criar tabela `contratos`.
+> - **Dia contínuo** (app do técnico, tela "Jornada do dia", offline): linha do tempo de segmentos (trabalho/pausa/almoço/deslocamento) com **handoff** (sem buraco). Tabela `jornada_segmentos` (migração 0032), offline em IndexedDB (db-local v4) + sync idempotente.
+> - **Visão do admin** (página **Jornada**): por técnico+dia, KPIs por tipo, **horas de trabalho por cliente** (faturável por hora, arredondado p/ cima 30 min), linha do tempo e **detecção de buraco**.
+> - **Pendente (evolução):** reconciliar segmento→tarefa automaticamente (hoje o segmento de trabalho guarda cliente+tipo+título; o admin ainda cria/vincula a tarefa para faturar) e classificar por hora vs projeto/PC vs não-faturável **por atividade** direto da jornada.
 
 ---
 
