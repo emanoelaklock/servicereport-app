@@ -107,15 +107,12 @@ const TarefaApp = (() => {
     }
     const bt = document.getElementById('busca-tarefa')
     if (bt) bt.oninput = debounce(() => renderLista(), 200)
-    // Nova tarefa (criada direto, sem orçamento)
-    document.getElementById('btn-nova-tarefa').onclick = abrirModalNovaTarefa
-    document.getElementById('nt-fechar').onclick = fecharModalNovaTarefa
-    document.getElementById('nt-cancelar').onclick = fecharModalNovaTarefa
-    document.getElementById('nt-criar').onclick = criarTarefa
+    // Nova tarefa: abre direto na página de detalhe (sem modal), em modo "nova".
+    document.getElementById('btn-nova-tarefa').onclick = abrirNovaTarefa
     attachAutocomplete(
-      document.getElementById('nt-cliente-busca'),
-      document.getElementById('nt-cliente'),
-      document.getElementById('nt-cliente-list'),
+      document.getElementById('cc-d-cli-busca'),
+      document.getElementById('cc-d-cli'),
+      document.getElementById('cc-d-cli-list'),
       ref.clientes,
       c => ({ id: c.id, label: c.nome || '(sem nome)' }),
       null,
@@ -295,32 +292,45 @@ const TarefaApp = (() => {
   }
 
   // ─────────────────────── Nova tarefa (sem orçamento) ───────────────────────
-  function abrirModalNovaTarefa() {
-    document.getElementById('nt-cliente').value = ''
-    document.getElementById('nt-cliente-busca').value = ''
-    document.getElementById('modal-nova-tarefa').classList.add('open')
-    document.getElementById('nt-cliente-busca').focus()
-  }
-  function fecharModalNovaTarefa() {
-    document.getElementById('modal-nova-tarefa').classList.remove('open')
-  }
-  async function criarTarefa() {
-    const cliId = document.getElementById('nt-cliente').value
-    if (!cliId) return toast('Selecione o cliente.', 'err')
-    const ins = await sb().from('tarefas')
-      .insert({ cliente_id: cliId, status: 'aguardando_execucao', criado_por: user.id })
-      .select('id,numero').single()
-    if (ins.error) return toast('Erro ao criar tarefa: ' + ins.error.message, 'err')
-    fecharModalNovaTarefa()
-    toast(`Tarefa Nº ${osNo(ins.data.numero)} criada.`, 'ok')
-    await carregarTarefas()
-    await abrirTarefa(ins.data.id)
+  // Abre direto a página de detalhe em modo "nova": cliente editável, só a aba Dados.
+  // A tarefa é criada no banco ao "Salvar dados".
+  function abrirNovaTarefa() {
+    cur = { id: null, numero: null, status: 'aguardando_execucao', cliente_nome: '', equip: [], anexos: [] }
+    document.getElementById('cc-d-cliente').style.display = 'none'
+    document.getElementById('cc-d-cli-wrap').style.display = 'block'
+    document.getElementById('cc-d-cli').value = ''
+    document.getElementById('cc-d-cli-busca').value = ''
+    document.getElementById('cc-tabs').style.display = 'none'
+    document.getElementById('cc-d-excluir').style.display = 'none'
+    document.getElementById('cc-cliente').textContent = 'Nova tarefa'
+    document.getElementById('cc-docno').textContent = ''
+    setStatusBadge('aguardando_execucao')
+    document.getElementById('cc-d-orc').textContent = 'Criada direto (sem orçamento)'
+    document.getElementById('cc-d-status-sel').value = 'aguardando_execucao'
+    document.getElementById('cc-d-pend-note').textContent = ''
+    document.getElementById('cc-d-tipo').value = ''
+    setTecnicosChecked([])
+    document.getElementById('cc-d-data').value = ''
+    document.getElementById('cc-d-pc').value = ''
+    document.getElementById('cc-d-orientacao').value = ''
+    document.getElementById('cc-d-obs').value = ''
+    document.getElementById('cc-obs').value = ''
+    document.getElementById('cc-d-hint').textContent = 'Selecione o cliente e salve para criar a tarefa.'
+    mostrarPane('dados')
+    mostrar('detalhe')
+    history.replaceState(null, '', 'tarefa.html')
+    document.getElementById('cc-d-cli-busca').focus()
   }
 
   // ─────────────────────────── Detalhe ───────────────────────────
   async function abrirTarefa(id, aba) {
     const t = tarefas.find(x => x.id === id); if (!t) return
     cur = { id, numero: t.numero, status: t.status, cliente_nome: cliNomes[t.cliente_id] || '—', equip: [], anexos: [] }
+    // garante modo normal (caso venha do modo "nova")
+    document.getElementById('cc-d-cliente').style.display = ''
+    document.getElementById('cc-d-cli-wrap').style.display = 'none'
+    document.getElementById('cc-tabs').style.display = ''
+    document.getElementById('cc-d-excluir').style.display = ''
     mostrarPane(aba)
     document.getElementById('cc-cliente').textContent = cur.cliente_nome
     document.getElementById('cc-docno').textContent = cur.numero != null ? `Tarefa Nº ${osNo(cur.numero)}` : ''
@@ -353,7 +363,7 @@ const TarefaApp = (() => {
   }
 
   async function salvarDados() {
-    if (!cur || !cur.id) return
+    if (!cur) return
     const patch = {
       tipo_servico_id: document.getElementById('cc-d-tipo').value || null,
       status: document.getElementById('cc-d-status-sel').value,
@@ -361,6 +371,23 @@ const TarefaApp = (() => {
       pedido_compra: document.getElementById('cc-d-pc').value.trim() || null,
       orientacao: document.getElementById('cc-d-orientacao').value.trim() || null,
       observacoes: document.getElementById('cc-d-obs').value.trim() || null,
+    }
+    // Modo "nova": cria a tarefa agora (cliente é obrigatório) e reabre já carregada.
+    if (!cur.id) {
+      const cliId = document.getElementById('cc-d-cli').value
+      if (!cliId) return toast('Selecione o cliente.', 'err')
+      const ins = await sb().from('tarefas')
+        .insert(Object.assign({ cliente_id: cliId, criado_por: user.id }, patch))
+        .select('id,numero').single()
+      if (ins.error) return toast('Erro ao criar tarefa: ' + ins.error.message, 'err')
+      const tecIdsN = getTecnicosChecked()
+      if (tecIdsN.length) {
+        const insT = await sb().from('tarefa_tecnicos').insert(tecIdsN.map(tid => ({ tarefa_id: ins.data.id, tecnico_id: tid })))
+        if (insT.error) toast('Tarefa criada, mas falhou ao atribuir técnicos: ' + insT.error.message, 'err')
+      }
+      toast(`Tarefa Nº ${osNo(ins.data.numero)} criada.`, 'ok')
+      await carregarTarefas()
+      return abrirTarefa(ins.data.id, 'dados')
     }
     const up = await sb().from('tarefas').update(patch).eq('id', cur.id)
     if (up.error) return toast('Erro ao salvar: ' + up.error.message, 'err')

@@ -322,7 +322,14 @@
         <div class="cc-card cc-pane on" data-pane="dados">
           <div class="card-h"><span class="dot"></span><span class="t">Dados da Tarefa</span></div>
           <div class="cc-dados-grid">
-            <div class="fg"><label>Cliente</label><div class="ro" id="cc-d-cliente">—</div></div>
+            <div class="fg"><label>Cliente</label>
+              <div class="ro" id="cc-d-cliente">—</div>
+              <div class="ac" id="cc-d-cli-wrap" style="display:none">
+                <input type="text" id="cc-d-cli-busca" placeholder="Buscar cliente…" autocomplete="off">
+                <input type="hidden" id="cc-d-cli">
+                <div class="ac-list" id="cc-d-cli-list"></div>
+              </div>
+            </div>
             <div class="fg"><label>Origem</label><div class="ro" id="cc-d-orc">—</div></div>
             <div class="fg"><label>Status</label><select id="cc-d-status-sel"></select><div class="muted" id="cc-d-pend-note" style="font-size:11px;margin-top:4px"></div></div>
             <div class="fg"><label>Tipo de tarefa</label><select id="cc-d-tipo"><option value="">— selecione —</option></select></div>
@@ -440,27 +447,6 @@
 </div>
 
 <!-- Modal: Nova tarefa (criada direto, sem orçamento) -->
-<div class="cc-modal" id="modal-nova-tarefa">
-  <div class="cc-modal-box">
-    <div class="cc-modal-h"><span>Nova tarefa</span><button class="cc-modal-x" id="nt-fechar">✕</button></div>
-    <div class="cc-modal-b">
-      <div class="fg">
-        <label>Cliente *</label>
-        <div class="ac">
-          <input type="text" id="nt-cliente-busca" placeholder="Buscar cliente…" autocomplete="off">
-          <input type="hidden" id="nt-cliente">
-          <div class="ac-list" id="nt-cliente-list"></div>
-        </div>
-      </div>
-      <p class="muted" style="margin-top:4px">Criada sem orçamento — a conciliação começa direto na Levada/Utilizada. Você completa os dados (tipo, técnico, data, orientação) na tela seguinte.</p>
-    </div>
-    <div class="cc-modal-f">
-      <button class="btn" id="nt-cancelar">Cancelar</button>
-      <button class="btn btn-p" id="nt-criar">Criar tarefa</button>
-    </div>
-  </div>
-</div>
-
 <!-- Modal: Detalhe da RAT -->
 <div class="cc-modal" id="modal-rat">
   <div class="cc-modal-box wide">
