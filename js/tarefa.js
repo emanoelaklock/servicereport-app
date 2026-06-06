@@ -10,6 +10,7 @@ const TarefaApp = (() => {
   let ref = { produtos: [], tecnicos: [], tipos: [], equip: [], clientes: [] }
   let tarefas = []           // lista de tarefas
   let cliNomes = {}          // cliente_id -> nome
+  let cliConf = {}           // cliente_id -> { modalidade_padrao, valor_hora_padrao, dia_continuo }
   let tecNomes = {}          // tecnico_id -> nome
   let tecPorTarefa = {}      // tarefa_id -> [tecnico_id]
   let orcNo = {}             // orcamento_id -> numero
@@ -211,8 +212,11 @@ const TarefaApp = (() => {
     const { data: tts } = await sb().from('tarefa_tecnicos').select('tarefa_id,tecnico_id')
     for (const r of tts || []) (tecPorTarefa[r.tarefa_id] = tecPorTarefa[r.tarefa_id] || []).push(r.tecnico_id)
     const ids = [...new Set(tarefas.map(t => t.cliente_id).filter(Boolean))]
-    cliNomes = {}
-    if (ids.length) { const { data: cs } = await sb().from('clientes').select('id,nome').in('id', ids); for (const c of cs || []) cliNomes[c.id] = c.nome }
+    cliNomes = {}; cliConf = {}
+    if (ids.length) {
+      const { data: cs } = await sb().from('clientes').select('id,nome,modalidade_padrao,valor_hora_padrao,dia_continuo').in('id', ids)
+      for (const c of cs || []) { cliNomes[c.id] = c.nome; cliConf[c.id] = { modalidade: c.modalidade_padrao || '', valor_hora: c.valor_hora_padrao, dia_continuo: !!c.dia_continuo } }
+    }
     const oids = [...new Set(tarefas.map(t => t.orcamento_id).filter(Boolean))]
     orcNo = {}
     if (oids.length) { const { data: os } = await sb().from('orcamentos').select('id,numero').in('id', oids); for (const o of os || []) orcNo[o.id] = o.numero }
@@ -793,8 +797,14 @@ const TarefaApp = (() => {
     document.getElementById('cc-fat-nota').style.display = fat ? 'none' : ''
     document.getElementById('cc-fat-btn').style.display = fat ? 'none' : ''
     document.getElementById('cc-fat-undo').style.display = fat ? '' : 'none'
-    document.getElementById('cc-fat-modalidade').value = (t && t.modalidade) || ''
-    document.getElementById('cc-fat-vh').value = (t && t.valor_hora != null) ? t.valor_hora : ''
+    // Modalidade: usa a da tarefa; se vazia, deriva do padrão do cliente (sugestão, confirmar ao salvar).
+    const conf = (t && cliConf[t.cliente_id]) || {}
+    const derivada = !(t && t.modalidade) && !!conf.modalidade
+    const mod = (t && t.modalidade) || conf.modalidade || ''
+    const vh = (t && t.valor_hora != null) ? t.valor_hora : (conf.valor_hora != null ? conf.valor_hora : '')
+    document.getElementById('cc-fat-modalidade').value = mod
+    document.getElementById('cc-fat-vh').value = vh
+    document.getElementById('cc-fat-mod-hint').textContent = derivada ? '↳ derivada do cliente — confirme em Salvar' : ''
     renderModalidadeCalc()
   }
   // Mostra/oculta valor-hora e calcula horas faturáveis (por hora) p/ a tarefa.

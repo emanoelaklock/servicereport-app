@@ -710,13 +710,23 @@
     recarregaCadastro(tipo)
   }
 
+  function toggleModalidadeCli() {
+    const isHora = document.getElementById('cc-modalidade').value === 'por_hora'
+    document.getElementById('cc-vh-wrap').style.display = isHora ? '' : 'none'
+    document.getElementById('cc-dc-wrap').style.display = isHora ? 'flex' : 'none'
+  }
   async function editarCliente(id) {
-    const { data, error } = await getSupabase().from('clientes').select('id,nome,documento,endereco').eq('id', id).single()
+    const { data, error } = await getSupabase().from('clientes').select('id,nome,documento,endereco,modalidade_padrao,valor_hora_padrao,dia_continuo').eq('id', id).single()
     if (error || !data) return toast('Erro ao carregar cliente.', 'err')
     document.getElementById('cc-id').value = data.id
     document.getElementById('cc-nome').value = data.nome || ''
     document.getElementById('cc-documento').value = data.documento || ''
     document.getElementById('cc-endereco').value = data.endereco || ''
+    document.getElementById('cc-modalidade').value = data.modalidade_padrao || ''
+    document.getElementById('cc-vh').value = data.valor_hora_padrao != null ? data.valor_hora_padrao : ''
+    document.getElementById('cc-dc').checked = !!data.dia_continuo
+    document.getElementById('cc-modalidade').onchange = toggleModalidadeCli
+    toggleModalidadeCli()
     abrir('modal-cli')
   }
   async function salvarCliente() {
@@ -724,10 +734,14 @@
     const nome = document.getElementById('cc-nome').value.trim()
     if (!id) return
     if (!nome) return toast('Informe o nome.', 'err')
+    const mod = document.getElementById('cc-modalidade').value || null
     const patch = {
       nome,
       documento: document.getElementById('cc-documento').value.trim() || null,
       endereco: document.getElementById('cc-endereco').value.trim() || null,
+      modalidade_padrao: mod,
+      valor_hora_padrao: mod === 'por_hora' ? (Number(document.getElementById('cc-vh').value) || null) : null,
+      dia_continuo: mod === 'por_hora' ? document.getElementById('cc-dc').checked : false,
       sync_omie: false,   // trava: alteração manual não é sobrescrita pelo Omie
     }
     const { error } = await getSupabase().from('clientes').update(patch).eq('id', id)
