@@ -291,7 +291,7 @@ Cada **contrato/obra** (não o cliente puro) tem uma **modalidade**, que define 
 - A jornada do técnico vira uma **linha do tempo contínua**: ele está sempre num segmento (**tarefa · pausa · almoço · deslocamento**). Trocar de tarefa = **handoff** (a próxima abre no instante em que a anterior fecha) → **sem buraco por construção**.
 - Tarefas podem ser **criadas em campo na hora** (cliente já é o do contrato; técnico só dá Tipo de Serviço + título).
 - Ao **encerrar o dia**, valida **Σ segmentos = entrada → saída**; tempo solto **trava o faturamento** até classificar (estica a tarefa vizinha ou marca como pausa/não-faturável).
-- **Hora faturada arredondada de 5 em 5 min** — os horários (início/fim dos segmentos) encaixam em marcas de 5 min, então as durações saem múltiplas de 5 (ex.: 10:32 → 10:30). Direção: **mais próximo** (confirmar se for sempre pra cima). **Sem mínimo de cobrança** definido.
+- **Hora faturada arredondada para cima, de 30 em 30 min** — a duração faturável de cada tarefa é arredondada **sempre para cima** ao próximo múltiplo de 30 minutos (ex.: 1h05 → 1h30; 2h31 → 3h00; 0h10 → 0h30). Os horários dos segmentos seguem reais (controle); o arredondamento incide no **valor faturado**.
 
 **Demais contratos: modo normal** — tarefa abre/fecha independente, buraco é irrelevante (tempo é só controle interno).
 
