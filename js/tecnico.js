@@ -611,9 +611,14 @@
       return { cidade, uf: (uf || '').toUpperCase() }
     } catch (e) { return null }
   }
-  // Tenta extrair "Cidade/UF" do endereço-texto de um cliente (formato do auto-preenchimento por CNPJ).
+  // Tenta extrair Cidade/UF do endereço-texto de um cliente. Cobre os dois formatos:
+  //  • Omie:  "RUA X, 10, BAIRRO, SAO PAULO (SP), SP, 01311300"
+  //  • CNPJ:  "Rua X, 10 · Bairro · São Paulo/SP · 01311-300"
   function cidadeUfDeEndereco(end) {
-    for (const tok of String(end || '').split('·')) {
+    const s = String(end || '')
+    const par = s.match(/([A-Za-zÀ-ÿ0-9 .'-]+?)\s*\(([A-Za-z]{2})\)/)   // Cidade (UF)
+    if (par) return { cidade: par[1].trim(), uf: par[2].toUpperCase() }
+    for (const tok of s.split(/[·,]/)) {                                // Cidade/UF
       const m = tok.trim().match(/^(.+?)\/([A-Za-z]{2})$/)
       if (m) return { cidade: m[1].trim(), uf: m[2].toUpperCase() }
     }
