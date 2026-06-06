@@ -529,6 +529,8 @@ const TarefaApp = (() => {
         const devShown = Math.max(0, dev)
         const semOrcada = orcada <= 0          // avulso/fora → preço editável
         const preco = Number(l.preco_unitario) || 0
+        // só dá pra excluir linha avulsa (tem tarefa_materiais, sem orçada e sem uso em RAT)
+        const podeExcluir = !!l.tm_id && orcada === 0 && util === 0
         // caixa somente-leitura (igual à da Levada); 0 em cinza; sem "—"
         const box = (v, cls) => `<div class="cc-box${cls ? ' ' + cls : ''}">${v}</div>`
         const cOrcada = `<td>${box(qtd(orcada), orcada === 0 ? 'zero' : '')}</td>`
@@ -548,7 +550,7 @@ const TarefaApp = (() => {
                <button class="cc-rev${rev ? ' on' : ''}" data-i="${i}">${rev ? '✓ Revisado' : 'Revisar'}</button>
              </div></td>`
         return `<tr class="${fora ? 'row-fora' : ''}${rev ? ' row-rev' : ''}">
-          <td class="l cc-mat"><div class="cc-desc">${esc(l.descricao || '—')}</div>${l.codigo_produto ? `<div class="cc-cod">${esc(l.codigo_produto)}</div>` : ''}</td>
+          <td class="l cc-mat"><div class="cc-desc">${esc(l.descricao || '—')}</div>${l.codigo_produto ? `<div class="cc-cod">${esc(l.codigo_produto)}</div>` : ''}${podeExcluir ? `<button class="cc-del" data-i="${i}" title="Excluir produto da tarefa">🗑 excluir</button>` : ''}</td>
           <td class="c un">${esc(l.unidade || '—')}</td>
           ${cOrcada}
           <td><input class="edit cc-lev" type="number" inputmode="decimal" min="0" step="any" value="${lev}" data-i="${i}"></td>
@@ -562,6 +564,7 @@ const TarefaApp = (() => {
       tb.querySelectorAll('.cc-lev').forEach(inp => inp.onchange = () => salvarLevada(Number(inp.dataset.i), inp.value))
       tb.querySelectorAll('.cc-preco').forEach(inp => inp.onchange = () => salvarPreco(Number(inp.dataset.i), inp.value))
       tb.querySelectorAll('.cc-rev').forEach(btn => btn.onclick = () => salvarRevisado(Number(btn.dataset.i), !linhas[Number(btn.dataset.i)].revisado))
+      tb.querySelectorAll('.cc-del').forEach(btn => btn.onclick = () => excluirLinha(Number(btn.dataset.i)))
     }
     renderStats()
   }
@@ -644,6 +647,16 @@ const TarefaApp = (() => {
       })).error
     }
     if (err) return toast('Erro ao salvar revisão: ' + err.message, 'err')
+    await carregarLinhas()
+  }
+
+  // Remove uma linha de produto adicionada por engano (só avulsa, sem uso em RAT).
+  async function excluirLinha(i) {
+    const l = linhas[i]; if (!l || !l.tm_id) return
+    if (!confirm(`Excluir o produto "${l.descricao || ''}" desta tarefa?`)) return
+    const { error } = await sb().from('tarefa_materiais').delete().eq('id', l.tm_id)
+    if (error) return toast('Erro ao excluir: ' + error.message, 'err')
+    toast('Produto removido.', 'ok')
     await carregarLinhas()
   }
 
