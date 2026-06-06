@@ -542,8 +542,12 @@
       <label style="margin-top:12px">Técnicos a bordo</label>
       <div class="dl-tecs" id="dl-tecs"></div>
       <div style="display:flex;gap:10px;margin-top:12px">
-        <div style="flex:1"><label>Origem</label><input type="text" id="dl-origem" placeholder="Cidade/UF de saída"></div>
-        <div style="flex:1"><label>Destino</label><input type="text" id="dl-destino" placeholder="Cidade/UF de chegada"></div>
+        <div style="flex:2"><label>Cidade (origem)</label><input type="text" id="dl-origem-cidade" placeholder="preenche pelo GPS da saída"></div>
+        <div style="width:64px"><label>UF</label><input type="text" id="dl-origem-uf" maxlength="2" placeholder="UF" style="text-transform:uppercase"></div>
+      </div>
+      <div style="display:flex;gap:10px;margin-top:12px">
+        <div style="flex:2"><label>Cidade (destino)</label><input type="text" id="dl-destino-cidade" placeholder="preenche na chegada / pela empresa"></div>
+        <div style="width:64px"><label>UF</label><input type="text" id="dl-destino-uf" maxlength="2" placeholder="UF" style="text-transform:uppercase"></div>
       </div>
       <div style="display:flex;gap:10px;margin-top:12px">
         <div style="flex:1"><label>Saída</label><input type="datetime-local" id="dl-saida"></div>

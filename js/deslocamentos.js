@@ -10,6 +10,7 @@ const DeslocApp = (() => {
   const SENT = { ida: 'Ida', volta: 'Volta', outro: 'Outro' }
   const dt = (iso) => iso ? new Date(iso).toLocaleString('pt-BR', { day: '2-digit', month: '2-digit', year: '2-digit', hour: '2-digit', minute: '2-digit' }) : '—'
   const veicLbl = (id) => veic[id] || '—'
+  const localLbl = (cidade, uf, legado) => [cidade, uf].filter(Boolean).join('/') || legado || '—'
   const mapPin = (lat, lng) => (lat != null && lng != null) ? ` <a href="https://www.google.com/maps?q=${lat},${lng}" target="_blank" rel="noopener" title="Ver no mapa" style="text-decoration:none">📍</a>` : ''
   function rotaInfo(d) {
     if (d.saida_lat == null || d.chegada_lat == null) return ''
@@ -36,7 +37,7 @@ const DeslocApp = (() => {
 
   async function carregar() {
     const { data, error } = await sb().from('deslocamentos')
-      .select('id,sentido,cliente_id,origem,destino,saida_em,chegada_em,veiculo_id,saida_lat,saida_lng,chegada_lat,chegada_lng,deslocamento_tecnicos(tecnico_id)')
+      .select('id,sentido,cliente_id,origem,destino,origem_cidade,origem_uf,destino_cidade,destino_uf,saida_em,chegada_em,veiculo_id,saida_lat,saida_lng,chegada_lat,chegada_lng,deslocamento_tecnicos(tecnico_id)')
       .order('saida_em', { ascending: false }).limit(300)
     if (error) { toast('Erro: ' + error.message, 'err'); return }
     rows = data || []
@@ -82,7 +83,7 @@ const DeslocApp = (() => {
       return `<tr>
         <td><span class="d-sent ${esc(d.sentido)}">${esc(SENT[d.sentido] || d.sentido)}</span></td>
         <td>${esc(cliNomes[d.cliente_id] || '—')}</td>
-        <td>${esc(d.origem || '—')} → ${esc(d.destino || '—')}${rotaInfo(d)}</td>
+        <td>${esc(localLbl(d.origem_cidade, d.origem_uf, d.origem))} → ${esc(localLbl(d.destino_cidade, d.destino_uf, d.destino))}${rotaInfo(d)}</td>
         <td>${esc(veicLbl(d.veiculo_id))}</td>
         <td>${esc(nomes || '—')}</td>
         <td>${dt(d.saida_em)}${mapPin(d.saida_lat, d.saida_lng)}</td>

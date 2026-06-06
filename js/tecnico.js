@@ -44,7 +44,7 @@
 
   // Autocomplete com busca (listas grandes: clientes/produtos). Sem framework.
   // busca: input texto; hidden: input que guarda o id; list: div de sugestões.
-  function attachAutocomplete(busca, hidden, list, items, fmt) {
+  function attachAutocomplete(busca, hidden, list, items, fmt, onpick) {
     function render(q) {
       const nq = normStr(q)
       if (!nq) { list.classList.remove('open'); list.innerHTML = ''; return }
@@ -63,6 +63,7 @@
           const m = matches.find(x => String(x.id) === el.dataset.id)
           busca.value = m ? m.label : ''
           list.classList.remove('open')
+          if (onpick) onpick(items.find(it => String(fmt(it).id) === el.dataset.id))
         }
       })
     }
@@ -135,7 +136,7 @@
     try {
       const sb = getSupabase()
       const [cli, tip, forms, tec, veic, prod] = await Promise.all([
-        sb.from('clientes').select('id,nome,documento').eq('oculto', false).order('nome'),
+        sb.from('clientes').select('id,nome,documento,endereco').eq('oculto', false).order('nome'),
         sb.from('tipos_servico').select('id,nome,formulario_id,ativo').eq('ativo', true).order('nome'),
         sb.from('formulario_modelos').select('id,nome,campos').eq('ativo', true),
         sb.from('usuarios').select('id,nome').eq('role', 'tecnico_campo').eq('ativo', true).order('nome'),
@@ -596,6 +597,28 @@
       st.innerHTML = `📍 Local marcado${r.checkin_precisao ? ` (±${r.checkin_precisao} m)` : ''}. <a href="https://www.google.com/maps?q=${r.checkin_lat},${r.checkin_lng}" target="_blank" rel="noopener">ver no mapa</a>`
     } else st.textContent = 'Opcional — registra onde o atendimento foi feito.'
   }
+  // Geocodificação reversa: coordenadas → { cidade, uf }. Só online (Nominatim/OpenStreetMap, grátis).
+  const UF_NOME = { 'Acre': 'AC', 'Alagoas': 'AL', 'Amapá': 'AP', 'Amazonas': 'AM', 'Bahia': 'BA', 'Ceará': 'CE', 'Distrito Federal': 'DF', 'Espírito Santo': 'ES', 'Goiás': 'GO', 'Maranhão': 'MA', 'Mato Grosso': 'MT', 'Mato Grosso do Sul': 'MS', 'Minas Gerais': 'MG', 'Pará': 'PA', 'Paraíba': 'PB', 'Paraná': 'PR', 'Pernambuco': 'PE', 'Piauí': 'PI', 'Rio de Janeiro': 'RJ', 'Rio Grande do Norte': 'RN', 'Rio Grande do Sul': 'RS', 'Rondônia': 'RO', 'Roraima': 'RR', 'Santa Catarina': 'SC', 'São Paulo': 'SP', 'Sergipe': 'SE', 'Tocantins': 'TO' }
+  async function geoReverse(lat, lng) {
+    if (lat == null || lng == null || !navigator.onLine) return null
+    try {
+      const u = `https://nominatim.openstreetmap.org/reverse?format=jsonv2&lat=${lat}&lon=${lng}&zoom=12&accept-language=pt-BR`
+      const r = await fetch(u, { headers: { Accept: 'application/json' } })
+      if (!r.ok) return null
+      const a = (await r.json()).address || {}
+      const cidade = a.city || a.town || a.village || a.municipality || a.county || ''
+      let uf = (a['ISO3166-2-lvl4'] || '').split('-')[1] || UF_NOME[a.state] || ''
+      return { cidade, uf: (uf || '').toUpperCase() }
+    } catch (e) { return null }
+  }
+  // Tenta extrair "Cidade/UF" do endereço-texto de um cliente (formato do auto-preenchimento por CNPJ).
+  function cidadeUfDeEndereco(end) {
+    for (const tok of String(end || '').split('·')) {
+      const m = tok.trim().match(/^(.+?)\/([A-Za-z]{2})$/)
+      if (m) return { cidade: m[1].trim(), uf: m[2].toUpperCase() }
+    }
+    return null
+  }
   function bindDesloc() {
     document.getElementById('desloc-novo').onclick = abrirDesloc
     document.getElementById('dl-x').onclick = fecharDesloc
@@ -614,17 +637,30 @@
       if (!pos) { st.textContent = 'Não foi possível obter o GPS (permita a localização no aparelho).'; return }
       dlSaidaPos = pos
       if (!document.getElementById('dl-saida').value) document.getElementById('dl-saida').value = nowLocal()
-      st.textContent = `📍 Saída marcada (precisão ±${pos.acc} m).`
+      st.textContent = `📍 Saída marcada (±${pos.acc} m). Buscando cidade…`
+      const g = await geoReverse(pos.lat, pos.lng)
+      if (g && (g.cidade || g.uf)) {
+        const ci = document.getElementById('dl-origem-cidade'), uf = document.getElementById('dl-origem-uf')
+        if (!ci.value && g.cidade) ci.value = g.cidade
+        if (!uf.value && g.uf) uf.value = g.uf
+        st.textContent = `📍 Saída marcada (±${pos.acc} m) · ${[g.cidade, g.uf].filter(Boolean).join('/')}`
+      } else st.textContent = `📍 Saída marcada (±${pos.acc} m).`
     }
   }
   function abrirDesloc() {
     // (re)popula com os cadastros já carregados em ref — bindDesloc roda antes do carregarRef
-    attachAutocomplete(document.getElementById('dl-cli-busca'), document.getElementById('dl-cli'), document.getElementById('dl-cli-list'), ref.clientes, c => ({ id: c.id, label: c.nome }))
+    // Ao escolher a empresa, puxa cidade/UF do destino do cadastro dela (que veio do CNPJ).
+    attachAutocomplete(document.getElementById('dl-cli-busca'), document.getElementById('dl-cli'), document.getElementById('dl-cli-list'), ref.clientes, c => ({ id: c.id, label: c.nome }), (cli) => {
+      const g = cli && cidadeUfDeEndereco(cli.endereco); if (!g) return
+      const ci = document.getElementById('dl-destino-cidade'), uf = document.getElementById('dl-destino-uf')
+      if (!ci.value && g.cidade) ci.value = g.cidade
+      if (!uf.value && g.uf) uf.value = g.uf
+    })
     document.getElementById('dl-veiculo').innerHTML = '<option value="">— selecione —</option>' + ref.veiculos.map(v => `<option value="${esc(v.id)}">${esc((v.modelo || '') + ' (' + (v.placa || '') + ')')}</option>`).join('')
     document.getElementById('dl-tecs').innerHTML = ref.tecnicos.map(t => `<label><input type="checkbox" value="${esc(t.id)}"${t.id === tecnico.id ? ' checked' : ''}> ${esc(t.nome || '')}</label>`).join('')
     dlSent = 'ida'; dlSaidaPos = null
     document.querySelectorAll('#dl-sentido .seg-tipo').forEach(x => x.classList.toggle('on', x.dataset.sent === 'ida'))
-    ;['dl-cli', 'dl-cli-busca', 'dl-origem', 'dl-destino', 'dl-saida', 'dl-chegada', 'dl-motivo'].forEach(id => { const e = document.getElementById(id); if (e) e.value = '' })
+    ;['dl-cli', 'dl-cli-busca', 'dl-origem-cidade', 'dl-origem-uf', 'dl-destino-cidade', 'dl-destino-uf', 'dl-saida', 'dl-chegada', 'dl-motivo'].forEach(id => { const e = document.getElementById(id); if (e) e.value = '' })
     document.getElementById('dl-veiculo').value = ''
     document.getElementById('dl-gps-status').textContent = ''
     document.querySelectorAll('#dl-tecs input').forEach(c => { c.checked = (c.value === tecnico.id) })
@@ -638,11 +674,14 @@
     const saida = dlISO(document.getElementById('dl-saida').value)
     if (!saida) return toast('Informe a data/hora de saída.', 'err')
     if (!tecs.length) return toast('Marque ao menos um técnico a bordo.', 'err')
+    const oCid = document.getElementById('dl-origem-cidade').value.trim(), oUf = document.getElementById('dl-origem-uf').value.trim().toUpperCase()
+    const dCid = document.getElementById('dl-destino-cidade').value.trim(), dUf = document.getElementById('dl-destino-uf').value.trim().toUpperCase()
+    const compoe = (c, u) => [c, u].filter(Boolean).join('/') || null
     await D().salvarDeslocamento({
       sentido: dlSent, veiculo_id: document.getElementById('dl-veiculo').value || null,
       cliente_id: document.getElementById('dl-cli').value || null,
-      origem: document.getElementById('dl-origem').value.trim() || null,
-      destino: document.getElementById('dl-destino').value.trim() || null,
+      origem_cidade: oCid || null, origem_uf: oUf || null, destino_cidade: dCid || null, destino_uf: dUf || null,
+      origem: compoe(oCid, oUf), destino: compoe(dCid, dUf),
       saida_em: saida, chegada_em: dlISO(document.getElementById('dl-chegada').value),
       motivo: document.getElementById('dl-motivo').value.trim() || null,
       saida_lat: dlSaidaPos ? dlSaidaPos.lat : null, saida_lng: dlSaidaPos ? dlSaidaPos.lng : null, saida_precisao: dlSaidaPos ? dlSaidaPos.acc : null,
@@ -680,7 +719,15 @@
     const btn = document.querySelector(`[data-chegada="${CSS.escape(id)}"]`); if (btn) { btn.disabled = true; btn.textContent = 'Capturando GPS…' }
     const pos = await getPos()
     d.chegada_em = new Date().toISOString()
-    if (pos) { d.chegada_lat = pos.lat; d.chegada_lng = pos.lng; d.chegada_precisao = pos.acc }
+    if (pos) {
+      d.chegada_lat = pos.lat; d.chegada_lng = pos.lng; d.chegada_precisao = pos.acc
+      const g = await geoReverse(pos.lat, pos.lng)
+      if (g) {
+        if (!d.destino_cidade && g.cidade) d.destino_cidade = g.cidade
+        if (!d.destino_uf && g.uf) d.destino_uf = g.uf
+        d.destino = [d.destino_cidade, d.destino_uf].filter(Boolean).join('/') || d.destino || null
+      }
+    }
     await D().salvarDeslocamento(d)
     toast('Chegada marcada' + (pos ? ` (GPS ±${pos.acc} m)` : ' (sem GPS)') + '.', 'ok')
     await renderDesloc()
