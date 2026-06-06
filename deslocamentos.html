@@ -28,6 +28,22 @@
   .d-sent.ida{background:#E8F0FE;color:#1C54B8}.d-sent.volta{background:#FDF3E2;color:#B7791F}.d-sent.outro{background:var(--sur2);color:var(--tx2)}
   .d-empty{text-align:center;color:var(--tx3);font-size:13px;padding:26px 0}
   .tcard{background:var(--sur);border:1px solid var(--bd);border-radius:14px;padding:12px 14px;box-shadow:var(--sh)}
+  .d-act{display:inline-flex;gap:6px}
+  .d-act button{border:1px solid var(--bd);background:#fff;border-radius:8px;padding:4px 9px;font:inherit;font-size:12px;cursor:pointer;color:var(--tx)}
+  .d-act button.del{color:#B42318;border-color:#F3C6C0}
+  .dm-back{display:none;position:fixed;inset:0;background:rgba(20,30,55,.5);z-index:200;align-items:flex-start;justify-content:center;padding:24px 16px;overflow-y:auto}
+  .dm-back.open{display:flex}
+  .dm-box{background:#fff;border-radius:14px;width:100%;max-width:460px;box-shadow:0 24px 64px rgba(20,30,55,.3)}
+  .dm-h{display:flex;align-items:center;justify-content:space-between;padding:15px 18px;border-bottom:1px solid var(--bd);font-weight:700;font-size:15px}
+  .dm-x{border:none;background:none;font-size:18px;color:var(--tx3);cursor:pointer}
+  .dm-b{padding:16px 18px;display:flex;flex-direction:column;gap:12px}
+  .dm-b label{display:block;font-size:12px;font-weight:600;color:var(--tx2);margin-bottom:5px}
+  .dm-b select,.dm-b input{width:100%;box-sizing:border-box;padding:9px 11px;border:1px solid var(--bd);border-radius:8px;font:inherit;font-size:14px;background:#fff;outline:none}
+  .dm-row{display:flex;gap:10px}.dm-row>div{flex:1;min-width:0}
+  .dm-tecs{display:flex;flex-wrap:wrap;gap:8px 14px}
+  .dm-tecs label{display:flex;align-items:center;gap:6px;font-size:13px;font-weight:500;margin:0}
+  .dm-tecs input{width:auto}
+  .dm-f{display:flex;justify-content:space-between;gap:10px;padding:12px 18px;border-top:1px solid var(--bd)}
 </style>
 </head>
 <body>
@@ -61,9 +77,42 @@
       </div>
       <div class="d-fora" id="d-fora" style="display:none"></div>
       <div class="tcard"><div style="overflow-x:auto"><table class="d-list">
-        <thead><tr><th>Sentido</th><th>Cliente/obra</th><th>Rota</th><th>Veículo</th><th>A bordo</th><th>Saída</th><th>Chegada</th></tr></thead>
+        <thead><tr><th>Sentido</th><th>Cliente/obra</th><th>Rota</th><th>Veículo</th><th>A bordo</th><th>Saída</th><th>Chegada</th><th>Ações</th></tr></thead>
         <tbody id="d-tbody"></tbody>
       </table></div></div>
+    </div>
+  </div>
+</div>
+
+<div class="dm-back" id="dm-back">
+  <div class="dm-box">
+    <div class="dm-h"><span>Editar trajeto</span><button class="dm-x" id="dm-x">✕</button></div>
+    <div class="dm-b">
+      <input type="hidden" id="dm-id">
+      <div><label>Sentido</label><select id="dm-sentido"><option value="ida">Ida</option><option value="volta">Volta</option><option value="outro">Outro</option></select></div>
+      <div><label>Cliente / obra</label><select id="dm-cli"></select></div>
+      <div class="dm-row">
+        <div><label>Cidade (origem)</label><input type="text" id="dm-origem-cidade"></div>
+        <div style="max-width:80px"><label>UF</label><input type="text" id="dm-origem-uf" maxlength="2" style="text-transform:uppercase"></div>
+      </div>
+      <div class="dm-row">
+        <div><label>Cidade (destino)</label><input type="text" id="dm-destino-cidade"></div>
+        <div style="max-width:80px"><label>UF</label><input type="text" id="dm-destino-uf" maxlength="2" style="text-transform:uppercase"></div>
+      </div>
+      <div><label>Veículo</label><select id="dm-veiculo"></select></div>
+      <div><label>Técnicos a bordo</label><div class="dm-tecs" id="dm-tecs"></div></div>
+      <div class="dm-row">
+        <div><label>Saída</label><input type="datetime-local" id="dm-saida"></div>
+        <div><label>Chegada</label><input type="datetime-local" id="dm-chegada"></div>
+      </div>
+      <div><label>Motivo</label><input type="text" id="dm-motivo"></div>
+    </div>
+    <div class="dm-f">
+      <button class="btn del" id="dm-excluir" style="border:1px solid #F3C6C0;background:#fff;color:#B42318;border-radius:8px;padding:8px 14px;font:inherit;cursor:pointer">Excluir</button>
+      <div style="display:flex;gap:10px">
+        <button class="btn" id="dm-cancelar">Cancelar</button>
+        <button class="btn btn-p" id="dm-salvar">Salvar</button>
+      </div>
     </div>
   </div>
 </div>
