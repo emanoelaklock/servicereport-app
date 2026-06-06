@@ -591,12 +591,11 @@
     const el = document.getElementById('omie-result')
     const btn = document.getElementById('btn-omie-sync'); btn.disabled = true
     try {
-      el.textContent = 'Sincronizando clientes…'
-      const c = await omieFn('clientes')
-      el.textContent = `Clientes: ${c.clientes}. Sincronizando produtos…`
+      // Integração de CLIENTES desativada — empresas são cadastro manual.
+      el.textContent = 'Sincronizando produtos…'
       const p = await omieFn('produtos')
-      el.textContent = `Concluído: ${c.clientes} clientes, ${p.produtos} produtos.`
-      toast('Omie sincronizado.', 'ok')
+      el.textContent = `Concluído: ${p.produtos} produtos. (Clientes/empresas: cadastro manual — sync desativado.)`
+      toast('Produtos sincronizados.', 'ok')
       await carregarOmieLog()
     } catch (e) { el.textContent = 'Erro: ' + e.message; toast('Erro: ' + e.message, 'err') }
     finally { btn.disabled = false }
@@ -644,7 +643,6 @@
       let status
       if (kind === 'cli' && r.oculto && r.sync_omie === false) status = '<span class="dim">Excluído</span>'
       else if (r.oculto) status = '<span class="dim">Oculto</span>'
-      else if (kind === 'cli' && r.sync_omie === false) status = '<span class="badge s-ai"><span class="dot"></span>Editado</span>'
       else if (kind === 'prod' && !r.ativo) status = '<span class="dim">Inativo</span>'
       else status = '<span class="badge s-en"><span class="dot"></span>Visível</span>'
       const editar = kind === 'cli' ? `<button class="ab ab-c" data-edit="${esc(r.id)}">Editar</button>` : ''
