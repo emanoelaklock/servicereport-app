@@ -69,7 +69,9 @@
     document.getElementById('cli-next').onclick = () => { cliPage++; buscarClientes(bc.value.trim()) }
     document.getElementById('btn-nova-empresa').onclick = novaEmpresa
     document.getElementById('cc-cnpj-buscar').onclick = buscarCNPJ
-    const bp = document.getElementById('busca-prod'); if (bp) bp.oninput = debounce(() => buscarProdutos(bp.value.trim()), 300)
+    const bp = document.getElementById('busca-prod'); if (bp) bp.oninput = debounce(() => { prodPage = 0; buscarProdutos(bp.value.trim()) }, 300)
+    document.getElementById('prod-prev').onclick = () => { if (prodPage > 0) { prodPage--; buscarProdutos(bp.value.trim()) } }
+    document.getElementById('prod-next').onclick = () => { prodPage++; buscarProdutos(bp.value.trim()) }
     const ca = document.getElementById('chkall-cli'); if (ca) ca.onclick = () => document.querySelectorAll('#tbody-cli .row-chk').forEach(c => { c.checked = ca.checked })
     const pa = document.getElementById('chkall-prod'); if (pa) pa.onclick = () => document.querySelectorAll('#tbody-prod .row-chk').forEach(c => { c.checked = pa.checked })
     document.getElementById('bulk-cli-excluir').onclick = () => excluirSelecionados('cliente')
@@ -624,11 +626,20 @@
     if (prev) prev.disabled = cliPage === 0
     if (next) next.disabled = fim >= total
   }
+  let prodPage = 0
+  const PROD_PG = 50
   async function buscarProdutos(q) {
-    let query = getSupabase().from('produtos').select('id,codigo,descricao,unidade,ativo,oculto').order('descricao').limit(50)
-    if (q) query = query.or(`descricao.ilike.%${q}%,codigo.ilike.%${q}%`)
-    const { data, error } = await query
+    const from = prodPage * PROD_PG
+    let query = getSupabase().from('produtos').select('id,codigo,descricao,unidade,ativo,oculto', { count: 'exact' })
+      .order('descricao').range(from, from + PROD_PG - 1)
+    if (q) { const qq = q.replace(/[%,()]/g, '').trim(); if (qq) query = query.or(`descricao.ilike.%${qq}%,codigo.ilike.%${qq}%`) }
+    const { data, error, count } = await query
     renderCadastro('prod', error ? [] : (data || []), 'produto')
+    const total = count || 0, fim = Math.min(from + PROD_PG, total)
+    const info = document.getElementById('prod-pag-info'); if (info) info.textContent = total ? `${total ? from + 1 : 0}–${fim} de ${total}` : 'nenhum produto'
+    const prev = document.getElementById('prod-prev'), next = document.getElementById('prod-next')
+    if (prev) prev.disabled = prodPage === 0
+    if (next) next.disabled = fim >= total
   }
   function renderCadastro(kind, rows, tipo) {
     const tb = document.getElementById(kind === 'cli' ? 'tbody-cli' : 'tbody-prod')
