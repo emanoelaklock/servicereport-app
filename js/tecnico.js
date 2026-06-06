@@ -91,6 +91,7 @@
     // RAT — sempre criada DENTRO de uma Tarefa (não há criação avulsa).
     document.getElementById('btn-cancelar').onclick = cancelar
     document.getElementById('btn-salvar').onclick = salvar
+    document.getElementById('f-gps-btn').onclick = marcarGpsRat
     document.getElementById('f-tipo').onchange = onTipoChange
     document.getElementById('f-status').onchange = togglePendencias
     // Navegação da home
@@ -578,6 +579,23 @@
         () => res(null), { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 })
     })
   }
+  async function marcarGpsRat() {
+    if (!cur || !cur.client_uuid) return
+    const btn = document.getElementById('f-gps-btn'), st = document.getElementById('f-gps-status'), old = btn.textContent
+    btn.disabled = true; btn.textContent = 'Capturando GPS…'
+    const pos = await getPos()
+    btn.disabled = false; btn.textContent = old
+    if (!pos) { st.textContent = 'Não foi possível obter o GPS (permita a localização no navegador).'; return }
+    await D().salvarRat(cur.client_uuid, { checkin_lat: pos.lat, checkin_lng: pos.lng, checkin_precisao: pos.acc, checkin_em: new Date().toISOString() })
+    st.innerHTML = `📍 Local marcado (±${pos.acc} m). <a href="https://www.google.com/maps?q=${pos.lat},${pos.lng}" target="_blank" rel="noopener">ver no mapa</a>`
+  }
+  async function refreshGpsRat() {
+    const st = document.getElementById('f-gps-status'); if (!st || !cur || !cur.client_uuid) return
+    const r = await D().obterRat(cur.client_uuid)
+    if (r && r.checkin_lat != null) {
+      st.innerHTML = `📍 Local marcado${r.checkin_precisao ? ` (±${r.checkin_precisao} m)` : ''}. <a href="https://www.google.com/maps?q=${r.checkin_lat},${r.checkin_lng}" target="_blank" rel="noopener">ver no mapa</a>`
+    } else st.textContent = 'Opcional — registra onde o atendimento foi feito.'
+  }
   function bindDesloc() {
     document.getElementById('desloc-novo').onclick = abrirDesloc
     document.getElementById('dl-x').onclick = fecharDesloc
@@ -732,6 +750,7 @@
     atualizarTempo()
     aplicarCondicionais()
     await refreshThumbs()
+    await refreshGpsRat()
   }
 
   // ── Espelho: um campo copia o valor de outro quando este muda ──

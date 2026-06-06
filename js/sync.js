@@ -21,7 +21,7 @@
     'client_uuid', 'origem_registro', 'cliente_id', 'tecnico_id', 'tarefa_id',
     'equipamento_id', 'contrato_id', 'tipo_servico_id', 'formulario_id',
     'cliente_nome', 'tecnico_nome', 'data_tarefa', 'status', 'valor',
-    'checkin_lat', 'checkin_lng', 'assinatura_url', 'respostas',
+    'checkin_lat', 'checkin_lng', 'checkin_precisao', 'checkin_em', 'assinatura_url', 'respostas',
     'tem_foto', 'tem_assinatura', 'questionario_ok', 'pendencias',
     'sync_status', 'device_id', 'os_omie', 'observacoes', 'tempo_trabalhado',
   ]

@@ -18,7 +18,7 @@ window.RatView = (function () {
   }
 
   // Colunas necessárias para montar o detalhe de uma RAT (inclui dados fiscais do cliente e da OS).
-  const RAT_SELECT = 'id,cliente_id,cliente_nome,tecnico_nome,data_tarefa,status,sync_status,pendencias,assinatura_url,respostas,tempo_trabalhado,formulario_id,tipos_servico(nome),cliente:clientes(nome,documento,endereco),tarefa:tarefas(id,numero,cliente_id,tipo_servico_id,orientacao,tipo:tipos_servico(nome))'
+  const RAT_SELECT = 'id,cliente_id,cliente_nome,tecnico_nome,data_tarefa,status,sync_status,pendencias,assinatura_url,respostas,tempo_trabalhado,formulario_id,checkin_lat,checkin_lng,checkin_precisao,checkin_em,tipos_servico(nome),cliente:clientes(nome,documento,endereco),tarefa:tarefas(id,numero,cliente_id,tipo_servico_id,orientacao,tipo:tipos_servico(nome))'
 
   async function ensureForms() {
     if (Object.keys(forms).length) return
@@ -116,6 +116,7 @@ window.RatView = (function () {
       <div class="rd-f"><label>Data / Hora</label><div class="v">${fdt(r.data_tarefa, { withTime: true })}</div></div>
       <div class="rd-f"><label>Tipo de tarefa</label><div class="v">${esc(tipoNomeRat(r))}</div></div>
       <div class="rd-f"><label>Duração</label><div class="v">${fmtMin(tempoRat(r))}</div></div>
+      ${(r.checkin_lat != null && r.checkin_lng != null) ? `<div class="rd-f"><label>Local (GPS)</label><div class="v"><a href="https://www.google.com/maps?q=${r.checkin_lat},${r.checkin_lng}" target="_blank" rel="noopener">📍 ver no mapa</a>${r.checkin_precisao ? ` <span class="dim">(±${Math.round(r.checkin_precisao)} m)</span>` : ''}</div></div>` : ''}
       ${tf.orientacao ? `<div class="rd-f" style="grid-column:1/-1"><label>Orientação</label><div class="v">${escMulti(tf.orientacao)}</div></div>` : ''}
     </div></div>`
 
