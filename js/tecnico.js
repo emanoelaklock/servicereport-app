@@ -597,39 +597,32 @@
     const saida = dlISO(document.getElementById('dl-saida').value)
     if (!saida) return toast('Informe a data/hora de saída.', 'err')
     if (!tecs.length) return toast('Marque ao menos um técnico a bordo.', 'err')
-    const sb = getSupabase()
-    const ins = await sb.from('deslocamentos').insert({
+    await D().salvarDeslocamento({
       sentido: dlSent, veiculo_id: document.getElementById('dl-veiculo').value || null,
       cliente_id: document.getElementById('dl-cli').value || null,
       origem: document.getElementById('dl-origem').value.trim() || null,
       destino: document.getElementById('dl-destino').value.trim() || null,
       saida_em: saida, chegada_em: dlISO(document.getElementById('dl-chegada').value),
       motivo: document.getElementById('dl-motivo').value.trim() || null,
-      criado_por: tecnico.id,
-    }).select('id').single()
-    if (ins.error) return toast('Erro: ' + ins.error.message, 'err')
-    const it = await sb.from('deslocamento_tecnicos').insert(tecs.map(tid => ({ deslocamento_id: ins.data.id, tecnico_id: tid })))
-    if (it.error) return toast('Erro ao salvar técnicos: ' + it.error.message, 'err')
+      tecnicos: tecs, criado_por: tecnico.id,
+    })
     fecharDesloc()
     toast('Trajeto registrado.', 'ok')
     await renderDesloc()
+    if (window.SyncEngine) SyncEngine.syncAll()
   }
 
   async function renderDesloc() {
     const box = document.getElementById('desloc-lista')
-    box.innerHTML = '<p class="dim" style="text-align:center;padding:16px">Carregando…</p>'
-    const { data, error } = await getSupabase().from('deslocamentos')
-      .select('id,sentido,cliente_id,origem,destino,saida_em,chegada_em,veiculo_id,deslocamento_tecnicos(tecnico_id)')
-      .order('saida_em', { ascending: false }).limit(50)
-    if (error) { box.innerHTML = `<p class="dim" style="text-align:center;padding:16px">Erro: ${esc(error.message)}</p>`; return }
-    const lst = data || []
+    const lst = await D().listarDeslocamentos()   // offline-first (este aparelho)
     if (!lst.length) { box.innerHTML = '<p class="dim" style="text-align:center;padding:20px">Nenhum trajeto ainda. Toque em <b>+ Novo trajeto</b>.</p>'; return }
     const veicLbl = (id) => { const v = ref.veiculos.find(x => x.id === id); return v ? `${v.modelo || ''} (${v.placa || ''})` : '—' }
     const dt = (iso) => iso ? new Date(iso).toLocaleString('pt-BR', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' }) : '—'
+    const syncPill = (s) => s === 'confirmado' ? '' : '<span class="dl-sent outro">na fila ↑</span>'
     box.innerHTML = lst.map(d => {
-      const nomes = (d.deslocamento_tecnicos || []).map(x => (ref.tecnicos.find(t => t.id === x.tecnico_id) || {}).nome).filter(Boolean).join(', ')
+      const nomes = (d.tecnicos || []).map(id => (ref.tecnicos.find(t => t.id === id) || {}).nome).filter(Boolean).join(', ')
       return `<div class="dl-item">
-        <div class="dl-top"><div class="dl-cli">${esc(cliNomeDe(d.cliente_id, '—'))}</div><span class="dl-sent ${esc(d.sentido)}">${esc(DL_SENT[d.sentido] || d.sentido)}</span></div>
+        <div class="dl-top"><div class="dl-cli">${esc(cliNomeDe(d.cliente_id, '—'))}</div><div style="display:flex;gap:6px;align-items:center">${syncPill(d.sync_status)}<span class="dl-sent ${esc(d.sentido)}">${esc(DL_SENT[d.sentido] || d.sentido)}</span></div></div>
         <div class="dl-meta">${esc(d.origem || '—')} → ${esc(d.destino || '—')} · ${esc(veicLbl(d.veiculo_id))}</div>
         <div class="dl-meta">Saída ${dt(d.saida_em)}${d.chegada_em ? ` · Chegada ${dt(d.chegada_em)}` : ''}</div>
         <div class="dl-meta">A bordo: ${esc(nomes || '—')}</div>

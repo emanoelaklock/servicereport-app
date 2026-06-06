@@ -9,7 +9,7 @@
 ═══════════════════════════════════════════════ */
 (function () {
   const DB_NAME = 'service_report'
-  const DB_VERSION = 4
+  const DB_VERSION = 5
   const ST_RATS = 'rats'
   const ST_FOTOS = 'fotos'
   const ST_EVENTOS = 'eventos'
@@ -17,6 +17,7 @@
   const ST_PREORC = 'preorcamentos'      // pré-orçamentos (artefato de campo, #4.2)
   const ST_PREORC_ITENS = 'preorc_itens' // materiais NECESSÁRIOS do pré-orçamento
   const ST_SEGMENTOS = 'segmentos'       // jornada "dia contínuo" (§10.1)
+  const ST_DESLOC = 'deslocamentos'      // deslocamento (pernoite) — trajetos offline
 
   // ── Estados de sincronização (brief) ──
   const STATUS = {
@@ -95,6 +96,10 @@
         if (!d.objectStoreNames.contains(ST_SEGMENTOS)) {
           const s = d.createObjectStore(ST_SEGMENTOS, { keyPath: 'id' })
           s.createIndex('data', 'data', { unique: false })
+          s.createIndex('sync_status', 'sync_status', { unique: false })
+        }
+        if (!d.objectStoreNames.contains(ST_DESLOC)) {
+          const s = d.createObjectStore(ST_DESLOC, { keyPath: 'id' })
           s.createIndex('sync_status', 'sync_status', { unique: false })
         }
       }
@@ -428,10 +433,39 @@
     return tx([ST_SEGMENTOS], 'readwrite', (t) => { t.objectStore(ST_SEGMENTOS).delete(id) })
   }
 
+  // ── Deslocamento (pernoite): trajeto offline (técnicos a bordo no array .tecnicos) ──
+  async function salvarDeslocamento(d) {
+    if (!d.id) d.id = uuid()
+    if (!d.device_id) d.device_id = deviceId()
+    if (!d.criado_em) d.criado_em = agora()
+    d.sync_status = STATUS.NA_FILA
+    d.atualizado_em = agora()
+    await tx([ST_DESLOC], 'readwrite', (t) => { t.objectStore(ST_DESLOC).put(d) })
+    return d
+  }
+  async function listarDeslocamentos() {
+    const dd = await db()
+    const all = await reqP(dd.transaction(ST_DESLOC).objectStore(ST_DESLOC).getAll())
+    return all.sort((a, b) => (b.saida_em || '').localeCompare(a.saida_em || ''))
+  }
+  async function deslocamentosPendentes() {
+    const dd = await db()
+    const all = await reqP(dd.transaction(ST_DESLOC).objectStore(ST_DESLOC).getAll())
+    return all.filter(x => x.sync_status !== STATUS.CONFIRMADO)
+  }
+  async function marcarDeslocamentoStatus(id, novo) {
+    return tx([ST_DESLOC], 'readwrite', (t) => {
+      const s = t.objectStore(ST_DESLOC)
+      reqP(s.get(id)).then(c => { if (c) { c.sync_status = novo; if (novo === STATUS.CONFIRMADO) c.recebido_em = agora(); s.put(c) } })
+    })
+  }
+  async function removerDeslocamento(id) { return tx([ST_DESLOC], 'readwrite', (t) => { t.objectStore(ST_DESLOC).delete(id) }) }
+
   window.DBLocal = {
     STATUS, TRANSICOES,
     deviceId, uuid,
     salvarSegmento, obterSegmento, listarSegmentos, segmentoAberto, segmentosPendentes, marcarSegmentoStatus, removerSegmento,
+    salvarDeslocamento, listarDeslocamentos, deslocamentosPendentes, marcarDeslocamentoStatus, removerDeslocamento,
     novoRat, salvarRat, obterRat, listarRats, definirStatus, removerRat,
     adicionarFoto, listarFotos, removerFoto, marcarFotoEnviada, fotosPendentes, atualizarLegendaFoto,
     adicionarMaterial, listarMateriais, removerMaterial,

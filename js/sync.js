@@ -216,6 +216,24 @@
     await D().marcarSegmentoStatus(seg.id, D().STATUS.CONFIRMADO)
   }
 
+  // Deslocamento (pernoite): upsert do trajeto + técnicos a bordo (idempotente por id).
+  async function enviarDeslocamento(d) {
+    const sb = getSupabase()
+    const { data: { user } } = await sb.auth.getUser()
+    const up = await sb.from('deslocamentos').upsert({
+      id: d.id, sentido: d.sentido || 'ida', veiculo_id: d.veiculo_id || null, cliente_id: d.cliente_id || null,
+      origem: d.origem || null, destino: d.destino || null, saida_em: d.saida_em, chegada_em: d.chegada_em || null,
+      motivo: d.motivo || null, criado_por: (user && user.id) || d.criado_por,
+    }, { onConflict: 'id' })
+    if (up.error) throw up.error
+    const tecs = d.tecnicos || []
+    if (tecs.length) {
+      const it = await sb.from('deslocamento_tecnicos').upsert(tecs.map(tid => ({ deslocamento_id: d.id, tecnico_id: tid })), { onConflict: 'deslocamento_id,tecnico_id' })
+      if (it.error) throw it.error
+    }
+    await D().marcarDeslocamentoStatus(d.id, D().STATUS.CONFIRMADO)
+  }
+
   async function syncAll() {
     if (syncing || !navigator.onLine) return { ok: 0, fail: 0, skipped: true }
     syncing = true
@@ -252,6 +270,11 @@
         try { await enviarSegmento(s); ok++ }
         catch (e) { console.warn('[sync] falha segmento', s.id, e); fail++ }
       }
+      const desls = await D().deslocamentosPendentes()
+      for (const d of desls) {
+        try { await enviarDeslocamento(d); ok++ }
+        catch (e) { console.warn('[sync] falha deslocamento', d.id, e); fail++ }
+      }
     } finally { syncing = false }
     if (typeof window.onSyncDone === 'function') window.onSyncDone({ ok, fail })
     return { ok, fail }
@@ -263,5 +286,5 @@
     if (navigator.onLine) syncAll()
   }
 
-  window.SyncEngine = { syncAll, enviarRat, enviarPreorc, enviarSegmento, start }
+  window.SyncEngine = { syncAll, enviarRat, enviarPreorc, enviarSegmento, enviarDeslocamento, start }
 })()
