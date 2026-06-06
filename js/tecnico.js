@@ -672,14 +672,11 @@
   function deslocAplicarSentido() {
     if (dlSent === 'volta') dlSetLocal('destino', ref.base.cidade, ref.base.uf)
   }
-  // Origem = destino do último trajeto deste técnico (encadeia paradas A→B→C);
-  // se não houver, parte da base (Traders).
-  function deslocEncadeiaOrigem(lst) {
+  // A ORIGEM é preenchida pelo GPS ao "Marcar saída" (ou na mão). Não pré-preenchemos.
+  // Só herdamos a empresa do último trajeto (útil na volta: de onde está voltando).
+  function deslocHerdaEmpresa(lst) {
     const meus = (lst || []).filter(d => (d.tecnicos || []).includes(tecnico.id) || d.criado_por === tecnico.id)
     const ult = meus[0]   // listarDeslocamentos já vem desc por saída
-    if (ult && (ult.destino_cidade || ult.destino_uf)) dlSetLocal('origem', ult.destino_cidade, ult.destino_uf)
-    else dlSetLocal('origem', ref.base.cidade, ref.base.uf)
-    // Herda a empresa do último trajeto (na volta = de onde está voltando).
     if (ult && ult.cliente_id) {
       const cliEl = document.getElementById('dl-cli'), buscaEl = document.getElementById('dl-cli-busca')
       const c = ref.clientes.find(x => x.id === ult.cliente_id)
@@ -701,7 +698,7 @@
     ;['dl-cli', 'dl-cli-busca', 'dl-origem-cidade', 'dl-origem-uf', 'dl-destino-cidade', 'dl-destino-uf', 'dl-saida', 'dl-chegada', 'dl-motivo'].forEach(id => { const e = document.getElementById(id); if (e) e.value = '' })
     document.getElementById('dl-veiculo').value = ''
     document.getElementById('dl-gps-status').textContent = ''
-    deslocEncadeiaOrigem(await D().listarDeslocamentos())
+    deslocHerdaEmpresa(await D().listarDeslocamentos())
     document.querySelectorAll('#dl-tecs input').forEach(c => { c.checked = (c.value === tecnico.id) })
     document.getElementById('modal-desloc').classList.add('open')
   }
