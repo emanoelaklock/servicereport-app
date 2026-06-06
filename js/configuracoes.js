@@ -607,12 +607,13 @@
 
   // ───────────────────── Clientes (cadastro, origem Omie) ─────────────────────
   async function buscarClientes(q) {
-    let query = getSupabase().from('clientes').select('id,nome,documento,endereco,oculto,sync_omie').order('nome').limit(50)
+    let query = getSupabase().from('clientes').select('id,nome,documento,endereco,oculto,sync_omie')
+      // esconde só os "excluídos" (oculto + não reimporta) — filtra no servidor, antes do limite
+      .or('oculto.is.false,oculto.is.null,sync_omie.is.null,sync_omie.neq.false')
+      .order('nome').limit(50)
     if (q) query = query.ilike('nome', `%${q}%`)
     const { data, error } = await query
-    // esconde os "excluídos" (oculto + não reimporta) — somem da lista ao excluir
-    const rows = (error ? [] : (data || [])).filter(r => !(r.oculto && r.sync_omie === false))
-    renderCadastro('cli', rows, 'cliente')
+    renderCadastro('cli', error ? [] : (data || []), 'cliente')
   }
   async function buscarProdutos(q) {
     let query = getSupabase().from('produtos').select('id,codigo,descricao,unidade,ativo,oculto').order('descricao').limit(50)
