@@ -11,6 +11,11 @@ const DeslocApp = (() => {
   const dt = (iso) => iso ? new Date(iso).toLocaleString('pt-BR', { day: '2-digit', month: '2-digit', year: '2-digit', hour: '2-digit', minute: '2-digit' }) : '—'
   const veicLbl = (id) => veic[id] || '—'
   const mapPin = (lat, lng) => (lat != null && lng != null) ? ` <a href="https://www.google.com/maps?q=${lat},${lng}" target="_blank" rel="noopener" title="Ver no mapa" style="text-decoration:none">📍</a>` : ''
+  function rotaInfo(d) {
+    if (d.saida_lat == null || d.chegada_lat == null) return ''
+    const url = `https://www.google.com/maps/dir/?api=1&origin=${d.saida_lat},${d.saida_lng}&destination=${d.chegada_lat},${d.chegada_lng}`
+    return `<div class="dim" style="font-size:11px;margin-top:3px"><a href="${url}" target="_blank" rel="noopener">🗺️ ver rota (distância no mapa)</a></div>`
+  }
 
   async function init() {
     const [tec, cli, vc] = await Promise.all([
@@ -77,7 +82,7 @@ const DeslocApp = (() => {
       return `<tr>
         <td><span class="d-sent ${esc(d.sentido)}">${esc(SENT[d.sentido] || d.sentido)}</span></td>
         <td>${esc(cliNomes[d.cliente_id] || '—')}</td>
-        <td>${esc(d.origem || '—')} → ${esc(d.destino || '—')}</td>
+        <td>${esc(d.origem || '—')} → ${esc(d.destino || '—')}${rotaInfo(d)}</td>
         <td>${esc(veicLbl(d.veiculo_id))}</td>
         <td>${esc(nomes || '—')}</td>
         <td>${dt(d.saida_em)}${mapPin(d.saida_lat, d.saida_lng)}</td>
