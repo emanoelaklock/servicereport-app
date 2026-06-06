@@ -275,6 +275,28 @@ Por **Tarefa**. Decisão do **administrativo** (na mão).
 
 > **Duas "OS" distintas:** a **OS interna = Tarefa** (criada no aprovado do orçamento, nosso sistema, execução) e a **OS fiscal no Omie** (criada no aprovar-pra-faturar do admin). A conciliação de material é só interna; a OS do Omie é só fiscal.
 
+### 10.1 Modalidade de faturamento (no nível do contrato/obra)
+
+Cada **contrato/obra** (não o cliente puro) tem uma **modalidade**, que define como aquele trabalho é faturado. Um mesmo cliente pode ter várias (ex.: WestRock-FBTB por hora + outra obra fechada).
+
+- **Por hora** — fatura Σ horas do técnico no contrato. Hoje, só o **WestRock-FBTB**.
+- **Projeto fechado / orçamento** — fatura o valor do orçamento aprovado; tempo = controle interno.
+- **Contrato (locação/manutenção)** — coberto pelo contrato; não fatura avulso; tempo = controle/SLA.
+- **Não-faturável** (garantia / cortesia / interno).
+
+**O técnico nunca escolhe a modalidade** — ela é **derivada** (do contrato/obra, ou do orçamento de origem). O técnico só registra **cliente + Tipo de Serviço + execução + tempo + materiais**; o **admin confirma/ajusta** a modalidade na revisão pra faturar. Cliente/contrato **sem modalidade definida → tarefa entra pendente de classificação**.
+
+**Modo "dia contínuo"** (opt-in — só contratos por hora; hoje WestRock-FBTB):
+
+- A jornada do técnico vira uma **linha do tempo contínua**: ele está sempre num segmento (**tarefa · pausa · almoço · deslocamento**). Trocar de tarefa = **handoff** (a próxima abre no instante em que a anterior fecha) → **sem buraco por construção**.
+- Tarefas podem ser **criadas em campo na hora** (cliente já é o do contrato; técnico só dá Tipo de Serviço + título).
+- Ao **encerrar o dia**, valida **Σ segmentos = entrada → saída**; tempo solto **trava o faturamento** até classificar (estica a tarefa vizinha ou marca como pausa/não-faturável).
+- **Hora faturada arredondada de 5 em 5 min** — os horários (início/fim dos segmentos) encaixam em marcas de 5 min, então as durações saem múltiplas de 5 (ex.: 10:32 → 10:30). Direção: **mais próximo** (confirmar se for sempre pra cima). **Sem mínimo de cobrança** definido.
+
+**Demais contratos: modo normal** — tarefa abre/fecha independente, buraco é irrelevante (tempo é só controle interno).
+
+> **Status de implementação:** especificado, **não implementado**. Implica modelar **contrato/obra** com `modalidade` (entre cliente e tarefa, ou uma tabela de obra), derivar a modalidade na tarefa, classificação pendente na revisão, e o motor de "dia contínuo" (segmentos + arredondamento 5min) para os contratos por hora.
+
 ---
 
 ## 11. Integração Omie
