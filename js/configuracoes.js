@@ -72,8 +72,6 @@
     const bp = document.getElementById('busca-prod'); if (bp) bp.oninput = debounce(() => buscarProdutos(bp.value.trim()), 300)
     const ca = document.getElementById('chkall-cli'); if (ca) ca.onclick = () => document.querySelectorAll('#tbody-cli .row-chk').forEach(c => { c.checked = ca.checked })
     const pa = document.getElementById('chkall-prod'); if (pa) pa.onclick = () => document.querySelectorAll('#tbody-prod .row-chk').forEach(c => { c.checked = pa.checked })
-    document.getElementById('bulk-cli-ocultar').onclick = () => ocultarSelecionados('cliente', true)
-    document.getElementById('bulk-cli-mostrar').onclick = () => ocultarSelecionados('cliente', false)
     document.getElementById('bulk-cli-excluir').onclick = () => excluirSelecionados('cliente')
     document.getElementById('bulk-prod-ocultar').onclick = () => ocultarSelecionados('produto', true)
     document.getElementById('bulk-prod-mostrar').onclick = () => ocultarSelecionados('produto', false)
@@ -635,23 +633,24 @@
   function renderCadastro(kind, rows, tipo) {
     const tb = document.getElementById(kind === 'cli' ? 'tbody-cli' : 'tbody-prod')
     if (!tb) return
-    const cols = kind === 'cli' ? 5 : 6
+    const cols = kind === 'cli' ? 4 : 6
     const chkAll = document.getElementById(kind === 'cli' ? 'chkall-cli' : 'chkall-prod'); if (chkAll) chkAll.checked = false
     if (!rows.length) { tb.innerHTML = `<tr><td colspan="${cols}" class="dim" style="text-align:center;padding:20px">Nada encontrado.</td></tr>`; return }
     tb.innerHTML = rows.map(r => {
       const chk = `<td><input type="checkbox" class="row-chk" value="${esc(r.id)}"></td>`
+      if (kind === 'cli') {
+        // Empresas: Editar + Excluir (sem Status nem Ocultar)
+        const acoes = `<div class="acts" style="opacity:1"><button class="ab ab-c" data-edit="${esc(r.id)}">Editar</button><button class="ab ab-d" data-del="${esc(r.id)}">Excluir</button></div>`
+        return `<tr>${chk}<td>${esc(r.nome || '—')}</td><td>${esc(r.documento || '—')}</td><td>${acoes}</td></tr>`
+      }
       let status
-      if (kind === 'cli' && r.oculto && r.sync_omie === false) status = '<span class="dim">Excluído</span>'
-      else if (r.oculto) status = '<span class="dim">Oculto</span>'
-      else if (kind === 'prod' && !r.ativo) status = '<span class="dim">Inativo</span>'
+      if (r.oculto) status = '<span class="dim">Oculto</span>'
+      else if (!r.ativo) status = '<span class="dim">Inativo</span>'
       else status = '<span class="badge s-en"><span class="dot"></span>Visível</span>'
-      const editar = kind === 'cli' ? `<button class="ab ab-c" data-edit="${esc(r.id)}">Editar</button>` : ''
       const acoes = `<div class="acts" style="opacity:1">
-          ${editar}
           <button class="ab ab-c" data-toggle="${esc(r.id)}" data-oc="${r.oculto ? 1 : 0}">${r.oculto ? 'Mostrar' : 'Ocultar'}</button>
           <button class="ab ab-d" data-del="${esc(r.id)}">Excluir</button>
         </div>`
-      if (kind === 'cli') return `<tr>${chk}<td>${esc(r.nome || '—')}</td><td>${esc(r.documento || '—')}</td><td>${status}</td><td>${acoes}</td></tr>`
       return `<tr>${chk}<td>${esc(r.codigo || '—')}</td><td>${esc(r.descricao || '—')}</td><td>${esc(r.unidade || '—')}</td><td>${status}</td><td>${acoes}</td></tr>`
     }).join('')
     tb.querySelectorAll('[data-edit]').forEach(b => b.onclick = () => editarCliente(b.dataset.edit))
