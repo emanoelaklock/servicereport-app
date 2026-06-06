@@ -689,12 +689,18 @@
   function deslocAplicarSentido() {
     if (dlSent === 'volta') dlSetLocal('destino', ref.base.cidade, ref.base.uf)
   }
-  // A ORIGEM é preenchida pelo GPS ao "Marcar saída" (ou na mão). Não pré-preenchemos.
-  // Só herdamos a empresa do último trajeto (útil na volta: de onde está voltando).
+  // Pré-preenche a partir do último trajeto do técnico:
+  //  • último é IDA (ainda fora) → origem = destino dessa ida (onde ele está agora).
+  //    Ex.: foi p/ Três Barras e não voltou → próxima saída parte de Três Barras.
+  //  • último é Volta (voltou à base) ou sem histórico → origem em branco p/ o GPS
+  //    (não assumimos a base).
+  // A empresa do último trajeto é herdada (útil na volta).
   function deslocHerdaEmpresa(lst) {
     const meus = (lst || []).filter(d => (d.tecnicos || []).includes(tecnico.id) || d.criado_por === tecnico.id)
     const ult = meus[0]   // listarDeslocamentos já vem desc por saída
-    if (ult && ult.cliente_id) {
+    if (!ult) return
+    if (ult.sentido === 'ida' && (ult.destino_cidade || ult.destino_uf)) dlSetLocal('origem', ult.destino_cidade, ult.destino_uf)
+    if (ult.cliente_id) {
       const cliEl = document.getElementById('dl-cli'), buscaEl = document.getElementById('dl-cli-busca')
       const c = ref.clientes.find(x => x.id === ult.cliente_id)
       if (cliEl && !cliEl.value && c) { cliEl.value = c.id; buscaEl.value = c.nome }
