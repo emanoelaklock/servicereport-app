@@ -14,6 +14,7 @@ const TarefaApp = (() => {
   let tecPorTarefa = {}      // tarefa_id -> [tecnico_id]
   let orcNo = {}             // orcamento_id -> numero
   let divPorTarefa = {}      // tarefa_id -> nº de linhas com divergência
+  let matsPorTarefa = {}     // tarefa_id -> texto dos produtos (p/ busca)
   let cur = null             // tarefa aberta
   let linhas = []            // conciliação da tarefa atual
   let ratDet = null          // RAT aberta no modal { r, campos, ... }
@@ -213,8 +214,13 @@ const TarefaApp = (() => {
     orcNo = {}
     if (oids.length) { const { data: os } = await sb().from('orcamentos').select('id,numero').in('id', oids); for (const o of os || []) orcNo[o.id] = o.numero }
     divPorTarefa = {}
-    const { data: vc } = await sb().from('vw_conciliacao_tarefa').select('tarefa_id,situacao,revisado')
-    for (const r of vc || []) { if (r.situacao && r.situacao !== 'ok' && !r.revisado) divPorTarefa[r.tarefa_id] = (divPorTarefa[r.tarefa_id] || 0) + 1 }
+    matsPorTarefa = {}
+    const { data: vc } = await sb().from('vw_conciliacao_tarefa').select('tarefa_id,situacao,revisado,descricao,codigo_produto')
+    for (const r of vc || []) {
+      if (r.situacao && r.situacao !== 'ok' && !r.revisado) divPorTarefa[r.tarefa_id] = (divPorTarefa[r.tarefa_id] || 0) + 1
+      const txt = [r.descricao, r.codigo_produto].filter(Boolean).join(' ')
+      if (txt) matsPorTarefa[r.tarefa_id] = (matsPorTarefa[r.tarefa_id] || '') + ' ' + txt
+    }
   }
 
   function renderLista() {
@@ -225,9 +231,15 @@ const TarefaApp = (() => {
     const fTipo = document.getElementById('f-tipo').value
     const fDe = document.getElementById('f-de').value
     const fAte = document.getElementById('f-ate').value
-    const buscaStr = (t) => normStr([osNo(t.numero), t.numero, cliNomes[t.cliente_id], t.pedido_compra,
+    const tipoNomeDe = (id) => { const x = ref.tipos.find(p => p.id === id); return x ? x.nome : '' }
+    const buscaStr = (t) => normStr([
+      osNo(t.numero), t.numero, cliNomes[t.cliente_id], t.pedido_compra,
       (orcNo[t.orcamento_id] != null ? 'orcamento ' + orcNo[t.orcamento_id] : ''),
-      (tecPorTarefa[t.id] || []).map(id => tecNomes[id]).join(' ')].filter(Boolean).join(' '))
+      (tecPorTarefa[t.id] || []).map(id => tecNomes[id]).join(' '),
+      STATUS_LABEL[t.status], tipoNomeDe(t.tipo_servico_id),
+      t.orientacao, t.observacoes, t.conciliacao_obs, t.pendencias,
+      matsPorTarefa[t.id] || '',
+    ].filter(Boolean).join(' '))
     let rows = tarefas
     if (fStatus === 'divergencia') rows = rows.filter(t => divPorTarefa[t.id])
     else if (fStatus === 'a_faturar') rows = rows.filter(t => !t.faturado && (t.status === 'concluida' || t.status === 'concluida_pendencia'))
