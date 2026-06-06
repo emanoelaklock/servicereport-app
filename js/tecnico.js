@@ -85,7 +85,21 @@
 
     bind()
     await carregarRef()
-    mostrar('home')
+    await restaurarTela()
+  }
+
+  // Restaura a última tela após recarregar (pull-to-refresh do iOS, etc.) — não volta pra home.
+  async function restaurarTela() {
+    let alvo = 'home'
+    try { alvo = sessionStorage.getItem('sr_tec_screen') || 'home' } catch (e) { /* sem storage */ }
+    const RENDER = {
+      tarefas: renderTarefas, lista: renderLista, 'preorc-lista': renderPreorcLista,
+      jornada: renderJornada, desloc: renderDesloc,
+    }
+    if (alvo !== 'home' && VIEWS[alvo]) {
+      mostrar(alvo)
+      if (RENDER[alvo]) { try { await RENDER[alvo]() } catch (e) { mostrar('home') } }
+    } else mostrar('home')
   }
 
   function bind() {
@@ -459,6 +473,8 @@
     'preorc-lista': 'Pré-Orçamento', 'preorc-form': 'Pré-Orçamento',
     jornada: 'Jornada do dia', desloc: 'Deslocamento',
   }
+  // Telas que dependem de contexto em memória (some no reload) → guardamos o "pai".
+  const SCREEN_PARENT = { 'tarefa-det': 'tarefas', 'form': 'tarefas', 'preorc-form': 'preorc-lista' }
   function mostrar(secao) {
     screen = secao
     for (const [k, id] of Object.entries(VIEWS)) {
@@ -466,6 +482,7 @@
     }
     const t = document.getElementById('ft-title'); if (t) t.textContent = TITLES[secao] || 'Service Report'
     const b = document.getElementById('btn-voltar'); if (b) b.style.display = (secao === 'home') ? 'none' : 'block'
+    try { sessionStorage.setItem('sr_tec_screen', SCREEN_PARENT[secao] || secao) } catch (e) { /* sem storage */ }
   }
   // Sync trouxe mudanças do servidor (edição/exclusão) → re-renderiza a tela atual.
   window.onSyncChanged = () => {
