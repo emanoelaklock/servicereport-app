@@ -15,6 +15,9 @@
   let itens = []          // { _rid, tipo, produto_id, descricao, unidade, quantidade, preco_unitario }
   let fotos = []          // { id, url(path), legenda, signed }
   let filtro = 'ativos'
+  let listaOrc = []        // orçamentos carregados (filtro atual)
+  let selOrc = new Set()   // ids selecionados p/ exclusão em massa
+  let buscaOrc = ''        // termo de busca
   let _seq = 0
 
   const sb = () => getSupabase()
@@ -107,6 +110,10 @@
         renderLista()
       }
     })
+    const bu = document.getElementById('orc-busca')
+    if (bu) bu.oninput = () => { buscaOrc = bu.value.trim(); pintarLista() }
+    document.getElementById('orc-bulk-del').onclick = excluirSelecionadosOrc
+    document.getElementById('orc-bulk-clear').onclick = () => { selOrc.clear(); pintarLista() }
   }
 
   async function carregarRef() {
@@ -138,6 +145,7 @@
   }
 
   // ─────────────────────────── Lista ───────────────────────────
+  const normOrc = (s) => String(s || '').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '')
   async function renderLista() {
     const box = document.getElementById('lista-box')
     box.innerHTML = '<p class="muted" style="padding:10px">Carregando…</p>'
@@ -148,17 +156,29 @@
     q = q.order('numero', { ascending: false })
     const { data, error } = await q
     if (error) { box.innerHTML = `<p class="muted" style="padding:10px;color:var(--re)">Erro: ${esc(error.message)}</p>`; return }
-    if (!data || !data.length) { box.innerHTML = '<p class="muted" style="padding:14px 2px">Nenhum orçamento.</p>'; return }
+    listaOrc = data || []
+    selOrc.clear()
+    pintarLista()
+  }
+
+  function pintarLista() {
+    const box = document.getElementById('lista-box')
     const cliNome = (id) => (ref.clientes.find(c => c.id === id) || {}).nome || '—'
     const semRetorno = (o) => {
       if (o.status !== 'enviado' || !o.data_envio) return ''
       const dias = Math.floor((Date.now() - new Date(o.data_envio).getTime()) / 86400000)
       return dias >= 90 ? ` <span class="badge s-rm"><span class="dot"></span>sem retorno ${dias}d</span>` : ''
     }
+    const term = normOrc(buscaOrc)
+    let rows = listaOrc
+    if (term) rows = rows.filter(o => normOrc(o.numero).includes(term) || normOrc(cliNome(o.cliente_id)).includes(term))
+    const cnt = document.getElementById('orc-count'); if (cnt) cnt.textContent = `${rows.length} de ${listaOrc.length} orçamento(s)`
+    if (!rows.length) { box.innerHTML = '<p class="muted" style="padding:14px 2px">Nenhum orçamento.</p>'; renderBulkOrc(); return }
     box.innerHTML = `<table class="orc-table">
-      <thead><tr><th>Nº</th><th>Cliente</th><th>Status</th><th>Total</th><th>Enviado</th><th>Criado</th></tr></thead>
-      <tbody>${data.map(o => `
+      <thead><tr><th style="width:34px"><input type="checkbox" id="orc-check-all"></th><th>Nº</th><th>Cliente</th><th>Status</th><th>Total</th><th>Enviado</th><th>Criado</th></tr></thead>
+      <tbody>${rows.map(o => `
         <tr class="row-click" data-id="${esc(o.id)}">
+          <td><input type="checkbox" class="orc-chk" data-id="${esc(o.id)}"${selOrc.has(o.id) ? ' checked' : ''}></td>
           <td class="orc-num">${esc(o.numero)}</td>
           <td>${esc(cliNome(o.cliente_id))}${o.pre_orcamento_id ? ' <span class="muted">· de pré-orç</span>' : ''}</td>
           <td>${statusBadge(o.status)}${semRetorno(o)}</td>
@@ -166,7 +186,36 @@
           <td>${o.data_envio ? fdt(o.data_envio) : '<span class="muted">—</span>'}</td>
           <td>${fdt(o.criado_em)}</td>
         </tr>`).join('')}</tbody></table>`
-    box.querySelectorAll('.row-click').forEach(tr => { tr.onclick = () => abrirOrcamento(tr.dataset.id) })
+    box.querySelectorAll('.row-click').forEach(tr => { tr.onclick = (e) => { if (e.target.closest('.orc-chk')) return; abrirOrcamento(tr.dataset.id) } })
+    box.querySelectorAll('.orc-chk').forEach(cb => cb.onchange = (e) => { e.stopPropagation(); cb.checked ? selOrc.add(cb.dataset.id) : selOrc.delete(cb.dataset.id); renderBulkOrc() })
+    const all = document.getElementById('orc-check-all')
+    if (all) all.onclick = () => { box.querySelectorAll('.orc-chk').forEach(cb => { cb.checked = all.checked; all.checked ? selOrc.add(cb.dataset.id) : selOrc.delete(cb.dataset.id) }); renderBulkOrc() }
+    renderBulkOrc()
+  }
+
+  function renderBulkOrc() {
+    const bar = document.getElementById('orc-bulk'); if (!bar) return
+    const ids = new Set([...document.querySelectorAll('.orc-chk')].map(c => c.dataset.id))
+    for (const id of [...selOrc]) if (!ids.has(id)) selOrc.delete(id)
+    bar.style.display = selOrc.size ? 'flex' : 'none'
+    const n = document.getElementById('orc-bulk-n'); if (n) n.textContent = `${selOrc.size} orçamento(s) selecionado(s)`
+    const all = document.getElementById('orc-check-all')
+    if (all) { const tot = document.querySelectorAll('.orc-chk').length; all.checked = tot > 0 && selOrc.size === tot }
+  }
+
+  async function excluirSelecionadosOrc() {
+    if (!selOrc.size) return
+    const ids = [...selOrc]
+    const aprovados = listaOrc.filter(o => ids.includes(o.id) && o.status === 'aprovado')
+    if (aprovados.length) return toast(`${aprovados.length} aprovado(s) na seleção — aprovados geram Tarefa e não podem ser excluídos (arquive). Tire-os da seleção.`, 'err')
+    if (!confirm(`Excluir ${ids.length} orçamento(s) selecionado(s)? Esta ação não pode ser desfeita.`)) return
+    const di = await sb().from('orcamento_itens').delete().in('orcamento_id', ids)
+    if (di.error) return toast('Erro ao excluir itens: ' + di.error.message, 'err')
+    const d = await sb().from('orcamentos').delete().in('id', ids)
+    if (d.error) return toast('Erro ao excluir: ' + d.error.message, 'err')
+    toast(`${ids.length} orçamento(s) excluído(s).`, 'ok')
+    selOrc.clear()
+    await renderLista()
   }
 
   // ─────────────────── Seleção de pré-orçamento ───────────────────

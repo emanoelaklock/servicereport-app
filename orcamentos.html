@@ -18,6 +18,12 @@
   .orc-filtros{display:flex;gap:6px;flex-wrap:wrap}
   .orc-filtros .chip{font:inherit;font-size:12px;padding:6px 11px;border:1px solid var(--bd);border-radius:20px;background:var(--sur);cursor:pointer;color:var(--tx2)}
   .orc-filtros .chip.on{background:var(--ac);border-color:var(--ac);color:#fff}
+  .orc-searchrow{display:flex;gap:10px;align-items:center;margin:14px 0 12px;flex-wrap:wrap}
+  .orc-searchrow input{flex:1;min-width:300px;padding:9px 12px;border:1px solid var(--bd);border-radius:var(--r);font:inherit;font-size:13px;background:var(--sur)}
+  .orc-searchrow .muted{font-size:12px}
+  .orc-bulk{display:flex;align-items:center;gap:10px;margin:0 0 12px;padding:8px 12px;background:#FEF3F2;border:1px solid #F3C6C0;border-radius:10px;font-size:13px}
+  .orc-bulk #orc-bulk-n{font-weight:600}
+  .orc-chk{width:16px;height:16px;cursor:pointer}
   .orc-table{width:100%;border-collapse:collapse;font-size:13px}
   .orc-table th{text-align:left;font-size:11px;text-transform:uppercase;letter-spacing:.04em;color:var(--tx3);padding:8px 10px;border-bottom:1px solid var(--bd)}
   .orc-table td{padding:10px;border-bottom:1px solid var(--bd);color:var(--tx)}
@@ -156,6 +162,15 @@
             <button class="btn" id="btn-de-preorc">De um pré-orçamento</button>
             <button class="btn btn-p" id="btn-novo">+ Novo orçamento</button>
           </div>
+        </div>
+        <div class="orc-searchrow">
+          <input type="text" id="orc-busca" placeholder="Buscar por nº ou cliente…">
+          <span class="muted" id="orc-count"></span>
+        </div>
+        <div class="orc-bulk" id="orc-bulk" style="display:none">
+          <span id="orc-bulk-n"></span>
+          <button class="btn btn-sm" id="orc-bulk-del" style="color:var(--re,#B42318);border-color:#F3C6C0">🗑 Excluir selecionados</button>
+          <button class="btn btn-sm" id="orc-bulk-clear">Limpar seleção</button>
         </div>
         <div id="lista-box"></div>
       </div>
