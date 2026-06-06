@@ -126,6 +126,10 @@
   .cc-cod{font-size:11px;color:var(--tx3);margin-top:2px}
   .cc-del{font:inherit;font-size:10.5px;font-weight:600;border:none;background:none;color:var(--re,#B42318);cursor:pointer;padding:3px 0 0;margin-top:2px}
   .cc-del:hover{text-decoration:underline}
+  .cc-bulk{display:flex;align-items:center;gap:10px;margin:0 0 12px;padding:8px 12px;background:#FEF3F2;border:1px solid #F3C6C0;border-radius:10px;font-size:13px}
+  .cc-bulk #cc-bulk-n{font-weight:600;color:var(--tx)}
+  .cc-table td.chk,.cc-table th.c .cc-chk{}
+  .cc-chk{width:16px;height:16px;cursor:pointer}
   /* caixas: Levada/Valor-avulso editáveis (.edit) e demais só-leitura (.cc-box) — mesmo visual */
   .cc-table .edit,.cc-table .cc-box{width:66px;padding:5px 9px;border:1px solid var(--bd);border-radius:7px;font:inherit;font-size:13px;text-align:right;font-weight:600;font-variant-numeric:tabular-nums;background:#fff;color:var(--tx)}
   .cc-table .edit.cc-preco,.cc-table .cc-box.money{width:104px}
@@ -381,9 +385,14 @@
           <div class="card-h"><span class="dot"></span><span class="t">Produtos</span></div>
           <p class="card-sub">Orçada (do orçamento) · <b>Levada</b> (estoque — você edita) · Utilizada (RATs do técnico) · Devolvida = Levada − Utilizada.</p>
           <div class="cc-stats" id="cc-stats"></div>
+          <div class="cc-bulk" id="cc-bulk" style="display:none">
+            <span id="cc-bulk-n"></span>
+            <button class="btn btn-sm" id="cc-bulk-del" style="color:var(--re);border-color:var(--re)">🗑 Excluir selecionados</button>
+            <button class="btn btn-sm" id="cc-bulk-clear">Limpar seleção</button>
+          </div>
           <table class="cc-table">
             <thead><tr>
-              <th class="l">Produto</th><th class="c">Un.</th><th>Orçada</th><th>Levada</th><th>Utilizada</th><th>Devolvida</th><th class="c">Situação</th><th>Valor unit.</th><th>Subtotal</th>
+              <th class="c" style="width:34px"><input type="checkbox" id="cc-check-all" title="Selecionar todos"></th><th class="l">Produto</th><th class="c">Un.</th><th>Orçada</th><th>Levada</th><th>Utilizada</th><th>Devolvida</th><th class="c">Situação</th><th>Valor unit.</th><th>Subtotal</th>
             </tr></thead>
             <tbody id="cc-tbody"></tbody>
           </table>

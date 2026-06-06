@@ -18,6 +18,7 @@ const TarefaApp = (() => {
   let matsPorTarefa = {}     // tarefa_id -> texto dos produtos (p/ busca)
   let cur = null             // tarefa aberta
   let linhas = []            // conciliação da tarefa atual
+  let selMat = new Set()     // tm_ids de produtos selecionados p/ exclusão em massa
   let ratDet = null          // RAT aberta no modal { r, campos, ... }
   let ratEdit = false        // modo edição do modal de RAT
   let pendRat = null         // RAT base do modal "nova tarefa da pendência"
@@ -119,6 +120,13 @@ const TarefaApp = (() => {
     )
     document.getElementById('cc-add-material').onclick = adicionarMaterialCatalogo
     document.getElementById('cc-add-avulso').onclick = adicionarMaterialAvulso
+    document.getElementById('cc-bulk-del').onclick = excluirSelecionados
+    document.getElementById('cc-bulk-clear').onclick = () => { selMat.clear(); renderLinhas() }
+    document.getElementById('cc-check-all').onclick = (e) => {
+      const tb = document.getElementById('cc-tbody')
+      tb.querySelectorAll('.cc-chk').forEach(cb => { cb.checked = e.target.checked; e.target.checked ? selMat.add(cb.dataset.tm) : selMat.delete(cb.dataset.tm) })
+      renderBulk()
+    }
     document.getElementById('cc-d-salvar').onclick = salvarDados
     document.getElementById('cc-d-excluir').onclick = excluirTarefa
     document.getElementById('cc-eq-btn').onclick = vincularEquip
@@ -506,6 +514,7 @@ const TarefaApp = (() => {
   }
 
   async function carregarLinhas() {
+    selMat.clear()
     const { data, error } = await sb().from('vw_conciliacao_tarefa').select('*').eq('tarefa_id', cur.id)
     linhas = error ? [] : (data || [])
     linhas.sort((a, b) => (a.situacao === 'ok' ? 1 : 0) - (b.situacao === 'ok' ? 1 : 0) || (a.descricao || '').localeCompare(b.descricao || ''))
@@ -516,7 +525,7 @@ const TarefaApp = (() => {
   function renderLinhas() {
     const tb = document.getElementById('cc-tbody')
     if (!linhas.length) {
-      tb.innerHTML = '<tr><td colspan="9" class="cc-empty">Sem produtos nesta tarefa. Adicione abaixo.</td></tr>'
+      tb.innerHTML = '<tr><td colspan="10" class="cc-empty">Sem produtos nesta tarefa. Adicione abaixo.</td></tr>'
     } else {
       tb.innerHTML = linhas.map((l, i) => {
         const sit = SIT[l.situacao] || { t: l.situacao, cls: '' }
@@ -550,7 +559,8 @@ const TarefaApp = (() => {
                <button class="cc-rev${rev ? ' on' : ''}" data-i="${i}">${rev ? '✓ Revisado' : 'Revisar'}</button>
              </div></td>`
         return `<tr class="${fora ? 'row-fora' : ''}${rev ? ' row-rev' : ''}">
-          <td class="l cc-mat"><div class="cc-desc">${esc(l.descricao || '—')}</div>${l.codigo_produto ? `<div class="cc-cod">${esc(l.codigo_produto)}</div>` : ''}${podeExcluir ? `<button class="cc-del" data-i="${i}" title="Excluir produto da tarefa">🗑 excluir</button>` : ''}</td>
+          <td class="c chk">${podeExcluir ? `<input type="checkbox" class="cc-chk" data-tm="${esc(l.tm_id)}"${selMat.has(l.tm_id) ? ' checked' : ''}>` : ''}</td>
+          <td class="l cc-mat"><div class="cc-desc">${esc(l.descricao || '—')}</div>${l.codigo_produto ? `<div class="cc-cod">${esc(l.codigo_produto)}</div>` : ''}</td>
           <td class="c un">${esc(l.unidade || '—')}</td>
           ${cOrcada}
           <td><input class="edit cc-lev" type="number" inputmode="decimal" min="0" step="any" value="${lev}" data-i="${i}"></td>
@@ -564,9 +574,34 @@ const TarefaApp = (() => {
       tb.querySelectorAll('.cc-lev').forEach(inp => inp.onchange = () => salvarLevada(Number(inp.dataset.i), inp.value))
       tb.querySelectorAll('.cc-preco').forEach(inp => inp.onchange = () => salvarPreco(Number(inp.dataset.i), inp.value))
       tb.querySelectorAll('.cc-rev').forEach(btn => btn.onclick = () => salvarRevisado(Number(btn.dataset.i), !linhas[Number(btn.dataset.i)].revisado))
-      tb.querySelectorAll('.cc-del').forEach(btn => btn.onclick = () => excluirLinha(Number(btn.dataset.i)))
+      tb.querySelectorAll('.cc-chk').forEach(cb => cb.onchange = () => { cb.checked ? selMat.add(cb.dataset.tm) : selMat.delete(cb.dataset.tm); renderBulk() })
     }
     renderStats()
+    renderBulk()
+  }
+
+  // Seleção múltipla de produtos para exclusão em massa.
+  function renderBulk() {
+    const bar = document.getElementById('cc-bulk'); if (!bar) return
+    const tb = document.getElementById('cc-tbody')
+    const chks = tb ? [...tb.querySelectorAll('.cc-chk')] : []
+    // limpa da seleção tm_ids que não existem mais na tela
+    const vivos = new Set(chks.map(c => c.dataset.tm))
+    for (const tm of [...selMat]) if (!vivos.has(tm)) selMat.delete(tm)
+    bar.style.display = selMat.size ? 'flex' : 'none'
+    const n = document.getElementById('cc-bulk-n'); if (n) n.textContent = `${selMat.size} produto(s) selecionado(s)`
+    const all = document.getElementById('cc-check-all')
+    if (all) all.checked = chks.length > 0 && selMat.size === chks.length
+  }
+  async function excluirSelecionados() {
+    if (!selMat.size) return
+    if (!confirm(`Excluir ${selMat.size} produto(s) selecionado(s) desta tarefa?`)) return
+    const ids = [...selMat]
+    const { error } = await sb().from('tarefa_materiais').delete().in('id', ids)
+    if (error) return toast('Erro ao excluir: ' + error.message, 'err')
+    selMat.clear()
+    toast(`${ids.length} produto(s) removido(s).`, 'ok')
+    await carregarLinhas()
   }
 
   // Resumo de custo (Orçado × Utilizado → faturamento) e devoluções (→ estoque).
@@ -647,16 +682,6 @@ const TarefaApp = (() => {
       })).error
     }
     if (err) return toast('Erro ao salvar revisão: ' + err.message, 'err')
-    await carregarLinhas()
-  }
-
-  // Remove uma linha de produto adicionada por engano (só avulsa, sem uso em RAT).
-  async function excluirLinha(i) {
-    const l = linhas[i]; if (!l || !l.tm_id) return
-    if (!confirm(`Excluir o produto "${l.descricao || ''}" desta tarefa?`)) return
-    const { error } = await sb().from('tarefa_materiais').delete().eq('id', l.tm_id)
-    if (error) return toast('Erro ao excluir: ' + error.message, 'err')
-    toast('Produto removido.', 'ok')
     await carregarLinhas()
   }
 
