@@ -727,8 +727,24 @@
     if (window.SyncEngine) SyncEngine.syncAll()
   }
 
+  // Remove do aparelho os trajetos que o admin já excluiu no servidor.
+  // Só mexe nos CONFIRMADOS (os pendentes ainda não subiram, não podem sumir).
+  async function pruneDeslocsRemovidos() {
+    if (!navigator.onLine) return
+    const confirmados = (await D().listarDeslocamentos()).filter(d => d.sync_status === D().STATUS.CONFIRMADO)
+    if (!confirmados.length) return
+    try {
+      const ids = confirmados.map(d => d.id)
+      const { data, error } = await getSupabase().from('deslocamentos').select('id').in('id', ids)
+      if (error) return
+      const vivos = new Set((data || []).map(r => r.id))
+      for (const d of confirmados) if (!vivos.has(d.id)) await D().removerDeslocamento(d.id)
+    } catch (e) { /* offline/erro: mantém o que tem */ }
+  }
+
   async function renderDesloc() {
     const box = document.getElementById('desloc-lista')
+    await pruneDeslocsRemovidos()
     const lst = await D().listarDeslocamentos()   // offline-first (este aparelho)
     if (!lst.length) { box.innerHTML = '<p class="dim" style="text-align:center;padding:20px">Nenhum trajeto ainda. Toque em <b>+ Novo trajeto</b>.</p>'; return }
     const veicLbl = (id) => { const v = ref.veiculos.find(x => x.id === id); return v ? `${v.modelo || ''} (${v.placa || ''})` : '—' }
