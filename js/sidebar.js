@@ -55,6 +55,10 @@ function renderSidebar(paginaAtiva) {
       ${SVG.concil}<span class="sb-label">Jornada</span>
     </a>
 
+    <a class="sb-item${a==='deslocamentos'?' on':''}" href="deslocamentos.html">
+      ${SVG.painel}<span class="sb-label">Deslocamentos</span>
+    </a>
+
     <div class="sb-section">Sistema</div>
 
     <a class="sb-item${a==='config'?' on':''}" href="configuracoes.html">
