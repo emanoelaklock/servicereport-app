@@ -147,6 +147,16 @@
   .seg-tipos{display:grid;grid-template-columns:1fr 1fr;gap:8px}
   .seg-tipo{font:inherit;font-size:14px;padding:12px;border:1px solid var(--bd);border-radius:10px;background:var(--sur);cursor:pointer;color:var(--tx2)}
   .seg-tipo.on{border-color:var(--ac);background:var(--acl);color:var(--ac);font-weight:600}
+  /* Deslocamento */
+  .dl-tecs{display:flex;flex-wrap:wrap;gap:8px 16px;padding:6px 0}
+  .dl-tecs label{display:flex;align-items:center;gap:6px;font-size:14px;color:var(--tx);cursor:pointer}
+  .dl-tecs input{width:16px;height:16px;accent-color:var(--ac)}
+  .dl-item{border:1px solid var(--bd);border-radius:12px;padding:12px 14px;margin-bottom:10px;background:var(--sur)}
+  .dl-item .dl-top{display:flex;align-items:center;justify-content:space-between;gap:8px}
+  .dl-item .dl-cli{font-size:15px;font-weight:700;color:var(--tx)}
+  .dl-item .dl-meta{font-size:12px;color:var(--tx3);margin-top:3px}
+  .dl-sent{font-size:11px;font-weight:700;padding:2px 9px;border-radius:999px;white-space:nowrap}
+  .dl-sent.ida{background:#E8F0FE;color:#1C54B8}.dl-sent.volta{background:#FDF3E2;color:#B7791F}.dl-sent.outro{background:var(--sur2);color:var(--tx2)}
 </style>
 </head>
 <body>
@@ -211,15 +221,25 @@
             <span class="home-tt">Jornada do dia</span>
             <span class="home-sb">Tempo por atividade (sem buraco)</span>
           </button>
-          <button type="button" class="home-card soon" id="nav-desloc">
+          <button type="button" class="home-card" id="nav-desloc">
             <span class="home-ic">🚚</span>
             <span class="home-tt">Deslocamento</span>
-            <span class="home-sb">Pernoite · em breve</span>
+            <span class="home-sb">Pernoite / viagem</span>
           </button>
         </div>
         <div style="margin-top:18px;text-align:center">
           <button class="btn" id="btn-sync-home">↻ Sincronizar</button>
         </div>
+      </div>
+
+      <!-- DESLOCAMENTO (pernoite) -->
+      <div id="view-desloc" style="display:none">
+        <div class="lista-head">
+          <h2>Deslocamento</h2>
+          <button class="btn btn-p" id="desloc-novo">+ Novo trajeto</button>
+        </div>
+        <p class="dim" style="margin:-6px 0 12px">Cada trajeto é uma perna (ida ou volta), com o veículo e os técnicos a bordo. Ida e volta são registros separados.</p>
+        <div id="desloc-lista"></div>
       </div>
 
       <!-- JORNADA DO DIA -->
@@ -491,6 +511,44 @@
     <div class="tm-f">
       <button class="btn" id="seg-cancelar">Cancelar</button>
       <button class="btn btn-p" id="seg-confirmar">Começar</button>
+    </div>
+  </div>
+</div>
+
+<!-- Deslocamento: novo trajeto -->
+<div class="tm-back" id="modal-desloc">
+  <div class="tm-box">
+    <div class="tm-h"><span>Novo trajeto</span><button class="tm-x" id="dl-x">✕</button></div>
+    <div class="tm-b">
+      <label>Sentido</label>
+      <div class="seg-tipos" id="dl-sentido">
+        <button type="button" class="seg-tipo on" data-sent="ida">➡️ Ida</button>
+        <button type="button" class="seg-tipo" data-sent="volta">⬅️ Volta</button>
+      </div>
+      <label style="margin-top:12px">Cliente / obra (destino)</label>
+      <div class="ac">
+        <input type="text" id="dl-cli-busca" placeholder="Buscar cliente…" autocomplete="off">
+        <input type="hidden" id="dl-cli">
+        <div class="ac-list" id="dl-cli-list"></div>
+      </div>
+      <label style="margin-top:12px">Veículo</label>
+      <select id="dl-veiculo"><option value="">— selecione —</option></select>
+      <label style="margin-top:12px">Técnicos a bordo</label>
+      <div class="dl-tecs" id="dl-tecs"></div>
+      <div style="display:flex;gap:10px;margin-top:12px">
+        <div style="flex:1"><label>Origem</label><input type="text" id="dl-origem" placeholder="Cidade/UF de saída"></div>
+        <div style="flex:1"><label>Destino</label><input type="text" id="dl-destino" placeholder="Cidade/UF de chegada"></div>
+      </div>
+      <div style="display:flex;gap:10px;margin-top:12px">
+        <div style="flex:1"><label>Saída</label><input type="datetime-local" id="dl-saida"></div>
+        <div style="flex:1"><label>Chegada</label><input type="datetime-local" id="dl-chegada"></div>
+      </div>
+      <label style="margin-top:12px">Motivo (opcional)</label>
+      <input type="text" id="dl-motivo" placeholder="Ex.: instalação / manutenção na obra">
+    </div>
+    <div class="tm-f">
+      <button class="btn" id="dl-cancelar">Cancelar</button>
+      <button class="btn btn-p" id="dl-salvar">Salvar trajeto</button>
     </div>
   </div>
 </div>

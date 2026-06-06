@@ -111,8 +111,9 @@
     document.getElementById('btn-concluir-pend').onclick = () => concluirTarefa(true)
     document.getElementById('nav-preorc').onclick = async () => { mostrar('preorc-lista'); await renderPreorcLista() }
     document.getElementById('nav-jornada').onclick = async () => { mostrar('jornada'); await renderJornada() }
-    document.getElementById('nav-desloc').onclick = () => toast('Deslocamento (pernoite) — em breve.', 'info')
+    document.getElementById('nav-desloc').onclick = async () => { mostrar('desloc'); await renderDesloc() }
     bindJornada()
+    bindDesloc()
     const bsh = document.getElementById('btn-sync-home'); if (bsh) bsh.onclick = () => window.SyncEngine && SyncEngine.syncAll()
     // Pré-orçamento
     document.getElementById('btn-preorc-novo').onclick = novoPreorcUI
@@ -444,13 +445,13 @@
     home: 'view-home', lista: 'view-lista', form: 'view-form',
     tarefas: 'view-tarefas', 'tarefa-det': 'view-tarefa-det',
     'preorc-lista': 'view-preorc-lista', 'preorc-form': 'view-preorc-form',
-    jornada: 'view-jornada',
+    jornada: 'view-jornada', desloc: 'view-desloc',
   }
   const TITLES = {
     home: 'Service Report', lista: 'Minhas RATs', form: 'Nova RAT',
     tarefas: 'Minhas Tarefas', 'tarefa-det': 'Tarefa',
     'preorc-lista': 'Pré-Orçamento', 'preorc-form': 'Pré-Orçamento',
-    jornada: 'Jornada do dia',
+    jornada: 'Jornada do dia', desloc: 'Deslocamento',
   }
   function mostrar(secao) {
     screen = secao
@@ -562,6 +563,78 @@
     await renderJornada()
     if (window.SyncEngine) SyncEngine.syncAll()
     toast('Dia encerrado.', 'ok')
+  }
+
+  // ───────────────────── Deslocamento (pernoite) ─────────────────────
+  const DL_SENT = { ida: 'Ida', volta: 'Volta', outro: 'Outro' }
+  let dlSent = 'ida'
+  function bindDesloc() {
+    document.getElementById('desloc-novo').onclick = abrirDesloc
+    document.getElementById('dl-x').onclick = fecharDesloc
+    document.getElementById('dl-cancelar').onclick = fecharDesloc
+    document.getElementById('dl-salvar').onclick = salvarDesloc
+    document.querySelectorAll('#dl-sentido .seg-tipo').forEach(b => b.onclick = () => {
+      dlSent = b.dataset.sent
+      document.querySelectorAll('#dl-sentido .seg-tipo').forEach(x => x.classList.toggle('on', x === b))
+    })
+    attachAutocomplete(document.getElementById('dl-cli-busca'), document.getElementById('dl-cli'), document.getElementById('dl-cli-list'), ref.clientes, c => ({ id: c.id, label: c.nome }))
+    document.getElementById('dl-veiculo').innerHTML = '<option value="">— selecione —</option>' + ref.veiculos.map(v => `<option value="${esc(v.id)}">${esc((v.modelo || '') + ' (' + (v.placa || '') + ')')}</option>`).join('')
+    document.getElementById('dl-tecs').innerHTML = ref.tecnicos.map(t => `<label><input type="checkbox" value="${esc(t.id)}"${t.id === tecnico.id ? ' checked' : ''}> ${esc(t.nome || '')}</label>`).join('')
+  }
+  function abrirDesloc() {
+    dlSent = 'ida'
+    document.querySelectorAll('#dl-sentido .seg-tipo').forEach(x => x.classList.toggle('on', x.dataset.sent === 'ida'))
+    ;['dl-cli', 'dl-cli-busca', 'dl-origem', 'dl-destino', 'dl-saida', 'dl-chegada', 'dl-motivo'].forEach(id => { const e = document.getElementById(id); if (e) e.value = '' })
+    document.getElementById('dl-veiculo').value = ''
+    document.querySelectorAll('#dl-tecs input').forEach(c => { c.checked = (c.value === tecnico.id) })
+    document.getElementById('modal-desloc').classList.add('open')
+  }
+  function fecharDesloc() { document.getElementById('modal-desloc').classList.remove('open') }
+  const dlISO = (v) => v ? new Date(v).toISOString() : null
+
+  async function salvarDesloc() {
+    const tecs = [...document.querySelectorAll('#dl-tecs input:checked')].map(c => c.value)
+    const saida = dlISO(document.getElementById('dl-saida').value)
+    if (!saida) return toast('Informe a data/hora de saída.', 'err')
+    if (!tecs.length) return toast('Marque ao menos um técnico a bordo.', 'err')
+    const sb = getSupabase()
+    const ins = await sb.from('deslocamentos').insert({
+      sentido: dlSent, veiculo_id: document.getElementById('dl-veiculo').value || null,
+      cliente_id: document.getElementById('dl-cli').value || null,
+      origem: document.getElementById('dl-origem').value.trim() || null,
+      destino: document.getElementById('dl-destino').value.trim() || null,
+      saida_em: saida, chegada_em: dlISO(document.getElementById('dl-chegada').value),
+      motivo: document.getElementById('dl-motivo').value.trim() || null,
+      criado_por: tecnico.id,
+    }).select('id').single()
+    if (ins.error) return toast('Erro: ' + ins.error.message, 'err')
+    const it = await sb.from('deslocamento_tecnicos').insert(tecs.map(tid => ({ deslocamento_id: ins.data.id, tecnico_id: tid })))
+    if (it.error) return toast('Erro ao salvar técnicos: ' + it.error.message, 'err')
+    fecharDesloc()
+    toast('Trajeto registrado.', 'ok')
+    await renderDesloc()
+  }
+
+  async function renderDesloc() {
+    const box = document.getElementById('desloc-lista')
+    box.innerHTML = '<p class="dim" style="text-align:center;padding:16px">Carregando…</p>'
+    const { data, error } = await getSupabase().from('deslocamentos')
+      .select('id,sentido,cliente_id,origem,destino,saida_em,chegada_em,veiculo_id,deslocamento_tecnicos(tecnico_id)')
+      .order('saida_em', { ascending: false }).limit(50)
+    if (error) { box.innerHTML = `<p class="dim" style="text-align:center;padding:16px">Erro: ${esc(error.message)}</p>`; return }
+    const lst = data || []
+    if (!lst.length) { box.innerHTML = '<p class="dim" style="text-align:center;padding:20px">Nenhum trajeto ainda. Toque em <b>+ Novo trajeto</b>.</p>'; return }
+    const veicLbl = (id) => { const v = ref.veiculos.find(x => x.id === id); return v ? `${v.modelo || ''} (${v.placa || ''})` : '—' }
+    const dt = (iso) => iso ? new Date(iso).toLocaleString('pt-BR', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' }) : '—'
+    box.innerHTML = lst.map(d => {
+      const nomes = (d.deslocamento_tecnicos || []).map(x => (ref.tecnicos.find(t => t.id === x.tecnico_id) || {}).nome).filter(Boolean).join(', ')
+      return `<div class="dl-item">
+        <div class="dl-top"><div class="dl-cli">${esc(cliNomeDe(d.cliente_id, '—'))}</div><span class="dl-sent ${esc(d.sentido)}">${esc(DL_SENT[d.sentido] || d.sentido)}</span></div>
+        <div class="dl-meta">${esc(d.origem || '—')} → ${esc(d.destino || '—')} · ${esc(veicLbl(d.veiculo_id))}</div>
+        <div class="dl-meta">Saída ${dt(d.saida_em)}${d.chegada_em ? ` · Chegada ${dt(d.chegada_em)}` : ''}</div>
+        <div class="dl-meta">A bordo: ${esc(nomes || '—')}</div>
+      </div>`
+    }).join('')
   }
 
   async function abrirExistente(client_uuid) {
