@@ -605,9 +605,6 @@
       dlSent = b.dataset.sent
       document.querySelectorAll('#dl-sentido .seg-tipo').forEach(x => x.classList.toggle('on', x === b))
     })
-    attachAutocomplete(document.getElementById('dl-cli-busca'), document.getElementById('dl-cli'), document.getElementById('dl-cli-list'), ref.clientes, c => ({ id: c.id, label: c.nome }))
-    document.getElementById('dl-veiculo').innerHTML = '<option value="">— selecione —</option>' + ref.veiculos.map(v => `<option value="${esc(v.id)}">${esc((v.modelo || '') + ' (' + (v.placa || '') + ')')}</option>`).join('')
-    document.getElementById('dl-tecs').innerHTML = ref.tecnicos.map(t => `<label><input type="checkbox" value="${esc(t.id)}"${t.id === tecnico.id ? ' checked' : ''}> ${esc(t.nome || '')}</label>`).join('')
     document.getElementById('dl-gps-saida').onclick = async () => {
       const btn = document.getElementById('dl-gps-saida'), old = btn.textContent
       btn.disabled = true; btn.textContent = 'Capturando GPS…'
@@ -621,6 +618,10 @@
     }
   }
   function abrirDesloc() {
+    // (re)popula com os cadastros já carregados em ref — bindDesloc roda antes do carregarRef
+    attachAutocomplete(document.getElementById('dl-cli-busca'), document.getElementById('dl-cli'), document.getElementById('dl-cli-list'), ref.clientes, c => ({ id: c.id, label: c.nome }))
+    document.getElementById('dl-veiculo').innerHTML = '<option value="">— selecione —</option>' + ref.veiculos.map(v => `<option value="${esc(v.id)}">${esc((v.modelo || '') + ' (' + (v.placa || '') + ')')}</option>`).join('')
+    document.getElementById('dl-tecs').innerHTML = ref.tecnicos.map(t => `<label><input type="checkbox" value="${esc(t.id)}"${t.id === tecnico.id ? ' checked' : ''}> ${esc(t.nome || '')}</label>`).join('')
     dlSent = 'ida'; dlSaidaPos = null
     document.querySelectorAll('#dl-sentido .seg-tipo').forEach(x => x.classList.toggle('on', x.dataset.sent === 'ida'))
     ;['dl-cli', 'dl-cli-busca', 'dl-origem', 'dl-destino', 'dl-saida', 'dl-chegada', 'dl-motivo'].forEach(id => { const e = document.getElementById(id); if (e) e.value = '' })
