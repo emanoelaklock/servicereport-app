@@ -9,13 +9,14 @@
 ═══════════════════════════════════════════════ */
 (function () {
   const DB_NAME = 'service_report'
-  const DB_VERSION = 3
+  const DB_VERSION = 4
   const ST_RATS = 'rats'
   const ST_FOTOS = 'fotos'
   const ST_EVENTOS = 'eventos'
   const ST_MATERIAIS = 'materiais'
   const ST_PREORC = 'preorcamentos'      // pré-orçamentos (artefato de campo, #4.2)
   const ST_PREORC_ITENS = 'preorc_itens' // materiais NECESSÁRIOS do pré-orçamento
+  const ST_SEGMENTOS = 'segmentos'       // jornada "dia contínuo" (§10.1)
 
   // ── Estados de sincronização (brief) ──
   const STATUS = {
@@ -90,6 +91,11 @@
         if (!d.objectStoreNames.contains(ST_PREORC_ITENS)) {
           const s = d.createObjectStore(ST_PREORC_ITENS, { keyPath: 'id' })
           s.createIndex('preorc_uuid', 'preorc_uuid', { unique: false })
+        }
+        if (!d.objectStoreNames.contains(ST_SEGMENTOS)) {
+          const s = d.createObjectStore(ST_SEGMENTOS, { keyPath: 'id' })
+          s.createIndex('data', 'data', { unique: false })
+          s.createIndex('sync_status', 'sync_status', { unique: false })
         }
       }
       req.onsuccess = () => resolve(req.result)
@@ -383,9 +389,49 @@
     })
   }
 
+  // ── Jornada "dia contínuo" (§10.1): segmentos contíguos ──
+  async function salvarSegmento(seg) {
+    if (!seg.id) seg.id = uuid()
+    if (!seg.device_id) seg.device_id = deviceId()
+    if (!seg.criado_em) seg.criado_em = agora()
+    seg.sync_status = STATUS.NA_FILA
+    seg.atualizado_em = agora()
+    await tx([ST_SEGMENTOS], 'readwrite', (t) => { t.objectStore(ST_SEGMENTOS).put(seg) })
+    return seg
+  }
+  async function obterSegmento(id) {
+    const d = await db()
+    return reqP(d.transaction(ST_SEGMENTOS).objectStore(ST_SEGMENTOS).get(id))
+  }
+  async function listarSegmentos(data) {
+    const d = await db()
+    const all = await reqP(d.transaction(ST_SEGMENTOS).objectStore(ST_SEGMENTOS).getAll())
+    const arr = data ? all.filter(s => s.data === data) : all
+    return arr.sort((a, b) => (a.inicio || '').localeCompare(b.inicio || ''))
+  }
+  async function segmentoAberto(data) {
+    const arr = await listarSegmentos(data)
+    return arr.find(s => !s.fim) || null
+  }
+  async function segmentosPendentes() {
+    const d = await db()
+    const all = await reqP(d.transaction(ST_SEGMENTOS).objectStore(ST_SEGMENTOS).getAll())
+    return all.filter(s => s.sync_status !== STATUS.CONFIRMADO)
+  }
+  async function marcarSegmentoStatus(id, novo) {
+    return tx([ST_SEGMENTOS], 'readwrite', (t) => {
+      const s = t.objectStore(ST_SEGMENTOS)
+      reqP(s.get(id)).then(cur => { if (cur) { cur.sync_status = novo; if (novo === STATUS.CONFIRMADO) cur.recebido_em = agora(); s.put(cur) } })
+    })
+  }
+  async function removerSegmento(id) {
+    return tx([ST_SEGMENTOS], 'readwrite', (t) => { t.objectStore(ST_SEGMENTOS).delete(id) })
+  }
+
   window.DBLocal = {
     STATUS, TRANSICOES,
     deviceId, uuid,
+    salvarSegmento, obterSegmento, listarSegmentos, segmentoAberto, segmentosPendentes, marcarSegmentoStatus, removerSegmento,
     novoRat, salvarRat, obterRat, listarRats, definirStatus, removerRat,
     adicionarFoto, listarFotos, removerFoto, marcarFotoEnviada, fotosPendentes, atualizarLegendaFoto,
     adicionarMaterial, listarMateriais, removerMaterial,

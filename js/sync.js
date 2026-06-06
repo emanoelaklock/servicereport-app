@@ -201,6 +201,21 @@
   }
 
   // Sobe todas as RATs e pré-orçamentos pendentes (salvo_local / na_fila / erro).
+  // Jornada (dia contínuo): segmento é linha simples → upsert idempotente por id.
+  async function enviarSegmento(seg) {
+    const sb = getSupabase()
+    const { data: { user } } = await sb.auth.getUser()
+    const payload = {
+      id: seg.id, tecnico_id: (user && user.id) || seg.tecnico_id, data: seg.data,
+      tipo: seg.tipo, titulo: seg.titulo || null, tipo_servico_id: seg.tipo_servico_id || null,
+      cliente_id: seg.cliente_id || null, tarefa_id: seg.tarefa_id || null,
+      inicio: seg.inicio, fim: seg.fim || null, device_id: seg.device_id || null,
+    }
+    const up = await sb.from('jornada_segmentos').upsert(payload, { onConflict: 'id' })
+    if (up.error) throw up.error
+    await D().marcarSegmentoStatus(seg.id, D().STATUS.CONFIRMADO)
+  }
+
   async function syncAll() {
     if (syncing || !navigator.onLine) return { ok: 0, fail: 0, skipped: true }
     syncing = true
@@ -232,6 +247,11 @@
           fail++
         }
       }
+      const segs = await D().segmentosPendentes()
+      for (const s of segs) {
+        try { await enviarSegmento(s); ok++ }
+        catch (e) { console.warn('[sync] falha segmento', s.id, e); fail++ }
+      }
     } finally { syncing = false }
     if (typeof window.onSyncDone === 'function') window.onSyncDone({ ok, fail })
     return { ok, fail }
@@ -243,5 +263,5 @@
     if (navigator.onLine) syncAll()
   }
 
-  window.SyncEngine = { syncAll, enviarRat, enviarPreorc, start }
+  window.SyncEngine = { syncAll, enviarRat, enviarPreorc, enviarSegmento, start }
 })()
