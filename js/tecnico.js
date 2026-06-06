@@ -136,7 +136,9 @@
     try {
       const sb = getSupabase()
       const [cli, tip, forms, tec, veic, prod, base] = await Promise.all([
-        sb.from('clientes').select('id,nome,documento,endereco').eq('oculto', false).order('nome'),
+        // mesma regra da tela Empresas: mostra todas as visíveis (inclui Omie),
+        // escondendo só as "excluídas" (oculto + não reimporta).
+        sb.from('clientes').select('id,nome,documento,endereco').or('oculto.is.false,oculto.is.null,sync_omie.is.null,sync_omie.neq.false').order('nome'),
         sb.from('tipos_servico').select('id,nome,formulario_id,ativo').eq('ativo', true).order('nome'),
         sb.from('formulario_modelos').select('id,nome,campos').eq('ativo', true),
         sb.from('usuarios').select('id,nome').eq('role', 'tecnico_campo').eq('ativo', true).order('nome'),
