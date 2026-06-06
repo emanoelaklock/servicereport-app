@@ -129,6 +129,24 @@
   .sig-clear{position:absolute;top:8px;right:8px}
   .form-actions{display:flex;gap:10px;margin-top:18px}
   .form-actions .btn{flex:1;justify-content:center;padding:12px}
+  /* Jornada do dia */
+  .jor-now{background:var(--sur);border:1px solid var(--bd);border-radius:14px;padding:18px;box-shadow:var(--sh)}
+  .jor-now.idle{text-align:center;color:var(--tx3)}
+  .jor-now .jn-tp{font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:.05em;color:var(--ac)}
+  .jor-now .jn-tt{font-size:18px;font-weight:700;color:var(--tx);margin-top:4px}
+  .jor-now .jn-cron{font-size:30px;font-weight:800;color:var(--tx);margin-top:8px;font-variant-numeric:tabular-nums}
+  .jor-now .jn-sub{font-size:12px;color:var(--tx3);margin-top:4px}
+  .jor-tl-h{font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--tx3);margin:6px 0 8px}
+  .jor-seg{display:flex;align-items:center;gap:12px;border:1px solid var(--bd);border-radius:10px;padding:10px 12px;margin-bottom:8px;background:var(--sur)}
+  .jor-seg.aberto{border-color:var(--ac);box-shadow:0 0 0 3px var(--acl)}
+  .jor-seg .js-ic{font-size:18px}
+  .jor-seg .js-main{flex:1;min-width:0}
+  .jor-seg .js-tt{font-size:14px;font-weight:600;color:var(--tx)}
+  .jor-seg .js-sub{font-size:12px;color:var(--tx3);margin-top:1px}
+  .jor-seg .js-dur{font-size:13px;font-weight:700;color:var(--tx);font-variant-numeric:tabular-nums;white-space:nowrap}
+  .seg-tipos{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+  .seg-tipo{font:inherit;font-size:14px;padding:12px;border:1px solid var(--bd);border-radius:10px;background:var(--sur);cursor:pointer;color:var(--tx2)}
+  .seg-tipo.on{border-color:var(--ac);background:var(--acl);color:var(--ac);font-weight:600}
 </style>
 </head>
 <body>
@@ -188,6 +206,11 @@
             <span class="home-tt">Pré-Orçamento</span>
             <span class="home-sb">Levantamento em campo</span>
           </button>
+          <button type="button" class="home-card" id="nav-jornada">
+            <span class="home-ic">⏱️</span>
+            <span class="home-tt">Jornada do dia</span>
+            <span class="home-sb">Tempo por atividade (sem buraco)</span>
+          </button>
           <button type="button" class="home-card soon" id="nav-desloc">
             <span class="home-ic">🚚</span>
             <span class="home-tt">Deslocamento</span>
@@ -197,6 +220,18 @@
         <div style="margin-top:18px;text-align:center">
           <button class="btn" id="btn-sync-home">↻ Sincronizar</button>
         </div>
+      </div>
+
+      <!-- JORNADA DO DIA -->
+      <div id="view-jornada" style="display:none">
+        <div class="lista-head">
+          <h2>Jornada do dia</h2>
+          <button class="btn" id="jor-voltar">← Início</button>
+        </div>
+        <div id="jor-atual"></div>
+        <div id="jor-acoes" style="display:flex;gap:8px;flex-wrap:wrap;margin:14px 0"></div>
+        <div class="jor-tl-h">Linha do tempo</div>
+        <div id="jor-timeline"></div>
       </div>
 
       <!-- LISTA -->
@@ -423,6 +458,39 @@
     <div class="tm-f">
       <button class="btn" id="nt-cancelar">Cancelar</button>
       <button class="btn btn-p" id="nt-criar">Criar tarefa</button>
+    </div>
+  </div>
+</div>
+
+<!-- Jornada: trocar/iniciar atividade -->
+<div class="tm-back" id="modal-seg">
+  <div class="tm-box">
+    <div class="tm-h"><span id="seg-titulo">Nova atividade</span><button class="tm-x" id="seg-x">✕</button></div>
+    <div class="tm-b">
+      <label>Tipo de atividade</label>
+      <div class="seg-tipos" id="seg-tipos">
+        <button type="button" class="seg-tipo on" data-tipo="trabalho">🔧 Trabalho</button>
+        <button type="button" class="seg-tipo" data-tipo="pausa">⏸️ Pausa</button>
+        <button type="button" class="seg-tipo" data-tipo="almoco">🍽️ Almoço</button>
+        <button type="button" class="seg-tipo" data-tipo="deslocamento">🚗 Deslocamento</button>
+      </div>
+      <div id="seg-trabalho">
+        <label style="margin-top:12px">Cliente</label>
+        <div class="ac">
+          <input type="text" id="seg-cli-busca" placeholder="Buscar cliente…" autocomplete="off">
+          <input type="hidden" id="seg-cli">
+          <div class="ac-list" id="seg-cli-list"></div>
+        </div>
+        <label style="margin-top:12px">Tipo de serviço</label>
+        <select id="seg-tiposerv"><option value="">— selecione —</option></select>
+        <label style="margin-top:12px">Título da atividade</label>
+        <input type="text" id="seg-titulo-in" placeholder="Ex.: passagem de cabo cozinha">
+      </div>
+      <p class="dim" id="seg-hint" style="margin-top:10px"></p>
+    </div>
+    <div class="tm-f">
+      <button class="btn" id="seg-cancelar">Cancelar</button>
+      <button class="btn btn-p" id="seg-confirmar">Começar</button>
     </div>
   </div>
 </div>

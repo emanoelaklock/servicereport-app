@@ -110,7 +110,9 @@
     document.getElementById('btn-concluir').onclick = () => concluirTarefa(false)
     document.getElementById('btn-concluir-pend').onclick = () => concluirTarefa(true)
     document.getElementById('nav-preorc').onclick = async () => { mostrar('preorc-lista'); await renderPreorcLista() }
+    document.getElementById('nav-jornada').onclick = async () => { mostrar('jornada'); await renderJornada() }
     document.getElementById('nav-desloc').onclick = () => toast('Deslocamento (pernoite) — em breve.', 'info')
+    bindJornada()
     const bsh = document.getElementById('btn-sync-home'); if (bsh) bsh.onclick = () => window.SyncEngine && SyncEngine.syncAll()
     // Pré-orçamento
     document.getElementById('btn-preorc-novo').onclick = novoPreorcUI
@@ -442,11 +444,13 @@
     home: 'view-home', lista: 'view-lista', form: 'view-form',
     tarefas: 'view-tarefas', 'tarefa-det': 'view-tarefa-det',
     'preorc-lista': 'view-preorc-lista', 'preorc-form': 'view-preorc-form',
+    jornada: 'view-jornada',
   }
   const TITLES = {
     home: 'Service Report', lista: 'Minhas RATs', form: 'Nova RAT',
     tarefas: 'Minhas Tarefas', 'tarefa-det': 'Tarefa',
     'preorc-lista': 'Pré-Orçamento', 'preorc-form': 'Pré-Orçamento',
+    jornada: 'Jornada do dia',
   }
   function mostrar(secao) {
     screen = secao
@@ -461,6 +465,103 @@
     if (screen === 'preorc-form') return cancelarPreorc()
     if (screen === 'tarefa-det') return mostrar('tarefas')
     mostrar('home')
+  }
+
+  // ───────────────────── Jornada do dia (§10.1 dia contínuo) ─────────────────────
+  const SEG_META = {
+    trabalho: { ic: '🔧', lb: 'Trabalho' }, pausa: { ic: '⏸️', lb: 'Pausa' },
+    almoco: { ic: '🍽️', lb: 'Almoço' }, deslocamento: { ic: '🚗', lb: 'Deslocamento' },
+  }
+  let segTipoSel = 'trabalho'
+  let jorTick = null
+  const jorHoje = () => { const d = new Date(); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}` }
+  const segHHMM = (iso) => { if (!iso) return '—'; const d = new Date(iso); return `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}` }
+  const segDur = (ini, fim) => { const a = new Date(ini).getTime(), b = (fim ? new Date(fim) : new Date()).getTime(); let m = Math.max(0, Math.round((b - a) / 60000)); const h = Math.floor(m / 60); return `${h}h ${String(m % 60).padStart(2, '0')}min` }
+
+  function bindJornada() {
+    document.getElementById('jor-voltar').onclick = () => mostrar('home')
+    document.getElementById('seg-x').onclick = fecharSeg
+    document.getElementById('seg-cancelar').onclick = fecharSeg
+    document.getElementById('seg-confirmar').onclick = confirmarSeg
+    document.querySelectorAll('#seg-tipos .seg-tipo').forEach(b => b.onclick = () => {
+      segTipoSel = b.dataset.tipo
+      document.querySelectorAll('#seg-tipos .seg-tipo').forEach(x => x.classList.toggle('on', x === b))
+      document.getElementById('seg-trabalho').style.display = segTipoSel === 'trabalho' ? '' : 'none'
+    })
+    attachAutocomplete(document.getElementById('seg-cli-busca'), document.getElementById('seg-cli'), document.getElementById('seg-cli-list'), ref.clientes, c => ({ id: c.id, label: c.nome }))
+    document.getElementById('seg-tiposerv').innerHTML = '<option value="">— selecione —</option>' + ref.tipos.map(t => `<option value="${esc(t.id)}">${esc(t.nome)}</option>`).join('')
+  }
+
+  async function renderJornada() {
+    const data = jorHoje()
+    const segs = await D().listarSegmentos(data)
+    const aberto = segs.find(s => !s.fim)
+    const now = document.getElementById('jor-atual')
+    const acoes = document.getElementById('jor-acoes')
+    if (aberto) {
+      const m = SEG_META[aberto.tipo] || {}
+      const sub = aberto.tipo === 'trabalho' ? [cliNomeDe(aberto.cliente_id, ''), aberto.titulo].filter(Boolean).join(' · ') : ''
+      now.innerHTML = `<div class="jor-now"><div class="jn-tp">${m.ic || ''} ${esc(m.lb || aberto.tipo)} · em andamento</div>
+        ${(aberto.titulo && aberto.tipo === 'trabalho') ? `<div class="jn-tt">${esc(aberto.titulo)}</div>` : ''}
+        <div class="jn-cron" id="jor-cron">${segDur(aberto.inicio)}</div>
+        <div class="jn-sub">desde ${segHHMM(aberto.inicio)}${sub ? ` · ${esc(sub)}` : ''}</div></div>`
+      acoes.innerHTML = `<button class="btn btn-p" id="jor-trocar" style="flex:1">↻ Trocar atividade</button><button class="btn" id="jor-encerrar">⏹ Encerrar dia</button>`
+      document.getElementById('jor-trocar').onclick = () => abrirSeg('trocar')
+      document.getElementById('jor-encerrar').onclick = encerrarDia
+    } else {
+      now.innerHTML = `<div class="jor-now idle">${segs.length ? 'Dia encerrado.' : 'Nenhuma atividade hoje.'}</div>`
+      acoes.innerHTML = `<button class="btn btn-p" id="jor-iniciar" style="flex:1">▶ ${segs.length ? 'Iniciar nova atividade' : 'Iniciar dia'}</button>`
+      document.getElementById('jor-iniciar').onclick = () => abrirSeg('iniciar')
+    }
+    const tl = document.getElementById('jor-timeline')
+    tl.innerHTML = !segs.length ? '<p class="dim" style="text-align:center;padding:16px">—</p>'
+      : segs.slice().reverse().map(s => {
+        const m = SEG_META[s.tipo] || {}
+        const tt = s.tipo === 'trabalho' ? (s.titulo || 'Trabalho') : (m.lb || s.tipo)
+        const sub = s.tipo === 'trabalho' ? cliNomeDe(s.cliente_id, '') : ''
+        return `<div class="jor-seg${!s.fim ? ' aberto' : ''}"><span class="js-ic">${m.ic || ''}</span>
+          <div class="js-main"><div class="js-tt">${esc(tt)}</div><div class="js-sub">${segHHMM(s.inicio)}–${s.fim ? segHHMM(s.fim) : 'agora'}${sub ? ` · ${esc(sub)}` : ''}</div></div>
+          <div class="js-dur">${segDur(s.inicio, s.fim)}</div></div>`
+      }).join('')
+    if (jorTick) { clearInterval(jorTick); jorTick = null }
+    if (aberto) jorTick = setInterval(() => { const el = document.getElementById('jor-cron'); if (el) el.textContent = segDur(aberto.inicio); else { clearInterval(jorTick); jorTick = null } }, 1000)
+  }
+
+  function abrirSeg(modo) {
+    document.getElementById('seg-titulo').textContent = modo === 'trocar' ? 'Trocar atividade' : 'Nova atividade'
+    document.getElementById('seg-hint').textContent = modo === 'trocar' ? 'A atividade atual fecha agora e a nova começa neste instante (sem buraco).' : ''
+    segTipoSel = 'trabalho'
+    document.querySelectorAll('#seg-tipos .seg-tipo').forEach(x => x.classList.toggle('on', x.dataset.tipo === 'trabalho'))
+    document.getElementById('seg-trabalho').style.display = ''
+    document.getElementById('seg-cli').value = ''; document.getElementById('seg-cli-busca').value = ''
+    document.getElementById('seg-tiposerv').value = ''; document.getElementById('seg-titulo-in').value = ''
+    document.getElementById('modal-seg').classList.add('open')
+  }
+  function fecharSeg() { document.getElementById('modal-seg').classList.remove('open') }
+
+  async function confirmarSeg() {
+    const data = jorHoje(), agora = new Date().toISOString(), tipo = segTipoSel
+    let titulo = null, cliente_id = null, tipo_servico_id = null
+    if (tipo === 'trabalho') {
+      cliente_id = document.getElementById('seg-cli').value || null
+      tipo_servico_id = document.getElementById('seg-tiposerv').value || null
+      titulo = document.getElementById('seg-titulo-in').value.trim()
+      if (!titulo) return toast('Dê um título à atividade.', 'err')
+    }
+    const aberto = await D().segmentoAberto(data)
+    if (aberto) { aberto.fim = agora; await D().salvarSegmento(aberto) }
+    await D().salvarSegmento({ tecnico_id: tecnico.id, data, tipo, titulo, cliente_id, tipo_servico_id, inicio: agora, fim: null })
+    fecharSeg()
+    await renderJornada()
+    if (window.SyncEngine) SyncEngine.syncAll()
+  }
+
+  async function encerrarDia() {
+    const aberto = await D().segmentoAberto(jorHoje())
+    if (aberto) { aberto.fim = new Date().toISOString(); await D().salvarSegmento(aberto) }
+    await renderJornada()
+    if (window.SyncEngine) SyncEngine.syncAll()
+    toast('Dia encerrado.', 'ok')
   }
 
   async function abrirExistente(client_uuid) {
