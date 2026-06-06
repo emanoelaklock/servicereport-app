@@ -14,7 +14,6 @@ const TarefaApp = (() => {
   let tecPorTarefa = {}      // tarefa_id -> [tecnico_id]
   let orcNo = {}             // orcamento_id -> numero
   let divPorTarefa = {}      // tarefa_id -> nº de linhas com divergência
-  let filtro = 'todas'
   let cur = null             // tarefa aberta
   let linhas = []            // conciliação da tarefa atual
   let ratDet = null          // RAT aberta no modal { r, campos, ... }
@@ -78,10 +77,18 @@ const TarefaApp = (() => {
       : '<span class="cc-empty-sm">Nenhum técnico ativo cadastrado.</span>'
     document.getElementById('cc-d-tipo').innerHTML = '<option value="">— selecione —</option>' + ref.tipos.map(t => `<option value="${esc(t.id)}">${esc(t.nome || '')}</option>`).join('')
     document.getElementById('cc-d-status-sel').innerHTML = Object.entries(STATUS_LABEL).map(([k, v]) => `<option value="${esc(k)}">${esc(v)}</option>`).join('')
+    // Filtros combináveis da lista
+    document.getElementById('f-status').innerHTML = '<option value="">Status: todos</option>' +
+      Object.entries(STATUS_LABEL).map(([k, v]) => `<option value="${esc(k)}">${esc(v)}</option>`).join('') +
+      '<option value="a_faturar">• A faturar</option><option value="divergencia">• A revisar</option>'
+    document.getElementById('f-tec').innerHTML = '<option value="">Técnico: todos</option>' +
+      ref.tecnicos.map(t => `<option value="${esc(t.id)}">${esc(t.nome || '(sem nome)')}</option>`).join('')
+    document.getElementById('f-tipo').innerHTML = '<option value="">Tipo: todos</option>' +
+      ref.tipos.map(t => `<option value="${esc(t.id)}">${esc(t.nome || '')}</option>`).join('')
     bind()
     const params = new URLSearchParams(location.search)
     const f = params.get('f')
-    if (f) { filtro = f; document.querySelectorAll('#cc-filtros .chip').forEach(c => c.classList.toggle('on', c.dataset.f === f)) }
+    if (f) document.getElementById('f-status').value = f
     await carregarTarefas()
     const tid = params.get('t')
     if (tid && tarefas.some(x => x.id === tid)) await abrirTarefa(tid, params.get('aba'))
@@ -90,11 +97,12 @@ const TarefaApp = (() => {
 
   function bind() {
     document.getElementById('btn-voltar').onclick = () => { cur = null; history.replaceState(null, '', 'tarefa.html'); mostrar('lista'); carregarTarefas().then(renderLista) }
-    document.querySelectorAll('#cc-filtros .chip').forEach(ch => ch.onclick = () => {
-      filtro = ch.dataset.f
-      document.querySelectorAll('#cc-filtros .chip').forEach(c => c.classList.toggle('on', c === ch))
+    ;['f-status', 'f-tec', 'f-tipo', 'f-de', 'f-ate'].forEach(id => { document.getElementById(id).onchange = renderLista })
+    document.getElementById('f-limpar').onclick = () => {
+      document.getElementById('busca-tarefa').value = ''
+      ;['f-status', 'f-tec', 'f-tipo', 'f-de', 'f-ate'].forEach(id => { document.getElementById(id).value = '' })
       renderLista()
-    })
+    }
     const bt = document.getElementById('busca-tarefa')
     if (bt) bt.oninput = debounce(() => renderLista(), 200)
     // Nova tarefa (criada direto, sem orçamento)
@@ -212,11 +220,24 @@ const TarefaApp = (() => {
   function renderLista() {
     const box = document.getElementById('lista-box')
     const q = normStr(document.getElementById('busca-tarefa').value || '')
+    const fStatus = document.getElementById('f-status').value
+    const fTec = document.getElementById('f-tec').value
+    const fTipo = document.getElementById('f-tipo').value
+    const fDe = document.getElementById('f-de').value
+    const fAte = document.getElementById('f-ate').value
+    const buscaStr = (t) => normStr([osNo(t.numero), t.numero, cliNomes[t.cliente_id], t.pedido_compra,
+      (orcNo[t.orcamento_id] != null ? 'orcamento ' + orcNo[t.orcamento_id] : ''),
+      (tecPorTarefa[t.id] || []).map(id => tecNomes[id]).join(' ')].filter(Boolean).join(' '))
     let rows = tarefas
-    if (filtro === 'divergencia') rows = rows.filter(t => divPorTarefa[t.id])
-    else if (filtro === 'a_faturar') rows = rows.filter(t => !t.faturado && (t.status === 'concluida' || t.status === 'concluida_pendencia'))
-    else if (filtro !== 'todas') rows = rows.filter(t => t.status === filtro)
-    if (q) rows = rows.filter(t => normStr(cliNomes[t.cliente_id] || '').includes(q) || String(t.numero || '').includes(q))
+    if (fStatus === 'divergencia') rows = rows.filter(t => divPorTarefa[t.id])
+    else if (fStatus === 'a_faturar') rows = rows.filter(t => !t.faturado && (t.status === 'concluida' || t.status === 'concluida_pendencia'))
+    else if (fStatus) rows = rows.filter(t => t.status === fStatus)
+    if (fTec) rows = rows.filter(t => (tecPorTarefa[t.id] || []).includes(fTec))
+    if (fTipo) rows = rows.filter(t => t.tipo_servico_id === fTipo)
+    if (fDe) rows = rows.filter(t => (t.data_agendada || '').slice(0, 10) >= fDe)
+    if (fAte) rows = rows.filter(t => { const d = (t.data_agendada || '').slice(0, 10); return d && d <= fAte })
+    if (q) rows = rows.filter(t => buscaStr(t).includes(q))
+    document.getElementById('f-count').textContent = `${rows.length} de ${tarefas.length}`
     if (!rows.length) { box.innerHTML = '<div class="cc-empty">Nenhuma tarefa encontrada.</div>'; return }
     box.innerHTML = `<table class="cc-list"><thead><tr>
         <th>Nº</th><th>Cliente</th><th>Status</th><th>Técnico</th><th>Agenda</th><th>Conciliação</th><th>Ações</th>

@@ -16,10 +16,14 @@
 <style>
   /* Toolbar / filtros */
   .cc-toolbar{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:16px;flex-wrap:wrap}
-  .cc-filtros{display:flex;gap:6px;flex-wrap:wrap}
+  .cc-filtros{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
   .cc-filtros .chip{font:inherit;font-size:12px;padding:6px 11px;border:1px solid var(--bd);border-radius:20px;background:var(--sur);cursor:pointer;color:var(--tx2)}
   .cc-filtros .chip.on{background:var(--ac);border-color:var(--ac);color:#fff}
-  #busca-tarefa{padding:8px 11px;border:1px solid var(--bd);border-radius:var(--r);font:inherit;font-size:13px;min-width:240px}
+  #busca-tarefa{padding:8px 11px;border:1px solid var(--bd);border-radius:var(--r);font:inherit;font-size:13px;min-width:250px}
+  .f-sel{padding:8px 10px;border:1px solid var(--bd);border-radius:var(--r);font:inherit;font-size:13px;background:#fff;color:var(--tx2);max-width:210px}
+  .f-per{display:inline-flex;align-items:center;gap:5px;font-size:12px;color:var(--tx3)}
+  .f-per input{padding:7px 8px;border:1px solid var(--bd);border-radius:var(--r);font:inherit;font-size:12.5px}
+  .f-count{font-size:12px;color:var(--tx3);margin-left:2px}
   .cc-empty{text-align:center;color:var(--tx3);font-size:13px;padding:26px 0}
 
   /* Lista de tarefas */
@@ -278,17 +282,15 @@
       <div id="view-lista">
         <div class="cc-toolbar">
           <div class="cc-filtros" id="cc-filtros">
-            <button class="chip on" data-f="todas">Todas</button>
-            <button class="chip" data-f="divergencia">A revisar</button>
-            <button class="chip" data-f="aguardando_execucao">Aguardando execução</button>
-            <button class="chip" data-f="em_execucao">Em execução</button>
-            <button class="chip" data-f="concluida">Concluída</button>
-            <button class="chip" data-f="a_faturar">A faturar</button>
+            <input type="text" id="busca-tarefa" placeholder="🔍 Buscar nº, cliente, PC, orçamento…" autocomplete="off">
+            <select id="f-status" class="f-sel" title="Status"></select>
+            <select id="f-tec" class="f-sel" title="Técnico"></select>
+            <select id="f-tipo" class="f-sel" title="Tipo de tarefa"></select>
+            <span class="f-per"><label>de</label><input type="date" id="f-de"><label>até</label><input type="date" id="f-ate"></span>
+            <button class="btn" id="f-limpar" title="Limpar filtros">Limpar</button>
+            <span class="f-count" id="f-count"></span>
           </div>
-          <div style="display:flex;gap:8px;align-items:center">
-            <input type="text" id="busca-tarefa" placeholder="Buscar por nº ou cliente…" autocomplete="off">
-            <button class="btn btn-p" id="btn-nova-tarefa">+ Nova tarefa</button>
-          </div>
+          <button class="btn btn-p" id="btn-nova-tarefa">+ Nova tarefa</button>
         </div>
         <div id="lista-box"></div>
       </div>
