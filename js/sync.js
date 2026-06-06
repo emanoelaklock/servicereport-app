@@ -280,15 +280,78 @@
         catch (e) { console.warn('[sync] falha deslocamento', d.id, e); fail++ }
       }
     } finally { syncing = false }
+    await pullChanges()   // depois de empurrar o local, puxa o que mudou no servidor
     if (typeof window.onSyncDone === 'function') window.onSyncDone({ ok, fail })
     return { ok, fail }
+  }
+
+  // ───────────────────── Delta-pull (servidor → aparelho) ─────────────────────
+  // Puxa só o que mudou desde o último cursor: linhas alteradas (atualizado_em)
+  // e exclusões (sync_tombstones). Aplica no IndexedDB sem clobberar o que ainda
+  // está pendente de envio. Cursores ficam no localStorage.
+  const cur = (k) => localStorage.getItem('sr_pull_' + k) || '1970-01-01T00:00:00+00:00'
+  const setCur = (k, v) => { if (v) localStorage.setItem('sr_pull_' + k, v) }
+  let pulling = false
+
+  async function pullChanges() {
+    if (pulling || !navigator.onLine) return { applied: 0, removed: 0 }
+    const sb = getSupabase(); if (!sb) return { applied: 0, removed: 0 }
+    pulling = true
+    let applied = 0, removed = 0, changed = false
+    try {
+      for (const [tabela, m] of Object.entries(D().SYNC_MAP)) {
+        const c = cur('upd_' + tabela)
+        const { data, error } = await sb.from(tabela).select('*').gt('atualizado_em', c)
+          .order('atualizado_em', { ascending: true }).limit(500)
+        if (error) { console.warn('[pull]', tabela, error.message); continue }
+        let max = c
+        for (const row of (data || [])) {
+          if (await D().aplicarDoServidor(m.store, row)) { applied++; changed = true }
+          if (row.atualizado_em && row.atualizado_em > max) max = row.atualizado_em
+        }
+        setCur('upd_' + tabela, max)
+      }
+      const tc = cur('tomb')
+      const { data: tombs, error: te } = await sb.from('sync_tombstones')
+        .select('tabela,registro_id,deletado_em').gt('deletado_em', tc)
+        .order('deletado_em', { ascending: true }).limit(1000)
+      if (!te) {
+        let tmax = tc
+        for (const t of (tombs || [])) {
+          const m = D().SYNC_MAP[t.tabela]
+          if (m && await D().removerDoServidor(m.store, t.registro_id)) { removed++; changed = true }
+          if (t.deletado_em > tmax) tmax = t.deletado_em
+        }
+        setCur('tomb', tmax)
+      }
+    } catch (e) { console.warn('[pull]', e) }
+    finally { pulling = false }
+    if (changed && typeof window.onSyncChanged === 'function') window.onSyncChanged({ applied, removed })
+    return { applied, removed }
+  }
+
+  // ───────────────────── Realtime (sinal → reconcilia) ─────────────────────
+  let rtChannel = null, pullTimer = null
+  const agendarPull = () => { clearTimeout(pullTimer); pullTimer = setTimeout(() => pullChanges(), 400) }
+  function startRealtime() {
+    const sb = getSupabase(); if (!sb || rtChannel) return
+    try {
+      rtChannel = sb.channel('sr-sync')
+      for (const tabela of Object.keys(D().SYNC_MAP)) {
+        rtChannel.on('postgres_changes', { event: '*', schema: 'public', table: tabela }, agendarPull)
+      }
+      rtChannel.on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'sync_tombstones' }, agendarPull)
+      rtChannel.subscribe()
+    } catch (e) { console.warn('[realtime]', e) }
   }
 
   // Dispara ao iniciar (se online) e sempre que a conexão voltar.
   function start() {
     window.addEventListener('online', () => syncAll())
-    if (navigator.onLine) syncAll()
+    document.addEventListener('visibilitychange', () => { if (!document.hidden) pullChanges() })
+    setInterval(() => pullChanges(), 2 * 60 * 1000)   // rede de segurança
+    if (navigator.onLine) { syncAll(); startRealtime() }
   }
 
-  window.SyncEngine = { syncAll, enviarRat, enviarPreorc, enviarSegmento, enviarDeslocamento, start }
+  window.SyncEngine = { syncAll, pullChanges, enviarRat, enviarPreorc, enviarSegmento, enviarDeslocamento, start }
 })()

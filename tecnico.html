@@ -598,11 +598,41 @@
 
   initAuth()
 
-  // PWA: registra o service worker (shell offline)
+  // PWA: registra o service worker (shell offline) + fluxo de atualização.
   if ('serviceWorker' in navigator) {
-    window.addEventListener('load', () => {
-      navigator.serviceWorker.register('service-worker.js').catch(e => console.warn('SW:', e))
+    let recarregando = false
+    navigator.serviceWorker.addEventListener('controllerchange', () => {
+      if (recarregando) return
+      recarregando = true
+      location.reload()
     })
+    window.addEventListener('load', async () => {
+      try {
+        const reg = await navigator.serviceWorker.register('service-worker.js')
+        const oferecer = () => { if (navigator.serviceWorker.controller) mostrarUpdate(reg) }
+        if (reg.waiting) oferecer()
+        reg.addEventListener('updatefound', () => {
+          const nw = reg.installing
+          if (nw) nw.addEventListener('statechange', () => { if (nw.state === 'installed') oferecer() })
+        })
+        // checa atualização periodicamente (a cada 30 min) e ao voltar o foco
+        setInterval(() => reg.update().catch(() => {}), 30 * 60 * 1000)
+        document.addEventListener('visibilitychange', () => { if (!document.hidden) reg.update().catch(() => {}) })
+      } catch (e) { console.warn('SW:', e) }
+    })
+  }
+  function mostrarUpdate(reg) {
+    if (document.getElementById('sw-update')) return
+    const bar = document.createElement('div')
+    bar.id = 'sw-update'
+    bar.style.cssText = 'position:fixed;left:50%;transform:translateX(-50%);bottom:18px;z-index:9999;background:#1B2A4A;color:#fff;border-radius:12px;box-shadow:0 12px 32px rgba(20,30,55,.4);padding:11px 14px;display:flex;gap:12px;align-items:center;font-size:14px;max-width:92vw'
+    bar.innerHTML = '<span>🚀 Nova versão disponível.</span><button id="sw-up-btn" style="background:#fff;color:#1B2A4A;border:none;border-radius:8px;padding:7px 14px;font-weight:700;cursor:pointer">Atualizar</button>'
+    document.body.appendChild(bar)
+    document.getElementById('sw-up-btn').onclick = () => {
+      const w = reg.waiting
+      if (w) { w.postMessage({ type: 'SKIP_WAITING' }); bar.querySelector('span').textContent = 'Atualizando…' }
+      else location.reload()
+    }
   }
 </script>
 </body>

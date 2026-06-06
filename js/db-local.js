@@ -461,11 +461,50 @@
   }
   async function removerDeslocamento(id) { return tx([ST_DESLOC], 'readwrite', (t) => { t.objectStore(ST_DESLOC).delete(id) }) }
 
+  // ───────── Sync genérico (delta-pull + realtime) ─────────
+  // Mapa nome-da-tabela → store local. Usado pelo SyncEngine para reconciliar.
+  // table → { store, keyPath }
+  const SYNC_MAP = {
+    deslocamentos:     { store: ST_DESLOC, key: 'id' },
+    jornada_segmentos: { store: ST_SEGMENTOS, key: 'id' },
+    rats:              { store: ST_RATS, key: 'client_uuid' },
+  }
+  const storeKeyPath = (store) => (Object.values(SYNC_MAP).find(m => m.store === store) || { key: 'id' }).key
+  async function obterPorChave(store, chave) {
+    const dd = await db()
+    return reqP(dd.transaction(store).objectStore(store).get(chave))
+  }
+  async function listarStore(store) {
+    const dd = await db()
+    return reqP(dd.transaction(store).objectStore(store).getAll())
+  }
+  // Grava uma linha vinda do SERVIDOR (já confirmada). Não mexe se a cópia local
+  // estiver pendente de envio (preserva edição offline não sincronizada).
+  async function aplicarDoServidor(store, row) {
+    const chave = row[storeKeyPath(store)]
+    if (chave == null) return false
+    const atual = await obterPorChave(store, chave)
+    if (atual && atual.sync_status && atual.sync_status !== STATUS.CONFIRMADO) return false // pendente: local vence
+    const novo = Object.assign({}, atual || {}, row)
+    novo.sync_status = STATUS.CONFIRMADO
+    if (!novo.recebido_em) novo.recebido_em = agora()
+    await tx([store], 'readwrite', (t) => { t.objectStore(store).put(novo) })
+    return true
+  }
+  // Remove uma linha local porque foi excluída no servidor (só se confirmada).
+  async function removerDoServidor(store, chave) {
+    const atual = await obterPorChave(store, chave)
+    if (atual && atual.sync_status && atual.sync_status !== STATUS.CONFIRMADO) return false // pendente: não apaga
+    await tx([store], 'readwrite', (t) => { t.objectStore(store).delete(chave) })
+    return !!atual
+  }
+
   window.DBLocal = {
     STATUS, TRANSICOES,
     deviceId, uuid,
     salvarSegmento, obterSegmento, listarSegmentos, segmentoAberto, segmentosPendentes, marcarSegmentoStatus, removerSegmento,
     salvarDeslocamento, listarDeslocamentos, deslocamentosPendentes, marcarDeslocamentoStatus, removerDeslocamento,
+    SYNC_MAP, obterPorChave, listarStore, aplicarDoServidor, removerDoServidor,
     novoRat, salvarRat, obterRat, listarRats, definirStatus, removerRat,
     adicionarFoto, listarFotos, removerFoto, marcarFotoEnviada, fotosPendentes, atualizarLegendaFoto,
     adicionarMaterial, listarMateriais, removerMaterial,

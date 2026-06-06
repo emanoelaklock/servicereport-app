@@ -9,7 +9,7 @@
    não do cache do SW.
 ═══════════════════════════════════════════════ */
 
-const CACHE = 'sr-shell-v178'
+const CACHE = 'sr-shell-v179'
 
 const SHELL = [
   'index.html',
@@ -42,7 +42,8 @@ const SHELL = [
   'assets/icon.svg',
 ]
 
-// Precache resiliente (um 404 não derruba a instalação inteira)
+// Precache resiliente (um 404 não derruba a instalação inteira).
+// NÃO chama skipWaiting aqui: a página mostra "Atualizar" e decide quando trocar.
 self.addEventListener('install', (event) => {
   event.waitUntil((async () => {
     const cache = await caches.open(CACHE)
@@ -50,8 +51,12 @@ self.addEventListener('install', (event) => {
       try { await cache.add(new Request(path, { cache: 'reload' })) }
       catch (e) { console.warn('[SW] precache falhou:', path, e) }
     }))
-    self.skipWaiting()
   })())
+})
+
+// A página pede a troca imediata do SW novo (botão "Atualizar").
+self.addEventListener('message', (event) => {
+  if (event.data && event.data.type === 'SKIP_WAITING') self.skipWaiting()
 })
 
 self.addEventListener('activate', (event) => {
@@ -71,10 +76,33 @@ self.addEventListener('fetch', (event) => {
   // API/Auth do Supabase: sempre rede, nunca cache.
   if (url.hostname.endsWith('supabase.co')) return
 
-  // Same-origin: cache-first com atualização em background.
+  // Same-origin.
   // IMPORTANTE: nunca cachear/servir resposta REDIRECIONADA — o browser recusa
   // usá-la numa navegação (causa ERR_FAILED). Só guarda respostas 'basic' ok.
   if (url.origin === self.location.origin) {
+    // App shell (navegação, JS, CSS): NETWORK-FIRST — código sempre fresco quando
+    // online; cache só como fallback offline. Acaba com o atraso de "2 reloads".
+    const isShell = req.mode === 'navigate' || /\.(?:html|js|css)$/i.test(url.pathname)
+    if (isShell) {
+      event.respondWith((async () => {
+        try {
+          const res = await fetch(req)
+          if (res && res.ok && !res.redirected && res.type === 'basic') {
+            const c = await caches.open(CACHE); c.put(req, res.clone())
+          }
+          if (res && !res.redirected) return res
+        } catch (e) { /* offline */ }
+        const cached = await caches.match(req)
+        if (cached && !cached.redirected) return cached
+        if (req.mode === 'navigate') {
+          const fb = await caches.match('tecnico.html')
+          return (fb && !fb.redirected) ? fb : Response.error()
+        }
+        return Response.error()
+      })())
+      return
+    }
+    // Demais same-origin (ícones, manifest, imagens): cache-first c/ atualização.
     event.respondWith((async () => {
       const cached = await caches.match(req)
       const fetchAndCache = fetch(req).then(res => {
@@ -85,13 +113,7 @@ self.addEventListener('fetch', (event) => {
       }).catch(() => null)
       if (cached && !cached.redirected) { fetchAndCache; return cached }
       const fresh = await fetchAndCache
-      if (fresh) return fresh
-      // Offline e sem cache: cai para o shell do app de campo (se não-redirecionado).
-      if (req.mode === 'navigate') {
-        const fb = await caches.match('tecnico.html')
-        return (fb && !fb.redirected) ? fb : Response.error()
-      }
-      return Response.error()
+      return fresh || Response.error()
     })())
     return
   }
