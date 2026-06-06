@@ -10,6 +10,7 @@ const DeslocApp = (() => {
   const SENT = { ida: 'Ida', volta: 'Volta', outro: 'Outro' }
   const dt = (iso) => iso ? new Date(iso).toLocaleString('pt-BR', { day: '2-digit', month: '2-digit', year: '2-digit', hour: '2-digit', minute: '2-digit' }) : '—'
   const veicLbl = (id) => veic[id] || '—'
+  const mapPin = (lat, lng) => (lat != null && lng != null) ? ` <a href="https://www.google.com/maps?q=${lat},${lng}" target="_blank" rel="noopener" title="Ver no mapa" style="text-decoration:none">📍</a>` : ''
 
   async function init() {
     const [tec, cli, vc] = await Promise.all([
@@ -30,7 +31,7 @@ const DeslocApp = (() => {
 
   async function carregar() {
     const { data, error } = await sb().from('deslocamentos')
-      .select('id,sentido,cliente_id,origem,destino,saida_em,chegada_em,veiculo_id,deslocamento_tecnicos(tecnico_id)')
+      .select('id,sentido,cliente_id,origem,destino,saida_em,chegada_em,veiculo_id,saida_lat,saida_lng,chegada_lat,chegada_lng,deslocamento_tecnicos(tecnico_id)')
       .order('saida_em', { ascending: false }).limit(300)
     if (error) { toast('Erro: ' + error.message, 'err'); return }
     rows = data || []
@@ -79,8 +80,8 @@ const DeslocApp = (() => {
         <td>${esc(d.origem || '—')} → ${esc(d.destino || '—')}</td>
         <td>${esc(veicLbl(d.veiculo_id))}</td>
         <td>${esc(nomes || '—')}</td>
-        <td>${dt(d.saida_em)}</td>
-        <td>${dt(d.chegada_em)}</td>
+        <td>${dt(d.saida_em)}${mapPin(d.saida_lat, d.saida_lng)}</td>
+        <td>${dt(d.chegada_em)}${mapPin(d.chegada_lat, d.chegada_lng)}</td>
       </tr>`
     }).join('')
   }

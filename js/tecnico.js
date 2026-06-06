@@ -568,6 +568,16 @@
   // ───────────────────── Deslocamento (pernoite) ─────────────────────
   const DL_SENT = { ida: 'Ida', volta: 'Volta', outro: 'Outro' }
   let dlSent = 'ida'
+  let dlSaidaPos = null
+  const nowLocal = () => { const d = new Date(), p = n => String(n).padStart(2, '0'); return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}T${p(d.getHours())}:${p(d.getMinutes())}` }
+  function getPos() {
+    return new Promise(res => {
+      if (!navigator.geolocation) return res(null)
+      navigator.geolocation.getCurrentPosition(
+        p => res({ lat: p.coords.latitude, lng: p.coords.longitude, acc: Math.round(p.coords.accuracy) }),
+        () => res(null), { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 })
+    })
+  }
   function bindDesloc() {
     document.getElementById('desloc-novo').onclick = abrirDesloc
     document.getElementById('dl-x').onclick = fecharDesloc
@@ -580,12 +590,24 @@
     attachAutocomplete(document.getElementById('dl-cli-busca'), document.getElementById('dl-cli'), document.getElementById('dl-cli-list'), ref.clientes, c => ({ id: c.id, label: c.nome }))
     document.getElementById('dl-veiculo').innerHTML = '<option value="">— selecione —</option>' + ref.veiculos.map(v => `<option value="${esc(v.id)}">${esc((v.modelo || '') + ' (' + (v.placa || '') + ')')}</option>`).join('')
     document.getElementById('dl-tecs').innerHTML = ref.tecnicos.map(t => `<label><input type="checkbox" value="${esc(t.id)}"${t.id === tecnico.id ? ' checked' : ''}> ${esc(t.nome || '')}</label>`).join('')
+    document.getElementById('dl-gps-saida').onclick = async () => {
+      const btn = document.getElementById('dl-gps-saida'), old = btn.textContent
+      btn.disabled = true; btn.textContent = 'Capturando GPS…'
+      const pos = await getPos()
+      btn.disabled = false; btn.textContent = old
+      const st = document.getElementById('dl-gps-status')
+      if (!pos) { st.textContent = 'Não foi possível obter o GPS (permita a localização no aparelho).'; return }
+      dlSaidaPos = pos
+      if (!document.getElementById('dl-saida').value) document.getElementById('dl-saida').value = nowLocal()
+      st.textContent = `📍 Saída marcada (precisão ±${pos.acc} m).`
+    }
   }
   function abrirDesloc() {
-    dlSent = 'ida'
+    dlSent = 'ida'; dlSaidaPos = null
     document.querySelectorAll('#dl-sentido .seg-tipo').forEach(x => x.classList.toggle('on', x.dataset.sent === 'ida'))
     ;['dl-cli', 'dl-cli-busca', 'dl-origem', 'dl-destino', 'dl-saida', 'dl-chegada', 'dl-motivo'].forEach(id => { const e = document.getElementById(id); if (e) e.value = '' })
     document.getElementById('dl-veiculo').value = ''
+    document.getElementById('dl-gps-status').textContent = ''
     document.querySelectorAll('#dl-tecs input').forEach(c => { c.checked = (c.value === tecnico.id) })
     document.getElementById('modal-desloc').classList.add('open')
   }
@@ -604,6 +626,7 @@
       destino: document.getElementById('dl-destino').value.trim() || null,
       saida_em: saida, chegada_em: dlISO(document.getElementById('dl-chegada').value),
       motivo: document.getElementById('dl-motivo').value.trim() || null,
+      saida_lat: dlSaidaPos ? dlSaidaPos.lat : null, saida_lng: dlSaidaPos ? dlSaidaPos.lng : null, saida_precisao: dlSaidaPos ? dlSaidaPos.acc : null,
       tecnicos: tecs, criado_por: tecnico.id,
     })
     fecharDesloc()
@@ -624,10 +647,25 @@
       return `<div class="dl-item">
         <div class="dl-top"><div class="dl-cli">${esc(cliNomeDe(d.cliente_id, '—'))}</div><div style="display:flex;gap:6px;align-items:center">${syncPill(d.sync_status)}<span class="dl-sent ${esc(d.sentido)}">${esc(DL_SENT[d.sentido] || d.sentido)}</span></div></div>
         <div class="dl-meta">${esc(d.origem || '—')} → ${esc(d.destino || '—')} · ${esc(veicLbl(d.veiculo_id))}</div>
-        <div class="dl-meta">Saída ${dt(d.saida_em)}${d.chegada_em ? ` · Chegada ${dt(d.chegada_em)}` : ''}</div>
+        <div class="dl-meta">Saída ${dt(d.saida_em)}${d.saida_lat ? ' 📍' : ''}${d.chegada_em ? ` · Chegada ${dt(d.chegada_em)}${d.chegada_lat ? ' 📍' : ''}` : ''}</div>
         <div class="dl-meta">A bordo: ${esc(nomes || '—')}</div>
+        ${!d.chegada_em ? `<button class="btn btn-sm" data-chegada="${esc(d.id)}" style="margin-top:8px">📍 Marcar chegada agora</button>` : ''}
       </div>`
     }).join('')
+    box.querySelectorAll('[data-chegada]').forEach(b => b.onclick = () => marcarChegada(b.dataset.chegada))
+  }
+
+  async function marcarChegada(id) {
+    const d = (await D().listarDeslocamentos()).find(x => x.id === id)
+    if (!d) return
+    const btn = document.querySelector(`[data-chegada="${CSS.escape(id)}"]`); if (btn) { btn.disabled = true; btn.textContent = 'Capturando GPS…' }
+    const pos = await getPos()
+    d.chegada_em = new Date().toISOString()
+    if (pos) { d.chegada_lat = pos.lat; d.chegada_lng = pos.lng; d.chegada_precisao = pos.acc }
+    await D().salvarDeslocamento(d)
+    toast('Chegada marcada' + (pos ? ` (GPS ±${pos.acc} m)` : ' (sem GPS)') + '.', 'ok')
+    await renderDesloc()
+    if (window.SyncEngine) SyncEngine.syncAll()
   }
 
   async function abrirExistente(client_uuid) {

@@ -224,6 +224,8 @@
       id: d.id, sentido: d.sentido || 'ida', veiculo_id: d.veiculo_id || null, cliente_id: d.cliente_id || null,
       origem: d.origem || null, destino: d.destino || null, saida_em: d.saida_em, chegada_em: d.chegada_em || null,
       motivo: d.motivo || null, criado_por: (user && user.id) || d.criado_por,
+      saida_lat: d.saida_lat ?? null, saida_lng: d.saida_lng ?? null, saida_precisao: d.saida_precisao ?? null,
+      chegada_lat: d.chegada_lat ?? null, chegada_lng: d.chegada_lng ?? null, chegada_precisao: d.chegada_precisao ?? null,
     }, { onConflict: 'id' })
     if (up.error) throw up.error
     const tecs = d.tecnicos || []
