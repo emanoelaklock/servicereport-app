@@ -13,7 +13,7 @@
   const D = () => window.DBLocal
   const REF_KEY = 'sr_ref_v1'
 
-  let ref = { clientes: [], tipos: [], formularios: {}, tecnicos: [], veiculos: [], produtos: [] }   // formularios: { [id]: {nome,campos} }
+  let ref = { clientes: [], tipos: [], formularios: {}, tecnicos: [], veiculos: [], produtos: [], base: { cidade: '', uf: '' } }   // formularios: { [id]: {nome,campos} }
   let tecnico = { id: null, nome: null }
   let cur = null            // RAT em edição: { client_uuid, campos: [], tarefa_id?, tarefa_numero? }
   let sig = null            // controlador do canvas de assinatura
@@ -135,13 +135,14 @@
   async function carregarRef() {
     try {
       const sb = getSupabase()
-      const [cli, tip, forms, tec, veic, prod] = await Promise.all([
+      const [cli, tip, forms, tec, veic, prod, base] = await Promise.all([
         sb.from('clientes').select('id,nome,documento,endereco').eq('oculto', false).order('nome'),
         sb.from('tipos_servico').select('id,nome,formulario_id,ativo').eq('ativo', true).order('nome'),
         sb.from('formulario_modelos').select('id,nome,campos').eq('ativo', true),
         sb.from('usuarios').select('id,nome').eq('role', 'tecnico_campo').eq('ativo', true).order('nome'),
         sb.from('veiculos').select('id,modelo,placa,ativo').eq('ativo', true).order('modelo'),
         sb.from('produtos').select('id,codigo,descricao,unidade,ativo').eq('ativo', true).eq('oculto', false).order('descricao'),
+        sb.from('org_config').select('base_cidade,base_uf').eq('id', 1).maybeSingle(),
       ])
       if (cli.error || tip.error || forms.error) throw (cli.error || tip.error || forms.error)
       ref.clientes = cli.data || []
@@ -151,6 +152,7 @@
       ref.tecnicos = tec.error ? [] : (tec.data || [])
       ref.veiculos = veic.error ? [] : (veic.data || [])
       ref.produtos = prod.error ? [] : (prod.data || [])
+      ref.base = (base && base.data) ? { cidade: base.data.base_cidade || '', uf: base.data.base_uf || '' } : { cidade: '', uf: '' }
       localStorage.setItem(REF_KEY, JSON.stringify(ref))
     } catch (e) {
       const cache = localStorage.getItem(REF_KEY)
@@ -632,6 +634,7 @@
     document.querySelectorAll('#dl-sentido .seg-tipo').forEach(b => b.onclick = () => {
       dlSent = b.dataset.sent
       document.querySelectorAll('#dl-sentido .seg-tipo').forEach(x => x.classList.toggle('on', x === b))
+      deslocAplicarSentido()
     })
     document.getElementById('dl-gps-saida').onclick = async () => {
       const btn = document.getElementById('dl-gps-saida'), old = btn.textContent
@@ -652,14 +655,31 @@
       } else st.textContent = `📍 Saída marcada (±${pos.acc} m).`
     }
   }
-  function abrirDesloc() {
-    // (re)popula com os cadastros já carregados em ref — bindDesloc roda antes do carregarRef
-    // Ao escolher a empresa, puxa cidade/UF do destino do cadastro dela (que veio do CNPJ).
+  // Define cidade/UF de um lado (origem|destino) se ainda estiver vazio.
+  function dlSetLocal(lado, cidade, uf) {
+    const ci = document.getElementById('dl-' + lado + '-cidade'), u = document.getElementById('dl-' + lado + '-uf')
+    if (ci && !ci.value && cidade) ci.value = cidade
+    if (u && !u.value && uf) u.value = (uf || '').toUpperCase()
+  }
+  // Volta é sempre para a base (Traders): destino padrão = matriz.
+  function deslocAplicarSentido() {
+    if (dlSent === 'volta') dlSetLocal('destino', ref.base.cidade, ref.base.uf)
+  }
+  // Origem = destino do último trajeto deste técnico (encadeia paradas A→B→C);
+  // se não houver, parte da base (Traders).
+  function deslocEncadeiaOrigem(lst) {
+    const meus = (lst || []).filter(d => (d.tecnicos || []).includes(tecnico.id) || d.criado_por === tecnico.id)
+    const ult = meus[0]   // listarDeslocamentos já vem desc por saída
+    if (ult && (ult.destino_cidade || ult.destino_uf)) dlSetLocal('origem', ult.destino_cidade, ult.destino_uf)
+    else dlSetLocal('origem', ref.base.cidade, ref.base.uf)
+  }
+  async function abrirDesloc() {
+    // (re)popula com os cadastros já carregados em ref — bindDesloc roda antes do carregarRef.
+    // Ao escolher a empresa, puxa cidade/UF: na ida vai p/ o DESTINO (cliente);
+    // na volta vai p/ a ORIGEM (de onde está voltando).
     attachAutocomplete(document.getElementById('dl-cli-busca'), document.getElementById('dl-cli'), document.getElementById('dl-cli-list'), ref.clientes, c => ({ id: c.id, label: c.nome }), (cli) => {
       const g = cli && cidadeUfDeEndereco(cli.endereco); if (!g) return
-      const ci = document.getElementById('dl-destino-cidade'), uf = document.getElementById('dl-destino-uf')
-      if (!ci.value && g.cidade) ci.value = g.cidade
-      if (!uf.value && g.uf) uf.value = g.uf
+      dlSetLocal(dlSent === 'volta' ? 'origem' : 'destino', g.cidade, g.uf)
     })
     document.getElementById('dl-veiculo').innerHTML = '<option value="">— selecione —</option>' + ref.veiculos.map(v => `<option value="${esc(v.id)}">${esc((v.modelo || '') + ' (' + (v.placa || '') + ')')}</option>`).join('')
     document.getElementById('dl-tecs').innerHTML = ref.tecnicos.map(t => `<label><input type="checkbox" value="${esc(t.id)}"${t.id === tecnico.id ? ' checked' : ''}> ${esc(t.nome || '')}</label>`).join('')
@@ -668,6 +688,7 @@
     ;['dl-cli', 'dl-cli-busca', 'dl-origem-cidade', 'dl-origem-uf', 'dl-destino-cidade', 'dl-destino-uf', 'dl-saida', 'dl-chegada', 'dl-motivo'].forEach(id => { const e = document.getElementById(id); if (e) e.value = '' })
     document.getElementById('dl-veiculo').value = ''
     document.getElementById('dl-gps-status').textContent = ''
+    deslocEncadeiaOrigem(await D().listarDeslocamentos())
     document.querySelectorAll('#dl-tecs input').forEach(c => { c.checked = (c.value === tecnico.id) })
     document.getElementById('modal-desloc').classList.add('open')
   }

@@ -38,6 +38,15 @@
   <div id="app-screen" style="display:none">
     <div class="topbar"><span class="topbar-title">Deslocamentos</span></div>
     <div class="content">
+      <div class="tcard" style="margin-bottom:18px;display:flex;gap:10px;align-items:flex-end;flex-wrap:wrap">
+        <div><div class="dim" style="font-size:11px;text-transform:uppercase;letter-spacing:.04em;margin-bottom:4px">Base (matriz) — origem/destino padrão das viagens</div>
+          <div style="display:flex;gap:8px;align-items:center">
+            <input type="text" id="b-cidade" placeholder="Cidade da Traders" style="padding:8px 11px;border:1px solid var(--bd);border-radius:var(--r);font:inherit;font-size:13px;min-width:200px">
+            <input type="text" id="b-uf" placeholder="UF" maxlength="2" style="padding:8px 11px;border:1px solid var(--bd);border-radius:var(--r);font:inherit;font-size:13px;width:60px;text-transform:uppercase">
+            <button class="btn btn-p btn-sm" id="b-salvar">Salvar base</button>
+          </div>
+        </div>
+      </div>
       <div class="d-toolbar">
         <select id="d-tec"></select>
         <select id="d-cli"></select>
