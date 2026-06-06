@@ -674,6 +674,12 @@
     const ult = meus[0]   // listarDeslocamentos já vem desc por saída
     if (ult && (ult.destino_cidade || ult.destino_uf)) dlSetLocal('origem', ult.destino_cidade, ult.destino_uf)
     else dlSetLocal('origem', ref.base.cidade, ref.base.uf)
+    // Herda a empresa do último trajeto (na volta = de onde está voltando).
+    if (ult && ult.cliente_id) {
+      const cliEl = document.getElementById('dl-cli'), buscaEl = document.getElementById('dl-cli-busca')
+      const c = ref.clientes.find(x => x.id === ult.cliente_id)
+      if (cliEl && !cliEl.value && c) { cliEl.value = c.id; buscaEl.value = c.nome }
+    }
   }
   async function abrirDesloc() {
     // (re)popula com os cadastros já carregados em ref — bindDesloc roda antes do carregarRef.

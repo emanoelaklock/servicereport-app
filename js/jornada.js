@@ -7,7 +7,7 @@
 ═══════════════════════════════════════════════ */
 const JornadaApp = (() => {
   const sb = () => getSupabase()
-  let cliNomes = {}
+  let cliNomes = {}, tecNomes = {}
 
   const SEG_META = {
     trabalho: { ic: '🔧', lb: 'Trabalho' }, pausa: { ic: '⏸️', lb: 'Pausa' },
@@ -26,11 +26,84 @@ const JornadaApp = (() => {
     ])
     document.getElementById('j-tec').innerHTML = (tec.data || []).map(t => `<option value="${esc(t.id)}">${esc(t.nome || '(sem nome)')}</option>`).join('')
     ;(cli.data || []).forEach(c => { cliNomes[c.id] = c.nome })
+    ;(tec.data || []).forEach(t => { tecNomes[t.id] = t.nome })
     document.getElementById('j-data').value = hoje()
     document.getElementById('j-tec').onchange = carregar
     document.getElementById('j-data').onchange = carregar
-    if ((tec.data || []).length) carregar()
+    // Pernoites: select de técnico (com "todos") + período = mês corrente
+    document.getElementById('p-tec').innerHTML = '<option value="">Todos os técnicos</option>' +
+      (tec.data || []).map(t => `<option value="${esc(t.id)}">${esc(t.nome || '(sem nome)')}</option>`).join('')
+    const d = new Date(), p = n => String(n).padStart(2, '0')
+    document.getElementById('p-de').value = `${d.getFullYear()}-${p(d.getMonth() + 1)}-01`
+    document.getElementById('p-ate').value = hoje()
+    document.getElementById('p-gerar').onclick = carregarPernoites
+    if ((tec.data || []).length) { carregar(); carregarPernoites() }
     else document.getElementById('j-timeline').innerHTML = '<div class="j-empty">Nenhum técnico ativo.</div>'
+  }
+
+  // ───────────────────── Pernoites (período) ─────────────────────
+  const diaLocal = (iso) => { const x = new Date(iso); return new Date(x.getFullYear(), x.getMonth(), x.getDate()) }
+  const calNoites = (aIso, bIso) => Math.max(0, Math.round((diaLocal(bIso) - diaLocal(aIso)) / 86400000))
+  const dDMA = (iso) => iso ? new Date(iso).toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit', year: '2-digit' }) : '—'
+
+  async function carregarPernoites() {
+    const de = document.getElementById('p-de').value, ate = document.getElementById('p-ate').value
+    const tecFiltro = document.getElementById('p-tec').value
+    if (!de || !ate) return toast('Informe o período.', 'err')
+    // pega trajetos cuja saída cai no período (inclui o dia "até" inteiro)
+    let q = sb().from('deslocamentos')
+      .select('id,sentido,saida_em,chegada_em,origem_cidade,origem_uf,destino_cidade,destino_uf,origem,destino,deslocamento_tecnicos(tecnico_id)')
+      .gte('saida_em', de + 'T00:00:00').lte('saida_em', ate + 'T23:59:59')
+      .order('saida_em', { ascending: true })
+    const { data, error } = await q
+    if (error) { toast('Erro: ' + error.message, 'err'); return }
+    // agrupa por técnico a bordo
+    const porTec = {}
+    for (const d of (data || [])) {
+      for (const x of (d.deslocamento_tecnicos || [])) {
+        if (tecFiltro && x.tecnico_id !== tecFiltro) continue
+        ;(porTec[x.tecnico_id] = porTec[x.tecnico_id] || []).push(d)
+      }
+    }
+    // monta viagens: começa ao sair, fecha numa "volta" (precisa ter retorno)
+    const linhas = []
+    for (const [tid, trajs] of Object.entries(porTec)) {
+      trajs.sort((a, b) => (a.saida_em || '').localeCompare(b.saida_em || ''))
+      const viagens = []; let inicio = null
+      for (const t of trajs) {
+        if (!inicio) inicio = t.saida_em
+        if (t.sentido === 'volta') {
+          const fim = t.chegada_em || t.saida_em
+          viagens.push({ inicio, fim, noites: calNoites(inicio, fim), aberta: false })
+          inicio = null
+        }
+      }
+      if (inicio) viagens.push({ inicio, fim: null, noites: 0, aberta: true })   // saiu e não voltou ainda
+      const fechadas = viagens.filter(v => !v.aberta)
+      const noites = fechadas.reduce((s, v) => s + v.noites, 0)
+      linhas.push({ tid, viagens, fechadas: fechadas.length, abertas: viagens.length - fechadas.length, noites })
+    }
+    linhas.sort((a, b) => b.noites - a.noites || (tecNomes[a.tid] || '').localeCompare(tecNomes[b.tid] || ''))
+    renderPernoites(linhas)
+  }
+
+  function renderPernoites(linhas) {
+    const tb = document.getElementById('p-tbody')
+    const totN = linhas.reduce((s, l) => s + l.noites, 0)
+    const totV = linhas.reduce((s, l) => s + l.fechadas, 0)
+    document.getElementById('p-resumo').textContent = linhas.length ? `${totN} pernoite(s) · ${totV} viagem(ns) com retorno` : ''
+    if (!linhas.length) { tb.innerHTML = '<tr><td colspan="4" class="j-empty">Nenhum deslocamento no período.</td></tr>'; return }
+    tb.innerHTML = linhas.map(l => {
+      const det = l.viagens.map(v => v.aberta
+        ? `<div class="p-trip p-open">⚠ Em aberto — saiu ${dDMA(v.inicio)} (sem retorno, não contado)</div>`
+        : `<div class="p-trip">${dDMA(v.inicio)} → ${dDMA(v.fim)} · ${v.noites} noite${v.noites === 1 ? '' : 's'}</div>`).join('')
+      return `<tr>
+        <td>${esc(tecNomes[l.tid] || '—')}</td>
+        <td>${l.fechadas}${l.abertas ? ` <span class="p-open">(+${l.abertas} em aberto)</span>` : ''}</td>
+        <td class="p-noites">${l.noites}</td>
+        <td>${det || '—'}</td>
+      </tr>`
+    }).join('') + `<tr class="tot"><td>Total</td><td>${totV}</td><td class="p-noites">${totN}</td><td></td></tr>`
   }
 
   async function carregar() {
@@ -95,5 +168,5 @@ const JornadaApp = (() => {
     tl.innerHTML = html
   }
 
-  return { init }
+  return { init, carregarPernoites }
 })()

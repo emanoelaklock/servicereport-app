@@ -33,6 +33,15 @@
   .j-seg .s-dur{font-size:13px;font-weight:700;font-variant-numeric:tabular-nums;white-space:nowrap}
   .j-gap{display:flex;align-items:center;gap:8px;color:#C0241F;font-size:12px;font-weight:600;padding:4px 12px;margin-bottom:8px}
   .j-empty{text-align:center;color:var(--tx3);font-size:13px;padding:30px 0}
+  .p-bar{display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-bottom:14px}
+  .p-bar select,.p-bar input{padding:8px 11px;border:1px solid var(--bd);border-radius:var(--r);font:inherit;font-size:13px;background:#fff}
+  .p-tbl{width:100%;border-collapse:collapse;font-size:13px}
+  .p-tbl th{text-align:left;font-size:10px;text-transform:uppercase;letter-spacing:.04em;color:var(--tx3);padding:8px 10px;border-bottom:1px solid var(--bd)}
+  .p-tbl td{padding:9px 10px;border-bottom:1px solid var(--sur2);vertical-align:top}
+  .p-tbl tr.tot td{font-weight:800;border-top:2px solid var(--bd)}
+  .p-noites{font-weight:800;font-variant-numeric:tabular-nums}
+  .p-trip{font-size:12px;color:var(--tx3);padding:2px 0}
+  .p-open{color:#B7791F;font-weight:600}
 </style>
 </head>
 <body>
@@ -51,6 +60,20 @@
       <div class="j-kpis" id="j-kpis"></div>
       <div class="j-card"><h3>Horas de trabalho por cliente (faturável por hora · arredondado p/ cima 30 min)</h3><div id="j-clientes"></div></div>
       <div class="j-card"><h3>Linha do tempo</h3><div id="j-timeline"></div></div>
+
+      <div class="j-card">
+        <h3>Pernoites por técnico (período) — noites fora da base entre sair e voltar</h3>
+        <div class="p-bar">
+          <select id="p-tec"></select>
+          <span style="display:inline-flex;align-items:center;gap:5px;font-size:12px;color:var(--tx3)"><label>de</label><input type="date" id="p-de"><label>até</label><input type="date" id="p-ate"></span>
+          <button class="btn btn-p btn-sm" id="p-gerar">Gerar</button>
+          <span class="dim" id="p-resumo" style="font-size:12px"></span>
+        </div>
+        <div style="overflow-x:auto"><table class="p-tbl">
+          <thead><tr><th>Técnico</th><th>Viagens (com retorno)</th><th>Pernoites</th><th>Detalhe</th></tr></thead>
+          <tbody id="p-tbody"></tbody>
+        </table></div>
+      </div>
     </div>
   </div>
 </div>
