@@ -32,6 +32,8 @@
   let _rowSeq = 0
   let veiculos = []
   let editVeicId = null
+  let statuses = []
+  let editStatusChave = null
   const EFEITOS = ['nenhum', 'marcar_locado', 'devolver_estoque', 'marcar_manutencao']
 
   const slug = (s) => String(s || '').toLowerCase().normalize('NFD')
@@ -43,7 +45,7 @@
   const ROLES = ['admin', 'gestor_axis', 'tecnico_campo', 'comercial']
 
   function mostrarSecao(sec) {
-    const map = { usuarios: 'card-usuarios', formularios: 'sec-formularios', tipos: 'sec-tipos', veiculos: 'sec-veiculos', clientes: 'sec-clientes', produtos: 'sec-produtos', omie: 'sec-omie' }
+    const map = { usuarios: 'card-usuarios', formularios: 'sec-formularios', tipos: 'sec-tipos', veiculos: 'sec-veiculos', status: 'sec-status', clientes: 'sec-clientes', produtos: 'sec-produtos', omie: 'sec-omie' }
     document.querySelectorAll('.cfg-section').forEach(el => { el.style.display = 'none' })
     const el = document.getElementById(map[sec]); if (el) el.style.display = ''
     document.querySelectorAll('.cfg-tab').forEach(t => t.classList.toggle('on', t.dataset.sec === sec))
@@ -54,6 +56,9 @@
     document.getElementById('btn-novo-form').onclick = () => abrirForm(null)
     document.getElementById('btn-novo-tipo').onclick = () => abrirTipo(null)
     document.getElementById('btn-novo-veic').onclick = () => abrirVeiculo(null)
+    document.getElementById('btn-novo-status').onclick = () => abrirStatus(null)
+    document.getElementById('cs-label').oninput = previewStatus
+    document.getElementById('cs-cor').oninput = previewStatus
     montarTipoPicker()
     document.getElementById('btn-add-campo').onclick = (e) => { e.stopPropagation(); document.getElementById('cf-tipo-pick').classList.toggle('open') }
     document.addEventListener('click', () => document.getElementById('cf-tipo-pick')?.classList.remove('open'))
@@ -91,16 +96,85 @@
 
   async function carregar() {
     const sb = getSupabase()
-    const [f, t, v] = await Promise.all([
+    const [f, t, v, st] = await Promise.all([
       sb.from('formulario_modelos').select('id,nome,campos,ativo').order('nome'),
       sb.from('tipos_servico').select('id,nome,formulario_id,efeito_inventario,ativo').order('nome'),
       sb.from('veiculos').select('id,modelo,placa,ativo').order('modelo'),
+      sb.from('status_tarefa').select('chave,label,cor,ordem,sistema,ativo').order('ordem'),
     ])
     formularios = f.error ? [] : (f.data || [])
     tipos = t.error ? [] : (t.data || [])
     veiculos = v.error ? [] : (v.data || [])
+    statuses = st.error ? [] : (st.data || [])
     if (f.error) toast('Erro ao carregar formulários: ' + f.error.message, 'err')
-    renderFormularios(); renderTipos(); renderVeiculos()
+    renderFormularios(); renderTipos(); renderVeiculos(); renderStatus()
+  }
+
+  // ───────────────────── Status das Tarefas ─────────────────────
+  function renderStatus() {
+    const tb = document.getElementById('tbody-status'); if (!tb) return
+    if (!statuses.length) { tb.innerHTML = '<tr><td colspan="6" class="dim" style="text-align:center;padding:20px">Nenhum status.</td></tr>'; return }
+    tb.innerHTML = statuses.map(s => `
+      <tr>
+        <td><span style="display:inline-block;width:16px;height:16px;border-radius:4px;background:${esc(s.cor || '#999')};vertical-align:middle"></span></td>
+        <td><span style="display:inline-block;font-size:11px;font-weight:700;padding:3px 10px;border-radius:999px;background:${esc(s.cor || '#999')}1A;color:${esc(s.cor || '#999')}">${esc(s.label || s.chave)}</span></td>
+        <td>${s.ordem}</td>
+        <td>${s.sistema ? '<span class="dim">do sistema</span>' : 'personalizado'}</td>
+        <td>${s.ativo ? '<span class="badge s-en"><span class="dot"></span>Ativo</span>' : '<span class="dim">Inativo</span>'}</td>
+        <td><div class="acts" style="opacity:1"><button class="ab ab-v" data-edit="${esc(s.chave)}">Editar</button></div></td>
+      </tr>`).join('')
+    tb.querySelectorAll('[data-edit]').forEach(b => b.onclick = () => abrirStatus(b.dataset.edit))
+  }
+  function previewStatus() {
+    const cor = document.getElementById('cs-cor').value || '#999'
+    const p = document.getElementById('cs-preview')
+    p.textContent = document.getElementById('cs-label').value || 'Pré-visualização'
+    p.style.cssText = `display:inline-block;font-size:11px;font-weight:700;padding:3px 10px;border-radius:999px;background:${cor}1A;color:${cor}`
+  }
+  function abrirStatus(chave) {
+    editStatusChave = chave
+    const s = chave ? statuses.find(x => x.chave === chave) : null
+    document.getElementById('status-titulo').textContent = chave ? 'Editar status' : 'Novo status'
+    document.getElementById('cs-label').value = s ? (s.label || '') : ''
+    document.getElementById('cs-chave').value = s ? s.chave : ''
+    document.getElementById('cs-chave-wrap').style.display = s ? '' : 'none'
+    document.getElementById('cs-cor').value = s ? (s.cor || '#1C54B8') : '#1C54B8'
+    document.getElementById('cs-ordem').value = s ? s.ordem : ((statuses.reduce((m, x) => Math.max(m, x.ordem), 0)) + 10)
+    document.getElementById('cs-ativo').checked = s ? !!s.ativo : true
+    // status do sistema: não pode desativar nem excluir
+    const sis = !!(s && s.sistema)
+    document.getElementById('cs-ativo').disabled = sis
+    document.getElementById('cs-excluir').style.display = (s && !sis) ? '' : 'none'
+    document.getElementById('cs-excluir').onclick = () => excluirStatus(chave)
+    previewStatus()
+    abrir('modal-status')
+  }
+  async function salvarStatus() {
+    const label = document.getElementById('cs-label').value.trim()
+    if (!label) return toast('Informe o nome do status.', 'err')
+    const cor = document.getElementById('cs-cor').value || '#48506A'
+    const ordem = Number(document.getElementById('cs-ordem').value) || 100
+    const ativo = document.getElementById('cs-ativo').checked
+    const sb = getSupabase()
+    let res
+    if (editStatusChave) {
+      res = await sb.from('status_tarefa').update({ label, cor, ordem, ativo }).eq('chave', editStatusChave)
+    } else {
+      let chave = slug(label)
+      if (statuses.some(s => s.chave === chave)) chave = chave + '_' + Date.now().toString().slice(-4)
+      res = await sb.from('status_tarefa').insert({ chave, label, cor, ordem, ativo, sistema: false })
+    }
+    if (res.error) return toast('Erro ao salvar status: ' + res.error.message, 'err')
+    toast('Status salvo.', 'ok')
+    fechar('modal-status'); await carregar()
+  }
+  async function excluirStatus(chave) {
+    const s = statuses.find(x => x.chave === chave); if (!s || s.sistema) return
+    if (!confirm(`Excluir o status "${s.label}"? Tarefas que estiverem nele continuarão com a chave, mas sem nome/cor.`)) return
+    const { error } = await getSupabase().from('status_tarefa').delete().eq('chave', chave)
+    if (error) return toast('Erro ao excluir: ' + error.message, 'err')
+    toast('Status excluído.', 'ok')
+    fechar('modal-status'); await carregar()
   }
 
   // ───────────────────── Formulários ─────────────────────
@@ -814,5 +888,5 @@
   const abrir = (id) => document.getElementById(id).classList.add('open')
   const fechar = (id) => document.getElementById(id).classList.remove('open')
 
-  window.ConfigApp = { init, salvarForm, salvarTipo, salvarVeiculo, salvarUsuario, excluirUsuario, editarCliente, salvarCliente, fechar }
+  window.ConfigApp = { init, salvarForm, salvarTipo, salvarVeiculo, salvarStatus, salvarUsuario, excluirUsuario, editarCliente, salvarCliente, fechar }
 })()

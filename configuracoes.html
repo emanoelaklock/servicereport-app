@@ -103,6 +103,7 @@
         <button class="cfg-tab on" data-sec="formularios">Formulários</button>
         <button class="cfg-tab" data-sec="tipos">Tipos de Serviço</button>
         <button class="cfg-tab" data-sec="veiculos">Veículos</button>
+        <button class="cfg-tab" data-sec="status">Status</button>
         <button class="cfg-tab" data-sec="clientes">Empresas</button>
         <button class="cfg-tab" data-sec="produtos">Produtos</button>
         <button class="cfg-tab" data-sec="omie">Omie</button>
@@ -153,6 +154,19 @@
         <div class="tcard"><div class="twrap"><table>
           <thead><tr><th>Modelo</th><th>Placa</th><th>Status</th><th>Ações</th></tr></thead>
           <tbody id="tbody-veic"><tr><td colspan="4" class="dim" style="text-align:center;padding:20px">Carregando…</td></tr></tbody>
+        </table></div></div>
+      </div>
+
+      <!-- Status das Tarefas -->
+      <div class="cfg-card cfg-section" id="sec-status" style="display:none">
+        <div class="cfg-head">
+          <h2>Status das Tarefas</h2>
+          <button class="btn btn-p" id="btn-novo-status">+ Novo status</button>
+        </div>
+        <p class="dim" style="margin:-6px 0 10px">Crie status próprios (nome + cor + ordem) e edite os existentes. Os marcados como <b>do sistema</b> têm automação (app do técnico, faturamento) e não podem ser excluídos/desativados — mas você pode renomear e recolorir.</p>
+        <div class="tcard"><div class="twrap"><table>
+          <thead><tr><th>Cor</th><th>Status</th><th>Ordem</th><th>Tipo</th><th>Ativo</th><th>Ações</th></tr></thead>
+          <tbody id="tbody-status"><tr><td colspan="6" class="dim" style="text-align:center;padding:20px">Carregando…</td></tr></tbody>
         </table></div></div>
       </div>
 
@@ -282,6 +296,27 @@
     <div class="mf">
       <button class="btn" onclick="ConfigApp.fechar('modal-veic')">Cancelar</button>
       <button class="btn btn-p" onclick="ConfigApp.salvarVeiculo()">Salvar</button>
+    </div>
+  </div>
+</div>
+
+<div class="mback" id="modal-status">
+  <div class="modal">
+    <div class="mh"><span class="mt" id="status-titulo">Novo status</span><button class="mx" onclick="ConfigApp.fechar('modal-status')">✕</button></div>
+    <div class="mb">
+      <div class="fg"><label>Nome</label><input type="text" id="cs-label" placeholder="Ex.: Aguardando peça"></div>
+      <div class="fg" id="cs-chave-wrap"><label>Chave (interna, não muda)</label><input type="text" id="cs-chave" readonly style="background:var(--sur2)"></div>
+      <div style="display:flex;gap:14px;align-items:center;flex-wrap:wrap">
+        <div class="fg" style="margin:0"><label>Cor</label><input type="color" id="cs-cor" value="#1C54B8" style="width:54px;height:38px;padding:2px;border:1px solid var(--bd);border-radius:8px;background:#fff"></div>
+        <div class="fg" style="margin:0"><label>Ordem</label><input type="number" id="cs-ordem" value="100" style="width:90px"></div>
+        <span id="cs-preview" class="st-pill" style="margin-top:18px"></span>
+      </div>
+      <label class="cb-obrig-l"><input type="checkbox" id="cs-ativo" checked> Ativo (aparece nas listas e no seletor)</label>
+    </div>
+    <div class="mf">
+      <button class="btn" id="cs-excluir" style="color:var(--re,#B42318);border-color:#F3C6C0;margin-right:auto">Excluir</button>
+      <button class="btn" onclick="ConfigApp.fechar('modal-status')">Cancelar</button>
+      <button class="btn btn-p" onclick="ConfigApp.salvarStatus()">Salvar</button>
     </div>
   </div>
 </div>

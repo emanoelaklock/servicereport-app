@@ -29,17 +29,25 @@ const TarefaApp = (() => {
   // Cresce o textarea para caber todo o conteúdo (sem barra de rolagem).
   const autoGrow = (el) => { if (!el) return; el.style.height = 'auto'; el.style.height = (el.scrollHeight + 2) + 'px' }
 
-  const STATUS_LABEL = {
-    aguardando_execucao: 'Aguardando execução', em_execucao: 'Em execução',
-    concluida: 'Concluída', concluida_pendencia: 'Concluída c/ pendência',
-    devolvida: 'Devolvida', aprovada_faturamento: 'Aprovada p/ faturamento', faturada: 'Faturada',
+  // Status configuráveis (tabela status_tarefa). Carregados em carregarStatus().
+  let STATUS = {}   // chave -> { chave, label, cor, ordem, ativo, sistema }
+  async function carregarStatus() {
+    const { data } = await sb().from('status_tarefa').select('chave,label,cor,ordem,ativo,sistema').order('ordem')
+    STATUS = {}
+    for (const s of (data || [])) STATUS[s.chave] = s
+    if (!Object.keys(STATUS).length) STATUS = { aguardando_execucao: { chave: 'aguardando_execucao', label: 'Aguardando execução', cor: '#B7791F', ordem: 10, ativo: true, sistema: true } }
   }
-  const STATUS_CLS = {
-    aguardando_execucao: 's-st-wait', em_execucao: 's-st-run',
-    concluida: 's-st-done', concluida_pendencia: 's-st-pend',
-    devolvida: 's-st-back', aprovada_faturamento: 's-st-appr', faturada: 's-st-fat',
+  const statusLabel = (k) => (STATUS[k] && STATUS[k].label) || k || '—'
+  const statusCor = (k) => (STATUS[k] && STATUS[k].cor) || '#48506A'
+  const statusStyleAttr = (k) => `background:${statusCor(k)}1A;color:${statusCor(k)}`
+  const statusAtivos = () => Object.values(STATUS).filter(s => s.ativo).sort((a, b) => a.ordem - b.ordem)
+  // Opções <option> dos status ativos + garante a opção do status atual (mesmo inativo).
+  function statusOptionsHTML(atual) {
+    const arr = statusAtivos()
+    if (atual && !arr.some(s => s.chave === atual)) arr.push(STATUS[atual] || { chave: atual, label: atual })
+    return arr.map(s => `<option value="${esc(s.chave)}">${esc(s.label || s.chave)}</option>`).join('')
   }
-  const setStatusBadge = (s) => { const b = document.getElementById('cc-badge'); if (b) { b.textContent = STATUS_LABEL[s] || s || ''; b.className = 'ed-badge ' + (STATUS_CLS[s] || '') } }
+  const setStatusBadge = (s) => { const b = document.getElementById('cc-badge'); if (b) { b.textContent = statusLabel(s); b.className = 'ed-badge'; b.style.cssText = statusStyleAttr(s) } }
   const SIT = {
     ok:            { t: 'OK',               cls: 's-ok' },
     devolver:      { t: 'Devolver',         cls: 's-dev' },
@@ -79,10 +87,11 @@ const TarefaApp = (() => {
       ? ref.tecnicos.map(t => `<label><input type="checkbox" value="${esc(t.id)}"> ${esc(t.nome || '(sem nome)')}</label>`).join('')
       : '<span class="cc-empty-sm">Nenhum técnico ativo cadastrado.</span>'
     document.getElementById('cc-d-tipo').innerHTML = '<option value="">— selecione —</option>' + ref.tipos.map(t => `<option value="${esc(t.id)}">${esc(t.nome || '')}</option>`).join('')
-    document.getElementById('cc-d-status-sel').innerHTML = Object.entries(STATUS_LABEL).map(([k, v]) => `<option value="${esc(k)}">${esc(v)}</option>`).join('')
+    await carregarStatus()
+    document.getElementById('cc-d-status-sel').innerHTML = statusOptionsHTML()
     // Filtros combináveis da lista
     document.getElementById('f-status').innerHTML = '<option value="">Status: todos</option>' +
-      Object.entries(STATUS_LABEL).map(([k, v]) => `<option value="${esc(k)}">${esc(v)}</option>`).join('') +
+      statusAtivos().map(s => `<option value="${esc(s.chave)}">${esc(s.label || s.chave)}</option>`).join('') +
       '<option value="a_faturar">• A faturar</option><option value="divergencia">• A revisar</option><option value="pendente_class">• Pendente de classificação</option>'
     document.getElementById('f-tec').innerHTML = '<option value="">Técnico: todos</option>' +
       ref.tecnicos.map(t => `<option value="${esc(t.id)}">${esc(t.nome || '(sem nome)')}</option>`).join('')
@@ -248,7 +257,7 @@ const TarefaApp = (() => {
       osNo(t.numero), t.numero, cliNomes[t.cliente_id], t.pedido_compra,
       (orcNo[t.orcamento_id] != null ? 'orcamento ' + orcNo[t.orcamento_id] : ''),
       (tecPorTarefa[t.id] || []).map(id => tecNomes[id]).join(' '),
-      STATUS_LABEL[t.status], tipoNomeDe(t.tipo_servico_id),
+      statusLabel(t.status), tipoNomeDe(t.tipo_servico_id),
       t.orientacao, t.observacoes, t.conciliacao_obs, t.pendencias,
       matsPorTarefa[t.id] || '',
     ].filter(Boolean).join(' '))
@@ -274,7 +283,7 @@ const TarefaApp = (() => {
         return `<tr class="row-click" data-id="${esc(t.id)}">
           <td class="cc-num">${osNo(t.numero)}</td>
           <td>${esc(cliNomes[t.cliente_id] || '—')}</td>
-          <td><span class="st-pill ${STATUS_CLS[t.status] || ''}">${esc(STATUS_LABEL[t.status] || t.status || '—')}</span>${(t.faturado && t.status !== 'faturada') ? ' <span class="pill pill-fat">Faturada</span>' : ''}</td>
+          <td><span class="st-pill" style="${statusStyleAttr(t.status)}">${esc(statusLabel(t.status))}</span>${(t.faturado && t.status !== 'faturada') ? ' <span class="pill pill-fat">Faturada</span>' : ''}</td>
           <td>${tec}</td>
           <td>${t.data_agendada ? dmy(t.data_agendada) : '<span class="st">—</span>'}</td>
           <td>${concil}</td>
@@ -346,6 +355,7 @@ const TarefaApp = (() => {
     // Card "Dados da Tarefa"
     document.getElementById('cc-d-cliente').textContent = cur.cliente_nome
     document.getElementById('cc-d-orc').textContent = t.orcamento_id ? `Orçamento Nº ${orcNo[t.orcamento_id] ?? '—'}` : 'Criada direto (sem orçamento)'
+    document.getElementById('cc-d-status-sel').innerHTML = statusOptionsHTML(cur.status)
     document.getElementById('cc-d-status-sel').value = cur.status || 'aguardando_execucao'
     document.getElementById('cc-d-pend-note').textContent = (cur.status === 'concluida_pendencia' && t.pendencias) ? 'Pendência: ' + t.pendencias : ''
     document.getElementById('cc-d-tipo').value = t.tipo_servico_id || ''
