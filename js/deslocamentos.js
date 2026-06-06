@@ -24,17 +24,21 @@ const DeslocApp = (() => {
   async function init() {
     const [tec, cli, vc] = await Promise.all([
       sb().from('usuarios').select('id,nome').eq('role', 'tecnico_campo').eq('ativo', true).order('nome'),
-      sb().from('clientes').select('id,nome'),
+      sb().from('clientes').select('id,nome,oculto,sync_omie'),
       sb().from('veiculos').select('id,modelo,placa'),
     ])
-    tecArr = (tec.data || []); cliArr = (cli.data || []).slice().sort((a, b) => (a.nome || '').localeCompare(b.nome || '')); veicArr = (vc.data || [])
+    // visível = mesma regra da tela Empresas (esconde só as "excluídas")
+    const visivel = (c) => (c.oculto === false || c.oculto == null) || (c.sync_omie == null || c.sync_omie !== false)
+    tecArr = (tec.data || [])
+    cliArr = (cli.data || []).filter(visivel).slice().sort((a, b) => (a.nome || '').localeCompare(b.nome || ''))
+    veicArr = (vc.data || [])
     ;(tec.data || []).forEach(t => { tecNomes[t.id] = t.nome })
     ;(cli.data || []).forEach(c => { cliNomes[c.id] = c.nome })
     ;(vc.data || []).forEach(v => { veic[v.id] = `${v.modelo || ''} (${v.placa || ''})` })
     document.getElementById('d-tec').innerHTML = '<option value="">Técnico: todos</option>' +
       (tec.data || []).map(t => `<option value="${esc(t.id)}">${esc(t.nome || '')}</option>`).join('')
     document.getElementById('d-cli').innerHTML = '<option value="">Cliente: todos</option>' +
-      (cli.data || []).slice().sort((a, b) => (a.nome || '').localeCompare(b.nome || '')).map(c => `<option value="${esc(c.id)}">${esc(c.nome || '')}</option>`).join('')
+      cliArr.map(c => `<option value="${esc(c.id)}">${esc(c.nome || '')}</option>`).join('')
     ;['d-tec', 'd-cli', 'd-sent', 'd-de', 'd-ate'].forEach(id => { document.getElementById(id).onchange = render })
     await carregarBase()
     document.getElementById('b-salvar').onclick = salvarBase
