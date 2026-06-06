@@ -81,7 +81,7 @@ const TarefaApp = (() => {
     // Filtros combináveis da lista
     document.getElementById('f-status').innerHTML = '<option value="">Status: todos</option>' +
       Object.entries(STATUS_LABEL).map(([k, v]) => `<option value="${esc(k)}">${esc(v)}</option>`).join('') +
-      '<option value="a_faturar">• A faturar</option><option value="divergencia">• A revisar</option>'
+      '<option value="a_faturar">• A faturar</option><option value="divergencia">• A revisar</option><option value="pendente_class">• Pendente de classificação</option>'
     document.getElementById('f-tec').innerHTML = '<option value="">Técnico: todos</option>' +
       ref.tecnicos.map(t => `<option value="${esc(t.id)}">${esc(t.nome || '(sem nome)')}</option>`).join('')
     document.getElementById('f-tipo').innerHTML = '<option value="">Tipo: todos</option>' +
@@ -142,6 +142,9 @@ const TarefaApp = (() => {
     document.getElementById('rat-excluir').onclick = ratExcluir
     document.getElementById('rat-nova-tarefa').onclick = abrirPend
     // Faturamento
+    document.getElementById('cc-fat-modalidade').onchange = renderModalidadeCalc
+    document.getElementById('cc-fat-vh').oninput = renderModalidadeCalc
+    document.getElementById('cc-fat-mod-salvar').onclick = salvarModalidade
     document.getElementById('cc-fat-btn').onclick = faturarTarefa
     document.getElementById('cc-fat-undo').onclick = desfazerFaturamento
     // Pendência -> nova tarefa
@@ -200,7 +203,7 @@ const TarefaApp = (() => {
   // ─────────────────────────── Lista ───────────────────────────
   async function carregarTarefas() {
     const { data: ts, error } = await sb().from('tarefas')
-      .select('id,numero,status,criado_em,data_agendada,orcamento_id,cliente_id,orientacao,observacoes,pedido_compra,tipo_servico_id,conciliacao_obs,pendencias,faturado,data_faturamento,numero_nota')
+      .select('id,numero,status,criado_em,data_agendada,orcamento_id,cliente_id,orientacao,observacoes,pedido_compra,tipo_servico_id,conciliacao_obs,pendencias,faturado,data_faturamento,numero_nota,modalidade,valor_hora')
       .order('numero', { ascending: false })
     if (error) { toast('Erro ao carregar tarefas: ' + error.message, 'err'); tarefas = []; return }
     tarefas = ts || []
@@ -243,6 +246,7 @@ const TarefaApp = (() => {
     let rows = tarefas
     if (fStatus === 'divergencia') rows = rows.filter(t => divPorTarefa[t.id])
     else if (fStatus === 'a_faturar') rows = rows.filter(t => !t.faturado && (t.status === 'concluida' || t.status === 'concluida_pendencia'))
+    else if (fStatus === 'pendente_class') rows = rows.filter(t => !t.modalidade && (t.status === 'concluida' || t.status === 'concluida_pendencia'))
     else if (fStatus) rows = rows.filter(t => t.status === fStatus)
     if (fTec) rows = rows.filter(t => (tecPorTarefa[t.id] || []).includes(fTec))
     if (fTipo) rows = rows.filter(t => t.tipo_servico_id === fTipo)
@@ -337,6 +341,7 @@ const TarefaApp = (() => {
     document.getElementById('cc-eq-busca').value = ''; document.getElementById('cc-eq-sel').value = ''
     renderFaturamento(t)
     await Promise.all([carregarLinhas(), carregarEquip(), carregarAnexos(), carregarRats()])
+    renderModalidadeCalc()   // RATs já carregadas → horas faturáveis corretas
     mostrar('detalhe')
     // recalcula a altura só depois do detalhe ficar visível (scrollHeight=0 se oculto)
     autoGrow(document.getElementById('cc-d-orientacao'))
@@ -788,6 +793,31 @@ const TarefaApp = (() => {
     document.getElementById('cc-fat-nota').style.display = fat ? 'none' : ''
     document.getElementById('cc-fat-btn').style.display = fat ? 'none' : ''
     document.getElementById('cc-fat-undo').style.display = fat ? '' : 'none'
+    document.getElementById('cc-fat-modalidade').value = (t && t.modalidade) || ''
+    document.getElementById('cc-fat-vh').value = (t && t.valor_hora != null) ? t.valor_hora : ''
+    renderModalidadeCalc()
+  }
+  // Mostra/oculta valor-hora e calcula horas faturáveis (por hora) p/ a tarefa.
+  function renderModalidadeCalc() {
+    const isHora = document.getElementById('cc-fat-modalidade').value === 'por_hora'
+    document.getElementById('cc-fat-vh-wrap').style.display = isHora ? '' : 'none'
+    document.getElementById('cc-fat-hora').style.display = isHora ? '' : 'none'
+    if (!isHora) return
+    const totalMin = (cur && cur.rats ? cur.rats : []).reduce((s, r) => s + (Number(RatView.tempoRat(r)) || 0), 0)
+    const billedMin = Math.ceil(totalMin / 30) * 30          // arredonda p/ cima de 30 em 30 min
+    const vh = Number(document.getElementById('cc-fat-vh').value) || 0
+    document.getElementById('cc-fat-horas').textContent = RatView.fmtMin(billedMin) +
+      (totalMin && billedMin !== totalMin ? ` (real ${RatView.fmtMin(totalMin)})` : '')
+    document.getElementById('cc-fat-valor').textContent = money((billedMin / 60) * vh)
+  }
+  async function salvarModalidade() {
+    if (!cur || !cur.id) return
+    const mod = document.getElementById('cc-fat-modalidade').value || null
+    const vh = mod === 'por_hora' ? (Number(document.getElementById('cc-fat-vh').value) || null) : null
+    const up = await sb().from('tarefas').update({ modalidade: mod, valor_hora: vh }).eq('id', cur.id)
+    if (up.error) return toast('Erro ao salvar modalidade: ' + up.error.message, 'err')
+    const t = tarefas.find(x => x.id === cur.id); if (t) { t.modalidade = mod; t.valor_hora = vh }
+    toast(mod ? 'Modalidade salva.' : 'Modalidade removida (pendente de classificação).', 'ok')
   }
   async function faturarTarefa() {
     if (!cur || !cur.id) return

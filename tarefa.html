@@ -211,6 +211,14 @@
   .cc-fat .ft-status{font-size:14px;font-weight:600;color:var(--tx)}
   .cc-fat input{padding:9px 11px;border:1px solid var(--bd);border-radius:8px;font:inherit;font-size:14px;max-width:200px}
   .pill-fat{background:#E3F6EC;color:#0E7A4F}
+  .fat-mod{display:flex;gap:14px;align-items:flex-end;flex-wrap:wrap}
+  .fat-mod select,.fat-mod input{padding:9px 11px;border:1px solid var(--bd);border-radius:8px;font:inherit;font-size:14px;background:#fff;width:100%}
+  .fat-mod .fg label{display:block;font-size:11px;font-weight:600;letter-spacing:.3px;text-transform:uppercase;color:var(--tx3);margin-bottom:5px}
+  .fat-hora{display:flex;gap:14px;flex-wrap:wrap;margin-top:16px}
+  .fh-box{flex:1;min-width:180px;background:#F7F9FC;border:1px solid var(--bd);border-radius:11px;padding:13px 16px}
+  .fh-box .k{font-size:9.5px;font-weight:600;letter-spacing:.6px;text-transform:uppercase;color:var(--tx3)}
+  .fh-box .v{font-size:20px;font-weight:800;color:var(--tx);margin-top:6px;font-variant-numeric:tabular-nums}
+  .fh-box .d{font-size:11px;color:var(--tx3);margin-top:4px}
 
   /* Lista de RATs da tarefa */
   .rat-list{display:flex;flex-direction:column;gap:8px;margin-top:6px}
@@ -394,8 +402,30 @@
 
         <div class="cc-card cc-pane" data-pane="fat">
           <div class="card-h"><span class="dot"></span><span class="t">Faturamento</span></div>
-          <p class="card-sub">A Tarefa é a unidade de faturamento. Marque como faturada e registre o nº da nota.</p>
-          <div class="cc-fat">
+          <p class="card-sub">A Tarefa é a unidade de faturamento. Classifique a <b>modalidade</b>, confira os valores e marque como faturada.</p>
+
+          <!-- Modalidade de faturamento (§10.1) -->
+          <div class="fat-mod">
+            <div class="fg" style="min-width:280px"><label>Modalidade de faturamento</label>
+              <select id="cc-fat-modalidade">
+                <option value="">— pendente de classificação —</option>
+                <option value="por_hora">Por hora</option>
+                <option value="projeto_fechado">Projeto fechado / orçamento</option>
+                <option value="contrato">Contrato (locação/manutenção)</option>
+                <option value="nao_faturavel">Não-faturável</option>
+              </select>
+            </div>
+            <div class="fg" id="cc-fat-vh-wrap" style="display:none;min-width:160px"><label>Valor / hora (R$)</label>
+              <input type="number" id="cc-fat-vh" min="0" step="0.01" placeholder="0,00">
+            </div>
+            <button class="btn" id="cc-fat-mod-salvar">Salvar modalidade</button>
+          </div>
+          <div class="fat-hora" id="cc-fat-hora" style="display:none">
+            <div class="fh-box"><div class="k">Horas faturáveis</div><div class="v" id="cc-fat-horas">—</div><div class="d">Σ das RATs, arredondado p/ cima 30 min</div></div>
+            <div class="fh-box"><div class="k">Valor a faturar</div><div class="v" id="cc-fat-valor">—</div><div class="d">horas × valor/hora</div></div>
+          </div>
+
+          <div class="cc-fat" style="margin-top:18px;border-top:1px solid var(--bd);padding-top:16px">
             <span class="ft-status" id="cc-fat-status">—</span>
             <input type="text" id="cc-fat-nota" placeholder="Nº da nota (opcional)">
             <button class="btn btn-p" id="cc-fat-btn">Marcar como faturada</button>
