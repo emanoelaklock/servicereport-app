@@ -40,26 +40,11 @@ const DeslocApp = (() => {
     document.getElementById('d-cli').innerHTML = '<option value="">Cliente: todos</option>' +
       cliArr.map(c => `<option value="${esc(c.id)}">${esc(c.nome || '')}</option>`).join('')
     ;['d-tec', 'd-cli', 'd-sent', 'd-de', 'd-ate'].forEach(id => { document.getElementById(id).onchange = render })
-    await carregarBase()
-    document.getElementById('b-salvar').onclick = salvarBase
     document.getElementById('dm-x').onclick = fecharModal
     document.getElementById('dm-cancelar').onclick = fecharModal
     document.getElementById('dm-salvar').onclick = salvarEdicao
     document.getElementById('dm-excluir').onclick = () => excluir(document.getElementById('dm-id').value)
     await carregar()
-  }
-
-  async function carregarBase() {
-    const { data } = await sb().from('org_config').select('base_cidade,base_uf').eq('id', 1).maybeSingle()
-    document.getElementById('b-cidade').value = (data && data.base_cidade) || ''
-    document.getElementById('b-uf').value = (data && data.base_uf) || ''
-  }
-  async function salvarBase() {
-    const cidade = document.getElementById('b-cidade').value.trim() || null
-    const uf = (document.getElementById('b-uf').value.trim() || '').toUpperCase() || null
-    const { error } = await sb().from('org_config').update({ base_cidade: cidade, base_uf: uf, atualizado_em: new Date().toISOString() }).eq('id', 1)
-    if (error) return toast('Erro ao salvar base: ' + error.message, 'err')
-    toast('Base salva. Os técnicos recebem ao reabrir o app.', 'ok')
   }
 
   async function carregar() {
