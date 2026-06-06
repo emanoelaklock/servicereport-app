@@ -72,7 +72,7 @@ const TarefaApp = (() => {
     user.id = u?.id || null
     const [prod, tec, tip, eq, cli] = await Promise.all([
       sb().from('produtos').select('id,codigo,descricao,unidade,preco_venda').eq('ativo', true).eq('oculto', false).order('descricao'),
-      sb().from('usuarios').select('id,nome').eq('role', 'tecnico_campo').eq('ativo', true).order('nome'),
+      sb().from('usuarios').select('id,nome,role').in('role', ['tecnico_campo', 'gestor_axis', 'admin']).eq('ativo', true).order('nome'),
       sb().from('tipos_servico').select('id,nome').eq('ativo', true).order('nome'),
       sb().from('equipamentos_axis').select('id,tipo,part_number,modelo,serial').order('modelo'),
       sb().from('clientes').select('id,nome').eq('oculto', false).order('nome'),
@@ -82,10 +82,11 @@ const TarefaApp = (() => {
     ref.tipos = tip.data || []
     ref.equip = eq.data || []
     ref.clientes = cli.data || []
-    tecNomes = {}; for (const t of ref.tecnicos) tecNomes[t.id] = t.nome
+    const ROLE_TAG = { admin: ' (Admin)', gestor_axis: ' (Gestor)', tecnico_campo: '' }
+    tecNomes = {}; for (const t of ref.tecnicos) tecNomes[t.id] = (t.nome || '(sem nome)') + (ROLE_TAG[t.role] || '')
     document.getElementById('cc-d-tecnicos').innerHTML = ref.tecnicos.length
-      ? ref.tecnicos.map(t => `<label><input type="checkbox" value="${esc(t.id)}"> ${esc(t.nome || '(sem nome)')}</label>`).join('')
-      : '<span class="cc-empty-sm">Nenhum técnico ativo cadastrado.</span>'
+      ? ref.tecnicos.map(t => `<label><input type="checkbox" value="${esc(t.id)}"> ${esc(tecNomes[t.id])}</label>`).join('')
+      : '<span class="cc-empty-sm">Nenhum usuário ativo para atribuir.</span>'
     document.getElementById('cc-d-tipo').innerHTML = '<option value="">— selecione —</option>' + ref.tipos.map(t => `<option value="${esc(t.id)}">${esc(t.nome || '')}</option>`).join('')
     await carregarStatus()
     document.getElementById('cc-d-status-sel').innerHTML = statusOptionsHTML()
@@ -93,8 +94,8 @@ const TarefaApp = (() => {
     document.getElementById('f-status').innerHTML = '<option value="">Status: todos</option>' +
       statusAtivos().map(s => `<option value="${esc(s.chave)}">${esc(s.label || s.chave)}</option>`).join('') +
       '<option value="a_faturar">• A faturar</option><option value="divergencia">• A revisar</option><option value="pendente_class">• Pendente de classificação</option>'
-    document.getElementById('f-tec').innerHTML = '<option value="">Técnico: todos</option>' +
-      ref.tecnicos.map(t => `<option value="${esc(t.id)}">${esc(t.nome || '(sem nome)')}</option>`).join('')
+    document.getElementById('f-tec').innerHTML = '<option value="">Responsável: todos</option>' +
+      ref.tecnicos.map(t => `<option value="${esc(t.id)}">${esc(tecNomes[t.id] || t.nome || '(sem nome)')}</option>`).join('')
     document.getElementById('f-tipo').innerHTML = '<option value="">Tipo: todos</option>' +
       ref.tipos.map(t => `<option value="${esc(t.id)}">${esc(t.nome || '')}</option>`).join('')
     bind()
@@ -279,7 +280,7 @@ const TarefaApp = (() => {
         const d = divPorTarefa[t.id] || 0
         const concil = d ? `<span class="pill pill-warn">${d} a revisar</span>` : '<span class="pill pill-ok">OK</span>'
         const tids = tecPorTarefa[t.id] || []
-        const tec = tids.length ? esc(tids.map(id => tecNomes[id] || '—').join(', ')) : '<span class="pill pill-warn">atribuir</span>'
+        const tec = tids.length ? esc(tids.map(id => tecNomes[id] || '—').join(', ')) : `<button class="pill pill-warn" data-atrib="${esc(t.id)}" style="cursor:pointer;border:none">atribuir</button>`
         return `<tr class="row-click" data-id="${esc(t.id)}">
           <td class="cc-num">${osNo(t.numero)}</td>
           <td>${esc(cliNomes[t.cliente_id] || '—')}</td>
@@ -296,6 +297,7 @@ const TarefaApp = (() => {
     box.querySelectorAll('.row-click').forEach(tr => tr.onclick = (e) => { if (e.target.closest('.acts')) return; abrirTarefa(tr.dataset.id) })
     box.querySelectorAll('[data-edit]').forEach(b => b.onclick = (e) => { e.stopPropagation(); abrirTarefa(b.dataset.edit) })
     box.querySelectorAll('[data-del]').forEach(b => b.onclick = (e) => { e.stopPropagation(); excluirTarefaLista(b.dataset.del) })
+    box.querySelectorAll('[data-atrib]').forEach(b => b.onclick = (e) => { e.stopPropagation(); abrirTarefa(b.dataset.atrib, 'dados') })
   }
 
   async function excluirTarefaLista(id) {
