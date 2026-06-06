@@ -610,7 +610,9 @@
     let query = getSupabase().from('clientes').select('id,nome,documento,endereco,oculto,sync_omie').order('nome').limit(50)
     if (q) query = query.ilike('nome', `%${q}%`)
     const { data, error } = await query
-    renderCadastro('cli', error ? [] : (data || []), 'cliente')
+    // esconde os "excluídos" (oculto + não reimporta) — somem da lista ao excluir
+    const rows = (error ? [] : (data || [])).filter(r => !(r.oculto && r.sync_omie === false))
+    renderCadastro('cli', rows, 'cliente')
   }
   async function buscarProdutos(q) {
     let query = getSupabase().from('produtos').select('id,codigo,descricao,unidade,ativo,oculto').order('descricao').limit(50)
