@@ -49,6 +49,10 @@ var fazerLogin = async () => {
   const msg = document.getElementById('login-msg')
 
   if (!email || !senha) { toast('Preencha email e senha.', 'err'); return }
+  if (!navigator.onLine) {
+    if (msg) msg.innerHTML = `<div style="padding:9px 12px;background:#FEF2F2;color:#DC2626;border:1px solid #FECACA;border-radius:7px;font-size:13px">Sem conexão. O primeiro acesso precisa de internet; depois o app abre offline automaticamente.</div>`
+    return
+  }
   if (btn) { btn.textContent = 'Entrando…'; btn.disabled = true }
   if (msg) msg.innerHTML = ''
 
@@ -68,17 +72,25 @@ var fazerLogin = async () => {
 const _posLogin = async (session) => {
   SESSION = session
 
-  // Perfil via REST direto (usuarios.role no Traders Apps)
-  const r = await fetch(`${SURL}/rest/v1/usuarios?select=role,nome,ativo&id=eq.${session.user.id}`, {
-    headers: hAuth()
-  })
-  const d = await r.json()
-  const u = d[0] || {}
+  // Perfil via REST direto (usuarios.role no Traders Apps).
+  // Offline-first: cacheia o perfil no login; se a rede falhar, usa o cache do último acesso.
+  const PCACHE = 'sr_perfil_' + session.user.id
+  let u = {}, offlineSemRede = false
+  try {
+    const r = await fetch(`${SURL}/rest/v1/usuarios?select=role,nome,ativo&id=eq.${session.user.id}`, { headers: hAuth() })
+    const d = await r.json()
+    u = d[0] || {}
+    if (u.role) { try { localStorage.setItem(PCACHE, JSON.stringify({ role: u.role, nome: u.nome, ativo: u.ativo })) } catch (e) {} }
+  } catch (e) {
+    offlineSemRede = true
+    try { const c = localStorage.getItem(PCACHE); if (c) u = JSON.parse(c) } catch (e2) {}
+  }
   PERFIL = u.role || null
   const nome = u.nome || session.user.email?.split('@')[0] || '?'
 
-  // Conta sem cadastro em usuarios ou inativa → barra acesso
-  if (!PERFIL || u.ativo === false) {
+  // Conta sem cadastro em usuarios ou inativa → barra acesso.
+  // Offline sem cache de perfil: não dá para validar → manda para login (precisa de 1 acesso online).
+  if (!PERFIL || (u.ativo === false && !offlineSemRede)) {
     await getSupabase().auth.signOut()
     toast(PERFIL ? 'Conta inativa.' : 'Usuário sem perfil cadastrado.', 'err')
     const ls = document.getElementById('login-screen')
