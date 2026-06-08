@@ -972,7 +972,7 @@
           ref.produtos || [], p => ({ id: p.id, label: (p.codigo ? p.codigo + ' - ' : '') + (p.descricao || '') })
         )
         const b = document.getElementById('prod-add-btn'); if (b) b.onclick = adicionarMaterialUI
-        refreshMateriais()
+        precarregarLevados().then(refreshMateriais)
       }, 0)
     } else if (c.tipo === 'foto') {
       wrap.innerHTML = `${label}
@@ -1045,17 +1045,44 @@
     qtdEl.value = ''
     await refreshMateriais()
   }
+  // Traz os produtos LEVADOS da tarefa para a RAT (qtd utilizada = 0), sem o técnico redigitar.
+  async function precarregarLevados() {
+    if (!cur || !cur.tarefa_id || !navigator.onLine) return
+    try {
+      const { data } = await getSupabase().from('vw_tarefa_materiais_tecnico')
+        .select('produto_id,codigo_produto,descricao,unidade,qtd_levada').eq('tarefa_id', cur.tarefa_id)
+      if (!data || !data.length) return
+      const existentes = await D().listarMateriais(cur.client_uuid)
+      const chave = (x) => `${x.produto_id || ''}|${x.codigo_produto || ''}|${(x.descricao || '').trim().toLowerCase()}`
+      const have = new Set(existentes.map(chave))
+      for (const m of data) {
+        if (!(Number(m.qtd_levada) > 0)) continue   // só os efetivamente levados
+        if (have.has(chave(m))) continue
+        await D().adicionarMaterial(cur.client_uuid, {
+          produto_id: m.produto_id, codigo_produto: m.codigo_produto, descricao: m.descricao,
+          unidade: m.unidade, quantidade: 0, qtd_levada: m.qtd_levada,
+        })
+      }
+    } catch (e) { /* offline/sem view: técnico adiciona na mão */ }
+  }
   async function refreshMateriais() {
     const box = document.getElementById('prod-list')
     if (!box) return
     const mats = await D().listarMateriais(cur.client_uuid)
-    if (!mats.length) { box.innerHTML = '<span class="dim">Nenhum produto adicionado.</span>'; return }
-    box.innerHTML = mats.map(m => `<div class="prod-item">
-      <span>${esc(m.descricao || m.codigo_produto || '—')}</span>
-      <span class="prod-qtd">${m.quantidade}${m.unidade ? ' ' + esc(m.unidade) : ''}</span>
-      <button type="button" class="thumb-x" data-mid="${esc(m.id)}">×</button>
-    </div>`).join('')
-    box.querySelectorAll('[data-mid]').forEach(b => { b.onclick = async () => { await D().removerMaterial(b.dataset.mid); await refreshMateriais() } })
+    if (!mats.length) { box.innerHTML = '<span class="dim">Nenhum produto. Os levados aparecem aqui para você lançar o utilizado.</span>'; return }
+    box.innerHTML = mats.map(m => {
+      const u = m.unidade ? ' ' + esc(m.unidade) : ''
+      const lev = (m.qtd_levada != null) ? `<span class="dim" style="font-size:11px">Levado: ${m.qtd_levada}${u}</span>` : ''
+      return `<div class="prod-item" style="align-items:center">
+        <span style="flex:1;min-width:0"><div>${esc(m.descricao || m.codigo_produto || '—')}</div>${lev}</span>
+        <label class="dim" style="font-size:11px;display:flex;align-items:center;gap:5px">Utilizada
+          <input type="number" class="prod-util" data-mid="${esc(m.id)}" inputmode="decimal" min="0" step="any" value="${m.quantidade || 0}" style="width:74px;padding:5px 8px;border:1px solid var(--bd);border-radius:7px;font:inherit;text-align:right">
+        </label>
+        <button type="button" class="thumb-x" data-mid="${esc(m.id)}">×</button>
+      </div>`
+    }).join('')
+    box.querySelectorAll('.prod-util').forEach(inp => { inp.onchange = () => D().atualizarMaterial(inp.dataset.mid, { quantidade: inp.value }) })
+    box.querySelectorAll('.thumb-x[data-mid]').forEach(b => { b.onclick = async () => { await D().removerMaterial(b.dataset.mid); await refreshMateriais() } })
   }
 
   // ───────────────────── Assinatura (canvas) ─────────────────────
@@ -1143,25 +1170,28 @@
     if (!cliId) return toast('Selecione o cliente.', 'err')
     if (!cur.formulario_id) return toast('Esta tarefa não tem formulário configurado.', 'err')
 
+    const sit = document.getElementById('f-status').value
+    // Atendimento continua (em execução) → salva parcial, sem exigir os obrigatórios.
+    const emExecucao = (sit === 'em_andamento')
+
     const { respostas, faltando } = coletarRespostas()
-    const temFotoCampo = cur.campos.some(c => c.tipo === 'foto')
-    const temAssinaturaCampo = cur.campos.some(c => c.tipo === 'assinatura')
     const vis = (c) => curVisivel[c.id] !== false
     const fotoObrig = cur.campos.some(c => c.tipo === 'foto' && c.obrigatorio && vis(c))
     const assinaturaObrig = cur.campos.some(c => c.tipo === 'assinatura' && c.obrigatorio && vis(c))
+    const produtosObrig = cur.campos.some(c => c.tipo === 'produtos' && c.obrigatorio && vis(c))
 
     const fotos = await D().listarFotos(cur.client_uuid)
-    if (faltando.length) return toast('Preencha: ' + faltando.join(', '), 'err')
-    if (fotoObrig && fotos.length === 0) return toast('Anexe ao menos uma foto.', 'err')
-    const produtosObrig = cur.campos.some(c => c.tipo === 'produtos' && c.obrigatorio && vis(c))
-    if (produtosObrig && (await D().listarMateriais(cur.client_uuid)).length === 0) return toast('Adicione ao menos um produto.', 'err')
+    if (!emExecucao) {
+      if (faltando.length) return toast('Preencha: ' + faltando.join(', '), 'err')
+      if (fotoObrig && fotos.length === 0) return toast('Anexe ao menos uma foto.', 'err')
+      if (produtosObrig && (await D().listarMateriais(cur.client_uuid)).length === 0) return toast('Adicione ao menos um produto.', 'err')
+    }
 
     let assinatura_local = null
     const temAssinatura = sig && !sig.isEmpty()
-    if (assinaturaObrig && !temAssinatura) return toast('Capture a assinatura.', 'err')
+    if (!emExecucao && assinaturaObrig && !temAssinatura) return toast('Capture a assinatura.', 'err')
     if (temAssinatura) assinatura_local = sig.dataURL()
 
-    const sit = document.getElementById('f-status').value
     const pendencias = document.getElementById('f-pendencias').value.trim()
     if (sit === 'concluida_pendencia' && !pendencias) return toast('Descreva a pendência.', 'err')
 

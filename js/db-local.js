@@ -228,10 +228,17 @@
       id: uuid(), rat_uuid: client_uuid,
       produto_id: m.produto_id || null, codigo_produto: m.codigo_produto || null,
       descricao: m.descricao || null, unidade: m.unidade || null,
-      quantidade: Number(m.quantidade) || 0, criado_em: agora(),
+      quantidade: Number(m.quantidade) || 0, qtd_levada: (m.qtd_levada != null ? Number(m.qtd_levada) : null),
+      criado_em: agora(),
     }
     await tx([ST_MATERIAIS], 'readwrite', (t) => { t.objectStore(ST_MATERIAIS).add(reg) })
     return reg.id
+  }
+  async function atualizarMaterial(id, patch) {
+    return tx([ST_MATERIAIS], 'readwrite', (t) => {
+      const s = t.objectStore(ST_MATERIAIS)
+      reqP(s.get(id)).then(m => { if (m) { Object.assign(m, patch); if (patch.quantidade != null) m.quantidade = Number(patch.quantidade) || 0; s.put(m) } })
+    })
   }
   async function listarMateriais(client_uuid) {
     const d = await db()
@@ -507,7 +514,7 @@
     SYNC_MAP, obterPorChave, listarStore, aplicarDoServidor, removerDoServidor,
     novoRat, salvarRat, obterRat, listarRats, definirStatus, removerRat,
     adicionarFoto, listarFotos, removerFoto, marcarFotoEnviada, fotosPendentes, atualizarLegendaFoto,
-    adicionarMaterial, listarMateriais, removerMaterial,
+    adicionarMaterial, atualizarMaterial, listarMateriais, removerMaterial,
     novoPreorc, salvarPreorc, obterPreorc, listarPreorc, definirStatusPreorc, removerPreorc,
     adicionarItemPreorc, listarItensPreorc, removerItemPreorc,
     listarEventos, marcarEventoEnviado,
