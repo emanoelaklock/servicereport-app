@@ -157,6 +157,10 @@ const TarefaApp = (() => {
     document.getElementById('rat-pdf').onclick = ratPdf
     document.getElementById('rat-excluir').onclick = ratExcluir
     document.getElementById('rat-nova-tarefa').onclick = abrirPend
+    document.getElementById('cc-d-pend-tarefa').onclick = abrirPendTarefa
+    document.getElementById('cc-d-status-sel').addEventListener('change', (e) => {
+      document.getElementById('cc-d-pend-tarefa').style.display = (e.target.value === 'concluida_pendencia') ? '' : 'none'
+    })
     // Faturamento
     document.getElementById('cc-fat-modalidade').onchange = renderModalidadeCalc
     document.getElementById('cc-fat-vh').oninput = renderModalidadeCalc
@@ -360,6 +364,7 @@ const TarefaApp = (() => {
     document.getElementById('cc-d-status-sel').innerHTML = statusOptionsHTML(cur.status)
     document.getElementById('cc-d-status-sel').value = cur.status || 'aguardando_execucao'
     document.getElementById('cc-d-pend-note').textContent = (cur.status === 'concluida_pendencia' && t.pendencias) ? 'Pendência: ' + t.pendencias : ''
+    document.getElementById('cc-d-pend-tarefa').style.display = (cur.status === 'concluida_pendencia') ? '' : 'none'
     document.getElementById('cc-d-tipo').value = t.tipo_servico_id || ''
     setTecnicosChecked(tecPorTarefa[id] || [])
     document.getElementById('cc-d-data').value = t.data_agendada || ''
@@ -831,6 +836,17 @@ const TarefaApp = (() => {
     RatView.gerarPdf(dets, `RATs Tarefa ${osNo(cur.numero)}`)
   }
 
+  // Nova tarefa a partir da pendência da TAREFA (botão na aba Dados quando concluída c/ pendência).
+  function abrirPendTarefa() {
+    const t = tarefas.find(x => x.id === (cur && cur.id)); if (!t) return
+    pendRat = { cliente_id: t.cliente_id, tarefa: { cliente_id: t.cliente_id } }
+    document.getElementById('pend-cli').textContent = cliNomes[t.cliente_id] || cur.cliente_nome || '—'
+    document.getElementById('pend-tipo').innerHTML = ref.tipos.map(x =>
+      `<option value="${esc(x.id)}"${x.id === t.tipo_servico_id ? ' selected' : ''}>${esc(x.nome)}</option>`).join('')
+    document.getElementById('pend-orient').value = (t.pendencias && t.pendencias.trim()) || ''
+    document.getElementById('pend-origem').textContent = cur.numero != null ? `Origem: Tarefa Nº ${osNo(cur.numero)} (pendência)` : ''
+    abrirModal('modal-pend')
+  }
   // Nova tarefa a partir da pendência de uma RAT.
   function abrirPend() {
     const r = ratDet && ratDet.r; if (!r) return
