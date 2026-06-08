@@ -50,6 +50,8 @@
   /* Modal (genérico do app do técnico) */
   .tm-back{display:none;position:fixed;inset:0;background:rgba(20,30,55,.5);z-index:200;align-items:flex-start;justify-content:center;padding:24px 16px;overflow-y:auto}
   .tm-back.open{display:flex}
+  .tm-back.tm-fs{padding:0;align-items:stretch;justify-content:stretch;overflow:hidden}
+  .tm-fs .tm-box{max-width:none;width:100%;height:100%;max-height:100%;border-radius:0;box-shadow:none}
   .tm-box{background:#fff;border-radius:14px;width:100%;max-width:420px;box-shadow:0 24px 64px rgba(20,30,55,.3);overflow:visible}
   .tm-h{display:flex;align-items:center;justify-content:space-between;padding:15px 18px;border-bottom:1px solid var(--bd);font-weight:700;font-size:15px}
   .tm-x{border:none;background:none;font-size:18px;color:var(--tx3);cursor:pointer}
@@ -482,8 +484,8 @@
 </div>
 
 <!-- Modal: Nova tarefa (técnico) -->
-<div class="tm-back" id="modal-prod">
-  <div class="tm-box" style="max-width:560px;display:flex;flex-direction:column;max-height:92vh">
+<div class="tm-back tm-fs" id="modal-prod">
+  <div class="tm-box" style="display:flex;flex-direction:column">
     <div class="tm-h"><span>Produtos</span><button class="tm-x" id="prod-x">✕</button></div>
     <div class="tm-b" style="flex:1;overflow:auto;min-height:0">
       <div class="prod-search"><span>🔍</span><input id="prod-busca" placeholder="Nome ou Descrição" autocomplete="off"></div>
