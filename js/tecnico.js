@@ -13,7 +13,7 @@
   const D = () => window.DBLocal
   const REF_KEY = 'sr_ref_v1'
 
-  let ref = { clientes: [], tipos: [], formularios: {}, tecnicos: [], veiculos: [], produtos: [], base: { cidade: '', uf: '' } }   // formularios: { [id]: {nome,campos} }
+  let ref = { clientes: [], tipos: [], formularios: {}, tecnicos: [], veiculos: [], produtos: [], base: { cidade: '', uf: '' }, status: {} }   // formularios: { [id]: {nome,campos} }
   let tecnico = { id: null, nome: null }
   let cur = null            // RAT em edição: { client_uuid, campos: [], tarefa_id?, tarefa_numero? }
   let sig = null            // controlador do canvas de assinatura
@@ -36,6 +36,10 @@
   const STATUS_PRIORIDADE = { em_execucao: 1, devolvida: 2, aguardando_execucao: 3, concluida_pendencia: 4, concluida: 5, aprovada_faturamento: 6, faturada: 7 }
   const RAT_PARA_TAREFA = { em_andamento: 'em_execucao', concluida: 'concluida', concluida_pendencia: 'concluida_pendencia' }
   const prioStatus = (s) => (STATUS_PRIORIDADE[s] != null ? STATUS_PRIORIDADE[s] : 50)
+  // Label/cor do status vindos de Configurações (status_tarefa); cai no T_STATUS fixo.
+  const stLabel = (s) => (ref.status && ref.status[s] && ref.status[s].label) || (T_STATUS[s] && T_STATUS[s].t) || s || '—'
+  const stCor = (s) => (ref.status && ref.status[s] && ref.status[s].cor) || '#48506A'
+  const stStyle = (s) => `background:${stCor(s)}1A;color:${stCor(s)};border:none`
   function togglePendencias() {
     const v = document.getElementById('f-status').value
     document.getElementById('f-pendencias-wrap').style.display = (v === 'concluida_pendencia') ? 'block' : 'none'
@@ -158,7 +162,7 @@
   async function carregarRef() {
     try {
       const sb = getSupabase()
-      const [cli, tip, forms, tec, veic, prod, base] = await Promise.all([
+      const [cli, tip, forms, tec, veic, prod, base, sts] = await Promise.all([
         // mesma regra da tela Empresas: mostra todas as visíveis (inclui Omie),
         // escondendo só as "excluídas" (oculto + não reimporta).
         sb.from('clientes').select('id,nome,documento,endereco').or('oculto.is.false,oculto.is.null,sync_omie.is.null,sync_omie.neq.false').order('nome'),
@@ -168,6 +172,7 @@
         sb.from('veiculos').select('id,modelo,placa,ativo').eq('ativo', true).order('modelo'),
         sb.from('produtos').select('id,codigo,descricao,unidade,ativo').eq('ativo', true).eq('oculto', false).order('descricao'),
         sb.from('org_config').select('base_cidade,base_uf').eq('id', 1).maybeSingle(),
+        sb.from('status_tarefa').select('chave,label,cor'),
       ])
       if (cli.error || tip.error || forms.error) throw (cli.error || tip.error || forms.error)
       ref.clientes = cli.data || []
@@ -178,6 +183,7 @@
       ref.veiculos = veic.error ? [] : (veic.data || [])
       ref.produtos = prod.error ? [] : (prod.data || [])
       ref.base = (base && base.data) ? { cidade: base.data.base_cidade || '', uf: base.data.base_uf || '' } : { cidade: '', uf: '' }
+      ref.status = {}; if (sts && !sts.error) (sts.data || []).forEach(s => { ref.status[s.chave] = { label: s.label, cor: s.cor } })
       localStorage.setItem(REF_KEY, JSON.stringify(ref))
     } catch (e) {
       const cache = localStorage.getItem(REF_KEY)
@@ -246,7 +252,7 @@
           <span style="display:flex;align-items:center;gap:8px">${badge(r.sync_status)}<button type="button" class="rat-del" data-del="${esc(r.client_uuid)}" title="Excluir RAT">🗑</button></span>
         </div>
         <div class="rat-meta">
-          <span>${r.tarefa_numero != null ? 'Tarefa Nº ' + osNo(r.tarefa_numero) + ' · ' : ''}${esc(ratSit(r.status || 'em_andamento'))}</span>
+          <span>${r.tarefa_numero != null ? 'Tarefa Nº ' + osNo(r.tarefa_numero) + ' · ' : ''}<span class="t-badge" style="${stStyle(tarStatusDe(r))}">${esc(ratSit(r.status || 'em_andamento'))}</span></span>
           <span>${fdt(r.criado_em, { withTime: true })}</span>
         </div>
       </div>`).join('')
@@ -309,11 +315,10 @@
     if (!box) return
     if (!tarefas.length) { box.innerHTML = '<p class="dim" style="padding:14px 2px">Nenhuma tarefa atribuída a você.</p>'; return }
     box.innerHTML = tarefas.map(t => {
-      const st = T_STATUS[t.status] || { t: t.status || '—', c: '' }
       const ag = t.data_agendada ? 'Agendada ' + fdt(t.data_agendada) : 'Sem data'
       const noLbl = t._local ? 'Nova · na fila ↑' : ('Nº ' + osNo(t.numero))
       return `<div class="t-card" data-id="${esc(t.id)}">
-        <div class="t-card-top"><span class="t-card-cli">${esc(cliNomeDe(t.cliente_id))}</span><span class="t-badge ${st.c}">${esc(st.t)}</span></div>
+        <div class="t-card-top"><span class="t-card-cli">${esc(cliNomeDe(t.cliente_id))}</span><span class="t-badge" style="${stStyle(t.status)}">${esc(stLabel(t.status))}</span></div>
         <div class="t-card-meta"><span class="t-card-no">${esc(noLbl)}</span><span>${esc(ag)}</span></div>
       </div>`
     }).join('')
@@ -344,9 +349,8 @@
   async function abrirTarefaDet(id) {
     const t = tarefas.find(x => x.id === id); if (!t) return
     tarefaAberta = t
-    const st = T_STATUS[t.status] || { t: t.status || '—', c: '' }
     document.getElementById('t-det-no').textContent = t._local ? 'Nova tarefa (na fila ↑)' : ('Tarefa Nº ' + osNo(t.numero))
-    const badge = document.getElementById('t-det-badge'); badge.textContent = st.t; badge.className = 't-det-badge ' + st.c
+    const badge = document.getElementById('t-det-badge'); badge.textContent = stLabel(t.status); badge.className = 't-det-badge'; badge.style.cssText = stStyle(t.status)
     document.getElementById('t-det-cli').textContent = cliNomeDe(t.cliente_id)
     document.getElementById('t-det-agenda').textContent = t.data_agendada ? 'Agendada para ' + fdt(t.data_agendada) : 'Sem data agendada'
     // Tipo de tarefa
