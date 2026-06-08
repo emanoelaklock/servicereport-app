@@ -840,11 +840,16 @@ const TarefaApp = (() => {
   function abrirPendTarefa() {
     const t = tarefas.find(x => x.id === (cur && cur.id)); if (!t) return
     pendRat = { cliente_id: t.cliente_id, tarefa: { cliente_id: t.cliente_id } }
+    // Pendência vem da RAT do técnico: a mais recente concluída c/ pendência (ou que tenha texto de pendência).
+    const candidatas = (cur.rats || []).filter(r => (r.pendencias && r.pendencias.trim()) || r.status === 'concluida_pendencia')
+      .sort((a, b) => (b.data_tarefa || '').localeCompare(a.data_tarefa || ''))
+    const rp = candidatas[0]
+    const pendRT = rp ? ((rp.pendencias && rp.pendencias.trim()) || (rp.respostas && rp.respostas.observacoes && String(rp.respostas.observacoes).trim()) || '') : ''
     document.getElementById('pend-cli').textContent = cliNomes[t.cliente_id] || cur.cliente_nome || '—'
     document.getElementById('pend-tipo').innerHTML = ref.tipos.map(x =>
       `<option value="${esc(x.id)}"${x.id === t.tipo_servico_id ? ' selected' : ''}>${esc(x.nome)}</option>`).join('')
-    document.getElementById('pend-orient').value = (t.pendencias && t.pendencias.trim()) || ''
-    document.getElementById('pend-origem').textContent = cur.numero != null ? `Origem: Tarefa Nº ${osNo(cur.numero)} (pendência)` : ''
+    document.getElementById('pend-orient').value = pendRT || (t.pendencias && t.pendencias.trim()) || ''
+    document.getElementById('pend-origem').textContent = cur.numero != null ? `Origem: Tarefa Nº ${osNo(cur.numero)} (pendência da RAT)` : ''
     abrirModal('modal-pend')
   }
   // Nova tarefa a partir da pendência de uma RAT.
