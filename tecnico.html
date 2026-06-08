@@ -476,11 +476,19 @@
         <input type="hidden" id="nt-cliente">
         <div class="ac-list" id="nt-cliente-list"></div>
       </div>
-      <label style="margin-top:12px">Tipo de serviço</label>
+      <label style="margin-top:12px">Situação</label>
+      <select id="nt-status">
+        <option value="aguardando_execucao">Aguardando execução</option>
+        <option value="em_execucao">Em execução</option>
+      </select>
+      <label style="margin-top:12px">Tipo de tarefa</label>
       <select id="nt-tipo"><option value="">— selecione —</option></select>
       <label style="margin-top:12px">Data agendada</label>
       <input type="date" id="nt-data">
-      <p class="dim" style="margin-top:10px">A tarefa será criada e atribuída a você. Depois é só tocar em “Iniciar RAT”.</p>
+      <label style="margin-top:12px">Orientação ao técnico</label>
+      <textarea id="nt-orientacao" rows="3" placeholder="O que precisa ser feito no campo…" style="width:100%;box-sizing:border-box;padding:9px 11px;border:1px solid var(--bd);border-radius:8px;font:inherit;font-size:14px;resize:vertical"></textarea>
+      <label style="margin-top:12px">Responsável(is)</label>
+      <div class="dl-tecs" id="nt-tecs"></div>
     </div>
     <div class="tm-f">
       <button class="btn" id="nt-cancelar">Cancelar</button>

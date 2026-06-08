@@ -119,6 +119,9 @@
     document.getElementById('btn-nova-tarefa').onclick = () => {
       document.getElementById('nt-cliente').value = ''; document.getElementById('nt-cliente-busca').value = ''
       document.getElementById('nt-tipo').value = ''; document.getElementById('nt-data').value = ''
+      document.getElementById('nt-status').value = 'aguardando_execucao'
+      document.getElementById('nt-orientacao').value = ''
+      montarNtTecnicos()
       document.getElementById('modal-nt').classList.add('open')
     }
     document.getElementById('nt-fechar').onclick = () => document.getElementById('modal-nt').classList.remove('open')
@@ -194,6 +197,18 @@
     const tipoOpts = ref.tipos.map(t => `<option value="${esc(t.id)}">${esc(t.nome)}</option>`).join('')
     document.getElementById('f-tipo').innerHTML = '<option value="">Selecione…</option>' + tipoOpts
     document.getElementById('nt-tipo').innerHTML = '<option value="">— selecione —</option>' + tipoOpts
+    montarNtTecnicos()
+  }
+
+  // Checkboxes de responsáveis no modal "Nova tarefa" — o próprio técnico vem marcado.
+  function montarNtTecnicos() {
+    const box = document.getElementById('nt-tecs'); if (!box) return
+    const eu = ref.tecnicos.find(t => t.id === tecnico.id)
+    const lista = eu ? ref.tecnicos : [{ id: tecnico.id, nome: tecnico.nome }].concat(ref.tecnicos)
+    box.innerHTML = lista.map(t => {
+      const souEu = t.id === tecnico.id
+      return `<label><input type="checkbox" value="${esc(t.id)}"${souEu ? ' checked' : ''}> ${esc(t.nome || '')}${souEu ? ' (você)' : ''}</label>`
+    }).join('')
   }
 
   // ─────────────────────────── Lista ───────────────────────────
@@ -295,15 +310,19 @@
     if (!cliId) return toast('Selecione o cliente.', 'err')
     if (!tipoId) return toast('Selecione o tipo de serviço.', 'err')
     if (!navigator.onLine) return toast('Sem conexão — crie a tarefa quando estiver online.', 'err')
+    const status = document.getElementById('nt-status').value || 'aguardando_execucao'
+    const orientacao = document.getElementById('nt-orientacao').value.trim() || null
+    const tecs = [...document.querySelectorAll('#nt-tecs input:checked')].map(c => c.value)
+    if (!tecs.includes(tecnico.id)) tecs.push(tecnico.id)   // o próprio técnico sempre incluso
     const sb = getSupabase()
     const newId = crypto.randomUUID()
     const ins = await sb.from('tarefas').insert({
-      id: newId, cliente_id: cliId, status: 'aguardando_execucao', criado_por: tecnico.id,
-      tipo_servico_id: tipoId,
+      id: newId, cliente_id: cliId, status, criado_por: tecnico.id,
+      tipo_servico_id: tipoId, orientacao,
       data_agendada: document.getElementById('nt-data').value || null,
     })
     if (ins.error) return toast('Erro ao criar tarefa: ' + ins.error.message, 'err')
-    const at = await sb.from('tarefa_tecnicos').insert({ tarefa_id: newId, tecnico_id: tecnico.id })
+    const at = await sb.from('tarefa_tecnicos').insert(tecs.map(tid => ({ tarefa_id: newId, tecnico_id: tid })))
     if (at.error) return toast('Tarefa criada, mas falha ao atribuir: ' + at.error.message, 'err')
     document.getElementById('modal-nt').classList.remove('open')
     toast('Tarefa criada.', 'ok')
