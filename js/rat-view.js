@@ -18,7 +18,7 @@ window.RatView = (function () {
   }
 
   // Colunas necessárias para montar o detalhe de uma RAT (inclui dados fiscais do cliente e da OS).
-  const RAT_SELECT = 'id,cliente_id,cliente_nome,tecnico_nome,data_tarefa,status,sync_status,pendencias,assinatura_url,respostas,tempo_trabalhado,formulario_id,checkin_lat,checkin_lng,checkin_precisao,checkin_em,tipos_servico(nome),cliente:clientes(nome,documento,endereco),tarefa:tarefas(id,numero,cliente_id,tipo_servico_id,orientacao,tipo:tipos_servico(nome))'
+  const RAT_SELECT = 'id,cliente_id,cliente_nome,tecnico_nome,data_tarefa,status,sync_status,pendencias,assinatura_url,respostas,tempo_trabalhado,formulario_id,rat_seq,checkin_lat,checkin_lng,checkin_precisao,checkin_em,tipos_servico(nome),cliente:clientes(nome,documento,endereco),tarefa:tarefas(id,numero,cliente_id,tipo_servico_id,orientacao,tipo:tipos_servico(nome))'
 
   async function ensureForms() {
     if (Object.keys(forms).length) return
@@ -92,7 +92,8 @@ window.RatView = (function () {
     const { r, campos, mats, fotos, sigUrl } = d
     const resp = r.respostas || {}
     const SKIP = new Set(['foto', 'produtos', 'assinatura'])
-    const tarefaNo = r.tarefa && r.tarefa.numero != null ? String(r.tarefa.numero).padStart(5, '0') : null
+    const baseNo = r.tarefa && r.tarefa.numero != null ? String(r.tarefa.numero).padStart(5, '0') : null
+    const tarefaNo = baseNo ? (baseNo + (r.rat_seq != null ? '_' + String(r.rat_seq).padStart(2, '0') : '')) : null
 
     let h = `<div class="rd">`
     if (!opts.noHeader) h += `
