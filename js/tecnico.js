@@ -399,7 +399,7 @@
     const box = document.getElementById('t-det-mat')
     try {
       const { data } = await getSupabase().from('vw_tarefa_materiais_tecnico')
-        .select('descricao,codigo_produto,unidade,qtd_orcada,qtd_levada').eq('tarefa_id', id)
+        .select('descricao,codigo_produto,unidade,qtd_orcada,qtd_levada,qtd_utilizada').eq('tarefa_id', id)
       if (!data || !data.length) { sec.style.display = 'none'; return }
       const qz = (n) => Number(n) || 0
       const fmt = (n, u) => { const v = qz(n); return (v ? v.toLocaleString('pt-BR', { maximumFractionDigits: 3 }) : '—') + (v && u ? ' ' + u : '') }
@@ -408,6 +408,7 @@
         <div class="t-det-mat-chips">
           <span class="t-mat-chip orc${qz(m.qtd_orcada) ? '' : ' zero'}"><span class="k">Orçado</span>${fmt(m.qtd_orcada, m.unidade)}</span>
           <span class="t-mat-chip lev${qz(m.qtd_levada) ? '' : ' zero'}"><span class="k">Levado</span>${fmt(m.qtd_levada, m.unidade)}</span>
+          <span class="t-mat-chip uti${qz(m.qtd_utilizada) ? '' : ' zero'}"><span class="k">Utilizado (todas RATs)</span>${fmt(m.qtd_utilizada, m.unidade)}</span>
         </div>
       </div>`).join('')
       sec.style.display = 'block'
