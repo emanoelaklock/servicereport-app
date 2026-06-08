@@ -35,6 +35,8 @@
   function togglePendencias() {
     const v = document.getElementById('f-status').value
     document.getElementById('f-pendencias-wrap').style.display = (v === 'concluida_pendencia') ? 'block' : 'none'
+    const b = document.getElementById('btn-salvar')
+    if (b) b.textContent = (v === 'em_andamento') ? 'Salvar e continuar' : 'Salvar e concluir'
   }
   const osNo = (n) => n != null ? String(n).padStart(5, '0') : '—'
   const cliNomeDe = (id, fb) => (ref.clientes.find(c => c.id === id) || {}).nome || fb || '—'
