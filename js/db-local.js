@@ -9,7 +9,7 @@
 ═══════════════════════════════════════════════ */
 (function () {
   const DB_NAME = 'service_report'
-  const DB_VERSION = 5
+  const DB_VERSION = 6
   const ST_RATS = 'rats'
   const ST_FOTOS = 'fotos'
   const ST_EVENTOS = 'eventos'
@@ -18,6 +18,7 @@
   const ST_PREORC_ITENS = 'preorc_itens' // materiais NECESSÁRIOS do pré-orçamento
   const ST_SEGMENTOS = 'segmentos'       // jornada "dia contínuo" (§10.1)
   const ST_DESLOC = 'deslocamentos'      // deslocamento (pernoite) — trajetos offline
+  const ST_TAREFAS = 'tarefas_local'     // tarefas criadas pelo técnico offline (fila)
 
   // ── Estados de sincronização (brief) ──
   const STATUS = {
@@ -100,6 +101,10 @@
         }
         if (!d.objectStoreNames.contains(ST_DESLOC)) {
           const s = d.createObjectStore(ST_DESLOC, { keyPath: 'id' })
+          s.createIndex('sync_status', 'sync_status', { unique: false })
+        }
+        if (!d.objectStoreNames.contains(ST_TAREFAS)) {
+          const s = d.createObjectStore(ST_TAREFAS, { keyPath: 'id' })
           s.createIndex('sync_status', 'sync_status', { unique: false })
         }
       }
@@ -468,6 +473,23 @@
   }
   async function removerDeslocamento(id) { return tx([ST_DESLOC], 'readwrite', (t) => { t.objectStore(ST_DESLOC).delete(id) }) }
 
+  // ── Tarefas criadas pelo técnico offline (fila de envio) ──
+  async function salvarTarefaLocal(t) {
+    if (!t.id) t.id = uuid()
+    if (!t.criado_em) t.criado_em = agora()
+    t.sync_status = STATUS.NA_FILA
+    await tx([ST_TAREFAS], 'readwrite', (tt) => { tt.objectStore(ST_TAREFAS).put(t) })
+    return t
+  }
+  async function listarTarefasLocais() {
+    const dd = await db()
+    return reqP(dd.transaction(ST_TAREFAS).objectStore(ST_TAREFAS).getAll())
+  }
+  async function tarefasLocaisPendentes() {
+    return (await listarTarefasLocais()).filter(x => x.sync_status !== STATUS.CONFIRMADO)
+  }
+  async function removerTarefaLocal(id) { return tx([ST_TAREFAS], 'readwrite', (t) => { t.objectStore(ST_TAREFAS).delete(id) }) }
+
   // ───────── Sync genérico (delta-pull + realtime) ─────────
   // Mapa nome-da-tabela → store local. Usado pelo SyncEngine para reconciliar.
   // table → { store, keyPath }
@@ -511,6 +533,7 @@
     deviceId, uuid,
     salvarSegmento, obterSegmento, listarSegmentos, segmentoAberto, segmentosPendentes, marcarSegmentoStatus, removerSegmento,
     salvarDeslocamento, listarDeslocamentos, deslocamentosPendentes, marcarDeslocamentoStatus, removerDeslocamento,
+    salvarTarefaLocal, listarTarefasLocais, tarefasLocaisPendentes, removerTarefaLocal,
     SYNC_MAP, obterPorChave, listarStore, aplicarDoServidor, removerDoServidor,
     novoRat, salvarRat, obterRat, listarRats, definirStatus, removerRat,
     adicionarFoto, listarFotos, removerFoto, marcarFotoEnviada, fotosPendentes, atualizarLegendaFoto,

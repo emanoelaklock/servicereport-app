@@ -291,14 +291,21 @@
       tarefas = cache ? JSON.parse(cache) : []
       if (force) toast('Offline — mostrando tarefas salvas.', 'info')
     }
+    // Mescla tarefas criadas offline (ainda na fila) que ainda não vieram do servidor.
+    let locais = []
+    try { locais = await D().tarefasLocaisPendentes() } catch (e) { /* ignore */ }
+    const idsServer = new Set(tarefas.map(t => t.id))
+    const extras = locais.filter(l => !idsServer.has(l.id)).map(l => Object.assign({}, l, { numero: null, _local: true }))
+    tarefas = extras.concat(tarefas)
     if (!box) return
     if (!tarefas.length) { box.innerHTML = '<p class="dim" style="padding:14px 2px">Nenhuma tarefa atribuída a você.</p>'; return }
     box.innerHTML = tarefas.map(t => {
       const st = T_STATUS[t.status] || { t: t.status || '—', c: '' }
       const ag = t.data_agendada ? 'Agendada ' + fdt(t.data_agendada) : 'Sem data'
+      const noLbl = t._local ? 'Nova · na fila ↑' : ('Nº ' + osNo(t.numero))
       return `<div class="t-card" data-id="${esc(t.id)}">
         <div class="t-card-top"><span class="t-card-cli">${esc(cliNomeDe(t.cliente_id))}</span><span class="t-badge ${st.c}">${esc(st.t)}</span></div>
-        <div class="t-card-meta"><span class="t-card-no">Nº ${osNo(t.numero)}</span><span>${esc(ag)}</span></div>
+        <div class="t-card-meta"><span class="t-card-no">${esc(noLbl)}</span><span>${esc(ag)}</span></div>
       </div>`
     }).join('')
     box.querySelectorAll('.t-card').forEach(el => el.onclick = () => abrirTarefaDet(el.dataset.id))
@@ -309,32 +316,27 @@
     const tipoId = document.getElementById('nt-tipo').value
     if (!cliId) return toast('Selecione o cliente.', 'err')
     if (!tipoId) return toast('Selecione o tipo de serviço.', 'err')
-    if (!navigator.onLine) return toast('Sem conexão — crie a tarefa quando estiver online.', 'err')
     const status = document.getElementById('nt-status').value || 'aguardando_execucao'
     const orientacao = document.getElementById('nt-orientacao').value.trim() || null
     const tecs = [...document.querySelectorAll('#nt-tecs input:checked')].map(c => c.value)
     if (!tecs.includes(tecnico.id)) tecs.push(tecnico.id)   // o próprio técnico sempre incluso
-    const sb = getSupabase()
-    const newId = crypto.randomUUID()
-    const ins = await sb.from('tarefas').insert({
-      id: newId, cliente_id: cliId, status, criado_por: tecnico.id,
-      tipo_servico_id: tipoId, orientacao,
-      data_agendada: document.getElementById('nt-data').value || null,
+    // Offline-first: grava na fila local; o SyncEngine envia (tarefa antes das RATs).
+    const t = await D().salvarTarefaLocal({
+      id: crypto.randomUUID(), cliente_id: cliId, status, tipo_servico_id: tipoId, orientacao,
+      data_agendada: document.getElementById('nt-data').value || null, criado_por: tecnico.id, tecnicos: tecs,
     })
-    if (ins.error) return toast('Erro ao criar tarefa: ' + ins.error.message, 'err')
-    const at = await sb.from('tarefa_tecnicos').insert(tecs.map(tid => ({ tarefa_id: newId, tecnico_id: tid })))
-    if (at.error) return toast('Tarefa criada, mas falha ao atribuir: ' + at.error.message, 'err')
     document.getElementById('modal-nt').classList.remove('open')
-    toast('Tarefa criada.', 'ok')
+    toast(navigator.onLine ? 'Tarefa criada.' : 'Tarefa criada — será enviada quando houver internet.', 'ok')
     await renderTarefas()
-    await abrirTarefaDet(newId)
+    if (window.SyncEngine && navigator.onLine) window.SyncEngine.syncAll()
+    await abrirTarefaDet(t.id)
   }
 
   async function abrirTarefaDet(id) {
     const t = tarefas.find(x => x.id === id); if (!t) return
     tarefaAberta = t
     const st = T_STATUS[t.status] || { t: t.status || '—', c: '' }
-    document.getElementById('t-det-no').textContent = 'Tarefa Nº ' + osNo(t.numero)
+    document.getElementById('t-det-no').textContent = t._local ? 'Nova tarefa (na fila ↑)' : ('Tarefa Nº ' + osNo(t.numero))
     const badge = document.getElementById('t-det-badge'); badge.textContent = st.t; badge.className = 't-det-badge ' + st.c
     document.getElementById('t-det-cli').textContent = cliNomeDe(t.cliente_id)
     document.getElementById('t-det-agenda').textContent = t.data_agendada ? 'Agendada para ' + fdt(t.data_agendada) : 'Sem data agendada'
@@ -509,7 +511,10 @@
   window.onSyncChanged = () => {
     if (screen === 'desloc') renderDesloc()
     else if (screen === 'jornada') renderJornada()
+    else if (screen === 'tarefas') renderTarefas()
   }
+  // Terminou um ciclo de envio (tarefas/RATs subiram) → atualiza a lista de tarefas.
+  window.onSyncDone = () => { if (screen === 'tarefas') renderTarefas() }
   function onVoltar() {
     if (screen === 'form') return cancelar()
     if (screen === 'preorc-form') return cancelarPreorc()

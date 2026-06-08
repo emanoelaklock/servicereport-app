@@ -217,6 +217,23 @@
   }
 
   // Deslocamento (pernoite): upsert do trajeto + técnicos a bordo (idempotente por id).
+  // Tarefa criada pelo técnico offline → insere tarefa + responsáveis. Remove a cópia local ao confirmar.
+  async function enviarTarefaLocal(t) {
+    const sb = getSupabase()
+    const ins = await sb.from('tarefas').upsert({
+      id: t.id, cliente_id: t.cliente_id, status: t.status || 'aguardando_execucao',
+      tipo_servico_id: t.tipo_servico_id || null, orientacao: t.orientacao || null,
+      data_agendada: t.data_agendada || null, criado_por: t.criado_por || null,
+    }, { onConflict: 'id' })
+    if (ins.error) throw ins.error
+    const tecs = t.tecnicos || []
+    if (tecs.length) {
+      const it = await sb.from('tarefa_tecnicos').upsert(tecs.map(tid => ({ tarefa_id: t.id, tecnico_id: tid })), { onConflict: 'tarefa_id,tecnico_id' })
+      if (it.error) throw it.error
+    }
+    await D().removerTarefaLocal(t.id)
+  }
+
   async function enviarDeslocamento(d) {
     const sb = getSupabase()
     const { data: { user } } = await sb.auth.getUser()
@@ -244,6 +261,12 @@
     let ok = 0, fail = 0
     const PEND = [D().STATUS.SALVO_LOCAL, D().STATUS.NA_FILA, D().STATUS.ERRO]
     try {
+      // Tarefas criadas offline primeiro (RAT depende da tarefa via FK).
+      const tlocais = await D().tarefasLocaisPendentes()
+      for (const t of tlocais) {
+        try { await enviarTarefaLocal(t); ok++ }
+        catch (e) { console.warn('[sync] falha tarefa local', t.id, e); fail++ }
+      }
       const todas = await D().listarRats()
       const pend = todas.filter(r => PEND.includes(r.sync_status))
       for (const r of pend) {
@@ -353,5 +376,5 @@
     if (navigator.onLine) { syncAll(); startRealtime() }
   }
 
-  window.SyncEngine = { syncAll, pullChanges, enviarRat, enviarPreorc, enviarSegmento, enviarDeslocamento, start }
+  window.SyncEngine = { syncAll, pullChanges, enviarRat, enviarPreorc, enviarSegmento, enviarDeslocamento, enviarTarefaLocal, start }
 })()
