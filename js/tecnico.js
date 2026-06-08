@@ -512,9 +512,14 @@
     if (screen === 'desloc') renderDesloc()
     else if (screen === 'jornada') renderJornada()
     else if (screen === 'tarefas') renderTarefas()
+    else if (screen === 'lista') renderLista()
+    else if (screen === 'tarefa-det' && tarefaAberta) abrirTarefaDet(tarefaAberta.id)
   }
-  // Terminou um ciclo de envio (tarefas/RATs subiram) → atualiza a lista de tarefas.
-  window.onSyncDone = () => { if (screen === 'tarefas') renderTarefas() }
+  // Terminou um ciclo de envio (tarefas/RATs subiram/sumiram) → atualiza a tela atual.
+  window.onSyncDone = () => {
+    if (screen === 'tarefas') renderTarefas()
+    else if (screen === 'lista') renderLista()
+  }
   function onVoltar() {
     if (screen === 'form') return cancelar()
     if (screen === 'preorc-form') return cancelarPreorc()
