@@ -32,6 +32,10 @@
   }
   const RAT_SIT_LABEL = { em_andamento: 'Em andamento', concluida: 'Concluída', concluida_pendencia: 'Concluída c/ pendência' }
   const ratSit = (s) => RAT_SIT_LABEL[s] || s || '—'
+  // Prioridade de exibição por status da tarefa (menor = aparece primeiro).
+  const STATUS_PRIORIDADE = { em_execucao: 1, devolvida: 2, aguardando_execucao: 3, concluida_pendencia: 4, concluida: 5, aprovada_faturamento: 6, faturada: 7 }
+  const RAT_PARA_TAREFA = { em_andamento: 'em_execucao', concluida: 'concluida', concluida_pendencia: 'concluida_pendencia' }
+  const prioStatus = (s) => (STATUS_PRIORIDADE[s] != null ? STATUS_PRIORIDADE[s] : 50)
   function togglePendencias() {
     const v = document.getElementById('f-status').value
     document.getElementById('f-pendencias-wrap').style.display = (v === 'concluida_pendencia') ? 'block' : 'none'
@@ -232,14 +236,17 @@
       box.innerHTML = '<p class="dim" style="padding:14px 2px">Nenhuma RAT no aparelho. Abra uma tarefa em <b>Minhas Tarefas</b> e toque em <b>“Iniciar RAT”</b>.</p>'
       return
     }
-    box.innerHTML = rats.map(r => `
+    // Status da tarefa-pai (para ordenar por prioridade); cai no status da própria RAT se a tarefa não estiver carregada.
+    const tarStatusDe = (r) => { const t = tarefas.find(x => x.id === r.tarefa_id); return t ? t.status : (RAT_PARA_TAREFA[r.status] || r.status) }
+    const ordenadas = rats.slice().sort((a, b) => prioStatus(tarStatusDe(a)) - prioStatus(tarStatusDe(b)) || (b.criado_em || '').localeCompare(a.criado_em || ''))
+    box.innerHTML = ordenadas.map(r => `
       <div class="rat-card" data-uuid="${esc(r.client_uuid)}">
         <div class="rat-card-top">
           <span class="rat-cli">${esc(r.cliente_nome || 'Sem cliente')}</span>
           <span style="display:flex;align-items:center;gap:8px">${badge(r.sync_status)}<button type="button" class="rat-del" data-del="${esc(r.client_uuid)}" title="Excluir RAT">🗑</button></span>
         </div>
         <div class="rat-meta">
-          <span>${esc(ratSit(r.status || 'em_andamento'))}</span>
+          <span>${r.tarefa_numero != null ? 'Tarefa Nº ' + osNo(r.tarefa_numero) + ' · ' : ''}${esc(ratSit(r.status || 'em_andamento'))}</span>
           <span>${fdt(r.criado_em, { withTime: true })}</span>
         </div>
       </div>`).join('')
@@ -297,6 +304,8 @@
     const idsServer = new Set(tarefas.map(t => t.id))
     const extras = locais.filter(l => !idsServer.has(l.id)).map(l => Object.assign({}, l, { numero: null, _local: true }))
     tarefas = extras.concat(tarefas)
+    // Ordena por prioridade de status (Em execução → Devolvida → Aguardando → …), depois por data.
+    tarefas.sort((a, b) => prioStatus(a.status) - prioStatus(b.status) || (a.data_agendada || '').localeCompare(b.data_agendada || ''))
     if (!box) return
     if (!tarefas.length) { box.innerHTML = '<p class="dim" style="padding:14px 2px">Nenhuma tarefa atribuída a você.</p>'; return }
     box.innerHTML = tarefas.map(t => {
