@@ -1012,16 +1012,15 @@
         <div class="prod-box">
           <div class="prod-search"><span>🔍</span><input id="prod-busca" placeholder="Nome ou Descrição" autocomplete="off"></div>
           <div class="prod-tabs">
-            <button type="button" class="prod-tab on" data-tab="add">Adicionados</button>
-            <button type="button" class="prod-tab" data-tab="comigo">Comigo</button>
-            <button type="button" class="prod-tab" data-tab="estoque">Estoque</button>
+            <button type="button" class="prod-tab" data-tab="add">Adicionados</button>
+            <button type="button" class="prod-tab on" data-tab="comigo">Comigo</button>
           </div>
           <div class="prod-list" id="prod-list"></div>
-          <button type="button" class="btn btn-sm prod-avulso" id="prod-avulso-btn">+ Item avulso</button>
-          <div class="prod-foot"><span>Total</span><b id="prod-total">--</b></div>
+          <button type="button" class="btn btn-sm prod-avulso" id="prod-avulso-btn">+ Item fora dos levados</button>
+          <div class="prod-foot"><span>Total utilizado</span><b id="prod-total">--</b></div>
         </div>`
       setTimeout(() => {
-        prodTab = 'add'
+        prodTab = 'comigo'
         document.getElementById('prod-busca').oninput = () => refreshMateriais()
         wrap.querySelectorAll('.prod-tab').forEach(b => b.onclick = () => {
           prodTab = b.dataset.tab
@@ -1085,17 +1084,7 @@
     })
   }
 
-  // ── Produtos (materiais, origem 'usado') — abas Adicionados / Comigo / Estoque ──
-  // Adiciona um produto do catálogo (estoque) à RAT (utilizada começa em 0).
-  async function adicionarDoEstoque(pid) {
-    const p = (ref.produtos || []).find(x => x.id === pid); if (!p) return
-    const ja = (await D().listarMateriais(cur.client_uuid)).find(m => m.produto_id === pid)
-    if (ja) { prodTab = 'add'; document.querySelectorAll('.prod-tab').forEach(x => x.classList.toggle('on', x.dataset.tab === 'add')); await refreshMateriais(); return toast('Produto já está na lista.', 'info') }
-    await D().adicionarMaterial(cur.client_uuid, { produto_id: pid, codigo_produto: p.codigo || null, descricao: p.descricao || null, unidade: p.unidade || null, quantidade: 0 })
-    prodTab = 'add'
-    document.querySelectorAll('.prod-tab').forEach(x => x.classList.toggle('on', x.dataset.tab === 'add'))
-    await refreshMateriais()
-  }
+  // ── Produtos (materiais, origem 'usado') — abas Comigo (levados) / Adicionados (utilizados) ──
   async function adicionarAvulsoUI() {
     const desc = (document.getElementById('prod-busca').value || '').trim() || prompt('Descrição do item avulso:')
     if (!desc) return
@@ -1141,22 +1130,15 @@
       </div>`
     let lst
     if (prodTab === 'comigo') {
+      // Todos os produtos levados para a tarefa; o técnico lança a quantidade utilizada aqui.
       lst = mats.filter(m => (Number(m.qtd_levada) || 0) > 0 && bate(m.descricao, m.codigo_produto))
       box.innerHTML = lst.length ? lst.map(rowMat).join('') : '<div class="prod-empty">Nenhum produto levado para esta tarefa.</div>'
-    } else if (prodTab === 'estoque') {
-      const naRat = new Set(mats.map(m => m.produto_id).filter(Boolean))
-      lst = (ref.produtos || []).filter(p => bate(p.descricao, p.codigo)).slice(0, 60)
-      box.innerHTML = lst.length ? lst.map(p => `<div class="prod-row">
-          <div class="pr-main"><div class="pr-desc">${esc(p.descricao || '—')}</div>${p.codigo ? `<div class="pr-sub">${esc(p.codigo)}</div>` : ''}</div>
-          <button type="button" class="pr-add" data-add="${esc(p.id)}">${naRat.has(p.id) ? '✓ na lista' : '+ Adicionar'}</button>
-        </div>`).join('') : '<div class="prod-empty">Nada encontrado no catálogo.</div>'
-    } else { // adicionados = não-levados (itens que o técnico incluiu)
-      lst = mats.filter(m => (Number(m.qtd_levada) || 0) <= 0 && bate(m.descricao, m.codigo_produto))
-      box.innerHTML = lst.length ? lst.map(rowMat).join('') : '<div class="prod-empty">Nenhum produto adicionado. Use a aba <b>Estoque</b> ou <b>+ Item avulso</b>.</div>'
+    } else { // adicionados = o que será reportado: usados (qtd>0) + itens fora dos levados (avulsos)
+      lst = mats.filter(m => ((Number(m.quantidade) || 0) > 0 || (Number(m.qtd_levada) || 0) <= 0) && bate(m.descricao, m.codigo_produto))
+      box.innerHTML = lst.length ? lst.map(rowMat).join('') : '<div class="prod-empty">Nada utilizado ainda. Lance a quantidade na aba <b>Comigo</b> ou use <b>+ Item fora dos levados</b>.</div>'
     }
-    box.querySelectorAll('.pr-qtd').forEach(inp => { inp.onchange = async () => { await D().atualizarMaterial(inp.dataset.mid, { quantidade: inp.value }); atualizarTotalProd() } })
+    box.querySelectorAll('.pr-qtd').forEach(inp => { inp.onchange = async () => { await D().atualizarMaterial(inp.dataset.mid, { quantidade: inp.value }); await refreshMateriais() } })
     box.querySelectorAll('.pr-x').forEach(b => { b.onclick = async () => { await D().removerMaterial(b.dataset.mid); await refreshMateriais() } })
-    box.querySelectorAll('[data-add]').forEach(b => { b.onclick = () => adicionarDoEstoque(b.dataset.add) })
     atualizarTotalProd(mats)
   }
   async function atualizarTotalProd(mats) {
