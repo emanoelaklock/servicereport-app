@@ -118,6 +118,16 @@
     document.getElementById('btn-cancelar').onclick = cancelar
     document.getElementById('btn-salvar').onclick = salvar
     document.getElementById('f-gps-btn').onclick = marcarGpsRat
+    // Modal de produtos da RAT
+    document.getElementById('prod-x').onclick = fecharModalProd
+    document.getElementById('prod-ok').onclick = fecharModalProd
+    document.getElementById('prod-avulso-btn').onclick = adicionarAvulsoUI
+    document.getElementById('prod-busca').oninput = () => refreshMateriais()
+    document.querySelectorAll('#modal-prod .prod-tab').forEach(b => b.onclick = () => {
+      prodTab = b.dataset.tab
+      document.querySelectorAll('#modal-prod .prod-tab').forEach(x => x.classList.toggle('on', x === b))
+      refreshMateriais()
+    })
     document.getElementById('f-tipo').onchange = onTipoChange
     document.getElementById('f-status').onchange = togglePendencias
     // Navegação da home
@@ -1010,26 +1020,12 @@
       wrap.innerHTML = `${label}<select data-campo="${esc(c.id)}" data-tipo="veiculo"><option value="">Selecione…</option>${ops}</select>`
     } else if (c.tipo === 'produtos') {
       wrap.innerHTML = `${label}
-        <div class="prod-box">
-          <div class="prod-search"><span>🔍</span><input id="prod-busca" placeholder="Nome ou Descrição" autocomplete="off"></div>
-          <div class="prod-tabs">
-            <button type="button" class="prod-tab" data-tab="add">Adicionados</button>
-            <button type="button" class="prod-tab on" data-tab="comigo">Comigo</button>
-          </div>
-          <div class="prod-list" id="prod-list"></div>
-          <button type="button" class="btn btn-sm prod-avulso" id="prod-avulso-btn">+ Item fora dos levados</button>
-          <div class="prod-foot"><span>Total utilizado</span><b id="prod-total">--</b></div>
-        </div>`
+        <button type="button" class="btn prod-abrir" id="prod-abrir" style="width:100%;justify-content:space-between;align-items:center">
+          <span>🧰 Produtos utilizados</span><span class="dim" id="prod-resumo">—</span>
+        </button>`
       setTimeout(() => {
-        prodTab = 'comigo'
-        document.getElementById('prod-busca').oninput = () => refreshMateriais()
-        wrap.querySelectorAll('.prod-tab').forEach(b => b.onclick = () => {
-          prodTab = b.dataset.tab
-          wrap.querySelectorAll('.prod-tab').forEach(x => x.classList.toggle('on', x === b))
-          refreshMateriais()
-        })
-        document.getElementById('prod-avulso-btn').onclick = adicionarAvulsoUI
-        precarregarLevados().then(refreshMateriais)
+        document.getElementById('prod-abrir').onclick = abrirModalProd
+        precarregarLevados().then(atualizarResumoProd)
       }, 0)
     } else if (c.tipo === 'foto') {
       wrap.innerHTML = `${label}
@@ -1085,7 +1081,23 @@
     })
   }
 
-  // ── Produtos (materiais, origem 'usado') — abas Comigo (levados) / Adicionados (utilizados) ──
+  // ── Produtos (materiais, origem 'usado') — janela separada, abas Comigo / Adicionados ──
+  function abrirModalProd() {
+    if (!cur) return
+    prodTab = 'comigo'
+    document.querySelectorAll('#modal-prod .prod-tab').forEach(x => x.classList.toggle('on', x.dataset.tab === 'comigo'))
+    document.getElementById('prod-busca').value = ''
+    document.getElementById('modal-prod').classList.add('open')
+    refreshMateriais()
+  }
+  function fecharModalProd() { document.getElementById('modal-prod').classList.remove('open'); atualizarResumoProd() }
+  async function atualizarResumoProd() {
+    const el = document.getElementById('prod-resumo'); if (!el || !cur) return
+    const mats = await D().listarMateriais(cur.client_uuid)
+    const usados = mats.filter(m => (Number(m.quantidade) || 0) > 0)
+    const total = usados.reduce((s, m) => s + (Number(m.quantidade) || 0), 0)
+    el.textContent = usados.length ? `${usados.length} item(ns) · ${total.toLocaleString('pt-BR', { maximumFractionDigits: 3 })}` : 'nenhum'
+  }
   async function adicionarAvulsoUI() {
     const desc = (document.getElementById('prod-busca').value || '').trim() || prompt('Descrição do item avulso:')
     if (!desc) return
@@ -1141,6 +1153,7 @@
     box.querySelectorAll('.pr-qtd').forEach(inp => { inp.onchange = async () => { await D().atualizarMaterial(inp.dataset.mid, { quantidade: inp.value }); await refreshMateriais() } })
     box.querySelectorAll('.pr-x').forEach(b => { b.onclick = async () => { await D().removerMaterial(b.dataset.mid); await refreshMateriais() } })
     atualizarTotalProd(mats)
+    atualizarResumoProd()
   }
   async function atualizarTotalProd(mats) {
     const el = document.getElementById('prod-total'); if (!el) return

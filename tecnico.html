@@ -482,6 +482,25 @@
 </div>
 
 <!-- Modal: Nova tarefa (técnico) -->
+<div class="tm-back" id="modal-prod">
+  <div class="tm-box" style="max-width:560px;display:flex;flex-direction:column;max-height:92vh">
+    <div class="tm-h"><span>Produtos</span><button class="tm-x" id="prod-x">✕</button></div>
+    <div class="tm-b" style="flex:1;overflow:auto;min-height:0">
+      <div class="prod-search"><span>🔍</span><input id="prod-busca" placeholder="Nome ou Descrição" autocomplete="off"></div>
+      <div class="prod-tabs">
+        <button type="button" class="prod-tab" data-tab="add">Adicionados</button>
+        <button type="button" class="prod-tab on" data-tab="comigo">Comigo</button>
+      </div>
+      <div class="prod-list" id="prod-list"></div>
+      <button type="button" class="btn btn-sm prod-avulso" id="prod-avulso-btn">+ Item fora dos levados</button>
+    </div>
+    <div class="tm-f" style="justify-content:space-between;align-items:center">
+      <span style="font-weight:800;font-size:14px">Total: <span id="prod-total">--</span></span>
+      <button class="btn btn-p" id="prod-ok">Concluir</button>
+    </div>
+  </div>
+</div>
+
 <div class="tm-back" id="modal-nt">
   <div class="tm-box">
     <div class="tm-h"><span>Nova tarefa</span><button class="tm-x" id="nt-fechar">✕</button></div>
