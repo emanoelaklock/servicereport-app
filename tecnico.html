@@ -126,6 +126,12 @@
   .prod-foot{display:flex;justify-content:space-between;align-items:center;padding:11px 2px 0;border-top:1px solid var(--bd);font-weight:800;font-size:14px;margin-top:6px}
   .prod-empty{text-align:center;color:var(--tx3);font-size:13px;padding:24px 0}
   .prod-avulso{margin-top:8px;width:100%;justify-content:center}
+  /* override da regra genérica .tm-b input (width:100%) dentro do modal de produtos */
+  #modal-prod .prod-search input{width:100%;border:none;background:none;padding:0}
+  #modal-prod .prod-row{display:flex;align-items:center;gap:10px}
+  #modal-prod .prod-row .pr-main{flex:1 1 auto;min-width:0;word-break:break-word}
+  #modal-prod .prod-row input.pr-qtd{flex:0 0 76px;width:76px;box-sizing:border-box;text-align:right;padding:6px 8px;border:1px solid var(--bd);border-radius:7px}
+  #modal-prod .prod-row .pr-add{flex:0 0 auto}
   /* Autocomplete */
   .ac{position:relative}
   .ac input[type=text]{width:100%;padding:9px 11px;border:1px solid var(--bd);border-radius:var(--r);font:inherit;font-size:14px;outline:none}
