@@ -16,6 +16,7 @@
   let ref = { clientes: [], tipos: [], formularios: {}, tecnicos: [], veiculos: [], produtos: [], base: { cidade: '', uf: '' }, status: {} }   // formularios: { [id]: {nome,campos} }
   let tecnico = { id: null, nome: null }
   let cur = null            // RAT em edição: { client_uuid, campos: [], tarefa_id?, tarefa_numero? }
+  let prodTab = 'add'       // aba do seletor de produtos da RAT: add | comigo | estoque
   let sig = null            // controlador do canvas de assinatura
   let curVisivel = {}       // id do campo -> visível? (condicionais)
   const TAREFAS_KEY = 'sr_tarefas_v1'
@@ -1009,25 +1010,25 @@
     } else if (c.tipo === 'produtos') {
       wrap.innerHTML = `${label}
         <div class="prod-box">
-          <div class="prod-add">
-            <div class="ac">
-              <input type="text" id="prod-busca" placeholder="Buscar produto…" autocomplete="off">
-              <input type="hidden" id="prod-sel">
-              <div class="ac-list" id="prod-ac-list"></div>
-            </div>
-            <input type="number" id="prod-qtd" inputmode="decimal" placeholder="Qtd" min="0" step="any">
-            <button type="button" class="btn btn-sm" id="prod-add-btn">+ Add</button>
+          <div class="prod-search"><span>🔍</span><input id="prod-busca" placeholder="Nome ou Descrição" autocomplete="off"></div>
+          <div class="prod-tabs">
+            <button type="button" class="prod-tab on" data-tab="add">Adicionados</button>
+            <button type="button" class="prod-tab" data-tab="comigo">Comigo</button>
+            <button type="button" class="prod-tab" data-tab="estoque">Estoque</button>
           </div>
           <div class="prod-list" id="prod-list"></div>
+          <button type="button" class="btn btn-sm prod-avulso" id="prod-avulso-btn">+ Item avulso</button>
+          <div class="prod-foot"><span>Total</span><b id="prod-total">--</b></div>
         </div>`
       setTimeout(() => {
-        attachAutocomplete(
-          document.getElementById('prod-busca'),
-          document.getElementById('prod-sel'),
-          document.getElementById('prod-ac-list'),
-          ref.produtos || [], p => ({ id: p.id, label: (p.codigo ? p.codigo + ' - ' : '') + (p.descricao || '') })
-        )
-        const b = document.getElementById('prod-add-btn'); if (b) b.onclick = adicionarMaterialUI
+        prodTab = 'add'
+        document.getElementById('prod-busca').oninput = () => refreshMateriais()
+        wrap.querySelectorAll('.prod-tab').forEach(b => b.onclick = () => {
+          prodTab = b.dataset.tab
+          wrap.querySelectorAll('.prod-tab').forEach(x => x.classList.toggle('on', x === b))
+          refreshMateriais()
+        })
+        document.getElementById('prod-avulso-btn').onclick = adicionarAvulsoUI
         precarregarLevados().then(refreshMateriais)
       }, 0)
     } else if (c.tipo === 'foto') {
@@ -1084,21 +1085,24 @@
     })
   }
 
-  // ── Produtos utilizados (materiais, origem 'usado') ──
-  async function adicionarMaterialUI() {
-    const pid = document.getElementById('prod-sel').value
-    const qtdEl = document.getElementById('prod-qtd')
-    const qtd = Number(qtdEl.value)
-    if (!pid) return toast('Selecione um produto.', 'err')
-    if (!qtd || qtd <= 0) return toast('Informe a quantidade.', 'err')
-    const p = (ref.produtos || []).find(x => x.id === pid)
-    await D().adicionarMaterial(cur.client_uuid, {
-      produto_id: pid, codigo_produto: p ? p.codigo : null, descricao: p ? p.descricao : null,
-      unidade: p ? p.unidade : null, quantidade: qtd,
-    })
-    document.getElementById('prod-sel').value = ''
+  // ── Produtos (materiais, origem 'usado') — abas Adicionados / Comigo / Estoque ──
+  // Adiciona um produto do catálogo (estoque) à RAT (utilizada começa em 0).
+  async function adicionarDoEstoque(pid) {
+    const p = (ref.produtos || []).find(x => x.id === pid); if (!p) return
+    const ja = (await D().listarMateriais(cur.client_uuid)).find(m => m.produto_id === pid)
+    if (ja) { prodTab = 'add'; document.querySelectorAll('.prod-tab').forEach(x => x.classList.toggle('on', x.dataset.tab === 'add')); await refreshMateriais(); return toast('Produto já está na lista.', 'info') }
+    await D().adicionarMaterial(cur.client_uuid, { produto_id: pid, codigo_produto: p.codigo || null, descricao: p.descricao || null, unidade: p.unidade || null, quantidade: 0 })
+    prodTab = 'add'
+    document.querySelectorAll('.prod-tab').forEach(x => x.classList.toggle('on', x.dataset.tab === 'add'))
+    await refreshMateriais()
+  }
+  async function adicionarAvulsoUI() {
+    const desc = (document.getElementById('prod-busca').value || '').trim() || prompt('Descrição do item avulso:')
+    if (!desc) return
+    await D().adicionarMaterial(cur.client_uuid, { produto_id: null, codigo_produto: null, descricao: desc, unidade: null, quantidade: 0 })
     document.getElementById('prod-busca').value = ''
-    qtdEl.value = ''
+    prodTab = 'add'
+    document.querySelectorAll('.prod-tab').forEach(x => x.classList.toggle('on', x.dataset.tab === 'add'))
     await refreshMateriais()
   }
   // Traz os produtos LEVADOS da tarefa para a RAT (qtd utilizada = 0), sem o técnico redigitar.
@@ -1122,23 +1126,44 @@
     } catch (e) { /* offline/sem view: técnico adiciona na mão */ }
   }
   async function refreshMateriais() {
-    const box = document.getElementById('prod-list')
-    if (!box) return
+    const box = document.getElementById('prod-list'); if (!box) return
     const mats = await D().listarMateriais(cur.client_uuid)
-    if (!mats.length) { box.innerHTML = '<span class="dim">Nenhum produto. Os levados aparecem aqui para você lançar o utilizado.</span>'; return }
-    box.innerHTML = mats.map(m => {
-      const u = m.unidade ? ' ' + esc(m.unidade) : ''
-      const lev = (m.qtd_levada != null) ? `<span class="dim" style="font-size:11px">Levado: ${m.qtd_levada}${u}</span>` : ''
-      return `<div class="prod-item" style="align-items:center">
-        <span style="flex:1;min-width:0"><div>${esc(m.descricao || m.codigo_produto || '—')}</div>${lev}</span>
-        <label class="dim" style="font-size:11px;display:flex;align-items:center;gap:5px">Utilizada
-          <input type="number" class="prod-util" data-mid="${esc(m.id)}" inputmode="decimal" min="0" step="any" value="${m.quantidade || 0}" style="width:74px;padding:5px 8px;border:1px solid var(--bd);border-radius:7px;font:inherit;text-align:right">
-        </label>
-        <button type="button" class="thumb-x" data-mid="${esc(m.id)}">×</button>
+    const busca = document.getElementById('prod-busca')
+    const q = normStr(busca ? busca.value : '')
+    const bate = (nome, cod) => !q || normStr(nome || '').includes(q) || normStr(cod || '').includes(q)
+    const un = (m) => m.unidade ? ' ' + esc(m.unidade) : ''
+    // linha de material (Adicionados/Comigo): qtd utilizada editável
+    const rowMat = (m) => `<div class="prod-row">
+        <div class="pr-main"><div class="pr-desc">${esc(m.descricao || m.codigo_produto || '—')}</div>
+          ${m.qtd_levada != null ? `<div class="pr-sub">Levado: ${m.qtd_levada}${un(m)}</div>` : (m.codigo_produto ? `<div class="pr-sub">${esc(m.codigo_produto)}</div>` : '')}</div>
+        <input type="number" class="pr-qtd" data-mid="${esc(m.id)}" inputmode="decimal" min="0" step="any" value="${m.quantidade || 0}">
+        <button type="button" class="pr-x" data-mid="${esc(m.id)}">×</button>
       </div>`
-    }).join('')
-    box.querySelectorAll('.prod-util').forEach(inp => { inp.onchange = () => D().atualizarMaterial(inp.dataset.mid, { quantidade: inp.value }) })
-    box.querySelectorAll('.thumb-x[data-mid]').forEach(b => { b.onclick = async () => { await D().removerMaterial(b.dataset.mid); await refreshMateriais() } })
+    let lst
+    if (prodTab === 'comigo') {
+      lst = mats.filter(m => (Number(m.qtd_levada) || 0) > 0 && bate(m.descricao, m.codigo_produto))
+      box.innerHTML = lst.length ? lst.map(rowMat).join('') : '<div class="prod-empty">Nenhum produto levado para esta tarefa.</div>'
+    } else if (prodTab === 'estoque') {
+      const naRat = new Set(mats.map(m => m.produto_id).filter(Boolean))
+      lst = (ref.produtos || []).filter(p => bate(p.descricao, p.codigo)).slice(0, 60)
+      box.innerHTML = lst.length ? lst.map(p => `<div class="prod-row">
+          <div class="pr-main"><div class="pr-desc">${esc(p.descricao || '—')}</div>${p.codigo ? `<div class="pr-sub">${esc(p.codigo)}</div>` : ''}</div>
+          <button type="button" class="pr-add" data-add="${esc(p.id)}">${naRat.has(p.id) ? '✓ na lista' : '+ Adicionar'}</button>
+        </div>`).join('') : '<div class="prod-empty">Nada encontrado no catálogo.</div>'
+    } else { // adicionados = não-levados (itens que o técnico incluiu)
+      lst = mats.filter(m => (Number(m.qtd_levada) || 0) <= 0 && bate(m.descricao, m.codigo_produto))
+      box.innerHTML = lst.length ? lst.map(rowMat).join('') : '<div class="prod-empty">Nenhum produto adicionado. Use a aba <b>Estoque</b> ou <b>+ Item avulso</b>.</div>'
+    }
+    box.querySelectorAll('.pr-qtd').forEach(inp => { inp.onchange = async () => { await D().atualizarMaterial(inp.dataset.mid, { quantidade: inp.value }); atualizarTotalProd() } })
+    box.querySelectorAll('.pr-x').forEach(b => { b.onclick = async () => { await D().removerMaterial(b.dataset.mid); await refreshMateriais() } })
+    box.querySelectorAll('[data-add]').forEach(b => { b.onclick = () => adicionarDoEstoque(b.dataset.add) })
+    atualizarTotalProd(mats)
+  }
+  async function atualizarTotalProd(mats) {
+    const el = document.getElementById('prod-total'); if (!el) return
+    const arr = mats || await D().listarMateriais(cur.client_uuid)
+    const total = arr.reduce((s, m) => s + (Number(m.quantidade) || 0), 0)
+    el.textContent = total ? total.toLocaleString('pt-BR', { maximumFractionDigits: 3 }) : '--'
   }
 
   // ───────────────────── Assinatura (canvas) ─────────────────────
