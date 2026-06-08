@@ -1020,14 +1020,10 @@
       const ops = (ref.veiculos || []).map(v => { const lbl = `${v.modelo || ''} (${v.placa || ''})`; return `<option value="${esc(lbl)}">${esc(lbl)}</option>` }).join('')
       wrap.innerHTML = `${label}<select data-campo="${esc(c.id)}" data-tipo="veiculo"><option value="">Selecione…</option>${ops}</select>`
     } else if (c.tipo === 'produtos') {
-      wrap.innerHTML = `${label}
-        <button type="button" class="btn prod-abrir" id="prod-abrir" style="width:100%;justify-content:space-between;align-items:center">
-          <span>🧰 Produtos utilizados</span><span class="dim" id="prod-resumo">—</span>
-        </button>`
-      setTimeout(() => {
-        document.getElementById('prod-abrir').onclick = abrirModalProd
-        precarregarLevados().then(atualizarResumoProd)
-      }, 0)
+      // Produtos têm o botão próprio no topo do formulário ("🧰 Produtos"); o campo só dispara a pré-carga dos levados.
+      wrap.className = ''
+      wrap.innerHTML = ''
+      setTimeout(() => { precarregarLevados() }, 0)
     } else if (c.tipo === 'foto') {
       wrap.innerHTML = `${label}
         <div class="foto-box">
