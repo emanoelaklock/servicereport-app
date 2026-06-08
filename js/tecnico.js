@@ -119,6 +119,7 @@
     document.getElementById('btn-salvar').onclick = salvar
     document.getElementById('f-gps-btn').onclick = marcarGpsRat
     // Modal de produtos da RAT
+    document.getElementById('form-produtos-btn').onclick = abrirModalProd
     document.getElementById('prod-x').onclick = fecharModalProd
     document.getElementById('prod-ok').onclick = fecharModalProd
     document.getElementById('prod-avulso-btn').onclick = adicionarAvulsoUI
