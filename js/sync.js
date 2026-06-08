@@ -217,22 +217,16 @@
   }
 
   // Deslocamento (pernoite): upsert do trajeto + técnicos a bordo (idempotente por id).
-  // Tarefa criada pelo técnico offline → insere tarefa + responsáveis. Remove a cópia local ao confirmar.
-  // Usa INSERT (não upsert): o técnico só tem policy de INSERT em tarefas; upsert exigiria UPDATE.
-  // Tolera 23505 (duplicado) caso seja um reenvio após falha parcial.
+  // Tarefa criada pelo técnico offline → função SECURITY DEFINER (criado_por = auth.uid()),
+  // que evita as armadilhas de RLS do upsert/insert. Remove a cópia local ao confirmar.
   async function enviarTarefaLocal(t) {
     const sb = getSupabase()
-    const ins = await sb.from('tarefas').insert({
-      id: t.id, cliente_id: t.cliente_id, status: t.status || 'aguardando_execucao',
-      tipo_servico_id: t.tipo_servico_id || null, orientacao: t.orientacao || null,
-      data_agendada: t.data_agendada || null, criado_por: t.criado_por || null,
+    const { error } = await sb.rpc('criar_tarefa_app', {
+      p_id: t.id, p_cliente_id: t.cliente_id, p_status: t.status || 'aguardando_execucao',
+      p_tipo_servico_id: t.tipo_servico_id || null, p_orientacao: t.orientacao || null,
+      p_data_agendada: t.data_agendada || null, p_tecnicos: t.tecnicos || [],
     })
-    if (ins.error && ins.error.code !== '23505') throw ins.error
-    const tecs = t.tecnicos || []
-    if (tecs.length) {
-      const it = await sb.from('tarefa_tecnicos').insert(tecs.map(tid => ({ tarefa_id: t.id, tecnico_id: tid })))
-      if (it.error && it.error.code !== '23505') throw it.error
-    }
+    if (error) throw error
     await D().removerTarefaLocal(t.id)
   }
 
