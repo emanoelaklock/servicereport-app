@@ -242,8 +242,10 @@
       box.innerHTML = '<p class="dim" style="padding:14px 2px">Nenhuma RAT no aparelho. Abra uma tarefa em <b>Minhas Tarefas</b> e toque em <b>“Iniciar RAT”</b>.</p>'
       return
     }
+    if (!tarefas.length) { try { await renderTarefas() } catch (e) { /* segue */ } }   // garante números/status atualizados
     // Status da tarefa-pai (para ordenar por prioridade); cai no status da própria RAT se a tarefa não estiver carregada.
     const tarStatusDe = (r) => { const t = tarefas.find(x => x.id === r.tarefa_id); return t ? t.status : (RAT_PARA_TAREFA[r.status] || r.status) }
+    const tarNumeroDe = (r) => { const t = tarefas.find(x => x.id === r.tarefa_id); return (t && t.numero != null) ? t.numero : r.tarefa_numero }
     const ordenadas = rats.slice().sort((a, b) => prioStatus(tarStatusDe(a)) - prioStatus(tarStatusDe(b)) || (b.criado_em || '').localeCompare(a.criado_em || ''))
     box.innerHTML = ordenadas.map(r => `
       <div class="rat-card" data-uuid="${esc(r.client_uuid)}">
@@ -252,7 +254,7 @@
           <span style="display:flex;align-items:center;gap:8px">${badge(r.sync_status)}<button type="button" class="rat-del" data-del="${esc(r.client_uuid)}" title="Excluir RAT">🗑</button></span>
         </div>
         <div class="rat-meta">
-          <span>${r.tarefa_numero != null ? 'Tarefa Nº ' + osNo(r.tarefa_numero) + ' · ' : ''}<span class="t-badge" style="${stStyle(tarStatusDe(r))}">${esc(ratSit(r.status || 'em_andamento'))}</span></span>
+          <span>${(() => { const n = tarNumeroDe(r); return n != null ? 'Tarefa Nº ' + osNo(n) + ' · ' : '' })()}<span class="t-badge" style="${stStyle(tarStatusDe(r))}">${esc(ratSit(r.status || 'em_andamento'))}</span></span>
           <span>${fdt(r.criado_em, { withTime: true })}</span>
         </div>
       </div>`).join('')
@@ -848,9 +850,10 @@
     // tipo é da Tarefa (não da RAT): busca pelo vínculo da tarefa, só para exibir
     const tarefaDela = tarefas.find(x => x.id === rat.tarefa_id)
     const tipoNomeR = (ref.tipos.find(x => x.id === (tarefaDela ? tarefaDela.tipo_servico_id : null)) || {}).nome
+    const numR = (tarefaDela && tarefaDela.numero != null) ? tarefaDela.numero : rat.tarefa_numero
     if (rat.tarefa_id) {
       banner.style.display = 'block'
-      banner.textContent = `RAT da Tarefa Nº ${osNo(rat.tarefa_numero)} · ${cliNomeDe(rat.cliente_id, rat.cliente_nome)}${tipoNomeR ? ' · ' + tipoNomeR : ''}`
+      banner.textContent = `RAT da Tarefa ${numR != null ? 'Nº ' + osNo(numR) : '(na fila ↑)'} · ${cliNomeDe(rat.cliente_id, rat.cliente_nome)}${tipoNomeR ? ' · ' + tipoNomeR : ''}`
       cb.readOnly = true
     } else { banner.style.display = 'none'; cb.readOnly = false }
     document.getElementById('f-cliente').value = rat.cliente_id || ''
