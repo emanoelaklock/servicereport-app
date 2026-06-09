@@ -225,6 +225,7 @@
 .b-info{background:var(--info-bg);color:var(--info-fg);} .b-info i{background:var(--info-m);}
 .b-warn{background:var(--warn-bg);color:var(--warn-fg);} .b-warn i{background:var(--warn-m);}
 .b-pend{background:var(--pend-bg);color:var(--pend-fg);} .b-pend i{background:var(--pend-m);}
+.b-off{background:#EEF0F4;color:#6B7280;} .b-off i{background:#9AA3B2;}
 .ed.e-info{background:var(--info-m);} .ed.e-done{background:var(--exec-m);} .ed.e-warn{background:var(--warn-m);} .ed.e-pend{background:var(--pend-m);}
 
 /* ---------- TABELA CONCILIAÇÃO (limpa) ---------- */
