@@ -77,6 +77,8 @@
   }
   .fg label{display:block;font-size:12px;font-weight:600;color:var(--tx2);margin-bottom:5px}
   .fg input,.fg textarea,.fg select{width:100%;padding:9px 11px;border:1px solid var(--bd);border-radius:8px;font:inherit;font-size:14px;outline:none;background:#fff}
+  /* Descrição do serviço: começa mais alta e auto-cresce com o texto */
+  #e-servico-desc{min-height:170px;overflow:hidden;resize:none;line-height:1.5}
   .fg input:focus,.fg textarea:focus,.fg select:focus{border-color:var(--ac);box-shadow:0 0 0 3px var(--acl)}
   .ac{position:relative}
   .ac-list{position:absolute;left:0;right:0;top:calc(100% + 4px);z-index:30;background:#fff;border:1px solid #cfd8e6;border-radius:10px;max-height:340px;overflow-y:auto;box-shadow:0 14px 36px rgba(20,30,55,.18);display:none}
@@ -364,6 +366,18 @@
   }
   renderSidebar('orcamentos')
   initAuth()
+
+  // Auto-crescimento da descrição do serviço (adapta a altura ao texto)
+  ;(function(){
+    var svc = document.getElementById('e-servico-desc')
+    if (!svc) return
+    function grow(){ svc.style.height = 'auto'; svc.style.height = Math.max(svc.scrollHeight, 170) + 'px' }
+    svc.addEventListener('input', grow)
+    svc.addEventListener('focus', grow)
+    var ed = document.getElementById('view-editor')
+    if (ed) new MutationObserver(function(){ if (ed.style.display !== 'none') setTimeout(grow, 30) }).observe(ed, { attributes:true, attributeFilter:['style'] })
+    setTimeout(grow, 200)
+  })()
 </script>
 </body>
 </html>
