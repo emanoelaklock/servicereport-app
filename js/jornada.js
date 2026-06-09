@@ -132,11 +132,11 @@ const JornadaApp = (() => {
       : ''
 
     document.getElementById('j-kpis').innerHTML = `
-      <div class="j-kpi"><div class="k">Jornada</div><div class="v">${fmtMin(jornadaMin)}</div></div>
-      <div class="j-kpi"><div class="k">Trabalho</div><div class="v">${fmtMin(porTipo.trabalho)}</div></div>
-      <div class="j-kpi"><div class="k">Pausa</div><div class="v">${fmtMin(porTipo.pausa)}</div></div>
-      <div class="j-kpi"><div class="k">Almoço</div><div class="v">${fmtMin(porTipo.almoco)}</div></div>
-      <div class="j-kpi"><div class="k">Deslocamento</div><div class="v">${fmtMin(porTipo.deslocamento)}</div></div>`
+      <div class="j-kpi jk-blue"><div class="k">Jornada</div><div class="v">${fmtMin(jornadaMin)}</div></div>
+      <div class="j-kpi jk-green"><div class="k">Trabalho</div><div class="v">${fmtMin(porTipo.trabalho)}</div></div>
+      <div class="j-kpi jk-amber"><div class="k">Pausa</div><div class="v">${fmtMin(porTipo.pausa)}</div></div>
+      <div class="j-kpi jk-purple"><div class="k">Almoço</div><div class="v">${fmtMin(porTipo.almoco)}</div></div>
+      <div class="j-kpi jk-orange"><div class="k">Deslocamento</div><div class="v">${fmtMin(porTipo.deslocamento)}</div></div>`
 
     // horas de trabalho por cliente (faturável por hora)
     const porCli = {}
