@@ -341,6 +341,7 @@ const TarefaApp = (() => {
     document.getElementById('cc-obs').value = ''
     document.getElementById('cc-d-hint').textContent = 'Selecione o cliente e salve para criar a tarefa.'
     mostrarPane('dados')
+    renderSituacao()
     mostrar('detalhe')
     history.replaceState(null, '', 'tarefa.html')
     document.getElementById('cc-d-cli-busca').focus()
@@ -382,6 +383,7 @@ const TarefaApp = (() => {
     renderFaturamento(t)
     await Promise.all([carregarLinhas(), carregarEquip(), carregarAnexos(), carregarRats()])
     renderModalidadeCalc()   // RATs já carregadas → horas faturáveis corretas
+    renderSituacao()
     mostrar('detalhe')
     // recalcula a altura só depois do detalhe ficar visível (scrollHeight=0 se oculto)
     autoGrow(document.getElementById('cc-d-orientacao'))
@@ -436,6 +438,7 @@ const TarefaApp = (() => {
     if (t) Object.assign(t, patch)
     document.getElementById('cc-d-hint').textContent = tecIds.length ? '' : 'Atribua um ou mais técnicos e agende para a Tarefa aparecer no app do técnico.'
     if (tecNovos.length && window.notificarPush) notificarPush('tarefa_atribuida', { tecnicos: tecNovos, numero: cur.numero, cliente: cur.cliente_nome })
+    renderSituacao()
     toast('Dados da Tarefa salvos.', 'ok')
   }
 
@@ -498,6 +501,7 @@ const TarefaApp = (() => {
     const { data, error } = await sb().from('tarefa_anexos').select('*').eq('tarefa_id', cur.id).order('criado_em')
     cur.anexos = error ? [] : (data || [])
     renderAnexos()
+    renderSituacao()
   }
   function renderAnexos() {
     const box = document.getElementById('cc-anx-list')
@@ -600,6 +604,7 @@ const TarefaApp = (() => {
     }
     renderStats()
     renderBulk()
+    renderSituacao()
   }
 
   // Seleção múltipla de produtos para exclusão em massa.
@@ -749,6 +754,7 @@ const TarefaApp = (() => {
       .eq('tarefa_id', cur.id).order('data_tarefa', { ascending: true, nullsFirst: true })
     cur.rats = error ? [] : (data || [])
     renderRats()
+    renderSituacao()
   }
   // Mostra as RATs já abertas (expandidas) dentro da aba.
   async function renderRats() {
@@ -944,6 +950,7 @@ const TarefaApp = (() => {
     document.getElementById('cc-fat-vh').value = vh
     document.getElementById('cc-fat-mod-hint').textContent = derivada ? '↳ derivada do cliente — confirme em Salvar' : ''
     renderModalidadeCalc()
+    renderSituacao()
   }
   // Mostra/oculta valor-hora e calcula horas faturáveis (por hora) p/ a tarefa.
   function renderModalidadeCalc() {
@@ -993,6 +1000,53 @@ const TarefaApp = (() => {
     setStatusBadge(novoStatus)
     renderFaturamento({ faturado: false })
     toast('Faturamento desfeito.', 'ok')
+  }
+
+  // ───────────────────── Situação da tarefa (faixa de 6 cards) ─────────────────────
+  const SITU_ICO = {
+    dados: '<svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="m8.5 12 2.5 2.5 4.5-5"/></svg>',
+    rats:  '<svg viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="17" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/></svg>',
+    prod:  '<svg viewBox="0 0 24 24"><path d="M21 16V8l-9-5-9 5v8l9 5 9-5Z"/><path d="m3.3 7 8.7 5 8.7-5M12 22V12"/></svg>',
+    fora:  '<svg viewBox="0 0 24 24"><path d="M12 9v4m0 4h.01M10.3 3.9 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0Z"/></svg>',
+    fat:   '<svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>',
+    anx:   '<svg viewBox="0 0 24 24"><path d="M21 12.5 12.5 21a4 4 0 0 1-6-6l8-8a2.5 2.5 0 0 1 4 3l-8 8"/></svg>',
+  }
+  const situCard = (cls, ico, lbl, st, mini) =>
+    `<div class="scard ${cls}"><div class="ic">${ico}</div>` +
+    `<div class="lbl">${esc(lbl)}${mini ? ` <span class="mini">${esc(mini)}</span>` : ''}</div>` +
+    `<div class="st">${esc(st)}</div></div>`
+
+  function renderSituacao() {
+    const wrap = document.getElementById('cc-situacao-wrap')
+    const box = document.getElementById('cc-situacao')
+    if (!wrap || !box) return
+    if (!cur || !cur.id) { wrap.style.display = 'none'; return }
+    wrap.style.display = ''
+    const t = tarefas.find(x => x.id === cur.id) || {}
+    // Dados: ok quando tem técnico atribuído e data agendada
+    const dadosOk = (tecPorTarefa[cur.id] || []).length > 0 && !!t.data_agendada
+    // RATs
+    const rats = cur.rats || []
+    const ratEmAnd = rats.some(r => r.status === 'em_andamento')
+    // Produtos (conciliação): devoluções e divergências não revisadas; "fora da proposta" à parte
+    let devItens = 0, aRevisar = 0, foraN = 0
+    for (const l of (linhas || [])) {
+      if ((Number(l.qtd_devolvida) || 0) > 0) devItens++
+      if (l.situacao && l.situacao !== 'ok' && !l.revisado) aRevisar++
+      if (l.situacao === 'sem_orcada') foraN++
+    }
+    const prodWarn = aRevisar > 0 || devItens > 0
+    const fat = !!t.faturado
+    const anx = (cur.anexos || []).length
+
+    box.innerHTML = [
+      situCard(dadosOk ? 's-ok' : 's-warn', SITU_ICO.dados, 'Dados da tarefa', dadosOk ? 'Preenchido' : 'Incompleto'),
+      situCard(rats.length ? (ratEmAnd ? 's-warn' : 's-ok') : 's-warn', SITU_ICO.rats, 'RATs', rats.length ? (ratEmAnd ? 'Em andamento' : 'Concluído') : 'Sem RATs'),
+      situCard(prodWarn ? 's-warn' : 's-ok', SITU_ICO.prod, 'Produtos', prodWarn ? 'Pendência' : 'OK', devItens ? `${devItens} a devolver` : ''),
+      situCard(foraN ? 's-pend' : 's-ok', SITU_ICO.fora, 'Fora da proposta', foraN ? `${foraN} ${foraN > 1 ? 'itens' : 'item'}` : 'OK'),
+      situCard(fat ? 's-ok' : 's-warn', SITU_ICO.fat, 'Faturamento', fat ? 'Faturado' : 'Pendente'),
+      situCard('s-ok', SITU_ICO.anx, 'Anexos', anx ? `${anx} ${anx > 1 ? 'arquivos' : 'arquivo'}` : 'Nenhum'),
+    ].join('')
   }
 
   function mostrar(sec) {
