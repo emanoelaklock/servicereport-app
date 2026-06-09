@@ -30,10 +30,11 @@ var ROLE_LABEL = {
   comercial:    'Comercial',
 }
 
-// Resolve a URL da foto do usuário: aceita URL absoluta ou caminho no bucket público 'avatars'.
+// Resolve a foto do usuário: aceita data URI (base64, como o Portal grava em usuarios.foto),
+// URL absoluta, ou caminho relativo no bucket público 'avatars'.
 function avatarUrl(v) {
   if (!v) return ''
-  return /^https?:\/\//i.test(v) ? v : `${SURL}/storage/v1/object/public/avatars/${String(v).replace(/^\/+/, '')}`
+  return /^(https?:|data:)/i.test(v) ? v : `${SURL}/storage/v1/object/public/avatars/${String(v).replace(/^\/+/, '')}`
 }
 
 // Página inicial por papel (roteamento pós-login).
