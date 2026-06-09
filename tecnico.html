@@ -351,7 +351,10 @@
       <div id="view-form" class="tskin" style="display:none">
         <div style="display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:4px">
           <h2 id="form-titulo" style="font-size:17px;font-weight:700;margin:0">Nova RAT</h2>
-          <button type="button" class="btn btn-purple btn-auto" id="form-produtos-btn">Produtos</button>
+          <div style="display:flex;gap:8px">
+            <button type="button" class="btn btn-purple btn-auto" id="form-produtos-btn">Produtos</button>
+            <button type="button" class="btn btn-orange btn-auto" id="form-fotos-btn" style="display:none">Fotos</button>
+          </div>
         </div>
         <div class="info" id="f-tarefa-banner" style="display:none;margin-top:10px"></div>
 
@@ -504,6 +507,19 @@
 </div>
 
 <!-- Modal: Nova tarefa (técnico) -->
+<div class="tm-back tm-fs" id="modal-fotos">
+  <div class="tm-box" style="display:flex;flex-direction:column">
+    <div class="tm-h"><span>Fotos / Evidências</span><button class="tm-x" id="fotos-x">✕</button></div>
+    <div class="tm-b tskin" style="flex:1;overflow:auto;min-height:0">
+      <input type="file" accept="image/*" capture="environment" multiple id="foto-input" style="display:none">
+      <div class="photo" id="btn-foto"><svg viewBox="0 0 24 24"><path d="M3 7h4l2-2h6l2 2h4v12H3z"/><circle cx="12" cy="13" r="3.2"/></svg>Adicionar foto</div>
+      <p class="hintn" id="fotos-hint">Uma foto do antes/depois já conta muito. Sobe rápido mesmo no campo.</p>
+      <div class="thumbs" id="thumbs" style="margin-top:12px"></div>
+    </div>
+    <div class="tm-f" style="justify-content:flex-end"><button class="btn btn-p" id="fotos-ok">Concluir</button></div>
+  </div>
+</div>
+
 <div class="tm-back tm-fs" id="modal-prod">
   <div class="tm-box" style="display:flex;flex-direction:column">
     <div class="tm-h"><span>Produtos</span><button class="tm-x" id="prod-x">✕</button></div>

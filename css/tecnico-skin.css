@@ -53,6 +53,7 @@
 .tskin .btn{display:flex;align-items:center;justify-content:center;gap:8px;width:100%;border:none;font-family:inherit;font-size:15px;font-weight:700;padding:14px;border-radius:var(--r-md);cursor:pointer;letter-spacing:-.2px;}
 .tskin .btn-primary{background:var(--blue);color:#fff;}
 .tskin .btn-purple{background:var(--purple);color:#fff;}
+.tskin .btn-orange{background:var(--orange);color:#fff;}
 .tskin .btn-ghost{background:#fff;color:var(--t-ink);border:1px solid var(--t-line);}
 .tskin .btn-ok-o{background:#fff;color:var(--exec-fg);border:1.5px solid #9AD3B0;}
 .tskin .btn-warn-o{background:#fff;color:var(--warn-fg);border:1.5px solid #EBC777;}

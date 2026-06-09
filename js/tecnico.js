@@ -122,6 +122,11 @@
     document.getElementById('f-gps-btn').onclick = marcarGpsRat
     // Modal de produtos da RAT
     document.getElementById('form-produtos-btn').onclick = abrirModalProd
+    document.getElementById('form-fotos-btn').onclick = abrirModalFotos
+    document.getElementById('fotos-x').onclick = fecharModalFotos
+    document.getElementById('fotos-ok').onclick = fecharModalFotos
+    document.getElementById('btn-foto').onclick = () => document.getElementById('foto-input').click()
+    document.getElementById('foto-input').onchange = (e) => adicionarFotos(e.target.files)
     document.getElementById('prod-x').onclick = fecharModalProd
     document.getElementById('prod-ok').onclick = fecharModalProd
     document.getElementById('prod-avulso-btn').onclick = adicionarAvulsoUI
@@ -947,6 +952,7 @@
   }
   async function carregarFormularioPorId(formId) {
     const cont = document.getElementById('campos-container')
+    const fb = document.getElementById('form-fotos-btn'); if (fb) fb.style.display = 'none'  // só aparece se houver campo de foto
     cur.campos = []
     cur.formulario_id = formId || null
     const form = formId ? ref.formularios[formId] : null
@@ -1060,17 +1066,12 @@
       wrap.innerHTML = ''
       setTimeout(() => { precarregarLevados() }, 0)
     } else if (c.tipo === 'foto') {
-      wrap.innerHTML = `${label}
-        <div class="foto-box">
-          <input type="file" accept="image/*" capture="environment" multiple id="foto-input" style="display:none">
-          <div class="photo" id="btn-foto"><svg viewBox="0 0 24 24"><path d="M3 7h4l2-2h6l2 2h4v12H3z"/><circle cx="12" cy="13" r="3.2"/></svg>Adicionar foto</div>
-          <div class="thumbs" id="thumbs" style="margin-top:10px"></div>
-        </div>`
-      // bind após inserir no DOM
+      // Fotos têm botão próprio no topo ("Fotos") que abre o modal fullscreen; o campo só revela o botão.
+      wrap.className = ''
+      wrap.innerHTML = ''
       setTimeout(() => {
-        const inp = wrap.querySelector('#foto-input')
-        wrap.querySelector('#btn-foto').onclick = () => inp.click()
-        inp.onchange = () => adicionarFotos(inp.files)
+        const b = document.getElementById('form-fotos-btn'); if (b) b.style.display = ''
+        refreshThumbs(); atualizarResumoFotos()
       }, 0)
     } else if (c.tipo === 'assinatura') {
       wrap.innerHTML = `${label}
@@ -1111,6 +1112,14 @@
     box.querySelectorAll('.thumb-leg').forEach(inp => {
       inp.onchange = () => D().atualizarLegendaFoto(inp.dataset.legid, inp.value.trim())
     })
+    atualizarResumoFotos()
+  }
+  function abrirModalFotos() { if (!cur) return; document.getElementById('modal-fotos').classList.add('open'); refreshThumbs() }
+  function fecharModalFotos() { document.getElementById('modal-fotos').classList.remove('open'); atualizarResumoFotos() }
+  async function atualizarResumoFotos() {
+    const b = document.getElementById('form-fotos-btn'); if (!b || !cur) return
+    const n = (await D().listarFotos(cur.client_uuid)).length
+    b.textContent = n ? `Fotos (${n})` : 'Fotos'
   }
 
   // ── Produtos (materiais, origem 'usado') — janela separada, abas Comigo / Adicionados ──
