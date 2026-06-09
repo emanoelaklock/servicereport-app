@@ -55,6 +55,8 @@
 .tskin .btn-ghost{background:#fff;color:var(--t-ink);border:1px solid var(--t-line);}
 .tskin .btn-ok-o{background:#fff;color:var(--exec-fg);border:1.5px solid #9AD3B0;}
 .tskin .btn-warn-o{background:#fff;color:var(--warn-fg);border:1.5px solid #EBC777;}
+.tskin .btn-ok{background:var(--green);color:#fff;}
+.tskin .btn-warn{background:var(--warn-m);color:#3d2c00;}
 .tskin .btn-row{display:flex;gap:10px;margin-top:10px;}
 .tskin .btn-row .btn{font-size:14px;padding:13px;}
 
