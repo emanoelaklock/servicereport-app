@@ -149,6 +149,7 @@ const TarefaApp = (() => {
     document.querySelectorAll('#cc-tabs .cc-tab').forEach(b => b.onclick = () => mostrarPane(b.dataset.pane))
     // RATs
     document.getElementById('cc-rat-pdf').onclick = pdfUnificado
+    document.getElementById('cc-export').onclick = exportarTarefa
     document.getElementById('rat-x').onclick = () => fecharModal('modal-rat')
     document.getElementById('rat-fechar').onclick = () => fecharModal('modal-rat')
     document.getElementById('rat-editar').onclick = ratEntrarEdicao
@@ -834,6 +835,41 @@ const TarefaApp = (() => {
     const dets = []
     for (const r of rats) dets.push(await RatView.loadDetalhe(r))
     RatView.gerarPdf(dets, `RATs Tarefa ${osNo(cur.numero)}`)
+  }
+  // Exporta a Tarefa em PDF: capa (dados + produtos) + todas as RATs.
+  async function exportarTarefa() {
+    if (!cur || !cur.id) return
+    const t = tarefas.find(x => x.id === cur.id) || {}
+    const tipoNome = (ref.tipos.find(p => p.id === t.tipo_servico_id) || {}).nome || '—'
+    const q = (n) => { const v = Number(n) || 0; return v ? v.toLocaleString('pt-BR', { maximumFractionDigits: 3 }) : '—' }
+    const linhasHtml = (linhas || []).map(l => `<tr>
+        <td style="padding:5px 6px;border-bottom:1px solid #eee">${esc(l.descricao || l.codigo_produto || '—')}</td>
+        <td style="text-align:right;padding:5px 6px;border-bottom:1px solid #eee">${q(l.qtd_orcada)}</td>
+        <td style="text-align:right;padding:5px 6px;border-bottom:1px solid #eee">${q(l.qtd_levada)}</td>
+        <td style="text-align:right;padding:5px 6px;border-bottom:1px solid #eee">${q(l.qtd_utilizada)}</td>
+        <td style="text-align:right;padding:5px 6px;border-bottom:1px solid #eee">${q(Math.max(0, Number(l.qtd_devolvida) || 0))}</td>
+      </tr>`).join('')
+    const capa = `
+      <div class="rd-head"><div class="rd-cli">${esc(cur.cliente_nome || '—')}</div>
+        <div class="rd-sub">Tarefa Nº ${osNo(cur.numero)} · ${esc(statusLabel(cur.status))}</div></div>
+      <div class="rd-sec"><div class="rd-sec-t">Dados da Tarefa</div><div class="rd-grid">
+        <div class="rd-f"><label>Tipo de tarefa</label><div class="v">${esc(tipoNome)}</div></div>
+        <div class="rd-f"><label>Data agendada</label><div class="v">${dmy(t.data_agendada)}</div></div>
+        ${t.pedido_compra ? `<div class="rd-f"><label>PC</label><div class="v">${esc(t.pedido_compra)}</div></div>` : ''}
+        ${t.orientacao ? `<div class="rd-f" style="grid-column:1/-1"><label>Orientação</label><div class="v">${esc(t.orientacao)}</div></div>` : ''}
+      </div></div>
+      ${linhasHtml ? `<div class="rd-sec"><div class="rd-sec-t">Produtos (conciliação)</div>
+        <table style="width:100%;border-collapse:collapse;font-size:12px;margin-top:4px">
+          <thead><tr>
+            <th style="text-align:left;padding:5px 6px;border-bottom:2px solid #ddd">Produto</th>
+            <th style="text-align:right;padding:5px 6px;border-bottom:2px solid #ddd">Orçada</th>
+            <th style="text-align:right;padding:5px 6px;border-bottom:2px solid #ddd">Levada</th>
+            <th style="text-align:right;padding:5px 6px;border-bottom:2px solid #ddd">Utilizada</th>
+            <th style="text-align:right;padding:5px 6px;border-bottom:2px solid #ddd">Devolvida</th>
+          </tr></thead><tbody>${linhasHtml}</tbody></table></div>` : ''}`
+    const dets = []
+    for (const r of (cur.rats || [])) dets.push(await RatView.loadDetalhe(r))
+    RatView.gerarPdf(dets, `Tarefa ${osNo(cur.numero)}`, capa)
   }
 
   // Nova tarefa a partir da pendência da TAREFA (botão na aba Dados quando concluída c/ pendência).

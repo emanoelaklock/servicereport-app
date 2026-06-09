@@ -256,7 +256,7 @@ window.RatView = (function () {
 
   // PDF: 1 ou várias RATs no mesmo documento (para envio manual ao cliente).
   // Abre a janela já (gesto do usuário), comprime as imagens e então escreve o doc.
-  async function gerarPdf(dets, titulo) {
+  async function gerarPdf(dets, titulo, capaHTML) {
     const win = window.open('', '_blank')
     if (!win) { try { toast('Permita pop-ups para gerar o PDF.', 'err') } catch (e) {} return }
     try { win.document.write('<!doctype html><meta charset="utf-8"><body style="font-family:Inter,Arial,sans-serif;color:#1B2A4A;padding:28px">Gerando PDF…</body>') } catch (e) {}
@@ -270,7 +270,8 @@ window.RatView = (function () {
       pdets.push(Object.assign({}, d, { fotos, sigUrl }))
     }
 
-    const bodies = pdets.map(d => buildReportBody(d, false)).join('')
+    const capa = capaHTML ? `<div class="rd">${capaHTML}</div>` : ''
+    const bodies = capa + pdets.map(d => buildReportBody(d, false)).join('')
     const HEADER = `<div class="pdf-top"><div class="pdf-brand">TRADERS SERVICE</div><div class="pdf-doc">Relatório de Atendimento Técnico</div></div>`
     const HEADERC = `<div class="pdf-topc"><span>TRADERS SERVICE</span><span>Relatório de Atendimento Técnico</span></div>`
     const FOOTER = `<div class="pdf-foot"><span>Documento gerado pela plataforma Service Report.</span><span class="pg"></span></div>`
