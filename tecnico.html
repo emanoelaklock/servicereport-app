@@ -17,6 +17,7 @@
 <script src="js/auth.js"></script>
 <script src="js/db-local.js"></script>
 <script src="js/sync.js"></script>
+<script src="js/push.js"></script>
 <script src="js/tecnico.js"></script>
 <style>
   body{display:block;background:var(--bg)}
@@ -716,6 +717,7 @@
     await TecnicoApp.init()
     document.getElementById('btn-sync').onclick = () => SyncEngine.syncAll()
     SyncEngine.start()
+    if (window.ativarPush) ativarPush()
   }
 
   initAuth()

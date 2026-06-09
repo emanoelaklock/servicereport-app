@@ -412,6 +412,7 @@ const TarefaApp = (() => {
         if (insT.error) toast('Tarefa criada, mas falhou ao atribuir técnicos: ' + insT.error.message, 'err')
       }
       toast(`Tarefa Nº ${osNo(ins.data.numero)} criada.`, 'ok')
+      if (tecIdsN.length && window.notificarPush) notificarPush('tarefa_atribuida', { tecnicos: tecIdsN, numero: ins.data.numero, cliente: cliNomes[cliId] || '' })
       await carregarTarefas()
       return abrirTarefa(ins.data.id, 'dados')
     }
@@ -421,6 +422,8 @@ const TarefaApp = (() => {
     setStatusBadge(cur.status)
     // sincroniza técnicos (N:N): substitui o conjunto
     const tecIds = getTecnicosChecked()
+    const tecAntes = tecPorTarefa[cur.id] || []
+    const tecNovos = tecIds.filter(id => !tecAntes.includes(id))   // só notifica os recém-atribuídos
     const del = await sb().from('tarefa_tecnicos').delete().eq('tarefa_id', cur.id)
     if (del.error) return toast('Erro ao salvar técnicos: ' + del.error.message, 'err')
     if (tecIds.length) {
@@ -432,6 +435,7 @@ const TarefaApp = (() => {
     const t = tarefas.find(x => x.id === cur.id)
     if (t) Object.assign(t, patch)
     document.getElementById('cc-d-hint').textContent = tecIds.length ? '' : 'Atribua um ou mais técnicos e agende para a Tarefa aparecer no app do técnico.'
+    if (tecNovos.length && window.notificarPush) notificarPush('tarefa_atribuida', { tecnicos: tecNovos, numero: cur.numero, cliente: cur.cliente_nome })
     toast('Dados da Tarefa salvos.', 'ok')
   }
 

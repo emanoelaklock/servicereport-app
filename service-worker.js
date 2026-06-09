@@ -9,7 +9,7 @@
    não do cache do SW.
 ═══════════════════════════════════════════════ */
 
-const CACHE = 'sr-shell-v226'
+const CACHE = 'sr-shell-v227'
 
 const SHELL = [
   'index.html',
@@ -31,6 +31,7 @@ const SHELL = [
   'js/db-local.js',
   'js/tecnico.js',
   'js/sync.js',
+  'js/push.js',
   'js/painel.js',
   'js/rat-view.js',
   'js/rat-page.js',
@@ -58,6 +59,23 @@ self.addEventListener('install', (event) => {
 // A página pede a troca imediata do SW novo (botão "Atualizar").
 self.addEventListener('message', (event) => {
   if (event.data && event.data.type === 'SKIP_WAITING') self.skipWaiting()
+})
+
+// ─────────── Notificações push ───────────
+self.addEventListener('push', (event) => {
+  let d = {}
+  try { d = event.data ? event.data.json() : {} } catch (e) { d = { title: 'Service Report', body: event.data && event.data.text() } }
+  event.waitUntil(self.registration.showNotification(d.title || 'Service Report', {
+    body: d.body || '', data: { url: d.url || '/' }, icon: 'assets/icon.svg', badge: 'assets/icon.svg', vibrate: [80, 40, 80],
+  }))
+})
+self.addEventListener('notificationclick', (event) => {
+  event.notification.close()
+  const url = (event.notification.data && event.notification.data.url) || '/'
+  event.waitUntil(self.clients.matchAll({ type: 'window', includeUncontrolled: true }).then((wins) => {
+    for (const w of wins) { if ('focus' in w) { try { w.navigate && w.navigate(url) } catch (e) {} return w.focus() } }
+    return self.clients.openWindow(url)
+  }))
 })
 
 self.addEventListener('activate', (event) => {

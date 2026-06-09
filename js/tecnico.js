@@ -375,6 +375,7 @@
     toast(navigator.onLine ? 'Tarefa criada.' : 'Tarefa criada — será enviada quando houver internet.', 'ok')
     await renderTarefas()
     if (window.SyncEngine && navigator.onLine) window.SyncEngine.syncAll()
+    if (navigator.onLine && window.notificarPush && tecs.some(id => id !== tecnico.id)) notificarPush('tarefa_atribuida', { tecnicos: tecs, cliente: cliNomeDe(cliId) })
     await abrirTarefaDet(t.id)
   }
 
@@ -1388,6 +1389,10 @@
     })
     await D().definirStatus(cur.client_uuid, D().STATUS.SALVO_LOCAL, 'salvo pelo técnico')
     toast('RAT salva no aparelho.', 'ok')
+    // Notifica admin/gestor quando a RAT é concluída (push), se online.
+    if (!emExecucao && navigator.onLine && window.notificarPush) {
+      notificarPush('rat_concluida', { numero: cur.tarefa_numero, cliente: cli?.nome, tarefa_id: cur.tarefa_id })
+    }
     cur = null; sig = null
     mostrar('lista')
     await renderLista()
