@@ -101,7 +101,6 @@
     <div class="content">
 
       <div class="cfg-tabs">
-        <button class="cfg-tab" data-sec="usuarios" id="tab-usuarios" style="display:none">Usuários</button>
         <button class="cfg-tab on" data-sec="formularios">Formulários</button>
         <button class="cfg-tab" data-sec="tipos">Tipos de Serviço</button>
         <button class="cfg-tab" data-sec="veiculos">Veículos</button>
@@ -109,18 +108,6 @@
         <button class="cfg-tab" data-sec="clientes">Empresas</button>
         <button class="cfg-tab" data-sec="produtos">Produtos</button>
         <button class="cfg-tab" data-sec="omie">Omie</button>
-      </div>
-
-      <!-- Usuários (admin) -->
-      <div class="cfg-card cfg-section" id="card-usuarios" style="display:none">
-        <div class="cfg-head">
-          <h2>Usuários</h2>
-          <button class="btn btn-p" id="btn-novo-user">+ Novo usuário</button>
-        </div>
-        <div class="tcard"><div class="twrap"><table>
-          <thead><tr><th>Nome</th><th>E-mail</th><th>Papel</th><th>Status</th><th>Ações</th></tr></thead>
-          <tbody id="tbody-user"><tr><td colspan="5" class="dim" style="text-align:center;padding:20px">Carregando…</td></tr></tbody>
-        </table></div></div>
       </div>
 
       <!-- Formulários -->
@@ -319,26 +306,6 @@
       <button class="btn" id="cs-excluir" style="color:var(--re,#B42318);border-color:#F3C6C0;margin-right:auto">Excluir</button>
       <button class="btn" onclick="ConfigApp.fechar('modal-status')">Cancelar</button>
       <button class="btn btn-p" onclick="ConfigApp.salvarStatus()">Salvar</button>
-    </div>
-  </div>
-</div>
-
-<!-- Modal: Usuário -->
-<div class="mback" id="modal-user">
-  <div class="modal">
-    <div class="mh"><span class="mt" id="user-titulo">Novo usuário</span><button class="mx" onclick="ConfigApp.fechar('modal-user')">✕</button></div>
-    <div class="mb">
-      <div class="fg"><label>E-mail</label><input type="email" id="cu-email" placeholder="nome@tsrv.com.br"></div>
-      <div class="fg"><label>Nome</label><input type="text" id="cu-nome" placeholder="Nome completo"></div>
-      <div class="fg"><label>Cargo</label><input type="text" id="cu-cargo" placeholder="Ex.: Técnico de Campo, Coordenador, Analista…"></div>
-      <div class="fg"><label>Papel (permissão no sistema)</label><select id="cu-role"></select></div>
-      <label class="cb-obrig-l"><input type="checkbox" id="cu-ativo" checked> Ativo</label>
-      <div class="fg"><label id="cu-senha-label">Senha</label><input type="text" id="cu-senha" placeholder="senha"></div>
-    </div>
-    <div class="mf">
-      <button class="btn" id="btn-excluir-user" style="display:none;margin-right:auto;color:var(--re);border-color:var(--re)" onclick="ConfigApp.excluirUsuario()">Excluir</button>
-      <button class="btn" onclick="ConfigApp.fechar('modal-user')">Cancelar</button>
-      <button class="btn btn-p" onclick="ConfigApp.salvarUsuario()">Salvar</button>
     </div>
   </div>
 </div>
