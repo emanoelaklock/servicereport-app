@@ -41,6 +41,8 @@
   const stLabel = (s) => (ref.status && ref.status[s] && ref.status[s].label) || (T_STATUS[s] && T_STATUS[s].t) || s || '—'
   const stCor = (s) => (ref.status && ref.status[s] && ref.status[s].cor) || '#48506A'
   const stStyle = (s) => `background:${stCor(s)}1A;color:${stCor(s)};border:none`
+  // Mapeia status do sistema → variante visual do skin (info/done/warn/pend/aguard).
+  const SKIN_STATUS = { em_execucao: 'info', aguardando_execucao: 'aguard', concluida: 'done', concluida_pendencia: 'warn', devolvida: 'pend', aprovada_faturamento: 'done', faturada: 'done' }
   function togglePendencias() {
     const v = document.getElementById('f-status').value
     document.getElementById('f-pendencias-wrap').style.display = (v === 'concluida_pendencia') ? 'block' : 'none'
@@ -338,13 +340,17 @@
     if (!tarefas.length) { box.innerHTML = '<p class="dim" style="padding:14px 2px">Nenhuma tarefa atribuída a você.</p>'; return }
     box.innerHTML = tarefas.map(t => {
       const ag = t.data_agendada ? 'Agendada ' + fdt(t.data_agendada) : 'Sem data'
-      const noLbl = t._local ? 'Nova · na fila ↑' : ('Nº ' + osNo(t.numero))
-      return `<div class="t-card" data-id="${esc(t.id)}">
-        <div class="t-card-top"><span class="t-card-cli">${esc(cliNomeDe(t.cliente_id))}</span><span class="t-badge" style="${stStyle(t.status)}">${esc(stLabel(t.status))}</span></div>
-        <div class="t-card-meta"><span class="t-card-no">${esc(noLbl)}</span><span>${esc(ag)}</span></div>
+      const metaNo = t._local ? '<b>Nova</b> · na fila ↑' : ('Nº <b>' + osNo(t.numero) + '</b>')
+      const sk = SKIN_STATUS[t.status]
+      const lc = sk === 'info' ? 'lc-info' : sk === 'done' ? 'lc-done' : sk === 'warn' ? 'lc-warn' : ''
+      const edge = sk ? `<span class="edge e-${sk}"></span>` : `<span class="edge" style="background:${stCor(t.status)}"></span>`
+      const badge = sk ? `<span class="badge b-${sk}">${esc(stLabel(t.status))}</span>` : `<span class="badge" style="${stStyle(t.status)}">${esc(stLabel(t.status))}</span>`
+      return `<div class="listcard ${lc}" data-id="${esc(t.id)}">${edge}
+        <div class="t"><span class="cli">${esc(cliNomeDe(t.cliente_id))}</span>${badge}</div>
+        <div class="meta">${metaNo} · ${esc(ag)}</div>
       </div>`
     }).join('')
-    box.querySelectorAll('.t-card').forEach(el => el.onclick = () => abrirTarefaDet(el.dataset.id))
+    box.querySelectorAll('.listcard').forEach(el => el.onclick = () => abrirTarefaDet(el.dataset.id))
   }
 
   async function criarTarefaTecnico() {

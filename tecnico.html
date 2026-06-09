@@ -298,15 +298,12 @@
       </div>
 
       <!-- TAREFAS (atribuídas) -->
-      <div id="view-tarefas" style="display:none">
-        <div class="lista-head">
-          <h2>Minhas Tarefas</h2>
-          <div style="display:flex;gap:8px">
-            <button class="btn" id="btn-tarefas-sync" title="Atualizar">↻ Atualizar</button>
-            <button class="btn btn-p" id="btn-nova-tarefa">+ Nova tarefa</button>
-          </div>
+      <div id="view-tarefas" class="tskin" style="display:none">
+        <div class="btn-row" style="margin-top:0">
+          <button class="btn btn-ghost" id="btn-tarefas-sync" title="Atualizar">↻ Atualizar</button>
+          <button class="btn btn-primary" id="btn-nova-tarefa">+ Nova tarefa</button>
         </div>
-        <div id="lista-tarefas"></div>
+        <div id="lista-tarefas" style="margin-top:14px"></div>
       </div>
 
       <!-- TAREFA (detalhe) -->
