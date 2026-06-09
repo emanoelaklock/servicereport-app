@@ -123,6 +123,7 @@
     // Modal de produtos da RAT
     document.getElementById('form-produtos-btn').onclick = abrirModalProd
     document.getElementById('form-fotos-btn').onclick = abrirModalFotos
+    document.getElementById('form-desloc-btn').onclick = abrirDesloc
     document.getElementById('fotos-x').onclick = fecharModalFotos
     document.getElementById('fotos-ok').onclick = fecharModalFotos
     document.getElementById('btn-foto').onclick = () => document.getElementById('foto-input').click()

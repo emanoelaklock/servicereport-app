@@ -359,9 +359,10 @@
       <div id="view-form" class="tskin" style="display:none">
         <div style="display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:4px">
           <h2 id="form-titulo" style="font-size:17px;font-weight:700;margin:0">Nova RAT</h2>
-          <div style="display:flex;gap:8px">
-            <button type="button" class="btn btn-purple btn-auto" id="form-produtos-btn">Produtos</button>
-            <button type="button" class="btn btn-orange btn-auto" id="form-fotos-btn" style="display:none">Fotos</button>
+          <div style="display:flex;gap:8px;flex-wrap:wrap;justify-content:flex-end">
+            <button type="button" class="btn btn-red btn-auto" id="form-produtos-btn">Produtos</button>
+            <button type="button" class="btn btn-purple btn-auto" id="form-fotos-btn" style="display:none">Fotos</button>
+            <button type="button" class="btn btn-orange btn-auto" id="form-desloc-btn">Deslocamento</button>
           </div>
         </div>
         <div class="info" id="f-tarefa-banner" style="display:none;margin-top:10px"></div>
@@ -612,10 +613,10 @@
 </div>
 
 <!-- Deslocamento: novo trajeto -->
-<div class="tm-back" id="modal-desloc">
-  <div class="tm-box">
-    <div class="tm-h"><span>Novo trajeto</span><button class="tm-x" id="dl-x">✕</button></div>
-    <div class="tm-b">
+<div class="tm-back tm-fs" id="modal-desloc">
+  <div class="tm-box" style="display:flex;flex-direction:column">
+    <div class="tm-h"><span>Deslocamento — novo trajeto</span><button class="tm-x" id="dl-x">✕</button></div>
+    <div class="tm-b" style="flex:1;overflow:auto;min-height:0">
       <label>Sentido</label>
       <div class="seg-tipos" id="dl-sentido">
         <button type="button" class="seg-tipo on" data-sent="ida">➡️ Ida</button>
