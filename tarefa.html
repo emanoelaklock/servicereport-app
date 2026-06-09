@@ -35,6 +35,8 @@
   .cc-list td{padding:10px;border-bottom:1px solid var(--bd);color:var(--tx)}
   .cc-list tr.row-click{cursor:pointer}
   .cc-list tr.row-click:hover td{background:var(--sur2)}
+  /* abas (design system): indicador vazio não ocupa espaço */
+  #cc-tabs .tab .tind:empty{display:none}
   /* lista dentro do card .listpanel (design system) */
   .listpanel .cc-list thead th{background:#FAFBFD;padding-top:14px;padding-bottom:14px}
   .listpanel .cc-list th:first-child,.listpanel .cc-list td:first-child{padding-left:20px}
@@ -337,13 +339,13 @@
           <div class="situacao" id="cc-situacao"></div>
         </div>
 
-        <div class="cc-tabs" id="cc-tabs">
-          <button class="cc-tab on" data-pane="dados">Dados da Tarefa</button>
-          <button class="cc-tab" data-pane="rats">RATs</button>
-          <button class="cc-tab" data-pane="material">Produtos</button>
-          <button class="cc-tab" data-pane="fat">Faturamento</button>
-          <button class="cc-tab" data-pane="equip">Equipamentos</button>
-          <button class="cc-tab" data-pane="anexos">Anexos</button>
+        <div class="tabs" id="cc-tabs">
+          <span class="tab on" data-pane="dados"><svg viewBox="0 0 24 24"><path d="M4 5h16M4 12h16M4 19h10"/></svg>Dados da Tarefa<span class="tind"></span></span>
+          <span class="tab" data-pane="rats"><svg viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="17" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/></svg>RATs<span class="tind"></span></span>
+          <span class="tab" data-pane="material"><svg viewBox="0 0 24 24"><path d="M21 16V8l-9-5-9 5v8l9 5 9-5Z"/></svg>Produtos<span class="tind"></span></span>
+          <span class="tab" data-pane="fat"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>Faturamento<span class="tind"></span></span>
+          <span class="tab" data-pane="equip"><svg viewBox="0 0 24 24"><rect x="4" y="4" width="16" height="16" rx="2"/><path d="M9 9h6v6H9z"/></svg>Equipamentos<span class="tind"></span></span>
+          <span class="tab" data-pane="anexos"><svg viewBox="0 0 24 24"><path d="M21 12.5 12.5 21a4 4 0 0 1-6-6l8-8a2.5 2.5 0 0 1 4 3l-8 8"/></svg>Anexos<span class="tind"></span></span>
         </div>
 
         <div class="cc-card cc-pane on" data-pane="dados">

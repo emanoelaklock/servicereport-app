@@ -194,7 +194,7 @@ const TarefaApp = (() => {
     document.getElementById('cc-d-orientacao').oninput = (e) => autoGrow(e.target)
     document.getElementById('cc-d-obs').oninput = (e) => autoGrow(e.target)
     // Abas do detalhe
-    document.querySelectorAll('#cc-tabs .cc-tab').forEach(b => b.onclick = () => mostrarPane(b.dataset.pane))
+    document.querySelectorAll('#cc-tabs .tab').forEach(b => b.onclick = () => mostrarPane(b.dataset.pane))
     // RATs
     document.getElementById('cc-rat-pdf').onclick = pdfUnificado
     document.getElementById('cc-export').onclick = exportarTarefa
@@ -1067,37 +1067,61 @@ const TarefaApp = (() => {
     `<div class="lbl">${esc(lbl)}${mini ? ` <span class="mini">${esc(mini)}</span>` : ''}</div>` +
     `<div class="st">${esc(st)}</div></div>`
 
-  function renderSituacao() {
-    const wrap = document.getElementById('cc-situacao-wrap')
-    const box = document.getElementById('cc-situacao')
-    if (!wrap || !box) return
-    if (!cur || !cur.id) { wrap.style.display = 'none'; return }
-    wrap.style.display = ''
-    const t = tarefas.find(x => x.id === cur.id) || {}
-    // Dados: ok quando tem técnico atribuído e data agendada
-    const dadosOk = (tecPorTarefa[cur.id] || []).length > 0 && !!t.data_agendada
-    // RATs
-    const rats = cur.rats || []
+  // Estado consolidado da tarefa aberta (usado pela faixa Situação e pelas abas).
+  function estadoTarefa() {
+    const t = tarefas.find(x => x.id === (cur && cur.id)) || {}
+    const dadosOk = !!(cur && cur.id) && (tecPorTarefa[cur.id] || []).length > 0 && !!t.data_agendada
+    const rats = (cur && cur.rats) || []
     const ratEmAnd = rats.some(r => r.status === 'em_andamento')
-    // Produtos (conciliação): devoluções e divergências não revisadas; "fora da proposta" à parte
     let devItens = 0, aRevisar = 0, foraN = 0
     for (const l of (linhas || [])) {
       if ((Number(l.qtd_devolvida) || 0) > 0) devItens++
       if (l.situacao && l.situacao !== 'ok' && !l.revisado) aRevisar++
       if (l.situacao === 'sem_orcada') foraN++
     }
-    const prodWarn = aRevisar > 0 || devItens > 0
-    const fat = !!t.faturado
-    const anx = (cur.anexos || []).length
+    return {
+      t, dadosOk, ratsLen: rats.length, ratEmAnd,
+      prodLen: (linhas || []).length, devItens, aRevisar, foraN,
+      prodWarn: aRevisar > 0 || devItens > 0,
+      fat: !!t.faturado, anx: ((cur && cur.anexos) || []).length, equipLen: ((cur && cur.equip) || []).length,
+    }
+  }
 
+  function renderSituacao() {
+    const wrap = document.getElementById('cc-situacao-wrap')
+    const box = document.getElementById('cc-situacao')
+    if (!wrap || !box) return
+    if (!cur || !cur.id) { wrap.style.display = 'none'; renderTabs(); return }
+    wrap.style.display = ''
+    const e = estadoTarefa()
     box.innerHTML = [
-      situCard(dadosOk ? 's-ok' : 's-warn', SITU_ICO.dados, 'Dados da tarefa', dadosOk ? 'Preenchido' : 'Incompleto'),
-      situCard(rats.length ? (ratEmAnd ? 's-warn' : 's-ok') : 's-warn', SITU_ICO.rats, 'RATs', rats.length ? (ratEmAnd ? 'Em andamento' : 'Concluído') : 'Sem RATs'),
-      situCard(prodWarn ? 's-warn' : 's-ok', SITU_ICO.prod, 'Produtos', prodWarn ? 'Pendência' : 'OK', devItens ? `${devItens} a devolver` : ''),
-      situCard(foraN ? 's-pend' : 's-ok', SITU_ICO.fora, 'Fora da proposta', foraN ? `${foraN} ${foraN > 1 ? 'itens' : 'item'}` : 'OK'),
-      situCard(fat ? 's-ok' : 's-warn', SITU_ICO.fat, 'Faturamento', fat ? 'Faturado' : 'Pendente'),
-      situCard('s-ok', SITU_ICO.anx, 'Anexos', anx ? `${anx} ${anx > 1 ? 'arquivos' : 'arquivo'}` : 'Nenhum'),
+      situCard(e.dadosOk ? 's-ok' : 's-warn', SITU_ICO.dados, 'Dados da tarefa', e.dadosOk ? 'Preenchido' : 'Incompleto'),
+      situCard(e.ratsLen ? (e.ratEmAnd ? 's-warn' : 's-ok') : 's-warn', SITU_ICO.rats, 'RATs', e.ratsLen ? (e.ratEmAnd ? 'Em andamento' : 'Concluído') : 'Sem RATs'),
+      situCard(e.prodWarn ? 's-warn' : 's-ok', SITU_ICO.prod, 'Produtos', e.prodWarn ? 'Pendência' : 'OK', e.devItens ? `${e.devItens} a devolver` : ''),
+      situCard(e.foraN ? 's-pend' : 's-ok', SITU_ICO.fora, 'Fora da proposta', e.foraN ? `${e.foraN} ${e.foraN > 1 ? 'itens' : 'item'}` : 'OK'),
+      situCard(e.fat ? 's-ok' : 's-warn', SITU_ICO.fat, 'Faturamento', e.fat ? 'Faturado' : 'Pendente'),
+      situCard('s-ok', SITU_ICO.anx, 'Anexos', e.anx ? `${e.anx} ${e.anx > 1 ? 'arquivos' : 'arquivo'}` : 'Nenhum'),
     ].join('')
+    renderTabs()
+  }
+
+  // Indicadores das abas: ✓ (completo) ou contador (atenção/pendência).
+  function renderTabs() {
+    const tabs = document.getElementById('cc-tabs'); if (!tabs) return
+    const e = estadoTarefa()
+    const chk = '<span class="chk"><svg viewBox="0 0 24 24"><path d="M5 12l4 4 10-10"/></svg></span>'
+    const cnt = (n, red) => `<span class="cnt${red ? ' red' : ''}">${n}</span>`
+    const ind = {
+      dados: e.dadosOk ? chk : '',
+      rats: e.ratsLen === 0 ? '' : (e.ratEmAnd ? cnt(e.ratsLen) : chk),
+      material: e.prodLen === 0 ? '' : (e.prodWarn ? cnt(e.aRevisar + e.devItens) : chk),
+      fat: e.fat ? chk : '',
+      equip: e.equipLen ? chk : '',
+      anexos: e.anx ? chk : '',
+    }
+    tabs.querySelectorAll('.tab').forEach(tb => {
+      const slot = tb.querySelector('.tind'); if (slot) slot.innerHTML = ind[tb.dataset.pane] || ''
+    })
   }
 
   function mostrar(sec) {
@@ -1110,7 +1134,7 @@ const TarefaApp = (() => {
   // Abas do detalhe: mostra um card por vez e reflete na URL (tarefa.html?t=<id>&aba=<key>).
   function mostrarPane(key) {
     if (!PANES.includes(key)) key = 'dados'
-    document.querySelectorAll('#cc-tabs .cc-tab').forEach(b => b.classList.toggle('on', b.dataset.pane === key))
+    document.querySelectorAll('#cc-tabs .tab').forEach(b => b.classList.toggle('on', b.dataset.pane === key))
     document.querySelectorAll('#view-detalhe .cc-pane').forEach(p => p.classList.toggle('on', p.dataset.pane === key))
     if (key === 'dados') { autoGrow(document.getElementById('cc-d-orientacao')); autoGrow(document.getElementById('cc-d-obs')) }
     if (cur && cur.id) history.replaceState(null, '', `tarefa.html?t=${encodeURIComponent(cur.id)}&aba=${key}`)
