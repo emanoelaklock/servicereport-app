@@ -303,31 +303,31 @@ window.RatView = (function () {
     .pdf-sheet>thead{display:table-header-group}
     .pdf-sheet>tfoot{display:table-footer-group}
     .pdf-sheet>thead>tr>td,.pdf-sheet>tfoot>tr>td,.pdf-sheet>tbody>tr>td{padding:0;border:0;vertical-align:top}
-    .pdf-top{display:flex;justify-content:space-between;align-items:flex-end;border-bottom:3px solid #1B2A4A;padding-bottom:10px;margin-bottom:16px}
-    .pdf-brand{font-size:20px;font-weight:800;letter-spacing:.04em;color:#1B2A4A}
-    .pdf-doc{font-size:12px;color:#5b6b86;font-weight:600;text-transform:uppercase;letter-spacing:.05em}
-    .rat-sep{font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:#9aa7bd;margin:0 0 8px}
+    .pdf-top{display:flex;justify-content:space-between;align-items:flex-end;border-bottom:3px solid #243456;padding-bottom:10px;margin-bottom:16px}
+    .pdf-brand{font-size:20px;font-weight:800;letter-spacing:.04em;color:#243456}
+    .pdf-doc{font-size:12px;color:#7C8290;font-weight:600;text-transform:none;letter-spacing:normal}
+    .rat-sep{font-size:11px;font-weight:700;text-transform:none;letter-spacing:normal;color:#9aa7bd;margin:0 0 8px}
     .rd-head{margin-bottom:6px}
-    .rd-cli{font-size:18px;font-weight:700}
-    .rd-sub{font-size:13px;color:#2e6cd6;font-weight:600;margin-top:2px}
+    .rd-cli{font-size:18px;font-weight:700;color:#243456}
+    .rd-sub{font-size:13px;color:#1E8AE0;font-weight:600;margin-top:2px}
     .rd-meta{display:flex;flex-wrap:wrap;gap:3px 18px;margin-top:7px;font-size:12px}
     .rd-meta b{color:#5b6b86;font-weight:500}
     .rd-edit-hint{display:none}
     .rd-sec{margin-top:16px;page-break-inside:avoid}
-    .rd-sec-t{font-size:10.5px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:#5b6b86;border-bottom:1px solid #d6deea;padding-bottom:5px;margin-bottom:9px}
+    .rd-sec-t{font-size:12px;font-weight:700;text-transform:none;letter-spacing:normal;color:#243456;border-bottom:1px solid #EAEDF2;padding-bottom:5px;margin-bottom:9px}
     .rd-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px}
-    .rd-f{background:#f4f7fe;border:1px solid #e2e9f4;border-radius:7px;padding:7px 10px}
-    .rd-f label{display:block;font-size:9.5px;text-transform:uppercase;letter-spacing:.05em;color:#7a89a3;margin-bottom:2px}
+    .rd-f{background:#f7f9fc;border:1px solid #EAEDF2;border-radius:7px;padding:7px 10px}
+    .rd-f label{display:block;font-size:10.5px;text-transform:none;letter-spacing:normal;color:#7C8290;margin-bottom:2px}
     .rd-f .v{font-size:12.5px}
     .rd-long{white-space:pre-wrap;line-height:1.5}
     .rd-emit{font-size:12px;line-height:1.5}
     .rd-prodtbl{width:100%;border-collapse:collapse;font-size:12px}
-    .rd-prodtbl th{text-align:left;font-size:9px;text-transform:uppercase;letter-spacing:.04em;color:#7a89a3;padding:0 8px 6px;border-bottom:1px solid #d6deea}
+    .rd-prodtbl th{text-align:left;font-size:10.5px;text-transform:none;letter-spacing:normal;color:#7C8290;padding:0 8px 6px;border-bottom:1px solid #EAEDF2}
     .rd-prodtbl th.num,.rd-prodtbl td.num{text-align:right;white-space:nowrap}
     .rd-prodtbl td{padding:6px 8px;border-bottom:1px solid #eef2f8}
     .rd-total{display:flex;justify-content:flex-end;gap:12px;margin-top:9px;font-size:13px}
     .rd-pausas{width:100%;border-collapse:collapse;font-size:12px}
-    .rd-pausas th{text-align:left;font-size:9px;text-transform:uppercase;letter-spacing:.04em;color:#7a89a3;padding:0 8px 6px;border-bottom:1px solid #d6deea}
+    .rd-pausas th{text-align:left;font-size:10.5px;text-transform:none;letter-spacing:normal;color:#7C8290;padding:0 8px 6px;border-bottom:1px solid #EAEDF2}
     .rd-pausas td{padding:6px 8px;border-bottom:1px solid #eef2f8}
     .det-fotos{display:flex;flex-wrap:wrap;gap:12px}
     .det-foto{display:flex;flex-direction:column;gap:4px;width:150px;margin:0}
@@ -346,7 +346,7 @@ window.RatView = (function () {
     .sheet .bd{flex:1 1 auto;min-height:0;overflow:hidden}
     .sheet .ft{flex:none}
     .pdf-top{margin-bottom:14px}
-    .pdf-topc{display:flex;justify-content:space-between;align-items:center;border-bottom:2px solid #1B2A4A;padding-bottom:8px;margin-bottom:14px;font-size:11px;font-weight:700;color:#1B2A4A;text-transform:uppercase;letter-spacing:.04em}
+    .pdf-topc{display:flex;justify-content:space-between;align-items:center;border-bottom:2px solid #243456;padding-bottom:8px;margin-bottom:14px;font-size:11px;font-weight:700;color:#243456;text-transform:none;letter-spacing:normal}
     .pdf-foot{display:flex;justify-content:space-between;align-items:center;text-align:left}
     @media print{ @page{size:A4;margin:0} body{margin:0;background:#fff} .sheet{box-shadow:none;margin:0;width:210mm;height:297mm;page-break-after:always} .sheet:last-child{page-break-after:auto} #raw{display:none} }`
 
