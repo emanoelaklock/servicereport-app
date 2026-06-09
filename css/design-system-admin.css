@@ -20,12 +20,12 @@
 ============================================================================ */
 
 :root{
-  --red:#E5403A; --orange:#F4861F; --yellow:#F7B81E; --green:#28A94C; --blue:#1E8AE0; --purple:#8E45B5; --pink:#D63384;
+  --red:#DE2C2C; --orange:#F27423; --yellow:#FDB31F; --green:#179A47; --blue:#1B7FC4; --purple:#73328E; --pink:#D63384;
   --bg:#F4F5F8; --card:#FFFFFF; --line:#EAEDF2; --ink:#1B1E26; --muted:#7C8290; --title:#243456;
-  --exec-bg:#EAF7F0; --exec-fg:#0B7A43; --exec-m:#28A94C;
-  --warn-bg:#FFF6E5; --warn-fg:#A2740C; --warn-m:#F7B81E;
-  --pend-bg:#FDEEEC; --pend-fg:#C0362C; --pend-m:#E5403A;
-  --info-bg:#E7F1FC; --info-fg:#1565C0; --info-m:#1E8AE0;
+  --exec-bg:#EAF7F0; --exec-fg:#0B7A43; --exec-m:#179A47;
+  --warn-bg:#FFF6E5; --warn-fg:#A2740C; --warn-m:#FDB31F;
+  --pend-bg:#FDEEEC; --pend-fg:#C0362C; --pend-m:#DE2C2C;
+  --info-bg:#E7F1FC; --info-fg:#1565C0; --info-m:#1B7FC4;
   --r-lg:16px; --r-md:11px; --r-sm:9px; --r-pill:999px;
   --font:'Manrope',system-ui,-apple-system,sans-serif;
 }
