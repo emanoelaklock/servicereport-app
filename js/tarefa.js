@@ -58,9 +58,14 @@ const TarefaApp = (() => {
     const subEl = document.getElementById('cc-hd-sub'); if (subEl) subEl.textContent = tipo
     const dEl = document.getElementById('cc-hd-data'); if (dEl) dEl.textContent = (t && t.data_agendada) ? dmy(t.data_agendada) : '—'
     const ids = (cur && cur.id && tecPorTarefa[cur.id]) || []
-    const principal = ids.length ? ((ref.tecnicos.find(x => x.id === ids[0]) || {}).nome || '') : ''
+    const pUser = ids.length ? (ref.tecnicos.find(x => x.id === ids[0]) || {}) : {}
+    const principal = pUser.nome || ''
     const rEl = document.getElementById('cc-hd-resp'); if (rEl) rEl.textContent = principal || '—'
-    const avEl = document.getElementById('cc-hd-resp-av'); if (avEl) avEl.textContent = principal ? iniciais(principal) : '—'
+    const avEl = document.getElementById('cc-hd-resp-av')
+    if (avEl) {
+      const foto = avatarUrl(pUser.foto_url)
+      avEl.innerHTML = principal ? (foto ? `<img src="${esc(foto)}" alt="">` : esc(iniciais(principal))) : '—'
+    }
     const noc = document.getElementById('cc-nochip'), dn = document.getElementById('cc-docno')
     if (noc) noc.style.display = (dn && dn.textContent.trim()) ? '' : 'none'
   }
@@ -93,7 +98,9 @@ const TarefaApp = (() => {
       const nome = u.nome || tecNomes[id] || '—'
       const papel = ROLE_RL[u.role] || 'Responsável'
       const rl = u.cargo ? `${u.cargo} · ${papel}` : papel
-      return `<span class="chip"><span class="av">${esc(iniciais(nome))}</span>` +
+      const foto = avatarUrl(u.foto_url)
+      const av = foto ? `<img src="${esc(foto)}" alt="">` : esc(iniciais(nome))
+      return `<span class="chip"><span class="av">${av}</span>` +
         `<span><span class="nm">${esc(nome)}</span><br><span class="rl">${rl}</span></span>` +
         `<span class="x" data-rem="${esc(id)}" title="Remover">×</span></span>`
     }).join('')

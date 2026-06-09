@@ -81,7 +81,7 @@ const _posLogin = async (session) => {
     const r = await fetch(`${SURL}/rest/v1/rpc/sr_perfil`, { method: 'POST', headers: hAuth(), body: '{}' })
     const d = await r.json()
     u = (Array.isArray(d) ? d[0] : d) || {}
-    if (u.role) { try { localStorage.setItem(PCACHE, JSON.stringify({ role: u.role, nome: u.nome, ativo: u.ativo, cargo: u.cargo })) } catch (e) {} }
+    if (u.role) { try { localStorage.setItem(PCACHE, JSON.stringify({ role: u.role, nome: u.nome, ativo: u.ativo, cargo: u.cargo, foto_url: u.foto_url })) } catch (e) {} }
   } catch (e) {
     offlineSemRede = true
     try { const c = localStorage.getItem(PCACHE); if (c) u = JSON.parse(c) } catch (e2) {}
@@ -123,7 +123,7 @@ const _posLogin = async (session) => {
   const avatar = document.getElementById('sb-avatar')
   const userName = document.getElementById('sb-user-name')
   const userRole = document.getElementById('sb-user-role')
-  if (avatar) avatar.textContent = (nome[0] || '?').toUpperCase()
+  if (avatar) { const f = avatarUrl(u.foto_url); avatar.innerHTML = f ? `<img src="${esc(f)}" alt="">` : (nome[0] || '?').toUpperCase() }
   if (userName) userName.textContent = nome
   if (userRole) { const rl = ROLE_LABEL[PERFIL] || PERFIL || '—'; userRole.textContent = u.cargo ? `${u.cargo} · ${rl}` : rl }
 }

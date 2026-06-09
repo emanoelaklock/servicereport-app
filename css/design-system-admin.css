@@ -32,6 +32,9 @@
 *{box-sizing:border-box;margin:0;padding:0;}
 .tec-admin{font-family:var(--font);font-weight:500;color:var(--ink);background:var(--bg);-webkit-font-smoothing:antialiased;}
 .num{font-variant-numeric:tabular-nums;letter-spacing:-.3px;}
+/* avatar com foto (cai nas iniciais quando não houver) */
+.av img{width:100%;height:100%;object-fit:cover;border-radius:50%;display:block;}
+.av{overflow:hidden;}
 .layout{display:flex;min-height:100vh;}
 
 /* ---------- SIDEBAR (clara, itens coloridos) ---------- */
