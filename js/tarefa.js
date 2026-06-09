@@ -86,10 +86,12 @@ const TarefaApp = (() => {
   function renderRespChips() {
     const box = document.getElementById('cc-d-tecnicos'); if (!box) return
     box.className = 'resp'
+    const ROLE_RL = { admin: 'Administrador', gestor_axis: 'Gestor', tecnico_campo: 'Técnico' }
     const ids = [...respSel]
-    const chips = ids.map((id, i) => {
-      const nome = (ref.tecnicos.find(x => x.id === id) || {}).nome || tecNomes[id] || '—'
-      const rl = i === 0 ? 'Principal' : 'Técnico'
+    const chips = ids.map((id) => {
+      const u = ref.tecnicos.find(x => x.id === id) || {}
+      const nome = u.nome || tecNomes[id] || '—'
+      const rl = ROLE_RL[u.role] || 'Responsável'
       return `<span class="chip"><span class="av">${esc(iniciais(nome))}</span>` +
         `<span><span class="nm">${esc(nome)}</span><br><span class="rl">${rl}</span></span>` +
         `<span class="x" data-rem="${esc(id)}" title="Remover">×</span></span>`
