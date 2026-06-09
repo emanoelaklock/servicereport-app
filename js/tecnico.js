@@ -90,11 +90,11 @@
     const { data: { user } } = await getSupabase().auth.getUser()
     tecnico.id = user?.id || null
     const u = await getUserRole().catch(() => null)
-    tecnico.nome = u?.nome || user?.email?.split('@')[0] || 'Técnico'
+    tecnico.nome = tcase(u?.nome || user?.email?.split('@')[0] || 'Técnico')
     const ftn = document.getElementById('ft-nome'); if (ftn) ftn.textContent = tecnico.nome
 
     const hello = document.getElementById('home-hello')
-    if (hello) hello.textContent = 'Olá, ' + (tecnico.nome || 'técnico') + '!'
+    if (hello) hello.textContent = 'Olá, ' + (tecnico.nome || 'técnico')
 
     bind()
     await carregarRef()
@@ -231,7 +231,7 @@
     const lista = eu ? ref.tecnicos : [{ id: tecnico.id, nome: tecnico.nome }].concat(ref.tecnicos)
     box.innerHTML = lista.map(t => {
       const souEu = t.id === tecnico.id
-      return `<label><input type="checkbox" value="${esc(t.id)}"${souEu ? ' checked' : ''}> ${esc(t.nome || '')}${souEu ? ' (você)' : ''}</label>`
+      return `<label><input type="checkbox" value="${esc(t.id)}"${souEu ? ' checked' : ''}> ${esc(tcase(t.nome))}${souEu ? ' (você)' : ''}</label>`
     }).join('')
   }
 
@@ -817,7 +817,7 @@
       dlSetLocal(dlSent === 'volta' ? 'origem' : 'destino', g.cidade, g.uf)
     })
     document.getElementById('dl-veiculo').innerHTML = '<option value="">— selecione —</option>' + ref.veiculos.map(v => `<option value="${esc(v.id)}">${esc((v.modelo || '') + ' (' + (v.placa || '') + ')')}</option>`).join('')
-    document.getElementById('dl-tecs').innerHTML = ref.tecnicos.map(t => `<label><input type="checkbox" value="${esc(t.id)}"${t.id === tecnico.id ? ' checked' : ''}> ${esc(t.nome || '')}</label>`).join('')
+    document.getElementById('dl-tecs').innerHTML = ref.tecnicos.map(t => `<label><input type="checkbox" value="${esc(t.id)}"${t.id === tecnico.id ? ' checked' : ''}> ${esc(tcase(t.nome))}</label>`).join('')
     dlSent = 'ida'; dlSaidaPos = null
     document.querySelectorAll('#dl-sentido .seg-tipo').forEach(x => x.classList.toggle('on', x.dataset.sent === 'ida'))
     ;['dl-cli', 'dl-cli-busca', 'dl-origem-cidade', 'dl-origem-uf', 'dl-destino-cidade', 'dl-destino-uf', 'dl-saida', 'dl-chegada', 'dl-motivo'].forEach(id => { const e = document.getElementById(id); if (e) e.value = '' })
@@ -863,7 +863,7 @@
     const dt = (iso) => iso ? new Date(iso).toLocaleString('pt-BR', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' }) : '—'
     const syncPill = (s) => s === 'confirmado' ? '' : '<span class="dl-sent outro">na fila ↑</span>'
     box.innerHTML = lst.map(d => {
-      const nomes = (d.tecnicos || []).map(id => (ref.tecnicos.find(t => t.id === id) || {}).nome).filter(Boolean).join(', ')
+      const nomes = (d.tecnicos || []).map(id => tcase((ref.tecnicos.find(t => t.id === id) || {}).nome)).filter(Boolean).join(', ')
       return `<div class="dl-item">
         <div class="dl-top"><div class="dl-cli">${esc(cliNomeDe(d.cliente_id, '—'))}</div><div style="display:flex;gap:6px;align-items:center">${syncPill(d.sync_status)}<span class="dl-sent ${esc(d.sentido)}">${esc(DL_SENT[d.sentido] || d.sentido)}</span></div></div>
         <div class="dl-meta">${esc(d.origem || '—')} → ${esc(d.destino || '—')} · ${esc(veicLbl(d.veiculo_id))}</div>
