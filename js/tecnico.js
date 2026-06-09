@@ -274,18 +274,17 @@
     const pad2 = (n) => String(n).padStart(2, '0')
     const tarLabel = (r) => { const n = tarNumeroDe(r); if (n == null) return ''; const s = subDe(r); return 'Tarefa Nº ' + osNo(n) + (s != null ? '_' + pad2(s) : '') + ' · ' }
     const ordenadas = rats.slice().sort((a, b) => prioStatus(tarStatusDe(a)) - prioStatus(tarStatusDe(b)) || (b.criado_em || '').localeCompare(a.criado_em || ''))
-    box.innerHTML = ordenadas.map(r => `
-      <div class="rat-card" data-uuid="${esc(r.client_uuid)}">
-        <div class="rat-card-top">
-          <span class="rat-cli">${esc(r.cliente_nome || 'Sem cliente')}</span>
-          <span style="display:flex;align-items:center;gap:8px">${badge(r.sync_status)}<button type="button" class="rat-del" data-del="${esc(r.client_uuid)}" title="Excluir RAT">🗑</button></span>
-        </div>
-        <div class="rat-meta">
-          <span>${tarLabel(r)}<span class="t-badge" style="${stStyle(tarStatusDe(r))}">${esc(ratSit(r.status || 'em_andamento'))}</span></span>
-          <span>${fdt(r.criado_em, { withTime: true })}</span>
-        </div>
-      </div>`).join('')
-    box.querySelectorAll('.rat-card').forEach(el => {
+    box.innerHTML = ordenadas.map(r => {
+      const ts = tarStatusDe(r); const sk = SKIN_STATUS[ts] || 'aguard'
+      const lc = sk === 'info' ? 'lc-info' : sk === 'done' ? 'lc-done' : sk === 'warn' ? 'lc-warn' : ''
+      const syncTxt = r.sync_status === 'confirmado' ? '✓ enviado' : ((BADGE[r.sync_status] || {}).txt || '')
+      return `<div class="listcard ${lc}" data-uuid="${esc(r.client_uuid)}"><span class="edge e-${sk}"></span>
+        <div class="t"><span class="cli">${esc(r.cliente_nome || 'Sem cliente')}</span><span class="badge b-${sk}">${esc(ratSit(r.status || 'em_andamento'))}</span></div>
+        <div class="meta">${tarLabel(r)}<b>${esc(syncTxt)}</b></div>
+        <div class="meta" style="display:flex;justify-content:space-between;align-items:center"><span>${fdt(r.criado_em, { withTime: true })}</span><button type="button" class="rat-del" data-del="${esc(r.client_uuid)}" title="Excluir RAT" style="background:none;border:none;cursor:pointer;font-size:15px">🗑</button></div>
+      </div>`
+    }).join('')
+    box.querySelectorAll('.listcard').forEach(el => {
       el.onclick = (e) => { if (e.target.closest('[data-del]')) return; abrirExistente(el.dataset.uuid) }
     })
     box.querySelectorAll('[data-del]').forEach(b => { b.onclick = (e) => { e.stopPropagation(); excluirRat(b.dataset.del) } })
@@ -654,12 +653,12 @@
         ${(aberto.titulo && aberto.tipo === 'trabalho') ? `<div class="jn-tt">${esc(aberto.titulo)}</div>` : ''}
         <div class="jn-cron" id="jor-cron">${segDur(aberto.inicio)}</div>
         <div class="jn-sub">desde ${segHHMM(aberto.inicio)}${sub ? ` · ${esc(sub)}` : ''}</div></div>`
-      acoes.innerHTML = `<button class="btn btn-p" id="jor-trocar" style="flex:1">↻ Trocar atividade</button><button class="btn" id="jor-encerrar">⏹ Encerrar dia</button>`
+      acoes.innerHTML = `<button class="btn btn-primary" id="jor-trocar" style="flex:1">↻ Trocar atividade</button><button class="btn btn-ghost btn-auto" id="jor-encerrar">⏹ Encerrar dia</button>`
       document.getElementById('jor-trocar').onclick = () => abrirSeg('trocar')
       document.getElementById('jor-encerrar').onclick = encerrarDia
     } else {
       now.innerHTML = `<div class="jor-now idle">${segs.length ? 'Dia encerrado.' : 'Nenhuma atividade hoje.'}</div>`
-      acoes.innerHTML = `<button class="btn btn-p" id="jor-iniciar" style="flex:1">▶ ${segs.length ? 'Iniciar nova atividade' : 'Iniciar dia'}</button>`
+      acoes.innerHTML = `<button class="btn btn-primary" id="jor-iniciar" style="flex:1">▶ ${segs.length ? 'Iniciar nova atividade' : 'Iniciar dia'}</button>`
       document.getElementById('jor-iniciar').onclick = () => abrirSeg('iniciar')
     }
     const tl = document.getElementById('jor-timeline')
@@ -1417,21 +1416,19 @@
     if (!box) return
     const list = await D().listarPreorc()
     if (!list.length) {
-      box.innerHTML = '<p class="dim" style="padding:14px 2px">Nenhum pré-orçamento no aparelho. Toque em “+ Novo”.</p>'
+      box.innerHTML = '<div class="prod-empty" style="padding:24px 0;text-align:center;color:var(--t-muted)">Nenhum pré-orçamento no aparelho. Toque em <b>+ Novo</b>.</div>'
       return
     }
-    box.innerHTML = list.map(p => `
-      <div class="rat-card" data-uuid="${esc(p.client_uuid)}">
-        <div class="rat-card-top">
-          <span class="rat-cli">${esc(p.cliente_nome || 'Sem cliente')}</span>
-          ${badge(p.sync_status)}
-        </div>
-        <div class="rat-meta">
-          <span>${p.numero ? 'Nº ' + esc(p.numero) + ' · ' : ''}${esc((p.descricao || '—').slice(0, 40))}</span>
-          <span>${fdt(p.criado_em, { withTime: true })}</span>
-        </div>
-      </div>`).join('')
-    box.querySelectorAll('.rat-card').forEach(el => { el.onclick = () => abrirPreorc(el.dataset.uuid) })
+    box.innerHTML = list.map(p => {
+      const conf = p.sync_status === 'confirmado'
+      const sk = conf ? 'done' : 'warn'
+      return `<div class="listcard lc-${conf ? 'done' : 'warn'}" data-uuid="${esc(p.client_uuid)}"><span class="edge e-${sk}"></span>
+        <div class="t"><span class="cli">${esc(p.cliente_nome || 'Sem cliente')}</span><span class="badge b-${sk}">${conf ? 'Enviado' : 'na fila ↑'}</span></div>
+        <div class="meta">${p.numero ? 'Nº <b>' + esc(p.numero) + '</b> · ' : ''}${esc((p.descricao || '—').slice(0, 48))}</div>
+        <div class="meta">${fdt(p.criado_em, { withTime: true })}</div>
+      </div>`
+    }).join('')
+    box.querySelectorAll('.listcard').forEach(el => { el.onclick = () => abrirPreorc(el.dataset.uuid) })
   }
 
   function poBindAutocomplete() {

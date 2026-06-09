@@ -284,24 +284,22 @@
       </div>
 
       <!-- JORNADA DO DIA -->
-      <div id="view-jornada" style="display:none">
-        <div class="lista-head">
-          <h2>Jornada do dia</h2>
-          <button class="btn" id="jor-voltar">← Início</button>
+      <div id="view-jornada" class="tskin" style="display:none">
+        <div style="display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:10px">
+          <h2 style="font-size:17px;font-weight:700;margin:0">Jornada do dia</h2>
+          <button class="btn btn-ghost btn-auto" id="jor-voltar">← Início</button>
         </div>
         <div id="jor-atual"></div>
         <div id="jor-acoes" style="display:flex;gap:8px;flex-wrap:wrap;margin:14px 0"></div>
-        <div class="jor-tl-h">Linha do tempo</div>
+        <div class="sec">Linha do tempo</div>
         <div id="jor-timeline"></div>
       </div>
 
       <!-- LISTA -->
-      <div id="view-lista" style="display:none">
-        <div class="lista-head">
-          <h2>Minhas RATs</h2>
-          <div style="display:flex;gap:8px">
-            <button class="btn" id="btn-sync" title="Sincronizar">↻ Sincronizar</button>
-          </div>
+      <div id="view-lista" class="tskin" style="display:none">
+        <div style="display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:12px">
+          <h2 style="font-size:17px;font-weight:700;margin:0">Minhas RATs</h2>
+          <button class="btn btn-ghost btn-auto" id="btn-sync" title="Sincronizar">↻ Sincronizar</button>
         </div>
         <div id="lista-rats"></div>
       </div>
@@ -425,18 +423,18 @@
       </div>
 
       <!-- PRÉ-ORÇAMENTO: LISTA -->
-      <div id="view-preorc-lista" style="display:none">
-        <div class="lista-head">
-          <h2>Meus pré-orçamentos</h2>
-          <button class="btn btn-p" id="btn-preorc-novo">+ Novo</button>
+      <div id="view-preorc-lista" class="tskin" style="display:none">
+        <div style="display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:12px">
+          <h2 style="font-size:17px;font-weight:700;margin:0">Meus pré-orçamentos</h2>
+          <button class="btn btn-primary btn-auto" id="btn-preorc-novo">+ Novo</button>
         </div>
         <div id="lista-preorc"></div>
       </div>
 
       <!-- PRÉ-ORÇAMENTO: FORMULÁRIO FIXO -->
-      <div id="view-preorc-form" style="display:none">
-        <div class="login-card" style="box-shadow:var(--sh)">
-          <h2 id="preorc-titulo" style="font-size:16px;font-weight:600;margin-bottom:14px;color:var(--tx)">Novo pré-orçamento</h2>
+      <div id="view-preorc-form" class="tskin" style="display:none">
+        <div class="card">
+          <h2 id="preorc-titulo" style="font-size:17px;font-weight:700;margin-bottom:14px">Novo pré-orçamento</h2>
 
           <div class="fg campo">
             <label>Cliente <span style="color:var(--re)">*</span></label>
@@ -462,7 +460,7 @@
                   <div class="ac-list" id="po-prod-ac-list"></div>
                 </div>
                 <input type="number" id="po-prod-qtd" inputmode="decimal" placeholder="Qtd" min="0" step="any">
-                <button type="button" class="btn btn-sm" id="po-prod-add-btn">+ Add</button>
+                <button type="button" class="btn btn-primary btn-auto" id="po-prod-add-btn" style="font-size:13px;padding:9px 13px">+ Add</button>
               </div>
               <div class="prod-list" id="po-prod-list"></div>
             </div>
@@ -472,8 +470,8 @@
             <label>Fotos</label>
             <div class="foto-box">
               <input type="file" accept="image/*" capture="environment" multiple id="po-foto-input" style="display:none">
-              <button type="button" class="btn" id="po-btn-foto">📷 Adicionar foto</button>
-              <div class="thumbs" id="po-thumbs"></div>
+              <div class="photo" id="po-btn-foto"><svg viewBox="0 0 24 24"><path d="M3 7h4l2-2h6l2 2h4v12H3z"/><circle cx="12" cy="13" r="3.2"/></svg>Adicionar foto</div>
+              <div class="thumbs" id="po-thumbs" style="margin-top:10px"></div>
             </div>
           </div>
 
@@ -504,9 +502,9 @@
             <input type="text" id="po-tempo" readonly value="—" style="background:var(--sur2)">
           </div>
 
-          <div class="form-actions">
-            <button class="btn" id="po-btn-cancelar">Cancelar</button>
-            <button class="btn btn-p" id="po-btn-salvar">Concluir</button>
+          <div class="foot">
+            <button class="btn btn-ghost" id="po-btn-cancelar">Cancelar</button>
+            <button class="btn btn-primary" id="po-btn-salvar">Concluir</button>
           </div>
         </div>
       </div>
