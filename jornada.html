@@ -20,7 +20,7 @@
   .j-kpis{display:grid;grid-template-columns:repeat(5,1fr);gap:12px;margin-bottom:18px}
   @media(max-width:900px){.j-kpis{grid-template-columns:repeat(2,1fr)}}
   .j-kpi{background:var(--sur);border:1px solid var(--bd);border-radius:13px;padding:13px 15px}
-  .j-kpi .k{font-size:9.5px;font-weight:600;letter-spacing:.6px;text-transform:uppercase;color:var(--tx3)}
+  .j-kpi .k{font-size:11px;font-weight:600;letter-spacing:normal;text-transform:none;color:var(--tx3)}
   .j-kpi .v{font-size:19px;font-weight:800;color:var(--tx);margin-top:6px;font-variant-numeric:tabular-nums}
   .j-card{background:var(--sur);border:1px solid var(--bd);border-radius:14px;padding:20px 22px;box-shadow:var(--sh);margin-bottom:18px}
   .j-card h3{font-size:13px;font-weight:700;color:var(--tx);margin:0 0 12px}
@@ -38,7 +38,7 @@
   .p-bar{display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-bottom:14px}
   .p-bar select,.p-bar input{padding:8px 11px;border:1px solid var(--bd);border-radius:var(--r);font:inherit;font-size:13px;background:#fff}
   .p-tbl{width:100%;border-collapse:collapse;font-size:13px}
-  .p-tbl th{text-align:left;font-size:10px;text-transform:uppercase;letter-spacing:.04em;color:var(--tx3);padding:8px 10px;border-bottom:1px solid var(--bd)}
+  .p-tbl th{text-align:left;font-size:11px;text-transform:none;letter-spacing:normal;color:var(--tx3);padding:8px 10px;border-bottom:1px solid var(--bd)}
   .p-tbl td{padding:9px 10px;border-bottom:1px solid var(--sur2);vertical-align:top}
   .p-tbl tr.tot td{font-weight:800;border-top:2px solid var(--bd)}
   .p-noites{font-weight:800;font-variant-numeric:tabular-nums}
@@ -52,7 +52,7 @@
 
 <div class="main">
   <div id="app-screen" style="display:none">
-    <div class="topbar"><span class="topbar-title">Jornada do técnico</span></div>
+    <div class="topbar"><h1>Jornada do técnico</h1></div>
     <div class="content">
       <div class="j-toolbar">
         <select id="j-tec"></select>
