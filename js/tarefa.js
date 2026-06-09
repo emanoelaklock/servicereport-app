@@ -293,8 +293,8 @@ const TarefaApp = (() => {
     if (fAte) rows = rows.filter(t => { const d = (t.data_agendada || '').slice(0, 10); return d && d <= fAte })
     if (q) rows = rows.filter(t => buscaStr(t).includes(q))
     document.getElementById('f-count').textContent = `${rows.length} de ${tarefas.length}`
-    if (!rows.length) { box.innerHTML = '<div class="cc-empty">Nenhuma tarefa encontrada.</div>'; return }
-    box.innerHTML = `<table class="cc-list"><thead><tr>
+    if (!rows.length) { box.innerHTML = '<div class="listpanel"><div class="cc-empty">Nenhuma tarefa encontrada.</div></div>'; return }
+    box.innerHTML = `<div class="listpanel" style="overflow-x:auto"><table class="cc-list"><thead><tr>
         <th>Nº</th><th>Cliente</th><th>Status</th><th>Técnico</th><th>Agenda</th><th>Conciliação</th><th>Ações</th>
       </tr></thead><tbody>${rows.map(t => {
         const d = divPorTarefa[t.id] || 0
@@ -313,7 +313,7 @@ const TarefaApp = (() => {
             <button class="ab ab-d" data-del="${esc(t.id)}">Excluir</button>
           </div></td>
         </tr>`
-      }).join('')}</tbody></table>`
+      }).join('')}</tbody></table></div>`
     box.querySelectorAll('.row-click').forEach(tr => tr.onclick = (e) => { if (e.target.closest('.acts')) return; abrirTarefa(tr.dataset.id) })
     box.querySelectorAll('[data-edit]').forEach(b => b.onclick = (e) => { e.stopPropagation(); abrirTarefa(b.dataset.edit) })
     box.querySelectorAll('[data-del]').forEach(b => b.onclick = (e) => { e.stopPropagation(); excluirTarefaLista(b.dataset.del) })
