@@ -98,6 +98,16 @@
 .btn-icon{background:#fff;border:1px solid var(--line);color:var(--muted);padding:11px 12px;}
 .btn-danger{background:var(--pend-m);color:#fff;}
 .btn-danger-o{background:#fff;color:var(--pend-fg);border:1px solid #F0C6C1;}
+/* Botões no escopo admin: .btn puro = ghost (borda); variantes coloridas reasseridas na paleta.
+   (o design-system .btn zera a borda, deixando o .btn do tema invisível em cards brancos) */
+.tec-admin .btn{border:1px solid var(--line);background:#fff;color:var(--ink);text-decoration:none;}
+.tec-admin .btn:hover{background:#F5F7FA;border-color:#DDE1E9;}
+.tec-admin .btn-primary{background:var(--blue);color:#fff;border:none;box-shadow:0 8px 16px rgba(30,138,224,.22);}
+.tec-admin .btn-primary:hover{background:#1577c4;}
+.tec-admin .btn-p{background:var(--blue);color:#fff;border-color:var(--blue);}
+.tec-admin .btn-p:hover{background:#1577c4;border-color:#1577c4;color:#fff;}
+.tec-admin .btn-g{background:var(--green);color:#fff;border-color:var(--green);}
+.tec-admin .btn-g:hover{background:#1f8f3f;border-color:#1f8f3f;color:#fff;}
 
 /* ---------- HEADER RICO (detalhe) ---------- */
 .hd{background:#fff;border:1px solid var(--line);border-radius:var(--r-lg);padding:20px 22px;display:flex;align-items:center;gap:22px;flex-wrap:wrap;}
