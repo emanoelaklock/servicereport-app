@@ -27,9 +27,6 @@ function renderSidebar(paginaAtiva) {
   <div class="ngrp">Painel</div>
   ${item('painel', 'painel.html', 'Painel', 'blue')}
 
-  <div class="ngrp">Comercial</div>
-  ${item('orcamentos', 'orcamentos.html', 'Orçamentos', 'purple')}
-
   <div class="ngrp">Execução</div>
   ${item('tarefas', 'tarefa.html', 'Tarefas', 'green')}
   ${item('jornada', 'jornada.html', 'Jornada', 'amber')}
