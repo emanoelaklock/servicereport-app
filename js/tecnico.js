@@ -876,21 +876,23 @@
     const box = document.getElementById('desloc-lista')
     if (window.SyncEngine) SyncEngine.pullChanges()   // reconcilia c/ servidor (edições/exclusões); re-renderiza via onSyncChanged
     const lst = await D().listarDeslocamentos()   // offline-first (este aparelho)
-    if (!lst.length) { box.innerHTML = '<p class="dim" style="text-align:center;padding:20px">Nenhum trajeto ainda. Toque em <b>+ Novo trajeto</b>.</p>'; return }
+    if (!lst.length) { box.innerHTML = '<div class="prod-empty" style="padding:24px 0;text-align:center;color:var(--t-muted)">Nenhum trajeto ainda. Toque em <b>+ Novo trajeto</b>.</div>'; return }
     const veicLbl = (id) => { const v = ref.veiculos.find(x => x.id === id); return v ? `${v.modelo || ''} (${v.placa || ''})` : '—' }
     const dt = (iso) => iso ? new Date(iso).toLocaleString('pt-BR', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' }) : '—'
-    const syncPill = (s) => s === 'confirmado' ? '' : '<span class="dl-sent outro">na fila ↑</span>'
+    const SK = { ida: 'info', volta: 'done', outro: 'aguard' }
     box.innerHTML = lst.map(d => {
       const nomes = (d.tecnicos || []).map(id => tcase((ref.tecnicos.find(t => t.id === id) || {}).nome)).filter(Boolean).join(', ')
-      return `<div class="dl-item">
-        <div class="dl-top"><div class="dl-cli">${esc(cliNomeDe(d.cliente_id, '—'))}</div><div style="display:flex;gap:6px;align-items:center">${syncPill(d.sync_status)}<span class="dl-sent ${esc(d.sentido)}">${esc(DL_SENT[d.sentido] || d.sentido)}</span></div></div>
-        <div class="dl-meta">${esc(d.origem || '—')} → ${esc(d.destino || '—')} · ${esc(veicLbl(d.veiculo_id))}</div>
-        <div class="dl-meta">Saída ${dt(d.saida_em)}${d.saida_lat ? ' 📍' : ''}${d.chegada_em ? ` · Chegada ${dt(d.chegada_em)}${d.chegada_lat ? ' 📍' : ''}` : ''}</div>
-        <div class="dl-meta">A bordo: ${esc(nomes || '—')}</div>
-        ${!d.chegada_em ? `<button class="btn btn-sm" data-chegada="${esc(d.id)}" style="margin-top:8px">📍 Marcar chegada agora</button>` : ''}
+      const sk = SK[d.sentido] || 'aguard'
+      const fila = d.sync_status !== 'confirmado' ? '<span class="badge b-warn">na fila ↑</span>' : ''
+      return `<div class="listcard lc-${sk === 'info' ? 'info' : sk === 'done' ? 'done' : ''}"><span class="edge e-${sk}"></span>
+        <div class="t"><span class="cli">${esc(cliNomeDe(d.cliente_id, '—'))}</span><span style="display:flex;gap:6px;align-items:center">${fila}<span class="badge b-${sk}">${esc(DL_SENT[d.sentido] || d.sentido)}</span></span></div>
+        <div class="meta">${esc(d.origem || '—')} → ${esc(d.destino || '—')} · ${esc(veicLbl(d.veiculo_id))}</div>
+        <div class="meta">Saída <b>${dt(d.saida_em)}</b>${d.saida_lat ? ' 📍' : ''}${d.chegada_em ? ` · Chegada <b>${dt(d.chegada_em)}</b>${d.chegada_lat ? ' 📍' : ''}` : ''}</div>
+        <div class="meta">A bordo: ${esc(nomes || '—')}</div>
+        ${!d.chegada_em ? `<button class="btn btn-ok btn-auto" data-chegada="${esc(d.id)}" style="margin-top:8px;font-size:13px;padding:9px 13px">📍 Marcar chegada agora</button>` : ''}
       </div>`
     }).join('')
-    box.querySelectorAll('[data-chegada]').forEach(b => b.onclick = () => marcarChegada(b.dataset.chegada))
+    box.querySelectorAll('[data-chegada]').forEach(b => b.onclick = (e) => { e.stopPropagation(); marcarChegada(b.dataset.chegada) })
   }
 
   async function marcarChegada(id) {
