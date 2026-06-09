@@ -344,7 +344,7 @@
       const sk = SKIN_STATUS[t.status]
       const lc = sk === 'info' ? 'lc-info' : sk === 'done' ? 'lc-done' : sk === 'warn' ? 'lc-warn' : ''
       const edge = sk ? `<span class="edge e-${sk}"></span>` : `<span class="edge" style="background:${stCor(t.status)}"></span>`
-      const badge = sk ? `<span class="badge b-${sk}">${esc(stLabel(t.status))}</span>` : `<span class="badge" style="${stStyle(t.status)}">${esc(stLabel(t.status))}</span>`
+      const badge = sk ? `<span class="badge b-${sk}">${esc(stLabel(t.status))}</span>` : `<span class="badge" style="background:${stCor(t.status)};color:#fff">${esc(stLabel(t.status))}</span>`
       return `<div class="listcard ${lc}" data-id="${esc(t.id)}">${edge}
         <div class="t"><span class="cli">${esc(cliNomeDe(t.cliente_id))}</span>${badge}</div>
         <div class="meta">${metaNo} · ${esc(ag)}</div>

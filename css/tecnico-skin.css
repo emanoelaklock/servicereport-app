@@ -71,10 +71,13 @@
 .tskin .lc-info{background:#F2F8FE;} .tskin .lc-warn{background:#FFF9EE;} .tskin .lc-done{background:#F2FAF5;}
 
 /* ---------- BADGES ---------- */
-.tskin .badge{font-size:10.5px;font-weight:700;padding:4px 10px;border-radius:var(--r-pill);white-space:nowrap;}
-.tskin .b-info{background:var(--info-bg);color:var(--info-fg);} .tskin .b-done{background:var(--exec-bg);color:var(--exec-fg);}
-.tskin .b-warn{background:var(--warn-bg);color:var(--warn-fg);} .tskin .b-pend{background:var(--pend-bg);color:var(--pend-fg);}
-.tskin .b-aguard{background:var(--aguard-bg);color:var(--aguard-fg);}
+/* badges SÓLIDOS (cor cheia) — alto destaque, sobretudo Devolvida e c/ pendência */
+.tskin .badge{font-size:11px;font-weight:800;padding:5px 11px;border-radius:var(--r-pill);white-space:nowrap;letter-spacing:.1px;}
+.tskin .b-info{background:var(--info-m);color:#fff;}
+.tskin .b-done{background:var(--exec-m);color:#fff;}
+.tskin .b-warn{background:var(--warn-m);color:#3d2c00;}
+.tskin .b-pend{background:var(--pend-m);color:#fff;}
+.tskin .b-aguard{background:var(--aguard-m);color:#fff;}
 .tskin .edge.e-info{background:var(--info-m);} .tskin .edge.e-done{background:var(--exec-m);}
 .tskin .edge.e-warn{background:var(--warn-m);} .tskin .edge.e-pend{background:var(--pend-m);} .tskin .edge.e-aguard{background:var(--aguard-m);}
 
