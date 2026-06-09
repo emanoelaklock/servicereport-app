@@ -173,8 +173,8 @@
     let rows = listaOrc
     if (term) rows = rows.filter(o => normOrc(o.numero).includes(term) || normOrc(cliNome(o.cliente_id)).includes(term))
     const cnt = document.getElementById('orc-count'); if (cnt) cnt.textContent = `${rows.length} de ${listaOrc.length} orçamento(s)`
-    if (!rows.length) { box.innerHTML = '<p class="muted" style="padding:14px 2px">Nenhum orçamento.</p>'; renderBulkOrc(); return }
-    box.innerHTML = `<table class="orc-table">
+    if (!rows.length) { box.innerHTML = '<div class="listpanel"><p class="muted" style="padding:18px 20px;margin:0">Nenhum orçamento.</p></div>'; renderBulkOrc(); return }
+    box.innerHTML = `<div class="listpanel" style="overflow-x:auto"><table class="orc-table">
       <thead><tr><th style="width:34px"><input type="checkbox" id="orc-check-all"></th><th>Nº</th><th>Cliente</th><th>Status</th><th>Total</th><th>Enviado</th><th>Criado</th></tr></thead>
       <tbody>${rows.map(o => `
         <tr class="row-click" data-id="${esc(o.id)}">
@@ -185,7 +185,7 @@
           <td class="orc-total">${money(o.valor_total)}</td>
           <td>${o.data_envio ? fdt(o.data_envio) : '<span class="muted">—</span>'}</td>
           <td>${fdt(o.criado_em)}</td>
-        </tr>`).join('')}</tbody></table>`
+        </tr>`).join('')}</tbody></table></div>`
     box.querySelectorAll('.row-click').forEach(tr => { tr.onclick = (e) => { if (e.target.closest('.orc-chk')) return; abrirOrcamento(tr.dataset.id) } })
     box.querySelectorAll('.orc-chk').forEach(cb => cb.onchange = (e) => { e.stopPropagation(); cb.checked ? selOrc.add(cb.dataset.id) : selOrc.delete(cb.dataset.id); renderBulkOrc() })
     const all = document.getElementById('orc-check-all')
