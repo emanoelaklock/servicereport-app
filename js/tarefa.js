@@ -122,13 +122,13 @@ const TarefaApp = (() => {
     user.id = u?.id || null
     const [prod, tec, tip, eq, cli] = await Promise.all([
       sb().from('produtos').select('id,codigo,descricao,unidade,preco_venda').eq('ativo', true).eq('oculto', false).order('descricao'),
-      sb().from('usuarios').select('id,nome,role,cargo').in('role', ['tecnico_campo', 'gestor_axis', 'admin']).eq('ativo', true).order('nome'),
+      sb().rpc('sr_usuarios'),   // usuários do SR (papel vindo do Portal/portal_acessos)
       sb().from('tipos_servico').select('id,nome').eq('ativo', true).order('nome'),
       sb().from('equipamentos_axis').select('id,tipo,part_number,modelo,serial').order('modelo'),
       sb().from('clientes').select('id,nome').eq('oculto', false).order('nome'),
     ])
     ref.produtos = prod.data || []
-    ref.tecnicos = tec.data || []
+    ref.tecnicos = (tec.data || []).filter(u => u.ativo)   // responsáveis atribuíveis (admin + técnico do SR)
     ref.tipos = tip.data || []
     ref.equip = eq.data || []
     ref.clientes = cli.data || []

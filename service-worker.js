@@ -9,7 +9,7 @@
    não do cache do SW.
 ═══════════════════════════════════════════════ */
 
-const CACHE = 'sr-shell-v241'
+const CACHE = 'sr-shell-v242'
 
 const SHELL = [
   'index.html',

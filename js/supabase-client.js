@@ -36,12 +36,13 @@ function roleHome(role) {
   return role === 'tecnico_campo' ? 'tecnico.html' : 'painel.html'
 }
 
-// Papel do usuário logado (consulta direta; a RLS no banco é a fonte da verdade).
+// Papel do usuário logado NO SERVICE REPORT (vem de portal_acessos via sr_perfil,
+// não de usuarios.role — que guarda o papel global do Portal). RLS é a fonte da verdade.
 async function getUserRole() {
   const { data: { user } } = await getSupabase().auth.getUser()
   if (!user) return null
-  const { data, error } = await getSupabase()
-    .from('usuarios').select('role,nome,ativo').eq('id', user.id).single()
+  const { data, error } = await getSupabase().rpc('sr_perfil')
   if (error) return null
-  return data // { role, nome, ativo }
+  const row = Array.isArray(data) ? data[0] : data
+  return row || null // { role, nome, ativo, cargo }
 }

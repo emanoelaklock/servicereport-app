@@ -23,10 +23,11 @@ const DeslocApp = (() => {
 
   async function init() {
     const [tec, cli, vc] = await Promise.all([
-      sb().from('usuarios').select('id,nome').eq('role', 'tecnico_campo').eq('ativo', true).order('nome'),
+      sb().rpc('sr_usuarios'),   // usuários do SR (papel vindo do Portal); filtra técnicos abaixo
       sb().from('clientes').select('id,nome,oculto,sync_omie'),
       sb().from('veiculos').select('id,modelo,placa'),
     ])
+    if (tec.data) tec.data = tec.data.filter(u => u.role === 'tecnico_campo' && u.ativo)
     // visível = mesma regra da tela Empresas (esconde só as "excluídas")
     const visivel = (c) => (c.oculto === false || c.oculto == null) || (c.sync_omie == null || c.sync_omie !== false)
     tecArr = (tec.data || [])

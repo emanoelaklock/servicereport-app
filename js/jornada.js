@@ -21,9 +21,10 @@ const JornadaApp = (() => {
 
   async function init() {
     const [tec, cli] = await Promise.all([
-      sb().from('usuarios').select('id,nome').eq('role', 'tecnico_campo').eq('ativo', true).order('nome'),
+      sb().rpc('sr_usuarios'),   // usuários do SR (papel vindo do Portal); filtra técnicos abaixo
       sb().from('clientes').select('id,nome'),
     ])
+    if (tec.data) tec.data = tec.data.filter(u => u.role === 'tecnico_campo' && u.ativo)
     document.getElementById('j-tec').innerHTML = (tec.data || []).map(t => `<option value="${esc(t.id)}">${esc(t.nome || '(sem nome)')}</option>`).join('')
     ;(cli.data || []).forEach(c => { cliNomes[c.id] = c.nome })
     ;(tec.data || []).forEach(t => { tecNomes[t.id] = t.nome })

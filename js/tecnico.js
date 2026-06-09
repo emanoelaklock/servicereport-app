@@ -188,7 +188,7 @@
         sb.from('clientes').select('id,nome,documento,endereco').or('oculto.is.false,oculto.is.null,sync_omie.is.null,sync_omie.neq.false').order('nome'),
         sb.from('tipos_servico').select('id,nome,formulario_id,ativo').eq('ativo', true).order('nome'),
         sb.from('formulario_modelos').select('id,nome,campos').eq('ativo', true),
-        sb.from('usuarios').select('id,nome').eq('role', 'tecnico_campo').eq('ativo', true).order('nome'),
+        sb.rpc('sr_usuarios'),   // técnicos do SR (papel vindo do Portal); filtra abaixo
         sb.from('veiculos').select('id,modelo,placa,ativo').eq('ativo', true).order('modelo'),
         sb.from('produtos').select('id,codigo,descricao,unidade,ativo').eq('ativo', true).eq('oculto', false).order('descricao'),
         sb.from('org_config').select('base_cidade,base_uf').eq('id', 1).maybeSingle(),
@@ -199,7 +199,7 @@
       ref.tipos = tip.data || []
       ref.formularios = {}
       ;(forms.data || []).forEach(f => { ref.formularios[f.id] = f })
-      ref.tecnicos = tec.error ? [] : (tec.data || [])
+      ref.tecnicos = tec.error ? [] : (tec.data || []).filter(u => u.role === 'tecnico_campo' && u.ativo)
       ref.veiculos = veic.error ? [] : (veic.data || [])
       ref.produtos = prod.error ? [] : (prod.data || [])
       ref.base = (base && base.data) ? { cidade: base.data.base_cidade || '', uf: base.data.base_uf || '' } : { cidade: '', uf: '' }

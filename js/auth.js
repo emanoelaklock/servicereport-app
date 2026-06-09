@@ -77,9 +77,10 @@ const _posLogin = async (session) => {
   const PCACHE = 'sr_perfil_' + session.user.id
   let u = {}, offlineSemRede = false
   try {
-    const r = await fetch(`${SURL}/rest/v1/usuarios?select=role,nome,ativo,cargo&id=eq.${session.user.id}`, { headers: hAuth() })
+    // Papel do SR vem de portal_acessos (Portal) via RPC sr_perfil — não de usuarios.role.
+    const r = await fetch(`${SURL}/rest/v1/rpc/sr_perfil`, { method: 'POST', headers: hAuth(), body: '{}' })
     const d = await r.json()
-    u = d[0] || {}
+    u = (Array.isArray(d) ? d[0] : d) || {}
     if (u.role) { try { localStorage.setItem(PCACHE, JSON.stringify({ role: u.role, nome: u.nome, ativo: u.ativo, cargo: u.cargo })) } catch (e) {} }
   } catch (e) {
     offlineSemRede = true
@@ -92,7 +93,7 @@ const _posLogin = async (session) => {
   // Offline sem cache de perfil: não dá para validar → manda para login (precisa de 1 acesso online).
   if (!PERFIL || (u.ativo === false && !offlineSemRede)) {
     await getSupabase().auth.signOut()
-    toast(PERFIL ? 'Conta inativa.' : 'Usuário sem perfil cadastrado.', 'err')
+    toast(PERFIL ? 'Conta inativa.' : 'Sem acesso ao Service Report. Solicite no Portal.', 'err')
     const ls = document.getElementById('login-screen')
     if (ls) ls.style.display = 'block'
     return
