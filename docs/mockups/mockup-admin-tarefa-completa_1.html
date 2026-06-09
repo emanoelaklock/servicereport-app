@@ -1,0 +1,273 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Portal Admin — Tarefa (completa)</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --red:#E5403A; --orange:#F4861F; --yellow:#F7B81E; --green:#28A94C; --blue:#1E8AE0; --purple:#8E45B5;
+    --bg:#F4F5F8; --card:#FFFFFF; --line:#EAEDF2; --ink:#1B1E26; --muted:#7C8290;
+    --exec-bg:#EAF7F0; --exec-fg:#0B7A43; --exec-m:#28A94C;
+    --warn-bg:#FFF6E5; --warn-fg:#A2740C; --warn-m:#F7B81E;
+    --pend-bg:#FDEEEC; --pend-fg:#C0362C; --pend-m:#E5403A;
+    --info-bg:#E7F1FC; --info-fg:#1565C0; --info-m:#1E8AE0;
+    --r-lg:16px; --r-md:11px; --r-sm:9px; --r-pill:999px;
+  }
+  *{box-sizing:border-box;margin:0;padding:0;}
+  body{font-family:'Manrope',system-ui,sans-serif;font-weight:500;color:var(--ink);background:#DCDEE4;-webkit-font-smoothing:antialiased;padding:22px;}
+  .num{font-variant-numeric:tabular-nums;letter-spacing:-.3px;}
+  .frame{background:var(--bg);border-radius:16px;overflow:hidden;box-shadow:0 20px 50px rgba(30,35,55,.18);}
+  .layout{display:flex;min-height:980px;}
+
+  /* ---------- SIDEBAR (clara, itens coloridos) ---------- */
+  .side{width:236px;flex:none;background:#fff;border-right:1px solid var(--line);display:flex;flex-direction:column;padding:18px 14px;}
+  .brand{display:flex;align-items:center;gap:11px;padding:6px 8px 18px;}
+  .brand .mk{width:36px;height:36px;border-radius:10px;background:var(--blue);color:#fff;display:grid;place-items:center;font-weight:800;font-size:13px;letter-spacing:.5px;}
+  .brand .nm{font-size:14.5px;font-weight:700;letter-spacing:-.2px;}
+  .brand .sb{font-size:10px;color:var(--muted);font-weight:500;margin-top:1px;}
+  .ngrp{font-size:9.5px;font-weight:700;letter-spacing:1.4px;text-transform:uppercase;color:#94A0C0;margin:16px 10px 6px;}
+  .nav{display:flex;align-items:center;gap:11px;padding:9px 10px;border-radius:10px;font-size:13px;font-weight:600;cursor:pointer;text-decoration:none;margin-bottom:2px;color:#525965;}
+  .nav .ni{width:29px;height:29px;border-radius:8px;display:grid;place-items:center;flex:none;}
+  .nav .ni svg{width:17px;height:17px;stroke:currentColor;fill:none;stroke-width:1.9;stroke-linecap:round;stroke-linejoin:round;}
+  .nav:hover{background:#F3F4F8;}
+  .c-blue{color:#1976D2;}   .c-blue .ni{background:rgba(30,138,224,.12);color:var(--blue);}
+  .c-purple{color:#7E37A6;} .c-purple .ni{background:rgba(142,69,181,.12);color:var(--purple);}
+  .c-green{color:#1F8F3F;}  .c-green .ni{background:rgba(40,169,76,.12);color:var(--green);}
+  .c-amber{color:#B07D08;}  .c-amber .ni{background:rgba(247,184,30,.18);color:#C2900B;}
+  .c-orange{color:#C96A12;} .c-orange .ni{background:rgba(244,134,31,.14);color:var(--orange);}
+  .c-pink{color:#C03A78;}   .c-pink .ni{background:rgba(214,51,132,.12);color:#D63384;}
+  .c-gray{color:#5B6270;}   .c-gray .ni{background:#EEF0F4;color:#8A909C;}
+  .nav.on{color:#fff;} .nav.on .ni{background:rgba(255,255,255,.25);color:#fff;}
+  .nav.on.c-green{background:var(--green);box-shadow:0 8px 16px rgba(40,169,76,.28);}
+  .side .foot{margin-top:auto;display:flex;align-items:center;gap:10px;padding:11px 8px 4px;border-top:1px solid var(--line);}
+  .side .foot .av{width:34px;height:34px;border-radius:50%;background:#EDEFF5;color:#56607a;display:grid;place-items:center;font-weight:700;font-size:12px;}
+  .side .foot .nm{font-size:12.5px;font-weight:700;} .side .foot .rl{font-size:10.5px;color:var(--muted);}
+
+  .main{flex:1;min-width:0;display:flex;flex-direction:column;}
+  .scrollarea{padding:18px 24px 28px;overflow:auto;}
+  .backlink{display:inline-flex;align-items:center;gap:8px;font-size:13px;font-weight:600;color:var(--muted);cursor:pointer;margin-bottom:14px;}
+  .backlink svg{width:16px;height:16px;stroke:currentColor;fill:none;stroke-width:2;}
+
+  /* ---------- HEADER rico ---------- */
+  .hd{background:#fff;border:1px solid var(--line);border-radius:var(--r-lg);padding:20px 22px;display:flex;align-items:center;gap:22px;flex-wrap:wrap;}
+  .hd .title h1{font-size:25px;font-weight:800;letter-spacing:-.6px;color:#243456;}
+  .hd .title .sub{font-size:13px;color:var(--muted);font-weight:500;margin-top:3px;}
+  .nochip{display:inline-flex;align-items:center;gap:7px;background:#F3F5F9;border:1px solid var(--line);border-radius:9px;padding:7px 11px;font-size:12.5px;font-weight:600;color:#4a5160;margin-top:9px;font-variant-numeric:tabular-nums;}
+  .nochip svg{width:14px;height:14px;stroke:#9aa3b2;fill:none;stroke-width:2;cursor:pointer;}
+  .hd .spacer{flex:1;}
+  .meta{display:flex;align-items:center;gap:10px;padding:0 18px;border-left:1px solid var(--line);}
+  .meta .ic{width:34px;height:34px;border-radius:9px;display:grid;place-items:center;flex:none;}
+  .meta .ic svg{width:18px;height:18px;fill:none;stroke-width:2;stroke-linecap:round;stroke-linejoin:round;}
+  .meta .k{font-size:11px;color:var(--muted);font-weight:600;}
+  .meta .v{font-size:13.5px;font-weight:700;margin-top:1px;}
+  .meta.status .ic{background:var(--exec-bg);} .meta.status .ic svg{stroke:var(--exec-m);}
+  .meta.status .v{color:var(--exec-fg);}
+  .meta.date .ic{background:var(--info-bg);} .meta.date .ic svg{stroke:var(--info-m);}
+  .meta .av{width:34px;height:34px;border-radius:50%;background:#D9E5F5;color:#3a5f8f;display:grid;place-items:center;font-weight:700;font-size:12px;flex:none;}
+  .acts{display:flex;align-items:center;gap:9px;padding-left:18px;border-left:1px solid var(--line);}
+  .btn{display:inline-flex;align-items:center;gap:8px;font-family:inherit;font-size:13.5px;font-weight:700;padding:11px 16px;border-radius:11px;cursor:pointer;border:none;}
+  .btn svg{width:16px;height:16px;stroke:currentColor;fill:none;stroke-width:2;}
+  .btn-primary{background:var(--blue);color:#fff;box-shadow:0 8px 16px rgba(30,138,224,.28);}
+  .btn-ghost{background:#fff;color:var(--ink);border:1px solid var(--line);}
+  .btn-icon{background:#fff;border:1px solid var(--line);color:var(--muted);padding:11px 12px;}
+
+  /* ---------- SITUAÇÃO (radar) ---------- */
+  .sec-lab{font-size:13px;font-weight:700;color:#3a414e;margin:22px 2px 12px;}
+  .situacao{display:grid;grid-template-columns:repeat(6,1fr);gap:12px;}
+  .scard{border-radius:14px;padding:15px;border:1px solid transparent;}
+  .scard .ic{width:36px;height:36px;border-radius:10px;display:grid;place-items:center;margin-bottom:11px;}
+  .scard .ic svg{width:19px;height:19px;fill:none;stroke-width:2;stroke-linecap:round;stroke-linejoin:round;}
+  .scard .lbl{font-size:13.5px;font-weight:700;display:flex;align-items:center;gap:7px;flex-wrap:wrap;}
+  .scard .st{font-size:12px;font-weight:600;margin-top:3px;}
+  .mini{font-size:10px;font-weight:700;padding:2px 7px;border-radius:999px;}
+  .s-ok{background:var(--exec-bg);border-color:#CDE9D8;} .s-ok .ic{background:#fff;} .s-ok .ic svg{stroke:var(--exec-m);} .s-ok .st{color:var(--exec-fg);}
+  .s-warn{background:var(--warn-bg);border-color:#F2E2B6;} .s-warn .ic{background:#fff;} .s-warn .ic svg{stroke:#D69E12;} .s-warn .st{color:var(--warn-fg);} .s-warn .mini{background:#F7E3AE;color:#8a6206;}
+  .s-pend{background:var(--pend-bg);border-color:#F3D2CD;} .s-pend .ic{background:#fff;} .s-pend .ic svg{stroke:var(--pend-m);} .s-pend .st{color:var(--pend-fg);}
+
+  /* ---------- TABS com indicador ---------- */
+  .tabs{display:flex;gap:6px;border-bottom:1px solid var(--line);margin:24px 0 18px;flex-wrap:wrap;}
+  .tab{display:inline-flex;align-items:center;gap:8px;padding:12px 14px;font-size:13.5px;font-weight:600;color:var(--muted);cursor:pointer;border-bottom:2.5px solid transparent;margin-bottom:-1px;}
+  .tab svg{width:16px;height:16px;stroke:currentColor;fill:none;stroke-width:1.9;}
+  .tab .chk{width:16px;height:16px;border-radius:50%;background:var(--exec-m);display:grid;place-items:center;}
+  .tab .chk svg{width:11px;height:11px;stroke:#fff;stroke-width:3;}
+  .tab .cnt{min-width:18px;height:18px;padding:0 5px;border-radius:9px;background:var(--warn-m);color:#3a2c00;font-size:11px;font-weight:800;display:grid;place-items:center;}
+  .tab .cnt.red{background:var(--pend-m);color:#fff;}
+  .tab.on{color:var(--info-fg);border-bottom-color:var(--blue);}
+
+  /* ---------- COLUNAS ---------- */
+  .cols{display:grid;grid-template-columns:1fr 360px;gap:18px;align-items:start;}
+  @media(max-width:1100px){.cols{grid-template-columns:1fr;} .situacao{grid-template-columns:repeat(3,1fr);}}
+  .panel{background:var(--card);border:1px solid var(--line);border-radius:var(--r-lg);padding:22px;}
+  .panel h2{font-size:15.5px;font-weight:700;letter-spacing:-.2px;margin-bottom:18px;}
+
+  .grid3{display:grid;grid-template-columns:repeat(3,1fr);gap:15px;}
+  .field{margin-bottom:15px;}
+  .lab{display:block;font-size:12px;font-weight:600;color:#5b6270;margin-bottom:7px;}
+  .inp,.sel,.ta{width:100%;font-family:inherit;font-size:14px;font-weight:500;color:var(--ink);background:#fff;border:1px solid #DDE1E9;border-radius:10px;padding:11px 13px;}
+  .inp:focus,.sel:focus,.ta:focus{outline:none;border-color:var(--blue);box-shadow:0 0 0 3px rgba(30,138,224,.13);}
+  .inp-wrap{position:relative;display:flex;align-items:center;}
+  .inp-wrap .inp{padding-right:78px;}
+  .inp-badge{position:absolute;right:9px;background:var(--info-bg);color:var(--info-fg);font-size:10.5px;font-weight:700;padding:3px 8px;border-radius:999px;}
+  .ta{min-height:74px;resize:vertical;}
+  .resp{display:flex;flex-wrap:wrap;gap:9px;}
+  .chip{display:inline-flex;align-items:center;gap:8px;background:#F5F7FA;border:1px solid var(--line);border-radius:999px;padding:6px 9px 6px 6px;}
+  .chip .av{width:26px;height:26px;border-radius:50%;background:#D9E5F5;color:#3a5f8f;display:grid;place-items:center;font-weight:700;font-size:10.5px;flex:none;}
+  .chip .nm{font-size:12.5px;font-weight:700;line-height:1.1;} .chip .rl{font-size:10px;color:var(--muted);font-weight:600;}
+  .chip .x{color:#b0b7c2;cursor:pointer;font-size:14px;margin-left:2px;}
+  .chip.add{background:#fff;border:1px dashed #C6CCDA;color:var(--info-fg);font-size:12.5px;font-weight:700;padding:10px 14px;cursor:pointer;}
+
+  /* Resumo operacional */
+  .rsum .stat{display:flex;align-items:center;gap:12px;padding:13px 0;border-bottom:1px solid var(--line);}
+  .rsum .stat:last-of-type{border-bottom:none;}
+  .rsum .stat .ic{width:38px;height:38px;border-radius:10px;display:grid;place-items:center;flex:none;}
+  .rsum .stat .ic svg{width:19px;height:19px;fill:none;stroke-width:2;stroke-linecap:round;stroke-linejoin:round;}
+  .rsum .stat .k{font-size:12.5px;font-weight:600;color:#4a515e;flex:1;line-height:1.25;}
+  .rsum .stat .v{font-size:15px;font-weight:800;letter-spacing:-.3px;font-variant-numeric:tabular-nums;}
+  .i-blue{background:var(--info-bg);} .i-blue svg{stroke:var(--info-m);}
+  .i-green{background:var(--exec-bg);} .i-green svg{stroke:var(--exec-m);}
+  .i-amber{background:var(--warn-bg);} .i-amber svg{stroke:#D69E12;}
+  .i-red{background:var(--pend-bg);} .i-red svg{stroke:var(--pend-m);}
+  .nextact{margin-top:16px;background:#F4F7FB;border:1px solid #E4EAF2;border-radius:13px;padding:15px;display:flex;gap:12px;}
+  .nextact .ic{width:34px;height:34px;border-radius:9px;background:#fff;border:1px solid var(--line);display:grid;place-items:center;flex:none;}
+  .nextact .ic svg{width:18px;height:18px;stroke:var(--blue);fill:none;stroke-width:2;}
+  .nextact .k{font-size:12px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.4px;}
+  .nextact .v{font-size:13px;font-weight:600;margin-top:3px;line-height:1.4;}
+
+  /* ---------- TIMELINE ---------- */
+  .timeline{display:grid;grid-template-columns:repeat(6,1fr);gap:12px;}
+  @media(max-width:1100px){.timeline{grid-template-columns:repeat(3,1fr);}}
+  .tcard{background:#fff;border:1px solid var(--line);border-radius:13px;padding:13px 14px;position:relative;}
+  .tcard .top{display:flex;align-items:center;gap:9px;margin-bottom:9px;}
+  .tcard .dot{width:30px;height:30px;border-radius:9px;display:grid;place-items:center;flex:none;}
+  .tcard .dot svg{width:16px;height:16px;fill:none;stroke-width:2;stroke-linecap:round;stroke-linejoin:round;}
+  .tcard .dt{font-size:11px;color:var(--muted);font-weight:600;font-variant-numeric:tabular-nums;}
+  .tcard .lbl{font-size:13px;font-weight:700;line-height:1.25;}
+  .tcard .who{font-size:11.5px;color:var(--muted);font-weight:500;margin-top:3px;}
+  .d-blue{background:var(--info-bg);} .d-blue svg{stroke:var(--info-m);}
+  .d-green{background:var(--exec-bg);} .d-green svg{stroke:var(--exec-m);}
+  .d-red{background:var(--pend-bg);} .d-red svg{stroke:var(--pend-m);}
+</style>
+</head>
+<body>
+<div class="frame"><div class="layout">
+
+  <!-- SIDEBAR -->
+  <aside class="side">
+    <div class="brand"><div class="mk">SR</div><div><div class="nm">Service Report</div><div class="sb">Atendimento técnico</div></div></div>
+    <div class="ngrp">Painel</div>
+    <a class="nav c-blue"><span class="ni"><svg viewBox="0 0 24 24"><path d="M3 11l9-8 9 8M5 10v10a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1V10"/></svg></span>Dashboard</a>
+    <div class="ngrp">Comercial</div>
+    <a class="nav c-purple"><span class="ni"><svg viewBox="0 0 24 24"><path d="M14 3v4a1 1 0 0 0 1 1h4"/><path d="M17 21H7a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h7l5 5v11a2 2 0 0 1-2 2Z"/></svg></span>Orçamentos</a>
+    <div class="ngrp">Execução</div>
+    <a class="nav c-green on"><span class="ni"><svg viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="17" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/></svg></span>Tarefas</a>
+    <a class="nav c-amber"><span class="ni"><svg viewBox="0 0 24 24"><circle cx="12" cy="13" r="8"/><path d="M12 9v4l2 2M9 2h6"/></svg></span>Jornada</a>
+    <a class="nav c-orange"><span class="ni"><svg viewBox="0 0 24 24"><path d="M3 17h2m14 0h2M5 17a2 2 0 1 0 4 0 2 2 0 0 0-4 0Zm10 0a2 2 0 1 0 4 0 2 2 0 0 0-4 0Z"/><path d="M5 17V8a1 1 0 0 1 1-1h8l4 4v6"/></svg></span>Deslocamentos</a>
+    <div class="ngrp">Relatórios</div>
+    <a class="nav c-pink"><span class="ni"><svg viewBox="0 0 24 24"><path d="M4 19V5a2 2 0 0 1 2-2h9l5 5v11a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2Z"/><path d="M8 13h6M8 17h4M8 9h3"/></svg></span>Relatórios</a>
+    <div class="ngrp">Sistema</div>
+    <a class="nav c-gray"><span class="ni"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M19.4 13a7 7 0 0 0 0-2l2-1.6-2-3.4-2.4 1a7 7 0 0 0-1.7-1L14.5 2h-5l-.8 3a7 7 0 0 0-1.7 1l-2.4-1-2 3.4 2 1.6a7 7 0 0 0 0 2l-2 1.6 2 3.4 2.4-1a7 7 0 0 0 1.7 1l.8 3h5l.8-3a7 7 0 0 0 1.7-1l2.4 1 2-3.4-2-1.6Z"/></svg></span>Configurações</a>
+    <div class="foot"><div class="av">EK</div><div><div class="nm">Emanoela Klock</div><div class="rl">Administrador</div></div></div>
+  </aside>
+
+  <!-- MAIN -->
+  <div class="main"><div class="scrollarea">
+
+    <span class="backlink"><svg viewBox="0 0 24 24"><path d="M19 12H5M12 19l-7-7 7-7"/></svg>Voltar para tarefas</span>
+
+    <!-- HEADER -->
+    <div class="hd">
+      <div class="title">
+        <h1>WESTROCK – FBTB</h1>
+        <div class="sub">Contrato – Manutenção Preventiva / Corretiva</div>
+        <span class="nochip">Tarefa Nº 04741 <svg viewBox="0 0 24 24"><rect x="9" y="9" width="12" height="12" rx="2"/><path d="M5 15V5a2 2 0 0 1 2-2h10"/></svg></span>
+      </div>
+      <div class="spacer"></div>
+      <div class="meta status"><div class="ic"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="m8.5 12 2.5 2.5 4.5-5"/></svg></div><div><div class="v">Concluída</div><div class="k">Status geral</div></div></div>
+      <div class="meta date"><div class="ic"><svg viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="17" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/></svg></div><div><div class="v num">08/06/2026</div><div class="k">Data agendada</div></div></div>
+      <div class="meta resp"><div class="av">PS</div><div><div class="v">Pablo Soares</div><div class="k">Responsável principal</div></div></div>
+      <div class="acts">
+        <button class="btn btn-primary"><svg viewBox="0 0 24 24"><path d="M12 3v12m0 0 4-4m-4 4-4-4M5 21h14"/></svg>Exportar (PDF)</button>
+        <button class="btn btn-icon"><svg viewBox="0 0 24 24" style="stroke:currentColor;fill:none;stroke-width:2"><circle cx="12" cy="5" r="1.4"/><circle cx="12" cy="12" r="1.4"/><circle cx="12" cy="19" r="1.4"/></svg></button>
+      </div>
+    </div>
+
+    <!-- SITUAÇÃO -->
+    <div class="sec-lab">Situação da tarefa</div>
+    <div class="situacao">
+      <div class="scard s-ok"><div class="ic"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="m8.5 12 2.5 2.5 4.5-5"/></svg></div><div class="lbl">Dados da tarefa</div><div class="st">Preenchido</div></div>
+      <div class="scard s-ok"><div class="ic"><svg viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="17" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/></svg></div><div class="lbl">RATs</div><div class="st">Concluído</div></div>
+      <div class="scard s-warn"><div class="ic"><svg viewBox="0 0 24 24"><path d="M21 16V8l-9-5-9 5v8l9 5 9-5Z"/><path d="m3.3 7 8.7 5 8.7-5M12 22V12"/></svg></div><div class="lbl">Produtos <span class="mini">95m a devolver</span></div><div class="st">Pendência</div></div>
+      <div class="scard s-pend"><div class="ic"><svg viewBox="0 0 24 24"><path d="M12 9v4m0 4h.01M10.3 3.9 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0Z"/></svg></div><div class="lbl">Fora da proposta</div><div class="st">1 item</div></div>
+      <div class="scard s-warn"><div class="ic"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg></div><div class="lbl">Faturamento</div><div class="st">Pendente</div></div>
+      <div class="scard s-ok"><div class="ic"><svg viewBox="0 0 24 24"><path d="M21 12.5 12.5 21a4 4 0 0 1-6-6l8-8a2.5 2.5 0 0 1 4 3l-8 8"/></svg></div><div class="lbl">Anexos</div><div class="st">OK</div></div>
+    </div>
+
+    <!-- TABS -->
+    <div class="tabs">
+      <span class="tab on"><svg viewBox="0 0 24 24"><path d="M4 5h16M4 12h16M4 19h10"/></svg>Dados da Tarefa <span class="chk"><svg viewBox="0 0 24 24"><path d="M5 12l4 4 10-10"/></svg></span></span>
+      <span class="tab"><svg viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="17" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/></svg>RATs <span class="chk"><svg viewBox="0 0 24 24"><path d="M5 12l4 4 10-10"/></svg></span></span>
+      <span class="tab"><svg viewBox="0 0 24 24"><path d="M21 16V8l-9-5-9 5v8l9 5 9-5Z"/></svg>Produtos <span class="cnt">2</span></span>
+      <span class="tab"><svg viewBox="0 0 24 24"><rect x="4" y="4" width="16" height="16" rx="2"/><path d="M9 9h6v6H9z"/></svg>Equipamentos <span class="chk"><svg viewBox="0 0 24 24"><path d="M5 12l4 4 10-10"/></svg></span></span>
+      <span class="tab"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>Faturamento <span class="cnt red">1</span></span>
+      <span class="tab"><svg viewBox="0 0 24 24"><path d="M21 12.5 12.5 21a4 4 0 0 1-6-6l8-8a2.5 2.5 0 0 1 4 3l-8 8"/></svg>Anexos <span class="chk"><svg viewBox="0 0 24 24"><path d="M5 12l4 4 10-10"/></svg></span></span>
+      <span class="tab"><svg viewBox="0 0 24 24"><path d="M3 12a9 9 0 1 0 3-6.7L3 8"/><path d="M3 4v4h4M12 8v4l3 2"/></svg>Histórico</span>
+    </div>
+
+    <!-- COLUNAS -->
+    <div class="cols">
+      <div class="panel">
+        <h2>Dados gerais</h2>
+        <div class="grid3">
+          <div class="field"><label class="lab">Cliente</label><input class="inp" value="WESTROCK – FBTB"></div>
+          <div class="field"><label class="lab">Origem</label><div class="inp-wrap"><input class="inp" value="Sem orçamento" readonly><span class="inp-badge">Avulso</span></div></div>
+          <div class="field"><label class="lab">Status</label><select class="sel"><option>Concluída</option></select></div>
+        </div>
+        <div class="grid3">
+          <div class="field"><label class="lab">Tipo de tarefa</label><select class="sel"><option>Contrato – Manutenção Preventiva / Corretiva</option></select></div>
+          <div class="field"><label class="lab">Data agendada</label><input class="inp num" value="08/06/2026"></div>
+          <div class="field"><label class="lab">Pedido de compra (PC)</label><input class="inp" value="PC-2026-0123"></div>
+        </div>
+        <div class="field"><label class="lab">Orientação ao técnico</label><textarea class="ta">Passagem de cabo</textarea></div>
+        <div class="field"><label class="lab">Responsáveis</label>
+          <div class="resp">
+            <span class="chip"><span class="av">PS</span><span><span class="nm">Pablo Soares</span><br><span class="rl">Principal</span></span><span class="x">×</span></span>
+            <span class="chip"><span class="av">AC</span><span><span class="nm">Arian Camilo</span><br><span class="rl">Técnico</span></span><span class="x">×</span></span>
+            <span class="chip"><span class="av">FT</span><span><span class="nm">Field Team</span><br><span class="rl">Equipe</span></span><span class="x">×</span></span>
+            <span class="chip add">+ Adicionar</span>
+          </div>
+        </div>
+        <div class="field" style="margin-bottom:0"><label class="lab">Observações internas</label><textarea class="ta" placeholder="Notas do administrativo..."></textarea></div>
+      </div>
+
+      <div class="panel rsum">
+        <h2>Resumo operacional</h2>
+        <div class="stat"><div class="ic i-blue"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg></div><div class="k">Horas registradas (RATs)</div><div class="v num">06h 30m</div></div>
+        <div class="stat"><div class="ic i-green"><svg viewBox="0 0 24 24"><path d="M12 1v22M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg></div><div class="k">Valor utilizado (materiais)</div><div class="v num">R$ 2.102,40</div></div>
+        <div class="stat"><div class="ic i-amber"><svg viewBox="0 0 24 24"><path d="M3 12a9 9 0 1 0 3-6.7L3 8"/><path d="M3 4v4h4"/></svg></div><div class="k">A devolver</div><div class="v num">95 m</div></div>
+        <div class="stat"><div class="ic i-red"><svg viewBox="0 0 24 24"><path d="M12 9v4m0 4h.01M10.3 3.9 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0Z"/></svg></div><div class="k">Itens fora da proposta</div><div class="v num">1 item</div></div>
+        <div class="nextact">
+          <div class="ic"><svg viewBox="0 0 24 24"><path d="M3 11v2a1 1 0 0 0 1 1h3l5 4V6L7 10H4a1 1 0 0 0-1 1ZM16 9a3 3 0 0 1 0 6"/></svg></div>
+          <div><div class="k">Próxima ação recomendada</div><div class="v">Conferir devolução de materiais antes do faturamento.</div></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- TIMELINE -->
+    <div class="sec-lab">Linha do tempo da tarefa</div>
+    <div class="timeline">
+      <div class="tcard"><div class="top"><span class="dot d-blue"><svg viewBox="0 0 24 24"><path d="M14 3v4a1 1 0 0 0 1 1h4"/><path d="M17 21H7a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h7l5 5v11a2 2 0 0 1-2 2Z"/></svg></span><span class="dt">07/06 09:15</span></div><div class="lbl">Tarefa criada</div><div class="who">Emanoela Klock</div></div>
+      <div class="tcard"><div class="top"><span class="dot d-green"><svg viewBox="0 0 24 24"><path d="M16 21v-2a4 4 0 0 0-8 0v2M12 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8Z"/></svg></span><span class="dt">07/06 10:22</span></div><div class="lbl">Responsáveis definidos</div><div class="who">Pablo Soares</div></div>
+      <div class="tcard"><div class="top"><span class="dot d-green"><svg viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="17" rx="2"/><path d="m8.5 13 2.5 2.5 4.5-5"/></svg></span><span class="dt">08/06 08:30</span></div><div class="lbl">RAT concluída</div><div class="who">Pablo Soares</div></div>
+      <div class="tcard"><div class="top"><span class="dot d-green"><svg viewBox="0 0 24 24"><path d="M21 16V8l-9-5-9 5v8l9 5 9-5Z"/></svg></span><span class="dt">08/06 11:45</span></div><div class="lbl">Produtos lançados</div><div class="who">Pablo Soares</div></div>
+      <div class="tcard"><div class="top"><span class="dot d-red"><svg viewBox="0 0 24 24"><path d="M12 9v4m0 4h.01M10.3 3.9 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0Z"/></svg></span><span class="dt">08/06 14:20</span></div><div class="lbl">Pendência identificada</div><div class="who">Sistema</div></div>
+      <div class="tcard"><div class="top"><span class="dot d-green"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="m8.5 12 2.5 2.5 4.5-5"/></svg></span><span class="dt">09/06 07:30</span></div><div class="lbl">Tarefa concluída</div><div class="who">Pablo Soares</div></div>
+    </div>
+
+  </div></div>
+</div></div>
+</body>
+</html>
