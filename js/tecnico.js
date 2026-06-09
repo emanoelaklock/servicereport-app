@@ -1063,8 +1063,8 @@
       wrap.innerHTML = `${label}
         <div class="foto-box">
           <input type="file" accept="image/*" capture="environment" multiple id="foto-input" style="display:none">
-          <button type="button" class="btn" id="btn-foto">📷 Adicionar foto</button>
-          <div class="thumbs" id="thumbs"></div>
+          <div class="photo" id="btn-foto"><svg viewBox="0 0 24 24"><path d="M3 7h4l2-2h6l2 2h4v12H3z"/><circle cx="12" cy="13" r="3.2"/></svg>Adicionar foto</div>
+          <div class="thumbs" id="thumbs" style="margin-top:10px"></div>
         </div>`
       // bind após inserir no DOM
       setTimeout(() => {
@@ -1076,7 +1076,7 @@
       wrap.innerHTML = `${label}
         <div class="sig-wrap">
           <canvas class="sig-pad"></canvas>
-          <button type="button" class="btn btn-sm sig-clear" id="btn-sig-limpar">Limpar</button>
+          <button type="button" class="sig-clear" id="btn-sig-limpar">Limpar</button>
         </div>`
       setTimeout(() => { wrap.querySelector('#btn-sig-limpar').onclick = () => sig && sig.clear() }, 0)
     } else {
@@ -1251,7 +1251,7 @@
   }
   const fmtMin = (t) => t == null ? '—' : `${Math.floor(t / 60)}h ${String(t % 60).padStart(2, '0')}min`
   function atualizarTempo() {
-    const el = document.getElementById('f-tempo'); if (el) el.value = fmtMin(calcTempo())
+    const el = document.getElementById('f-tempo'); if (el) { const v = fmtMin(calcTempo()); if ('value' in el && el.tagName === 'INPUT') el.value = v; else el.textContent = v }
   }
 
   function coletarRespostas() {
