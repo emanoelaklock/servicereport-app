@@ -155,17 +155,19 @@
   /* "+ Item avulso" — botão de adicionar (azul tonal) */
   #add-avulso{background:#E7F1FC;color:#1565C0;border:1px solid #CBE0F7;font-weight:700}
   #add-avulso:hover{background:#d8e8fa;border-color:#1565C0}
-  /* >>> Paleta da marca (preto/branco/vermelho/laranja/amarelo/verde/azul/roxo) <<< */
+  /* >>> Paleta da marca — ordem da paleta (esq→dir) + semântica <<< */
+  .totalbar .actions{flex-wrap:wrap}
   .totalbar .actions .btn{color:#fff !important;border:1px solid transparent !important;font-weight:700}
   .totalbar .actions .btn:hover{filter:brightness(.93)}
-  .totalbar #btn-voltar{background:#fff !important;color:#1A1A1A !important;border-color:#D0D5DD !important}
-  .totalbar #btn-pdf{background:#1A1A1A !important}
-  .totalbar #btn-reabrir{background:#8246AF !important}
-  .totalbar #btn-arquivar,.totalbar #btn-desarquivar,.totalbar #mm-arquivar{background:#F47920 !important}
-  .totalbar #btn-naoaprovado,.totalbar #mm-excluir{background:#E2231A !important}
-  .totalbar #btn-aprovar{background:#1FA34A !important}
-  .totalbar #btn-salvar{background:#1B87CE !important}
-  #add-avulso{background:#FBB034 !important;color:#1A1A1A !important;border:1px solid transparent !important;font-weight:700}
+  .totalbar #btn-pdf{background:#1A1A1A !important;order:1}                                                    /* preto  · PDF */
+  .totalbar #btn-voltar{background:#fff !important;color:#1A1A1A !important;border-color:#D0D5DD !important;order:2} /* branco · Voltar */
+  .totalbar #btn-naoaprovado{background:#E1251B !important;order:3}                                            /* vermelho · Não aprovado */
+  .totalbar #mm-excluir{background:#E1251B !important;order:3}                                                 /* vermelho · Excluir */
+  .totalbar #mm-arquivar,.totalbar #btn-arquivar,.totalbar #btn-desarquivar{background:#F58220 !important;order:4} /* laranja · Arquivar */
+  .totalbar #btn-aprovar{background:#1E9D44 !important;order:6}                                                /* verde · Aprovar */
+  .totalbar #btn-salvar{background:#1C88CE !important;order:7}                                                 /* azul · Salvar */
+  .totalbar #btn-reabrir{background:#7E3F98 !important;order:8}                                                /* roxo · Reabrir */
+  #add-avulso{background:#FDB714 !important;color:#1A1A1A !important;border:1px solid transparent !important;font-weight:700} /* amarelo */
   #add-avulso:hover{filter:brightness(.95)}
   #more-wrap{position:relative}
   .more-menu{display:none;position:absolute;bottom:calc(100% + 6px);left:0;background:#fff;border:1px solid var(--bd);border-radius:8px;box-shadow:var(--sh);min-width:150px;z-index:40;overflow:hidden;padding:4px}
