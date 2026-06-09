@@ -832,7 +832,7 @@ const TarefaApp = (() => {
       const r = d.r
       return `<div class="rat-open">
         <div class="rat-open-h">
-          <div><b>RAT ${cur && cur.numero != null ? osNo(cur.numero) + (r.rat_seq != null ? '_' + String(r.rat_seq).padStart(2, '0') : '') : ''} · ${fdt(r.data_tarefa, { withTime: true })}</b> · ${esc(r.tecnico_nome || '—')} · ${RatView.fmtMin(RatView.tempoRat(r))}</div>
+          <div><b>RAT ${cur && cur.numero != null ? osNo(cur.numero) + (r.rat_seq != null ? '/' + String(r.rat_seq).padStart(2, '0') : '') : ''} · ${fdt(r.data_tarefa, { withTime: true })}</b> · ${esc(r.tecnico_nome || '—')} · ${RatView.fmtMin(RatView.tempoRat(r))}</div>
           <div style="display:flex;align-items:center;gap:10px">
             <span class="ri-sit">${esc(ratSit(r.status))}</span>
             <a class="btn btn-sm" href="rat.html?id=${encodeURIComponent(r.id)}" target="_blank" rel="noopener">Abrir ↗</a>

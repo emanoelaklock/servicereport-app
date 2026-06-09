@@ -93,7 +93,7 @@ window.RatView = (function () {
     const resp = r.respostas || {}
     const SKIP = new Set(['foto', 'produtos', 'assinatura'])
     const baseNo = r.tarefa && r.tarefa.numero != null ? String(r.tarefa.numero).padStart(5, '0') : null
-    const tarefaNo = baseNo ? (baseNo + (r.rat_seq != null ? '_' + String(r.rat_seq).padStart(2, '0') : '')) : null
+    const tarefaNo = baseNo ? (baseNo + (r.rat_seq != null ? '/' + String(r.rat_seq).padStart(2, '0') : '')) : null
 
     let h = `<div class="rd">`
     if (!opts.noHeader) h += `

@@ -266,14 +266,14 @@
     // Status da tarefa-pai (para ordenar por prioridade); cai no status da própria RAT se a tarefa não estiver carregada.
     const tarStatusDe = (r) => { const t = tarefas.find(x => x.id === r.tarefa_id); return t ? t.status : (RAT_PARA_TAREFA[r.status] || r.status) }
     const tarNumeroDe = (r) => { const t = tarefas.find(x => x.id === r.tarefa_id); return (t && t.numero != null) ? t.numero : r.tarefa_numero }
-    // Subnumeração por tarefa (_01, _02…): usa rat_seq do servidor; se ainda local, ordem de criação.
+    // Subnumeração por tarefa (/01, /02…): usa rat_seq do servidor; se ainda local, ordem de criação.
     const subLocal = {}
     for (const r of [...rats].sort((a, b) => (a.criado_em || '').localeCompare(b.criado_em || ''))) {
       (subLocal[r.tarefa_id] = subLocal[r.tarefa_id] || []).push(r.client_uuid)
     }
     const subDe = (r) => { if (r.rat_seq != null) return r.rat_seq; const a = subLocal[r.tarefa_id] || []; const i = a.indexOf(r.client_uuid); return i >= 0 ? i + 1 : null }
     const pad2 = (n) => String(n).padStart(2, '0')
-    const tarLabel = (r) => { const n = tarNumeroDe(r); if (n == null) return ''; const s = subDe(r); return 'Tarefa Nº ' + osNo(n) + (s != null ? '_' + pad2(s) : '') + ' · ' }
+    const tarLabel = (r) => { const n = tarNumeroDe(r); if (n == null) return ''; const s = subDe(r); return 'Tarefa Nº ' + osNo(n) + (s != null ? '/' + pad2(s) : '') + ' · ' }
     const ordenadas = rats.slice().sort((a, b) => prioStatus(tarStatusDe(a)) - prioStatus(tarStatusDe(b)) || (b.criado_em || '').localeCompare(a.criado_em || ''))
     box.innerHTML = ordenadas.map(r => {
       const ts = tarStatusDe(r); const sk = SKIN_STATUS[ts] || 'aguard'
@@ -928,7 +928,7 @@
     const tarefaDela = tarefas.find(x => x.id === rat.tarefa_id)
     const tipoNomeR = (ref.tipos.find(x => x.id === (tarefaDela ? tarefaDela.tipo_servico_id : null)) || {}).nome
     const numR = (tarefaDela && tarefaDela.numero != null) ? tarefaDela.numero : rat.tarefa_numero
-    const subR = (rat.rat_seq != null) ? '_' + String(rat.rat_seq).padStart(2, '0') : ''
+    const subR = (rat.rat_seq != null) ? '/' + String(rat.rat_seq).padStart(2, '0') : ''
     if (rat.tarefa_id) {
       banner.style.display = 'block'
       banner.textContent = `RAT da Tarefa ${numR != null ? 'Nº ' + osNo(numR) + subR : '(na fila ↑)'} · ${cliNomeDe(rat.cliente_id, rat.cliente_nome)}${tipoNomeR ? ' · ' + tipoNomeR : ''}`
