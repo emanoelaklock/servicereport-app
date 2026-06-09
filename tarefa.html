@@ -383,8 +383,8 @@
           <div class="timeline" id="cc-timeline"></div>
         </div>
 
-        <div class="cc-card cc-pane" data-pane="equip">
-          <div class="card-h"><span class="dot"></span><span class="t">Equipamentos relacionados</span></div>
+        <div class="panel cc-pane" data-pane="equip">
+          <h2>Equipamentos relacionados</h2>
           <div class="cc-eq-add">
             <div class="ac" style="flex:1;min-width:260px">
               <input type="text" id="cc-eq-busca" placeholder="Buscar equipamento (modelo, PN ou serial)…" autocomplete="off">
@@ -396,15 +396,15 @@
           <div class="cc-chips" id="cc-eq-chips"></div>
         </div>
 
-        <div class="cc-card cc-pane" data-pane="anexos">
-          <div class="card-h"><span class="dot"></span><span class="t">Anexos</span></div>
+        <div class="panel cc-pane" data-pane="anexos">
+          <h2>Anexos</h2>
           <input type="file" id="cc-anx-input" multiple style="display:none">
           <button class="btn" id="cc-anx-btn">📎 Adicionar anexos</button>
           <div class="cc-anexos" id="cc-anx-list"></div>
         </div>
 
-        <div class="cc-card cc-pane" data-pane="rats">
-          <div class="card-h"><span class="dot"></span><span class="t">Relatórios de Atendimento (RATs)</span></div>
+        <div class="panel cc-pane" data-pane="rats">
+          <h2>Relatórios de Atendimento (RATs)</h2>
           <p class="card-sub">Registros de execução do técnico. Veja individualmente, todas de uma vez, ou gere um PDF único para enviar ao cliente.</p>
           <div class="rat-acts">
             <button class="btn btn-sm" id="cc-rat-pdf">⬇ PDF unificado</button>
@@ -412,8 +412,8 @@
           <div class="rat-list" id="cc-rat-list"></div>
         </div>
 
-        <div class="cc-card cc-pane" data-pane="material">
-          <div class="card-h"><span class="dot"></span><span class="t">Produtos</span></div>
+        <div class="panel cc-pane" data-pane="material">
+          <h2>Produtos</h2>
           <p class="card-sub">Orçada (do orçamento) · <b>Levada</b> (estoque — você edita) · Utilizada (RATs do técnico) · Devolvida = Levada − Utilizada.</p>
           <div class="cc-stats" id="cc-stats"></div>
           <div class="cc-bulk" id="cc-bulk" style="display:none">
@@ -449,8 +449,8 @@
           </div>
         </div>
 
-        <div class="cc-card cc-pane" data-pane="fat">
-          <div class="card-h"><span class="dot"></span><span class="t">Faturamento</span></div>
+        <div class="panel cc-pane" data-pane="fat">
+          <h2>Faturamento</h2>
           <p class="card-sub">A Tarefa é a unidade de faturamento. Classifique a <b>modalidade</b>, confira os valores e marque como faturada.</p>
 
           <!-- Modalidade de faturamento (§10.1) -->
