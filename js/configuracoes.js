@@ -111,7 +111,7 @@
         <td><span style="display:inline-block;font-size:11px;font-weight:700;padding:3px 10px;border-radius:999px;background:${esc(s.cor || '#999')}1A;color:${esc(s.cor || '#999')}">${esc(s.label || s.chave)}</span></td>
         <td>${s.ordem}</td>
         <td>${s.sistema ? '<span class="dim">do sistema</span>' : 'personalizado'}</td>
-        <td>${s.ativo ? '<span class="badge s-en"><span class="dot"></span>Ativo</span>' : '<span class="dim">Inativo</span>'}</td>
+        <td>${s.ativo ? '<span class="badge b-done"><i></i>Ativo</span>' : '<span class="dim">Inativo</span>'}</td>
         <td><div class="acts" style="opacity:1"><button class="ab ab-v" data-edit="${esc(s.chave)}">Editar</button></div></td>
       </tr>`).join('')
     tb.querySelectorAll('[data-edit]').forEach(b => b.onclick = () => abrirStatus(b.dataset.edit))
@@ -176,7 +176,7 @@
       <tr>
         <td>${esc(f.nome)}</td>
         <td>${(f.campos || []).length} campo(s)</td>
-        <td>${f.ativo ? '<span class="badge s-en"><span class="dot"></span>Ativo</span>' : '<span class="dim">Inativo</span>'}</td>
+        <td>${f.ativo ? '<span class="badge b-done"><i></i>Ativo</span>' : '<span class="dim">Inativo</span>'}</td>
         <td><div class="acts" style="opacity:1"><button class="ab ab-v" data-edit="${esc(f.id)}">Editar</button></div></td>
       </tr>`).join('')
     tb.querySelectorAll('[data-edit]').forEach(b => b.onclick = () => abrirForm(b.dataset.edit))
@@ -470,7 +470,7 @@
         <td>${esc(t.nome)}</td>
         <td>${esc(nomeFormulario(t.formulario_id))}</td>
         <td>${esc(t.efeito_inventario)}</td>
-        <td>${t.ativo ? '<span class="badge s-en"><span class="dot"></span>Ativo</span>' : '<span class="dim">Inativo</span>'}</td>
+        <td>${t.ativo ? '<span class="badge b-done"><i></i>Ativo</span>' : '<span class="dim">Inativo</span>'}</td>
         <td><div class="acts" style="opacity:1"><button class="ab ab-v" data-edit="${esc(t.id)}">Editar</button></div></td>
       </tr>`).join('')
     tb.querySelectorAll('[data-edit]').forEach(b => b.onclick = () => abrirTipo(b.dataset.edit))
@@ -518,7 +518,7 @@
       <tr>
         <td>${esc(v.modelo || '—')}</td>
         <td>${esc(v.placa || '—')}</td>
-        <td>${v.ativo ? '<span class="badge s-en"><span class="dot"></span>Ativo</span>' : '<span class="dim">Inativo</span>'}</td>
+        <td>${v.ativo ? '<span class="badge b-done"><i></i>Ativo</span>' : '<span class="dim">Inativo</span>'}</td>
         <td><div class="acts" style="opacity:1"><button class="ab ab-v" data-edit="${esc(v.id)}">Editar</button></div></td>
       </tr>`).join('')
     tb.querySelectorAll('[data-edit]').forEach(b => b.onclick = () => abrirVeiculo(b.dataset.edit))
@@ -638,7 +638,7 @@
       let status
       if (r.oculto) status = '<span class="dim">Oculto</span>'
       else if (!r.ativo) status = '<span class="dim">Inativo</span>'
-      else status = '<span class="badge s-en"><span class="dot"></span>Visível</span>'
+      else status = '<span class="badge b-done"><i></i>Visível</span>'
       const acoes = `<div class="acts" style="opacity:1">
           <button class="ab ab-c" data-toggle="${esc(r.id)}" data-oc="${r.oculto ? 1 : 0}">${r.oculto ? 'Mostrar' : 'Ocultar'}</button>
           <button class="ab ab-d" data-del="${esc(r.id)}">Excluir</button>
