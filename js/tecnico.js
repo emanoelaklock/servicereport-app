@@ -378,7 +378,11 @@
     const t = tarefas.find(x => x.id === id); if (!t) return
     tarefaAberta = t
     document.getElementById('t-det-no').textContent = t._local ? 'Nova tarefa (na fila ↑)' : ('Tarefa Nº ' + osNo(t.numero))
-    const badge = document.getElementById('t-det-badge'); badge.textContent = stLabel(t.status); badge.className = 't-det-badge'; badge.style.cssText = stStyle(t.status)
+    const badge = document.getElementById('t-det-badge'); badge.textContent = stLabel(t.status)
+    const sk = SKIN_STATUS[t.status]
+    if (sk) { badge.className = 'badge b-' + sk; badge.style.cssText = '' }
+    else { badge.className = 'badge'; badge.style.cssText = `background:${stCor(t.status)};color:#fff` }
+    const card = document.getElementById('t-det-card'); if (card) card.style.borderLeftColor = stCor(t.status)
     document.getElementById('t-det-cli').textContent = cliNomeDe(t.cliente_id)
     document.getElementById('t-det-agenda').textContent = t.data_agendada ? 'Agendada para ' + fdt(t.data_agendada) : 'Sem data agendada'
     // Tipo de tarefa
@@ -401,7 +405,7 @@
         temRat = (count || 0) > 0
       } catch (e) { /* offline/erro: mantém o que tem local */ }
     }
-    document.getElementById('t-det-concluir').style.display = (podeConcluir && temRat) ? 'grid' : 'none'
+    document.getElementById('t-det-concluir').style.display = (podeConcluir && temRat) ? 'flex' : 'none'
     document.getElementById('t-det-concluir-hint').style.display = (podeConcluir && !temRat) ? 'block' : 'none'
     mostrar('tarefa-det')
     await carregarMaterialDaTarefa(id)
@@ -420,12 +424,12 @@
       if (!data || !data.length) { sec.style.display = 'none'; return }
       const qz = (n) => Number(n) || 0
       const fmt = (n, u) => { const v = qz(n); return (v ? v.toLocaleString('pt-BR', { maximumFractionDigits: 3 }) : '—') + (v && u ? ' ' + u : '') }
-      box.innerHTML = data.map(m => `<div class="t-det-mat-item">
-        <div class="nome">${esc(m.descricao || m.codigo_produto || '—')}</div>
-        <div class="t-det-mat-chips">
-          <span class="t-mat-chip orc${qz(m.qtd_orcada) ? '' : ' zero'}"><span class="k">Orçado</span>${fmt(m.qtd_orcada, m.unidade)}</span>
-          <span class="t-mat-chip lev${qz(m.qtd_levada) ? '' : ' zero'}"><span class="k">Levado</span>${fmt(m.qtd_levada, m.unidade)}</span>
-          <span class="t-mat-chip uti${qz(m.qtd_utilizada) ? '' : ' zero'}"><span class="k">Utilizado (todas RATs)</span>${fmt(m.qtd_utilizada, m.unidade)}</span>
+      box.innerHTML = data.map(m => `<div class="prod">
+        <div class="pn">${esc(m.descricao || m.codigo_produto || '—')}</div>
+        <div class="chips">
+          <span class="chip c-orc">Orçado ${fmt(m.qtd_orcada, m.unidade)}</span>
+          <span class="chip c-lev">Levado ${fmt(m.qtd_levada, m.unidade)}</span>
+          <span class="chip c-uti">Utilizado ${fmt(m.qtd_utilizada, m.unidade)}</span>
         </div>
       </div>`).join('')
       sec.style.display = 'block'
@@ -490,11 +494,16 @@
     const todas = await D().listarRats()
     const dela = (todas || []).filter(r => r.tarefa_id === id)
     if (!dela.length) { sec.style.display = 'none'; return }
-    box.innerHTML = dela.map(r => `<div class="rat-card" data-uuid="${esc(r.client_uuid)}">
-      <div class="rat-card-top"><span class="rat-cli">RAT</span>${badge(r.sync_status)}</div>
-      <div class="rat-meta"><span>${esc(ratSit(r.status))}</span><span>${fdt(r.criado_em, { withTime: true })}</span></div>
-    </div>`).join('')
-    box.querySelectorAll('.rat-card').forEach(el => el.onclick = () => abrirExistente(el.dataset.uuid))
+    box.innerHTML = dela.map(r => {
+      const conf = r.sync_status === 'confirmado'
+        ? '<div class="conf"><i></i>Confirmado</div>'
+        : '<div class="conf" style="color:var(--warn-fg)"><i style="background:var(--warn-m)"></i>na fila ↑</div>'
+      return `<div class="ratmini" data-uuid="${esc(r.client_uuid)}">
+        <div><div class="l">RAT</div><div class="s">${esc(ratSit(r.status))}</div></div>
+        <div class="r">${conf}<div class="dt">${fdt(r.criado_em, { withTime: true })}</div></div>
+      </div>`
+    }).join('')
+    box.querySelectorAll('.ratmini').forEach(el => el.onclick = () => abrirExistente(el.dataset.uuid))
     sec.style.display = 'block'
   }
 

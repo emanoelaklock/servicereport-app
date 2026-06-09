@@ -307,45 +307,43 @@
       </div>
 
       <!-- TAREFA (detalhe) -->
-      <div id="view-tarefa-det" style="display:none">
-        <div class="login-card" style="box-shadow:var(--sh)">
-          <div class="t-det-top">
-            <span class="t-det-no" id="t-det-no">Tarefa</span>
-            <span class="t-det-badge" id="t-det-badge"></span>
+      <div id="view-tarefa-det" class="tskin" style="display:none">
+        <div class="card det-accent" id="t-det-card">
+          <div class="dh">
+            <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:10px">
+              <div><div class="no" id="t-det-no">Tarefa</div><div class="cli" id="t-det-cli">—</div></div>
+              <span class="badge" id="t-det-badge"></span>
+            </div>
+            <div class="mt"><div id="t-det-agenda"></div><div id="t-det-tipo" style="display:none"></div></div>
           </div>
-          <div class="t-det-cli" id="t-det-cli">—</div>
-          <div class="t-det-row" id="t-det-agenda"></div>
-          <div class="t-det-row" id="t-det-tipo" style="display:none"></div>
-          <div class="t-det-sec t-det-card" id="t-det-orient-sec" style="display:none">
-            <div class="t-det-lbl">Orientação</div>
-            <div class="t-det-orient" id="t-det-orient"></div>
+          <div class="orient" id="t-det-orient-sec" style="display:none">
+            <div class="k">Orientação</div><div class="v" id="t-det-orient"></div>
           </div>
-          <div class="t-det-sec t-det-card" id="t-det-obs-sec" style="display:none">
-            <div class="t-det-lbl">Observações</div>
-            <div class="t-det-orient" id="t-det-obs"></div>
+          <div class="orient" id="t-det-obs-sec" style="display:none">
+            <div class="k">Observações</div><div class="v" id="t-det-obs"></div>
           </div>
-          <div class="t-det-sec" id="t-det-mat-sec" style="display:none">
-            <div class="t-det-lbl">Produtos</div>
+          <div id="t-det-mat-sec" style="display:none">
+            <div class="sec" style="margin:16px 0 2px">Produtos</div>
             <div id="t-det-mat"></div>
           </div>
-          <div class="t-det-sec" id="t-det-equip-sec" style="display:none">
-            <div class="t-det-lbl">Equipamentos</div>
+          <div id="t-det-equip-sec" style="display:none">
+            <div class="sec" style="margin:16px 0 2px">Equipamentos</div>
             <div id="t-det-equip"></div>
           </div>
-          <div class="t-det-sec" id="t-det-anexos-sec" style="display:none">
-            <div class="t-det-lbl">Anexos</div>
+          <div id="t-det-anexos-sec" style="display:none">
+            <div class="sec" style="margin:16px 0 2px">Anexos</div>
             <div id="t-det-anexos"></div>
           </div>
-          <div class="t-det-sec" id="t-det-rats-sec" style="display:none">
-            <div class="t-det-lbl">RATs desta tarefa</div>
+          <div id="t-det-rats-sec" style="display:none">
+            <div class="sec" style="margin:16px 0 2px">RATs desta tarefa</div>
             <div id="t-det-rats"></div>
           </div>
-          <button class="btn btn-p" id="btn-iniciar-rat" style="width:100%;margin-top:18px">▶ Iniciar RAT desta tarefa</button>
-          <div id="t-det-concluir" style="display:none;margin-top:10px;grid-template-columns:1fr 1fr;gap:8px">
-            <button class="btn" id="btn-concluir" style="border-color:#0E9F6E;color:#0E7A4F">✓ Concluir</button>
-            <button class="btn" id="btn-concluir-pend" style="border-color:#e0a106;color:#9a6a1a">⚠ Concluir c/ pendência</button>
+          <div style="margin-top:16px"><button class="btn btn-primary" id="btn-iniciar-rat">▶ Iniciar RAT desta tarefa</button></div>
+          <div class="btn-row" id="t-det-concluir" style="display:none">
+            <button class="btn btn-ok-o" id="btn-concluir">✓ Concluir</button>
+            <button class="btn btn-warn-o" id="btn-concluir-pend">⚠ Concluir c/ pend.</button>
           </div>
-          <p class="dim" id="t-det-concluir-hint" style="display:none;margin-top:10px;text-align:center">Para concluir, salve uma RAT desta tarefa com <b>todos os campos obrigatórios</b> preenchidos.</p>
+          <p class="hintn" id="t-det-concluir-hint" style="display:none;margin-top:10px;text-align:center">Para concluir, salve uma RAT desta tarefa com <b>todos os campos obrigatórios</b> preenchidos.</p>
         </div>
       </div>
 
