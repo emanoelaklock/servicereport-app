@@ -92,11 +92,9 @@
     document.getElementById('btn-reabrir').onclick = reabrir
     document.getElementById('btn-arquivar').onclick = arquivar
     document.getElementById('btn-desarquivar').onclick = desarquivar
-    // menu "⋯" (Arquivar · Excluir) — só no estado Aguardando aprovação
-    document.getElementById('btn-more').onclick = (e) => { e.stopPropagation(); document.getElementById('more-menu').classList.toggle('open') }
-    document.getElementById('mm-arquivar').onclick = () => { document.getElementById('more-menu').classList.remove('open'); arquivar() }
-    document.getElementById('mm-excluir').onclick = () => { document.getElementById('more-menu').classList.remove('open'); excluir() }
-    document.addEventListener('click', () => document.getElementById('more-menu')?.classList.remove('open'))
+    // Arquivar · Excluir — botões inline (só no estado Aguardando aprovação)
+    document.getElementById('mm-arquivar').onclick = arquivar
+    document.getElementById('mm-excluir').onclick = excluir
     document.getElementById('add-avulso').onclick = () => { addItem({ tipo: 'avulso', quantidade: 1, preco_unitario: 0 }); renderItens() }
     document.getElementById('add-material').onclick = adicionarMaterialSelecionado
     document.getElementById('e-servico-valor').oninput = recomputeTotais
@@ -497,14 +495,15 @@
     show('btn-salvar', aguardando)
     show('btn-aprovar', aguardando && saved)
     show('btn-naoaprovado', aguardando && saved)
-    show('more-wrap', aguardando && saved)
+    show('mm-arquivar', aguardando && saved)
+    show('mm-excluir', aguardando && saved)
     // Aprovado → Gerar PDF · Reabrir | Não aprovado → Reabrir · Arquivar
     show('btn-reabrir', aprovado || naoAprov)
     show('btn-arquivar', naoAprov)
     // Arquivado → Desarquivar
     show('btn-desarquivar', arq)
     show('btn-pdf', saved && (aguardando || aprovado))
-    document.getElementById('more-menu').classList.remove('open')
+    // (menu "⋯" removido — Arquivar/Excluir agora são botões inline)
     // Badge de status no topo
     const badge = document.getElementById('ed-badge')
     badge.textContent = STATUS_LABEL[cur.status] || cur.status

@@ -125,6 +125,33 @@
   /* Botão Aprovar (verde) e menu "⋯" */
   .btn-ok{background:#0E9F6E;border-color:#0E9F6E;color:#fff}
   .btn-ok:hover{background:#0c8c61;border-color:#0c8c61}
+  /* Barra inferior — botões coloridos por ação (paleta + contraste) */
+  .totalbar .actions .btn{font-weight:700;transition:filter .12s,border-color .12s,background .12s}
+  .totalbar #btn-voltar{background:#fff;color:#525965;border:1px solid #DDE1E9}
+  .totalbar #btn-voltar:hover{border-color:#9aa3b2}
+  .totalbar #btn-pdf{background:#E7F1FC;color:#1565C0;border:1px solid #CBE0F7}
+  .totalbar #btn-pdf:hover{background:#d8e8fa;border-color:#1565C0}
+  .totalbar #btn-reabrir{background:#F1E9F8;color:#7E37A6;border:1px solid #E3D4F0}
+  .totalbar #btn-reabrir:hover{border-color:#7E37A6}
+  .totalbar #btn-arquivar,.totalbar #btn-desarquivar{background:#FFF6E5;color:#A2740C;border:1px solid #F2E2B6}
+  .totalbar #btn-arquivar:hover,.totalbar #btn-desarquivar:hover{border-color:#C2900B}
+  .totalbar #btn-naoaprovado{background:#FDEEEC;color:#C0362C;border:1px solid #F3D2CD}
+  .totalbar #btn-naoaprovado:hover{background:#fbe2de;border-color:#C0362C}
+  .totalbar #mm-arquivar{background:#FFF6E5;color:#A2740C;border:1px solid #F2E2B6}
+  .totalbar #mm-arquivar:hover{border-color:#C2900B}
+  .totalbar #mm-excluir{background:#FDEEEC;color:#C0362C;border:1px solid #F3D2CD}
+  .totalbar #mm-excluir:hover{background:#fbe2de;border-color:#C0362C}
+  .totalbar #btn-aprovar{background:#28A94C;border-color:#28A94C;color:#fff}
+  .totalbar #btn-aprovar:hover{background:#22933f;border-color:#22933f}
+  .totalbar #btn-salvar{background:#1E8AE0;border-color:#1E8AE0;color:#fff;box-shadow:0 6px 14px rgba(30,138,224,.28)}
+  .totalbar #btn-salvar:hover{background:#1877c4;border-color:#1877c4}
+  /* Fonte padronizada (Manrope) */
+  body, body.tec-admin, .fg input, .fg textarea, .fg select, .it-table input, .orc-searchrow input, .mat-input { font-family:'Manrope', system-ui, -apple-system, sans-serif !important; }
+  .subtotal-box .v, .totalbar .sums b, .totalbar .tot b, .orc-num, .orc-total, .it-table .col-sub,
+  #tot-servico, #tot-material, #rt-servico, #rt-material, #rt-total, #ed-docno {
+    font-family:'Manrope', system-ui, sans-serif !important; font-variant-numeric: tabular-nums; letter-spacing: 0;
+  }
+  .totalbar .tot b { line-height: 1.1; vertical-align: baseline; }
   #more-wrap{position:relative}
   .more-menu{display:none;position:absolute;bottom:calc(100% + 6px);left:0;background:#fff;border:1px solid var(--bd);border-radius:8px;box-shadow:var(--sh);min-width:150px;z-index:40;overflow:hidden;padding:4px}
   .more-menu.open{display:block}
@@ -291,13 +318,8 @@
           <span class="tot">Total <b id="rt-total">—</b></span>
           <span class="actions">
             <button class="btn" id="btn-voltar">← Voltar</button>
-            <div id="more-wrap" style="display:none">
-              <button class="btn" id="btn-more" title="Mais ações">⋯</button>
-              <div class="more-menu" id="more-menu">
-                <button type="button" id="mm-arquivar">Arquivar</button>
-                <button type="button" id="mm-excluir">Excluir</button>
-              </div>
-            </div>
+            <button class="btn" id="mm-arquivar" style="display:none">Arquivar</button>
+            <button class="btn" id="mm-excluir" style="display:none">Excluir</button>
             <button class="btn" id="btn-pdf" title="Gera o PDF do orçamento">Gerar PDF</button>
             <button class="btn" id="btn-reabrir" style="display:none">Reabrir p/ revisão</button>
             <button class="btn" id="btn-arquivar" style="display:none">Arquivar</button>
