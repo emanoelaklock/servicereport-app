@@ -91,7 +91,8 @@ const TarefaApp = (() => {
     const chips = ids.map((id) => {
       const u = ref.tecnicos.find(x => x.id === id) || {}
       const nome = u.nome || tecNomes[id] || '—'
-      const rl = ROLE_RL[u.role] || 'Responsável'
+      const papel = ROLE_RL[u.role] || 'Responsável'
+      const rl = u.cargo ? `${u.cargo} · ${papel}` : papel
       return `<span class="chip"><span class="av">${esc(iniciais(nome))}</span>` +
         `<span><span class="nm">${esc(nome)}</span><br><span class="rl">${rl}</span></span>` +
         `<span class="x" data-rem="${esc(id)}" title="Remover">×</span></span>`
@@ -121,7 +122,7 @@ const TarefaApp = (() => {
     user.id = u?.id || null
     const [prod, tec, tip, eq, cli] = await Promise.all([
       sb().from('produtos').select('id,codigo,descricao,unidade,preco_venda').eq('ativo', true).eq('oculto', false).order('descricao'),
-      sb().from('usuarios').select('id,nome,role').in('role', ['tecnico_campo', 'gestor_axis', 'admin']).eq('ativo', true).order('nome'),
+      sb().from('usuarios').select('id,nome,role,cargo').in('role', ['tecnico_campo', 'gestor_axis', 'admin']).eq('ativo', true).order('nome'),
       sb().from('tipos_servico').select('id,nome').eq('ativo', true).order('nome'),
       sb().from('equipamentos_axis').select('id,tipo,part_number,modelo,serial').order('modelo'),
       sb().from('clientes').select('id,nome').eq('oculto', false).order('nome'),

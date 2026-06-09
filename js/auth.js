@@ -77,10 +77,10 @@ const _posLogin = async (session) => {
   const PCACHE = 'sr_perfil_' + session.user.id
   let u = {}, offlineSemRede = false
   try {
-    const r = await fetch(`${SURL}/rest/v1/usuarios?select=role,nome,ativo&id=eq.${session.user.id}`, { headers: hAuth() })
+    const r = await fetch(`${SURL}/rest/v1/usuarios?select=role,nome,ativo,cargo&id=eq.${session.user.id}`, { headers: hAuth() })
     const d = await r.json()
     u = d[0] || {}
-    if (u.role) { try { localStorage.setItem(PCACHE, JSON.stringify({ role: u.role, nome: u.nome, ativo: u.ativo })) } catch (e) {} }
+    if (u.role) { try { localStorage.setItem(PCACHE, JSON.stringify({ role: u.role, nome: u.nome, ativo: u.ativo, cargo: u.cargo })) } catch (e) {} }
   } catch (e) {
     offlineSemRede = true
     try { const c = localStorage.getItem(PCACHE); if (c) u = JSON.parse(c) } catch (e2) {}
@@ -124,7 +124,7 @@ const _posLogin = async (session) => {
   const userRole = document.getElementById('sb-user-role')
   if (avatar) avatar.textContent = (nome[0] || '?').toUpperCase()
   if (userName) userName.textContent = nome
-  if (userRole) userRole.textContent = ROLE_LABEL[PERFIL] || PERFIL || '—'
+  if (userRole) { const rl = ROLE_LABEL[PERFIL] || PERFIL || '—'; userRole.textContent = u.cargo ? `${u.cargo} · ${rl}` : rl }
 }
 
 // Logout

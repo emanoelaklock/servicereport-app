@@ -35,13 +35,14 @@ Deno.serve(async (req: Request) => {
 
     if (action === "create") {
       const { email, senha, nome, role } = body
+      const cargo = (body.cargo ?? "").toString().trim() || null
       if (!email || !senha || !nome || !ROLES.includes(role)) return json({ error: "dados invalidos" }, 400)
       const { data: created, error: cerr } = await admin.auth.admin.createUser({
         email, password: senha, email_confirm: true, user_metadata: { nome, role },
       })
       if (cerr) return json({ error: cerr.message }, 400)
       const uid = created.user.id
-      const { error: perr } = await admin.from("usuarios").upsert({ id: uid, nome, email, role, ativo: true })
+      const { error: perr } = await admin.from("usuarios").upsert({ id: uid, nome, email, role, cargo, ativo: true })
       if (perr) return json({ error: perr.message }, 400)
       return json({ ok: true, id: uid })
     }

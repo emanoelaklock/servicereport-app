@@ -573,7 +573,7 @@
   }
 
   async function carregarUsuarios() {
-    const { data, error } = await getSupabase().from('usuarios').select('id,nome,email,role,ativo').order('nome')
+    const { data, error } = await getSupabase().from('usuarios').select('id,nome,email,role,ativo,cargo').order('nome')
     usuarios = error ? [] : (data || [])
     if (error) toast('Erro ao carregar usuários: ' + error.message, 'err')
     renderUsuarios()
@@ -586,7 +586,7 @@
       <tr>
         <td>${esc(u.nome || '—')}</td>
         <td>${esc(u.email || '—')}</td>
-        <td>${esc(ROLE_LABEL[u.role] || u.role)}</td>
+        <td>${u.cargo ? esc(u.cargo) + ' <span class="dim">· ' + esc(ROLE_LABEL[u.role] || u.role) + '</span>' : esc(ROLE_LABEL[u.role] || u.role)}</td>
         <td>${u.ativo ? '<span class="badge s-en"><span class="dot"></span>Ativo</span>' : '<span class="dim">Inativo</span>'}</td>
         <td><div class="acts" style="opacity:1"><button class="ab ab-v" data-edit="${esc(u.id)}">Editar</button></div></td>
       </tr>`).join('')
@@ -601,6 +601,7 @@
     em.value = u ? (u.email || '') : ''
     em.readOnly = !!id
     document.getElementById('cu-nome').value = u ? (u.nome || '') : ''
+    document.getElementById('cu-cargo').value = u ? (u.cargo || '') : ''
     document.getElementById('cu-role').innerHTML = ROLES.map(r => `<option value="${r}"${u && u.role === r ? ' selected' : ''}>${esc(ROLE_LABEL[r] || r)}</option>`).join('')
     document.getElementById('cu-ativo').checked = u ? !!u.ativo : true
     document.getElementById('cu-senha').value = ''
@@ -612,6 +613,7 @@
   async function salvarUsuario() {
     const email = document.getElementById('cu-email').value.trim()
     const nome = document.getElementById('cu-nome').value.trim()
+    const cargo = document.getElementById('cu-cargo').value.trim() || null
     const role = document.getElementById('cu-role').value
     const ativo = document.getElementById('cu-ativo').checked
     const senha = document.getElementById('cu-senha').value
@@ -620,10 +622,10 @@
     try {
       if (!editUserId) {
         if (!email || !senha) return toast('E-mail e senha são obrigatórios.', 'err')
-        await chamarFn({ action: 'create', email, senha, nome, role })
+        await chamarFn({ action: 'create', email, senha, nome, role, cargo })
         toast('Usuário criado.', 'ok')
       } else {
-        const { error } = await getSupabase().from('usuarios').update({ nome, role, ativo }).eq('id', editUserId)
+        const { error } = await getSupabase().from('usuarios').update({ nome, role, ativo, cargo }).eq('id', editUserId)
         if (error) throw error
         if (senha) await chamarFn({ action: 'reset_password', user_id: editUserId, senha })
         toast('Usuário atualizado.', 'ok')
