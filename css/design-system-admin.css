@@ -181,7 +181,7 @@
 .nextact{margin-top:16px;background:#F4F7FB;border:1px solid #E4EAF2;border-radius:13px;padding:15px;display:flex;gap:12px;}
 .nextact .ic{width:34px;height:34px;border-radius:9px;background:#fff;border:1px solid var(--line);display:grid;place-items:center;flex:none;}
 .nextact .ic svg{width:18px;height:18px;stroke:var(--blue);fill:none;stroke-width:2;}
-.nextact .k{font-size:12px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.4px;}
+.nextact .k{font-size:12px;font-weight:700;color:var(--muted);text-transform:none;letter-spacing:normal;}
 .nextact .v{font-size:13px;font-weight:600;margin-top:3px;line-height:1.4;}
 
 /* ---------- TIMELINE ---------- */
