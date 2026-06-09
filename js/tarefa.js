@@ -434,6 +434,7 @@ const TarefaApp = (() => {
     renderModalidadeCalc()   // RATs já carregadas → horas faturáveis corretas
     renderHeader(t)
     renderSituacao()
+    carregarTimeline()
     mostrar('detalhe')
     // recalcula a altura só depois do detalhe ficar visível (scrollHeight=0 se oculto)
     autoGrow(document.getElementById('cc-d-orientacao'))
@@ -472,14 +473,17 @@ const TarefaApp = (() => {
     if (up.error) return toast('Erro ao salvar: ' + up.error.message, 'err')
     cur.status = patch.status
     setStatusBadge(cur.status)
-    // sincroniza técnicos (N:N): substitui o conjunto
+    // sincroniza técnicos (N:N) por DIFERENÇA — evita ruído na auditoria (sem delete-all)
     const tecIds = getTecnicosChecked()
     const tecAntes = tecPorTarefa[cur.id] || []
-    const tecNovos = tecIds.filter(id => !tecAntes.includes(id))   // só notifica os recém-atribuídos
-    const del = await sb().from('tarefa_tecnicos').delete().eq('tarefa_id', cur.id)
-    if (del.error) return toast('Erro ao salvar técnicos: ' + del.error.message, 'err')
-    if (tecIds.length) {
-      const insT = await sb().from('tarefa_tecnicos').insert(tecIds.map(tid => ({ tarefa_id: cur.id, tecnico_id: tid })))
+    const tecNovos = tecIds.filter(id => !tecAntes.includes(id))     // recém-atribuídos (notifica push)
+    const tecRemov = tecAntes.filter(id => !tecIds.includes(id))     // removidos
+    if (tecRemov.length) {
+      const del = await sb().from('tarefa_tecnicos').delete().eq('tarefa_id', cur.id).in('tecnico_id', tecRemov)
+      if (del.error) return toast('Erro ao salvar técnicos: ' + del.error.message, 'err')
+    }
+    if (tecNovos.length) {
+      const insT = await sb().from('tarefa_tecnicos').insert(tecNovos.map(tid => ({ tarefa_id: cur.id, tecnico_id: tid })))
       if (insT.error) return toast('Erro ao salvar técnicos: ' + insT.error.message, 'err')
     }
     tecPorTarefa[cur.id] = tecIds
@@ -490,6 +494,7 @@ const TarefaApp = (() => {
     if (tecNovos.length && window.notificarPush) notificarPush('tarefa_atribuida', { tecnicos: tecNovos, numero: cur.numero, cliente: cur.cliente_nome })
     renderHeader(t || tarefas.find(x => x.id === cur.id) || {})
     renderSituacao()
+    carregarTimeline()
     toast('Dados da Tarefa salvos.', 'ok')
   }
 
@@ -1036,6 +1041,7 @@ const TarefaApp = (() => {
     document.getElementById('cc-d-status-sel').value = 'faturada'
     setStatusBadge('faturada')
     renderFaturamento({ faturado: true, data_faturamento: iso, numero_nota: nota })
+    carregarTimeline()
     toast('Tarefa marcada como faturada.', 'ok')
   }
   async function desfazerFaturamento() {
@@ -1050,6 +1056,7 @@ const TarefaApp = (() => {
     document.getElementById('cc-d-status-sel').value = novoStatus
     setStatusBadge(novoStatus)
     renderFaturamento({ faturado: false })
+    carregarTimeline()
     toast('Faturamento desfeito.', 'ok')
   }
 
@@ -1103,6 +1110,7 @@ const TarefaApp = (() => {
       situCard('s-ok', SITU_ICO.anx, 'Anexos', e.anx ? `${e.anx} ${e.anx > 1 ? 'arquivos' : 'arquivo'}` : 'Nenhum'),
     ].join('')
     renderTabs()
+    renderResumo()
   }
 
   // Indicadores das abas: ✓ (completo) ou contador (atenção/pendência).
@@ -1122,6 +1130,60 @@ const TarefaApp = (() => {
     tabs.querySelectorAll('.tab').forEach(tb => {
       const slot = tb.querySelector('.tind'); if (slot) slot.innerHTML = ind[tb.dataset.pane] || ''
     })
+  }
+
+  // Resumo operacional (coluna direita da aba Dados) — dados reais + próxima ação.
+  function renderResumo() {
+    const box = document.getElementById('cc-rsum'); if (!box) return
+    if (!cur || !cur.id) { box.innerHTML = ''; return }
+    const e = estadoTarefa()
+    let custoUtil = 0, devValor = 0
+    for (const l of (linhas || [])) {
+      const p = Number(l.preco_unitario) || 0
+      custoUtil += (Number(l.qtd_utilizada) || 0) * p
+      const d = Number(l.qtd_devolvida) || 0
+      if (d > 0) devValor += d * p
+    }
+    const totalMin = ((cur && cur.rats) || []).reduce((s, r) => s + (Number(RatView.tempoRat(r)) || 0), 0)
+    let next
+    if (e.ratsLen === 0) next = 'Aguardando a primeira RAT do técnico.'
+    else if (e.ratEmAnd) next = 'Há RAT em andamento — aguarde a conclusão pelo técnico.'
+    else if (e.devItens > 0 || e.foraN > 0) next = 'Conferir devolução de materiais / itens fora da proposta antes de faturar.'
+    else if (!e.fat) next = 'Tudo conciliado — liberar faturamento.'
+    else next = 'Tarefa faturada — sem ação pendente.'
+    const stat = (cls, svg, k, v) => `<div class="stat"><div class="ic ${cls}">${svg}</div><div class="k">${k}</div><div class="v num">${esc(v)}</div></div>`
+    box.innerHTML = '<h2>Resumo operacional</h2>'
+      + stat('i-blue', '<svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>', 'Horas registradas (RATs)', RatView.fmtMin(totalMin))
+      + stat('i-green', '<svg viewBox="0 0 24 24"><path d="M12 1v22M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>', 'Valor utilizado (materiais)', money(custoUtil))
+      + stat('i-amber', '<svg viewBox="0 0 24 24"><path d="M3 12a9 9 0 1 0 3-6.7L3 8"/><path d="M3 4v4h4"/></svg>', 'A devolver ao estoque', e.devItens ? money(devValor) : '—')
+      + stat('i-red', '<svg viewBox="0 0 24 24"><path d="M12 9v4m0 4h.01M10.3 3.9 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0Z"/></svg>', 'Itens fora da proposta', String(e.foraN))
+      + `<div class="nextact"><div class="ic"><svg viewBox="0 0 24 24"><path d="M3 11v2a1 1 0 0 0 1 1h3l5 4V6L7 10H4a1 1 0 0 0-1 1ZM16 9a3 3 0 0 1 0 6"/></svg></div><div><div class="k">Próxima ação recomendada</div><div class="v">${esc(next)}</div></div></div>`
+  }
+
+  // Linha do tempo da tarefa — lê a trilha de auditoria (tabela auditoria).
+  const TL_ICO = {
+    criada: '<svg viewBox="0 0 24 24"><path d="M14 3v4a1 1 0 0 0 1 1h4"/><path d="M17 21H7a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h7l5 5v11a2 2 0 0 1-2 2Z"/></svg>',
+    status_alterado: '<svg viewBox="0 0 24 24"><path d="M4 12h16M14 6l6 6-6 6"/></svg>',
+    faturada: '<svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="m8.5 12 2.5 2.5 4.5-5"/></svg>',
+    faturamento_desfeito: '<svg viewBox="0 0 24 24"><path d="M3 7v6h6"/><path d="M3 13a9 9 0 1 0 3-7.7L3 8"/></svg>',
+    tecnico_atribuido: '<svg viewBox="0 0 24 24"><path d="M16 21v-2a4 4 0 0 0-8 0v2M12 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8Z"/></svg>',
+    tecnico_removido: '<svg viewBox="0 0 24 24"><path d="M16 21v-2a4 4 0 0 0-8 0v2M12 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8Z"/></svg>',
+    rat_criada: '<svg viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="17" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/></svg>',
+    rat_status: '<svg viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="17" rx="2"/><path d="m8.5 13 2.5 2.5 4.5-5"/></svg>',
+  }
+  const TL_COR = { criada: 'd-blue', status_alterado: 'd-blue', faturada: 'd-green', faturamento_desfeito: 'd-red', tecnico_atribuido: 'd-green', tecnico_removido: 'd-red', rat_criada: 'd-blue', rat_status: 'd-green' }
+  async function carregarTimeline() {
+    const tl = document.getElementById('cc-timeline'); if (!tl) return
+    if (!cur || !cur.id) { tl.innerHTML = ''; return }
+    const { data, error } = await sb().from('auditoria').select('acao,detalhe,ator_nome,em').eq('tarefa_id', cur.id).order('em', { ascending: true })
+    const rows = error ? [] : (data || [])
+    if (!rows.length) { tl.innerHTML = '<div class="cc-empty-sm" style="grid-column:1/-1">Sem eventos registrados ainda.</div>'; return }
+    tl.innerHTML = rows.map(r => {
+      const ico = TL_ICO[r.acao] || TL_ICO.status_alterado
+      const cor = TL_COR[r.acao] || 'd-blue'
+      return `<div class="tcard"><div class="top"><span class="dot ${cor}">${ico}</span><span class="dt">${fdt(r.em, { withTime: true })}</span></div>`
+        + `<div class="lbl">${esc(r.detalhe || r.acao)}</div><div class="who">${esc(r.ator_nome || '—')}</div></div>`
+    }).join('')
   }
 
   function mostrar(sec) {

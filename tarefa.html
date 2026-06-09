@@ -348,9 +348,11 @@
           <span class="tab" data-pane="anexos"><svg viewBox="0 0 24 24"><path d="M21 12.5 12.5 21a4 4 0 0 1-6-6l8-8a2.5 2.5 0 0 1 4 3l-8 8"/></svg>Anexos<span class="tind"></span></span>
         </div>
 
-        <div class="cc-card cc-pane on" data-pane="dados">
-          <div class="card-h"><span class="dot"></span><span class="t">Dados da Tarefa</span></div>
-          <div class="cc-dados-grid">
+        <div class="cc-pane on" data-pane="dados">
+          <div class="cols">
+            <div class="panel">
+              <h2>Dados gerais</h2>
+              <div class="cc-dados-grid">
             <div class="fg"><label>Cliente</label>
               <div class="ro" id="cc-d-cliente">—</div>
               <div class="ac" id="cc-d-cli-wrap" style="display:none">
@@ -367,13 +369,18 @@
             <div class="fg full"><label>Responsáveis</label><div class="resp" id="cc-d-tecnicos"></div></div>
             <div class="fg full"><label>Orientação ao técnico</label><textarea id="cc-d-orientacao" rows="3" placeholder="O que precisa ser feito no campo…"></textarea></div>
             <div class="fg full"><label>Observações internas</label><textarea id="cc-d-obs" rows="2" placeholder="Notas do administrativo…"></textarea></div>
+              </div>
+              <div class="cc-dados-foot">
+                <button class="btn" id="cc-d-excluir" style="color:var(--re);border-color:var(--re)">🗑 Excluir tarefa</button>
+                <button class="btn" id="cc-d-pend-tarefa" style="display:none">➕ Nova tarefa da pendência</button>
+                <span class="muted" id="cc-d-hint" style="margin-left:auto"></span>
+                <button class="btn btn-p" id="cc-d-salvar">Salvar dados</button>
+              </div>
+            </div>
+            <div class="panel rsum" id="cc-rsum"></div>
           </div>
-          <div class="cc-dados-foot">
-            <button class="btn" id="cc-d-excluir" style="color:var(--re);border-color:var(--re)">🗑 Excluir tarefa</button>
-            <button class="btn" id="cc-d-pend-tarefa" style="display:none">➕ Nova tarefa da pendência</button>
-            <span class="muted" id="cc-d-hint" style="margin-left:auto"></span>
-            <button class="btn btn-p" id="cc-d-salvar">Salvar dados</button>
-          </div>
+          <div class="sec-lab" style="margin-top:20px">Linha do tempo da tarefa</div>
+          <div class="timeline" id="cc-timeline"></div>
         </div>
 
         <div class="cc-card cc-pane" data-pane="equip">
