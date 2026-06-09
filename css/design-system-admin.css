@@ -132,16 +132,16 @@
 
 /* ---------- KPIs coloridos (dashboard) ---------- */
 .kpis{display:grid;grid-template-columns:repeat(4,1fr);gap:16px;}
-.kpi{border-radius:var(--r-lg);padding:20px;color:#fff;position:relative;overflow:hidden;}
-.kpi .ic{width:42px;height:42px;border-radius:12px;background:rgba(255,255,255,.22);display:grid;place-items:center;margin-bottom:14px;}
+.kpi{border-radius:var(--r-lg);padding:20px;color:var(--ink);position:relative;overflow:hidden;border:1px solid rgba(0,0,0,.05);}
+.kpi .ic{width:42px;height:42px;border-radius:12px;background:rgba(255,255,255,.65);display:grid;place-items:center;margin-bottom:14px;}
 .kpi .ic svg{width:22px;height:22px;stroke:currentColor;fill:none;stroke-width:1.9;stroke-linecap:round;stroke-linejoin:round;}
-.kpi .lab{font-size:11px;font-weight:700;letter-spacing:.8px;text-transform:uppercase;opacity:.92;}
+.kpi .lab{font-size:11px;font-weight:700;letter-spacing:.8px;text-transform:uppercase;opacity:.7;}
 .kpi .n{font-size:42px;font-weight:800;line-height:1.05;margin-top:8px;font-variant-numeric:tabular-nums;letter-spacing:-1px;}
-.kpi .sub{font-size:12px;opacity:.85;font-weight:500;margin-top:4px;}
-.k-blue{background:linear-gradient(135deg,#3B7AF0,#1E8AE0);box-shadow:0 12px 26px rgba(30,138,224,.30);}
-.k-amber{background:linear-gradient(135deg,#F5A623,#E5890B);color:#fff;box-shadow:0 12px 26px rgba(247,184,30,.32);}
-.k-purple{background:linear-gradient(135deg,#9A52C5,#8E45B5);box-shadow:0 12px 26px rgba(142,69,181,.30);}
-.k-green{background:linear-gradient(135deg,#34BD5A,#28A94C);box-shadow:0 12px 26px rgba(40,169,76,.30);}
+.kpi .sub{font-size:12px;opacity:.65;font-weight:500;margin-top:4px;}
+.k-blue{background:rgba(30,138,224,.13);box-shadow:0 8px 18px rgba(30,138,224,.10);}   .k-blue .ic{color:var(--blue);}
+.k-amber{background:rgba(245,166,35,.20);box-shadow:0 8px 18px rgba(245,166,35,.12);}  .k-amber .ic{color:#C2810A;}
+.k-purple{background:rgba(142,69,181,.13);box-shadow:0 8px 18px rgba(142,69,181,.10);} .k-purple .ic{color:var(--purple);}
+.k-green{background:rgba(40,169,76,.13);box-shadow:0 8px 18px rgba(40,169,76,.10);}    .k-green .ic{color:var(--green);}
 
 /* ---------- PANEL / COLUNAS ---------- */
 .cols{display:grid;grid-template-columns:1fr 360px;gap:18px;align-items:start;}
