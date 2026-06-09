@@ -78,7 +78,7 @@
   .fg label{display:block;font-size:12px;font-weight:600;color:var(--tx2);margin-bottom:5px}
   .fg input,.fg textarea,.fg select{width:100%;padding:9px 11px;border:1px solid var(--bd);border-radius:8px;font:inherit;font-size:14px;outline:none;background:#fff}
   /* Descrição do serviço: começa mais alta e auto-cresce com o texto */
-  #e-servico-desc{min-height:170px;resize:vertical;overflow:auto;line-height:1.5}
+  #e-servico-desc{min-height:220px;resize:vertical;overflow:auto;line-height:1.5}
   .fg input:focus,.fg textarea:focus,.fg select:focus{border-color:var(--ac);box-shadow:0 0 0 3px var(--acl)}
   .ac{position:relative}
   .ac-list{position:absolute;left:0;right:0;top:calc(100% + 4px);z-index:30;background:#fff;border:1px solid #cfd8e6;border-radius:10px;max-height:340px;overflow-y:auto;box-shadow:0 14px 36px rgba(20,30,55,.18);display:none}
@@ -123,7 +123,8 @@
   .ed-badge.s-aprovado{background:#E3F6EC;color:#0E7A4F}
   .ed-badge.s-naoaprovado{background:#FDECEC;color:#C0241F}
   .ed-badge.s-arquivado{background:#EEF1F5;color:#5b6573}
-  #ed-docno{margin-left:auto;font-size:12px;color:var(--tx3);font-weight:600}
+  #ed-docno{margin-left:auto;font-size:15px;color:var(--tx);font-weight:800;font-variant-numeric:tabular-nums}
+  #ed-docno:not(:empty)::before{content:'Proposta ';font-weight:600;color:var(--tx3)}
   /* Botão Aprovar (verde) e menu "⋯" */
   .btn-ok{background:#0E9F6E;border-color:#0E9F6E;color:#fff}
   .btn-ok:hover{background:#0c8c61;border-color:#0c8c61}
