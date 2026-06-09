@@ -6,16 +6,16 @@
 ═══════════════════════════════════════════════ */
 (function () {
   const SYNC_BADGE = {
-    confirmado: { cls: 's-en', txt: 'Confirmado' },
-    enviando:   { cls: 's-ct', txt: 'Enviando' },
-    na_fila:    { cls: 's-ai', txt: 'Na fila' },
-    salvo_local:{ cls: 's-rv', txt: 'Local' },
-    erro:       { cls: 's-rm', txt: 'Erro' },
-    rascunho:   { cls: 's-fi', txt: 'Rascunho' },
+    confirmado: { cls: 'b-done', txt: 'Confirmado' },
+    enviando:   { cls: 'b-info', txt: 'Enviando' },
+    na_fila:    { cls: 'b-info', txt: 'Na fila' },
+    salvo_local:{ cls: 'b-warn', txt: 'Local' },
+    erro:       { cls: 'b-pend', txt: 'Erro' },
+    rascunho:   { cls: 'b-warn', txt: 'Rascunho' },
   }
   function syncBadge(s) {
-    const b = SYNC_BADGE[s] || { cls: 's-sc', txt: s || '—' }
-    return `<span class="badge ${b.cls}"><span class="dot"></span>${esc(b.txt)}</span>`
+    const b = SYNC_BADGE[s] || { cls: 'b-info', txt: s || '—' }
+    return `<span class="badge ${b.cls}"><i></i>${esc(b.txt)}</span>`
   }
   const set = (id, v) => { const el = document.getElementById(id); if (el) el.textContent = (v == null ? '—' : v) }
 
@@ -42,14 +42,21 @@
   function renderRecentes(rows) {
     const box = document.getElementById('recentes')
     if (!box) return
-    if (!rows.length) { box.innerHTML = '<p class="dim" style="padding:8px 0">Nenhuma RAT ainda.</p>'; return }
-    box.innerHTML = rows.map(r => `
-      <div class="rec-row">
-        <span class="rec-cli">${esc(r.cliente_nome || '—')}</span>
-        <span>${r.relatorio_completo ? '<span class="badge s-en"><span class="dot"></span>Completo</span>' : '<span class="badge s-ai"><span class="dot"></span>Pendente</span>'}</span>
-        <span>${syncBadge(r.sync_status)}</span>
-        <span class="dim">${fdt(r.data_tarefa, { withTime: true })}</span>
-      </div>`).join('')
+    if (!rows.length) { box.innerHTML = '<div class="lrow"><span class="dim">Nenhuma RAT ainda.</span></div>'; return }
+    box.innerHTML = rows.map(r => {
+      const edge = r.faturado ? 'e-done' : (r.relatorio_completo ? 'e-info' : 'e-warn')
+      const comp = r.relatorio_completo
+        ? '<span class="badge b-done"><i></i>Completo</span>'
+        : '<span class="badge b-warn"><i></i>Pendente</span>'
+      return `
+      <div class="lrow">
+        <span class="ed ${edge}"></span>
+        <span class="cli">${esc(r.cliente_nome || '—')}</span>
+        ${comp}
+        ${syncBadge(r.sync_status)}
+        <span class="dt">${fdt(r.data_tarefa, { withTime: true })}</span>
+      </div>`
+    }).join('')
   }
 
   window.PainelApp = { init }

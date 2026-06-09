@@ -15,9 +15,8 @@
 <script src="js/sidebar.js"></script>
 <script src="js/painel.js"></script>
 <style>
-  .rec-row{display:grid;grid-template-columns:1fr auto auto auto;gap:12px;align-items:center;padding:10px 0;border-top:1px solid var(--bd);font-size:13px}
-  .rec-row:first-child{border-top:none}
-  .rec-cli{font-weight:500;color:var(--tx);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .kpi{cursor:pointer;transition:transform .12s ease}
+  .kpi:hover{transform:translateY(-2px)}
 </style>
 </head>
 <body class="tec-admin">
@@ -26,20 +25,29 @@
 
 <div class="main">
   <div id="app-screen" style="display:none">
-    <div class="topbar">
-      <span class="topbar-title">Painel diário</span>
-    </div>
-    <div class="content">
-      <div class="dash-grid">
-        <div class="stat-card" onclick="location.href='tarefa.html'"><div class="stat-label">Tarefas hoje</div><div class="stat-val" id="kpi-hoje">—</div><div class="stat-sub">RATs com data de hoje</div></div>
-        <div class="stat-card" onclick="location.href='tarefa.html?f=concluida_pendencia'"><div class="stat-label">Concluídas c/ pendência</div><div class="stat-val" id="kpi-pend">—</div><div class="stat-sub">serviço com pendência</div></div>
-        <div class="stat-card" onclick="location.href='tarefa.html?f=a_faturar'"><div class="stat-label">A faturar</div><div class="stat-val" id="kpi-faturar">—</div><div class="stat-sub">completas não faturadas</div></div>
-        <div class="stat-card"><div class="stat-label">Faturadas hoje</div><div class="stat-val" id="kpi-fat-hoje">—</div><div class="stat-sub">com nota lançada hoje</div></div>
+    <div class="topbar"><h1>Painel diário</h1></div>
+    <div class="scrollarea">
+      <div class="kpis">
+        <div class="kpi k-blue" onclick="location.href='tarefa.html'">
+          <div class="ic"><svg viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="17" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/></svg></div>
+          <div class="lab">Tarefas hoje</div><div class="n" id="kpi-hoje">—</div><div class="sub">RATs com data de hoje</div>
+        </div>
+        <div class="kpi k-amber" onclick="location.href='tarefa.html?f=concluida_pendencia'">
+          <div class="ic"><svg viewBox="0 0 24 24"><path d="M10.3 3.9 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0Z"/><path d="M12 9v4M12 17h.01"/></svg></div>
+          <div class="lab">Concluídas c/ pendência</div><div class="n" id="kpi-pend">—</div><div class="sub">serviço com pendência</div>
+        </div>
+        <div class="kpi k-purple" onclick="location.href='tarefa.html?f=a_faturar'">
+          <div class="ic"><svg viewBox="0 0 24 24"><path d="M14 3v4a1 1 0 0 0 1 1h4"/><path d="M17 21H7a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h7l5 5v11a2 2 0 0 1-2 2Z"/></svg></div>
+          <div class="lab">A faturar</div><div class="n" id="kpi-faturar">—</div><div class="sub">completas não faturadas</div>
+        </div>
+        <div class="kpi k-green">
+          <div class="ic"><svg viewBox="0 0 24 24"><path d="M21 11.5a9 9 0 1 1-5.3-8.2"/><path d="m9 11 3 3L22 4"/></svg></div>
+          <div class="lab">Faturadas hoje</div><div class="n" id="kpi-fat-hoje">—</div><div class="sub">com nota lançada hoje</div>
+        </div>
       </div>
-      <div class="dash-card-full">
-        <div class="dash-card-title">Últimas RATs</div>
-        <div id="recentes"></div>
-      </div>
+
+      <div class="sec-lab">Últimas RATs</div>
+      <div class="listpanel"><div id="recentes"></div></div>
     </div>
   </div>
 </div>
