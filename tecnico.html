@@ -36,7 +36,16 @@
   .home-card .home-tt{font-size:16px;font-weight:600;color:var(--tx)}
   .home-card .home-sb{font-size:12px;color:var(--tx3)}
   .home-card.soon{opacity:.62}
-  .net-badge{font-size:11px;font-weight:600;padding:3px 9px;border-radius:20px}
+  html,body{overscroll-behavior-y:contain}
+  .net-badge{font-size:11px;font-weight:600;padding:3px 9px;border-radius:20px;white-space:nowrap}
+  .net-on{background:rgba(40,169,76,.18);color:#bff0cf}
+  .net-pend{background:rgba(247,184,30,.22);color:#ffe6a8}
+  .net-sync{background:rgba(255,255,255,.18);color:#fff}
+  .net-off{background:rgba(229,64,58,.22);color:#ffc9c6}
+  #ptr{position:fixed;top:62px;left:50%;transform:translateX(-50%);z-index:60;width:38px;height:38px;border-radius:50%;background:#fff;box-shadow:0 6px 18px rgba(20,30,55,.25);display:grid;place-items:center;font-size:18px;color:#1E8AE0;opacity:0;transition:opacity .15s;pointer-events:none}
+  #ptr.ready{color:#28A94C;font-weight:700}
+  #ptr.spin{opacity:1!important;animation:ptrspin .7s linear infinite}
+  @keyframes ptrspin{to{transform:translateX(-50%) rotate(360deg)}}
   .net-on{background:#E8F5E9;color:#2E7D32}
   .net-off{background:#FEF3C7;color:#B45309}
 
@@ -653,22 +662,56 @@
   // Somente o técnico de campo permanece no app de campo.
   window.PAGE_ALLOWED = ['tecnico_campo']
 
-  function pintarRede() {
-    const b = document.getElementById('net-badge')
-    if (!b) return
-    const on = navigator.onLine
-    b.textContent = on ? 'online' : 'offline'
-    b.className = 'net-badge ' + (on ? 'net-on' : 'net-off')
+  // Indicador de sincronização: offline / sincronizando / N na fila / sincronizado.
+  async function pintarRede(estado) {
+    const b = document.getElementById('net-badge'); if (!b) return
+    b.style.cursor = 'pointer'
+    if (!navigator.onLine) { b.textContent = '⚠ offline'; b.className = 'net-badge net-off'; return }
+    if (estado === 'sync') { b.textContent = '↻ sincronizando…'; b.className = 'net-badge net-sync'; return }
+    try {
+      const D = window.DBLocal
+      const rats = await D.listarRats()
+      const PEND = [D.STATUS.SALVO_LOCAL, D.STATUS.NA_FILA, D.STATUS.ERRO]
+      const fila = rats.filter(r => PEND.includes(r.sync_status)).length
+        + (await D.tarefasLocaisPendentes()).length + (await D.deslocamentosPendentes()).length
+      b.textContent = fila ? `↑ ${fila} na fila` : '✓ sincronizado'
+      b.className = 'net-badge ' + (fila ? 'net-pend' : 'net-on')
+    } catch (e) { b.textContent = 'online'; b.className = 'net-badge net-on' }
   }
-  window.addEventListener('online', pintarRede)
-  window.addEventListener('offline', pintarRede)
+  document.getElementById('net-badge').onclick = () => { if (navigator.onLine && window.SyncEngine) { pintarRede('sync'); SyncEngine.syncAll() } }
+  window.addEventListener('online', () => pintarRede())
+  window.addEventListener('offline', () => pintarRede())
+  window.onSyncStart = () => pintarRede('sync')
 
-  // Atualiza a lista e avisa quando uma rodada de sync termina.
+  // Atualiza a tela atual e o indicador quando uma rodada de sync termina.
   window.onSyncDone = ({ ok, fail }) => {
-    if (window.TecnicoApp) TecnicoApp.refresh()
-    if (ok) toast(`${ok} RAT(s) sincronizada(s).`, 'ok')
-    if (fail) toast(`${fail} RAT(s) com erro de envio.`, 'err')
+    pintarRede()
+    if (typeof window.onSyncChanged === 'function') window.onSyncChanged()
+    if (fail) toast(`${fail} item(ns) com erro de envio.`, 'err')
   }
+
+  // Puxar para atualizar (sem recarregar a página): sincroniza e re-renderiza a tela atual.
+  ;(function pullToRefresh() {
+    let y0 = null, dist = 0
+    const ind = document.createElement('div'); ind.id = 'ptr'; ind.textContent = '↻'; document.body.appendChild(ind)
+    const top = () => (window.scrollY || document.documentElement.scrollTop || 0) <= 0
+    document.addEventListener('touchstart', (e) => { y0 = (top() && e.touches.length === 1) ? e.touches[0].clientY : null; dist = 0 }, { passive: true })
+    document.addEventListener('touchmove', (e) => {
+      if (y0 == null) return
+      dist = e.touches[0].clientY - y0
+      if (dist > 0) { ind.style.transform = `translateX(-50%) translateY(${Math.min(dist, 80)}px)`; ind.style.opacity = Math.min(dist / 80, 1); ind.classList.toggle('ready', dist > 70) }
+    }, { passive: true })
+    document.addEventListener('touchend', () => {
+      if (y0 != null && dist > 70) {
+        ind.classList.add('spin'); pintarRede('sync')
+        Promise.resolve(window.SyncEngine && SyncEngine.syncAll()).finally(() => {
+          if (typeof window.onSyncChanged === 'function') window.onSyncChanged()
+          setTimeout(() => ind.classList.remove('spin'), 700)
+        })
+      }
+      ind.style.transform = ''; ind.style.opacity = 0; ind.classList.remove('ready'); y0 = null; dist = 0
+    })
+  })()
 
   async function onPostLogin() {
     pintarRede()

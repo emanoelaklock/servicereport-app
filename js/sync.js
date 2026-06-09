@@ -254,6 +254,7 @@
   async function syncAll() {
     if (syncing || !navigator.onLine) return { ok: 0, fail: 0, skipped: true }
     syncing = true
+    if (typeof window.onSyncStart === 'function') window.onSyncStart()
     let ok = 0, fail = 0
     const PEND = [D().STATUS.SALVO_LOCAL, D().STATUS.NA_FILA, D().STATUS.ERRO]
     try {
