@@ -19,6 +19,7 @@ const TarefaApp = (() => {
   let cur = null             // tarefa aberta
   let linhas = []            // conciliação da tarefa atual
   let selMat = new Set()     // tm_ids de produtos selecionados p/ exclusão em massa
+  let respSel = new Set()     // tecnico_ids responsáveis selecionados (chips) na aba Dados
   let ratDet = null          // RAT aberta no modal { r, campos, ... }
   let ratEdit = false        // modo edição do modal de RAT
   let pendRat = null         // RAT base do modal "nova tarefa da pendência"
@@ -79,8 +80,39 @@ const TarefaApp = (() => {
   const osNo = (n) => n != null ? String(n).padStart(5, '0') : '—'
   const equipLabel = (e) => `${e.modelo || e.tipo || 'Equipamento'}${e.serial ? ' · S/N ' + e.serial : ''}${e.part_number ? ' · PN ' + e.part_number : ''}`
   const fmtSize = (n) => { n = Number(n) || 0; return n < 1024 ? n + ' B' : n < 1048576 ? (n / 1024).toFixed(0) + ' KB' : (n / 1048576).toFixed(1) + ' MB' }
-  const getTecnicosChecked = () => [...document.querySelectorAll('#cc-d-tecnicos input:checked')].map(c => c.value)
-  const setTecnicosChecked = (ids) => { const s = new Set(ids || []); document.querySelectorAll('#cc-d-tecnicos input').forEach(c => { c.checked = s.has(c.value) }) }
+  const getTecnicosChecked = () => [...respSel]
+  const setTecnicosChecked = (ids) => { respSel = new Set(ids || []); renderRespChips() }
+  // Responsáveis em chips (avatar + nome + papel + ×) com botão "+ Adicionar".
+  function renderRespChips() {
+    const box = document.getElementById('cc-d-tecnicos'); if (!box) return
+    box.className = 'resp'
+    const ids = [...respSel]
+    const chips = ids.map((id, i) => {
+      const nome = (ref.tecnicos.find(x => x.id === id) || {}).nome || tecNomes[id] || '—'
+      const rl = i === 0 ? 'Principal' : 'Técnico'
+      return `<span class="chip"><span class="av">${esc(iniciais(nome))}</span>` +
+        `<span><span class="nm">${esc(nome)}</span><br><span class="rl">${rl}</span></span>` +
+        `<span class="x" data-rem="${esc(id)}" title="Remover">×</span></span>`
+    }).join('')
+    const disponiveis = ref.tecnicos.filter(t => !respSel.has(t.id))
+    box.innerHTML = chips + (disponiveis.length ? '<span class="chip add" id="cc-resp-add">+ Adicionar</span>' : '')
+    box.querySelectorAll('[data-rem]').forEach(x => x.onclick = () => { respSel.delete(x.dataset.rem); renderRespChips() })
+    const addBtn = document.getElementById('cc-resp-add')
+    if (addBtn) addBtn.onclick = (e) => { e.stopPropagation(); abrirRespMenu(addBtn, disponiveis) }
+  }
+  function abrirRespMenu(anchor, disponiveis) {
+    const old = document.getElementById('cc-resp-menu')
+    if (old) { old.remove(); return }
+    const menu = document.createElement('div')
+    menu.id = 'cc-resp-menu'; menu.className = 'resp-menu'
+    menu.innerHTML = disponiveis.map(t => `<div class="resp-menu-item" data-add="${esc(t.id)}">${esc(tecNomes[t.id] || t.nome || '—')}</div>`).join('')
+    anchor.parentNode.appendChild(menu)
+    menu.querySelectorAll('[data-add]').forEach(it => it.onclick = () => { respSel.add(it.dataset.add); renderRespChips() })
+    setTimeout(() => {
+      const onDoc = (ev) => { if (!menu.contains(ev.target)) { menu.remove(); document.removeEventListener('click', onDoc) } }
+      document.addEventListener('click', onDoc)
+    }, 0)
+  }
 
   async function init() {
     const { data: { user: u } } = await sb().auth.getUser()
@@ -99,9 +131,7 @@ const TarefaApp = (() => {
     ref.clientes = cli.data || []
     const ROLE_TAG = { admin: ' (Admin)', gestor_axis: ' (Gestor)', tecnico_campo: '' }
     tecNomes = {}; for (const t of ref.tecnicos) tecNomes[t.id] = (t.nome || '(sem nome)') + (ROLE_TAG[t.role] || '')
-    document.getElementById('cc-d-tecnicos').innerHTML = ref.tecnicos.length
-      ? ref.tecnicos.map(t => `<label><input type="checkbox" value="${esc(t.id)}"> ${esc(tecNomes[t.id])}</label>`).join('')
-      : '<span class="cc-empty-sm">Nenhum usuário ativo para atribuir.</span>'
+    renderRespChips()
     document.getElementById('cc-d-tipo').innerHTML = '<option value="">— selecione —</option>' + ref.tipos.map(t => `<option value="${esc(t.id)}">${esc(t.nome || '')}</option>`).join('')
     await carregarStatus()
     document.getElementById('cc-d-status-sel').innerHTML = statusOptionsHTML()
