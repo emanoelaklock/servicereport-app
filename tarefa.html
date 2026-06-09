@@ -288,11 +288,7 @@
 
 <div class="main">
   <div id="app-screen" style="display:none">
-    <div class="topbar">
-      <span class="topbar-title" id="topbar-title">Tarefas</span>
-      <span class="ed-badge" id="cc-badge" style="display:none"></span>
-      <span id="cc-docno"></span>
-    </div>
+    <div class="topbar"><h1 id="topbar-title">Tarefas</h1></div>
     <div class="content">
 
       <!-- LISTA -->
@@ -314,10 +310,19 @@
 
       <!-- DETALHE -->
       <div id="view-detalhe" style="display:none">
-        <div class="cc-head">
-          <button class="btn" id="btn-voltar">← Voltar</button>
-          <span class="cc-cli" id="cc-cliente">—</span>
-          <button class="btn btn-sm" id="cc-export" style="margin-left:auto">⬇ Exportar tarefa (PDF)</button>
+        <span class="backlink" id="btn-voltar"><svg viewBox="0 0 24 24"><path d="M19 12H5M12 19l-7-7 7-7"/></svg>Voltar para tarefas</span>
+
+        <div class="hd">
+          <div class="title">
+            <h1 id="cc-cliente">—</h1>
+            <div class="sub" id="cc-hd-sub"></div>
+            <span class="nochip" id="cc-nochip"><span id="cc-docno"></span></span>
+          </div>
+          <div class="spacer"></div>
+          <div class="meta status"><div class="ic"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="m8.5 12 2.5 2.5 4.5-5"/></svg></div><div><div class="v"><span id="cc-hd-status">—</span></div><div class="k">Status geral</div></div></div>
+          <div class="meta date"><div class="ic"><svg viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="17" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/></svg></div><div><div class="v num" id="cc-hd-data">—</div><div class="k">Data agendada</div></div></div>
+          <div class="meta resp"><div class="av" id="cc-hd-resp-av">—</div><div><div class="v" id="cc-hd-resp">—</div><div class="k">Responsável principal</div></div></div>
+          <div class="acts"><button class="btn btn-primary" id="cc-export"><svg viewBox="0 0 24 24"><path d="M12 3v12m0 0 4-4m-4 4-4-4M5 21h14"/></svg>Exportar (PDF)</button></div>
         </div>
 
         <div id="cc-situacao-wrap" style="display:none">

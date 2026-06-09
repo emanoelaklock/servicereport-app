@@ -47,7 +47,22 @@ const TarefaApp = (() => {
     if (atual && !arr.some(s => s.chave === atual)) arr.push(STATUS[atual] || { chave: atual, label: atual })
     return arr.map(s => `<option value="${esc(s.chave)}">${esc(s.label || s.chave)}</option>`).join('')
   }
-  const setStatusBadge = (s) => { const b = document.getElementById('cc-badge'); if (b) { b.textContent = statusLabel(s); b.className = 'ed-badge'; b.style.cssText = statusStyleAttr(s) } }
+  const setStatusBadge = (s) => {
+    const b = document.getElementById('cc-badge'); if (b) { b.textContent = statusLabel(s); b.className = 'ed-badge'; b.style.cssText = statusStyleAttr(s) }
+    const h = document.getElementById('cc-hd-status'); if (h) { h.textContent = statusLabel(s); h.style.color = statusCor(s) }
+  }
+  const iniciais = (n) => String(n || '').trim().split(/\s+/).slice(0, 2).map(w => w[0] || '').join('').toUpperCase() || '—'
+  function renderHeader(t) {
+    const tipo = (ref.tipos.find(x => x.id === (t && t.tipo_servico_id)) || {}).nome || ''
+    const subEl = document.getElementById('cc-hd-sub'); if (subEl) subEl.textContent = tipo
+    const dEl = document.getElementById('cc-hd-data'); if (dEl) dEl.textContent = (t && t.data_agendada) ? dmy(t.data_agendada) : '—'
+    const ids = (cur && cur.id && tecPorTarefa[cur.id]) || []
+    const principal = ids.length ? ((ref.tecnicos.find(x => x.id === ids[0]) || {}).nome || '') : ''
+    const rEl = document.getElementById('cc-hd-resp'); if (rEl) rEl.textContent = principal || '—'
+    const avEl = document.getElementById('cc-hd-resp-av'); if (avEl) avEl.textContent = principal ? iniciais(principal) : '—'
+    const noc = document.getElementById('cc-nochip'), dn = document.getElementById('cc-docno')
+    if (noc) noc.style.display = (dn && dn.textContent.trim()) ? '' : 'none'
+  }
   const SIT = {
     ok:            { t: 'OK',               cls: 's-ok' },
     devolver:      { t: 'Devolver',         cls: 's-dev' },
@@ -341,6 +356,7 @@ const TarefaApp = (() => {
     document.getElementById('cc-obs').value = ''
     document.getElementById('cc-d-hint').textContent = 'Selecione o cliente e salve para criar a tarefa.'
     mostrarPane('dados')
+    renderHeader({})
     renderSituacao()
     mostrar('detalhe')
     history.replaceState(null, '', 'tarefa.html')
@@ -383,6 +399,7 @@ const TarefaApp = (() => {
     renderFaturamento(t)
     await Promise.all([carregarLinhas(), carregarEquip(), carregarAnexos(), carregarRats()])
     renderModalidadeCalc()   // RATs já carregadas → horas faturáveis corretas
+    renderHeader(t)
     renderSituacao()
     mostrar('detalhe')
     // recalcula a altura só depois do detalhe ficar visível (scrollHeight=0 se oculto)
@@ -438,6 +455,7 @@ const TarefaApp = (() => {
     if (t) Object.assign(t, patch)
     document.getElementById('cc-d-hint').textContent = tecIds.length ? '' : 'Atribua um ou mais técnicos e agende para a Tarefa aparecer no app do técnico.'
     if (tecNovos.length && window.notificarPush) notificarPush('tarefa_atribuida', { tecnicos: tecNovos, numero: cur.numero, cliente: cur.cliente_nome })
+    renderHeader(t || tarefas.find(x => x.id === cur.id) || {})
     renderSituacao()
     toast('Dados da Tarefa salvos.', 'ok')
   }
@@ -1053,9 +1071,7 @@ const TarefaApp = (() => {
     document.getElementById('view-lista').style.display = sec === 'lista' ? 'block' : 'none'
     document.getElementById('view-detalhe').style.display = sec === 'detalhe' ? 'block' : 'none'
     document.getElementById('topbar-title').textContent = sec === 'detalhe' ? 'Tarefa' : 'Tarefas'
-    const badge = document.getElementById('cc-badge')
-    if (sec !== 'detalhe') { badge.style.display = 'none'; document.getElementById('cc-docno').textContent = '' }
-    else badge.style.display = ''
+    if (sec !== 'detalhe') { const dn = document.getElementById('cc-docno'); if (dn) dn.textContent = '' }
   }
 
   // Abas do detalhe: mostra um card por vez e reflete na URL (tarefa.html?t=<id>&aba=<key>).
