@@ -542,6 +542,26 @@
     const t = document.getElementById('ft-title'); if (t) t.textContent = TITLES[secao] || 'Service Report'
     const b = document.getElementById('btn-voltar'); if (b) b.style.display = (secao === 'home') ? 'none' : 'block'
     try { sessionStorage.setItem('sr_tec_screen', SCREEN_PARENT[secao] || secao) } catch (e) { /* sem storage */ }
+    if (secao === 'home') updateHomeResumo()
+  }
+  // Resumo do herói da home (apresentação) — lê dados já em memória/IndexedDB, sem novas chamadas Supabase.
+  async function updateHomeResumo() {
+    try {
+      const d = new Date()
+      const dataEl = document.getElementById('home-data')
+      if (dataEl) dataEl.textContent = d.toLocaleDateString('pt-BR', { weekday: 'long', day: '2-digit', month: 'long' })
+      const set = (id, v) => { const e = document.getElementById(id); if (e) e.textContent = v }
+      const temT = Array.isArray(tarefas) && tarefas.length
+      set('home-st-tarefas', temT ? tarefas.length : '—')
+      set('home-st-exec', temT ? tarefas.filter(t => t.status === 'em_execucao').length : '—')
+      set('home-cnt-tarefas', temT ? tarefas.length : '')
+      const rats = await D().listarRats()
+      const PEND = [D().STATUS.SALVO_LOCAL, D().STATUS.NA_FILA, D().STATUS.ERRO]
+      const fila = rats.filter(r => PEND.includes(r.sync_status)).length
+        + (await D().tarefasLocaisPendentes()).length + (await D().deslocamentosPendentes()).length
+      set('home-st-fila', fila)
+      set('home-cnt-rats', rats.length || '')
+    } catch (e) { /* presentacional */ }
   }
   // Sync trouxe mudanças do servidor (edição/exclusão) → re-renderiza a tela atual.
   window.onSyncChanged = () => {

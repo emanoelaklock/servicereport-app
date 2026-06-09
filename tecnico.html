@@ -8,7 +8,9 @@
 <link rel="manifest" href="manifest.webmanifest">
 <link rel="apple-touch-icon" href="assets/icon.svg">
 <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Manrope:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="css/theme.css">
+<link rel="stylesheet" href="css/tecnico-skin.css">
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="js/utils.js"></script>
 <script src="js/supabase-client.js"></script>
@@ -222,39 +224,44 @@
     </div>
     <div class="field-body">
 
-      <!-- HOME: 3 botões -->
-      <div id="view-home">
-        <div class="home-hello" id="home-hello">Olá!</div>
-        <div class="home-grid">
-          <button type="button" class="home-card" id="nav-tarefas">
-            <span class="home-ic">📋</span>
-            <span class="home-tt">Minhas Tarefas</span>
-            <span class="home-sb">OS atribuídas a você</span>
+      <!-- HOME: herói + tiles -->
+      <div id="view-home" class="tskin">
+        <div class="hero">
+          <div class="eb" id="home-data">Hoje</div>
+          <h1 id="home-hello">Olá!</h1>
+          <div class="stats">
+            <div><div class="n num" id="home-st-tarefas">—</div><div class="l">tarefas hoje</div></div>
+            <div><div class="n num" id="home-st-exec">—</div><div class="l">em execução</div></div>
+            <div><div class="n num" id="home-st-fila">—</div><div class="l">na fila p/ enviar</div></div>
+          </div>
+          <button class="cta" id="btn-sync-home">↻ Sincronizar</button>
+        </div>
+        <div class="sec">Áreas</div>
+        <div class="grid">
+          <button type="button" class="tile t-green" id="nav-tarefas">
+            <div class="ic"><svg viewBox="0 0 24 24"><path d="M9 5H7a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V7a2 2 0 0 0-2-2h-2"/><rect x="9" y="3" width="6" height="4" rx="1"/><path d="m9 14 2 2 4-4"/></svg></div>
+            <div><div class="lbl">Minhas Tarefas</div><div class="sub">OS atribuídas a você</div></div>
+            <div class="cnt num" id="home-cnt-tarefas"></div>
           </button>
-          <button type="button" class="home-card" id="nav-os">
-            <span class="home-ic">🧰</span>
-            <span class="home-tt">Minhas RATs</span>
-            <span class="home-sb">Relatórios no aparelho</span>
+          <button type="button" class="tile t-blue" id="nav-os">
+            <div class="ic"><svg viewBox="0 0 24 24"><path d="M3 9h18M3 9l1.5-4h15L21 9M5 9v10a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1V9M10 13h4"/></svg></div>
+            <div><div class="lbl">Minhas RATs</div><div class="sub">Relatórios no aparelho</div></div>
+            <div class="cnt num" id="home-cnt-rats"></div>
           </button>
-          <button type="button" class="home-card" id="nav-preorc">
-            <span class="home-ic">📝</span>
-            <span class="home-tt">Pré-Orçamento</span>
-            <span class="home-sb">Levantamento em campo</span>
+          <button type="button" class="tile t-yellow" id="nav-preorc">
+            <div class="ic"><svg viewBox="0 0 24 24"><path d="M14 3v4a1 1 0 0 0 1 1h4"/><path d="M17 21H7a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h7l5 5v11a2 2 0 0 1-2 2Z"/><path d="m12 11 1 1m-3 3 3-3"/></svg></div>
+            <div><div class="lbl">Pré-Orçamento</div><div class="sub">Levantamento em campo</div></div>
           </button>
-          <button type="button" class="home-card" id="nav-jornada">
-            <span class="home-ic">⏱️</span>
-            <span class="home-tt">Jornada do dia</span>
-            <span class="home-sb">Tempo por atividade (sem buraco)</span>
-          </button>
-          <button type="button" class="home-card" id="nav-desloc">
-            <span class="home-ic">🚚</span>
-            <span class="home-tt">Deslocamento</span>
-            <span class="home-sb">Pernoite / viagem</span>
+          <button type="button" class="tile t-purple" id="nav-jornada">
+            <div class="ic"><svg viewBox="0 0 24 24"><circle cx="12" cy="13" r="8"/><path d="M12 9v4l2 2M9 2h6"/></svg></div>
+            <div><div class="lbl">Jornada do dia</div><div class="sub">Tempo por atividade</div></div>
           </button>
         </div>
-        <div style="margin-top:18px;text-align:center">
-          <button class="btn" id="btn-sync-home">↻ Sincronizar</button>
-        </div>
+        <button type="button" class="strip" id="nav-desloc">
+          <div class="ic"><svg viewBox="0 0 24 24"><path d="M3 17h2m14 0h2M5 17a2 2 0 1 0 4 0 2 2 0 0 0-4 0Zm10 0a2 2 0 1 0 4 0 2 2 0 0 0-4 0Z"/><path d="M5 17V8a1 1 0 0 1 1-1h8l4 4v6"/></svg></div>
+          <div><div class="lbl">Deslocamento</div><div class="sub">Pernoite / viagem</div></div>
+          <div class="ar">›</div>
+        </button>
       </div>
 
       <!-- DESLOCAMENTO (pernoite) -->

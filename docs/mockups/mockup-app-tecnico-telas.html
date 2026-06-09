@@ -1,0 +1,354 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>App do Técnico — Telas redesenhadas</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Manrope:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --red:#E5403A; --orange:#F4861F; --yellow:#F7B81E; --green:#28A94C; --blue:#1E8AE0; --purple:#8E45B5;
+    --bg:#F3F4F8; --card:#FFFFFF; --line:#ECEEF3; --ink:#1B1E26; --muted:#7C8290;
+    --exec-bg:#E6F6EC; --exec-fg:#0B7A43; --exec-m:#28A94C;
+    --info-bg:#E7F1FC; --info-fg:#1565C0; --info-m:#1E8AE0;
+    --warn-bg:#FEF3DA; --warn-fg:#92670A; --warn-m:#F7B81E;
+    --pend-bg:#FDECEA; --pend-fg:#C0362C; --pend-m:#E5403A;
+    --aguard-bg:#EEF0F4; --aguard-fg:#5B6573; --aguard-m:#9CA3AF;
+    --r-xl:24px; --r-lg:20px; --r-md:15px; --r-sm:11px; --r-pill:999px;
+  }
+  *{box-sizing:border-box;margin:0;padding:0;}
+  body{font-family:'Manrope',system-ui,sans-serif;background:#DCDEE4;color:var(--ink);font-weight:500;-webkit-font-smoothing:antialiased;padding:28px 16px;}
+  .num{font-variant-numeric:tabular-nums;letter-spacing:-.5px;}
+  .wrap{max-width:1640px;margin:0 auto;}
+  .hd{margin:0 6px 18px;}
+  .hd h1{font-size:20px;font-weight:700;letter-spacing:-.4px;}
+  .hd p{font-size:13px;color:#5b6270;margin-top:3px;}
+  .rail{display:flex;gap:26px;flex-wrap:wrap;align-items:flex-start;}
+  .cap{font-size:12px;font-weight:700;color:#566;letter-spacing:.3px;margin:0 0 9px 8px;text-transform:uppercase;}
+
+  /* phone */
+  .phone{width:372px;background:#E7E9EF;border-radius:38px;padding:13px;box-shadow:0 26px 64px rgba(30,35,55,.22);}
+  .screen{background:var(--bg);border-radius:26px;overflow:hidden;}
+  .scroll{padding:16px 15px 20px;}
+
+  /* top areas */
+  .appbar{display:flex;align-items:center;gap:11px;margin-bottom:15px;}
+  .mk{width:37px;height:37px;border-radius:var(--r-sm);background:var(--blue);color:#fff;display:grid;place-items:center;font-weight:700;font-size:13px;letter-spacing:.5px;}
+  .who{font-size:11px;color:var(--muted);font-weight:500;}
+  .who b{display:block;color:var(--ink);font-size:15px;font-weight:700;letter-spacing:-.2px;}
+  .toolbar{margin-left:auto;display:flex;align-items:center;gap:7px;}
+  .pill-on{display:inline-flex;align-items:center;gap:5px;background:var(--exec-bg);color:var(--exec-fg);font-size:11px;font-weight:600;padding:6px 10px;border-radius:var(--r-pill);}
+  .pill-on i{width:6px;height:6px;border-radius:50%;background:var(--exec-m);}
+  .sair{font-size:12px;font-weight:600;color:var(--muted);background:#fff;border:1px solid var(--line);padding:6px 11px;border-radius:var(--r-pill);cursor:pointer;}
+
+  .topbar{display:flex;align-items:center;gap:10px;margin-bottom:15px;}
+  .back{width:37px;height:37px;border:1px solid var(--line);border-radius:var(--r-sm);background:#fff;color:var(--ink);font-size:20px;line-height:1;cursor:pointer;flex:none;}
+  .topbar h2{font-size:17px;font-weight:700;letter-spacing:-.3px;}
+
+  /* hero */
+  .hero{background:linear-gradient(135deg,#2A8BE6,#1C6FD0);border-radius:var(--r-xl);padding:20px;color:#fff;box-shadow:0 14px 26px rgba(30,138,224,.26);}
+  .hero .eb{font-size:10.5px;font-weight:600;letter-spacing:1.4px;text-transform:uppercase;opacity:.85;}
+  .hero h1{font-size:23px;font-weight:600;margin-top:4px;letter-spacing:-.6px;}
+  .hero .stats{display:flex;gap:22px;margin-top:15px;}
+  .hero .stats .n{font-size:28px;font-weight:600;line-height:1;letter-spacing:-1px;}
+  .hero .stats .l{font-size:11px;opacity:.85;margin-top:4px;}
+  .hero .cta{margin-top:17px;width:100%;border:none;background:#fff;color:#175fb0;font-family:inherit;font-size:15px;font-weight:700;padding:14px;border-radius:var(--r-md);cursor:pointer;letter-spacing:-.2px;}
+
+  .sec{font-size:10.5px;font-weight:600;letter-spacing:1.3px;text-transform:uppercase;color:var(--muted);margin:20px 4px 11px;}
+
+  /* tiles */
+  .grid{display:grid;grid-template-columns:1fr 1fr;gap:11px;}
+  .tile{border-radius:var(--r-lg);padding:15px;color:#fff;min-height:108px;display:flex;flex-direction:column;justify-content:space-between;position:relative;overflow:hidden;cursor:pointer;}
+  .tile .ic{width:36px;height:36px;border-radius:var(--r-sm);background:rgba(255,255,255,.22);display:grid;place-items:center;}
+  .tile .ic svg{width:20px;height:20px;stroke:currentColor;fill:none;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round;}
+  .tile .lbl{font-size:14.5px;font-weight:600;line-height:1.18;letter-spacing:-.2px;}
+  .tile .sub{font-size:11px;opacity:.85;font-weight:500;margin-top:2px;}
+  .tile .cnt{position:absolute;top:14px;right:15px;font-size:25px;font-weight:700;line-height:1;letter-spacing:-1px;font-variant-numeric:tabular-nums;}
+  .t-green{background:var(--green);} .t-blue{background:var(--blue);} .t-purple{background:var(--purple);}
+  .t-yellow{background:var(--yellow);color:#1A1A1A;} .t-yellow .ic{background:rgba(0,0,0,.12);}
+  .strip{margin-top:11px;border-radius:var(--r-lg);padding:15px 17px;background:var(--orange);color:#fff;display:flex;align-items:center;gap:13px;cursor:pointer;}
+  .strip .ic{width:38px;height:38px;border-radius:var(--r-sm);background:rgba(255,255,255,.24);display:grid;place-items:center;flex:none;}
+  .strip .ic svg{width:21px;height:21px;stroke:#fff;fill:none;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round;}
+  .strip .lbl{font-size:15px;font-weight:600;letter-spacing:-.2px;}
+  .strip .sub{font-size:11.5px;color:rgba(255,255,255,.85);margin-top:1px;}
+  .strip .ar{margin-left:auto;font-size:21px;opacity:.95;font-weight:300;}
+
+  /* buttons */
+  .btn{display:flex;align-items:center;justify-content:center;gap:8px;width:100%;border:none;font-family:inherit;font-size:15px;font-weight:700;padding:14px;border-radius:var(--r-md);cursor:pointer;letter-spacing:-.2px;}
+  .btn-primary{background:var(--blue);color:#fff;}
+  .btn-ghost{background:#fff;color:var(--ink);border:1px solid var(--line);}
+  .btn-ok-o{background:#fff;color:var(--exec-fg);border:1.5px solid #9AD3B0;}
+  .btn-warn-o{background:#fff;color:var(--warn-fg);border:1.5px solid #EBC777;}
+  .btn-row{display:flex;gap:10px;margin-top:10px;}
+  .btn-row .btn{font-size:14px;padding:13px;}
+
+  /* generic card / list */
+  .card{background:var(--card);border:1px solid var(--line);border-radius:var(--r-lg);padding:16px;}
+  .listcard{background:var(--card);border:1px solid var(--line);border-radius:var(--r-lg);padding:14px 15px;display:flex;flex-direction:column;gap:5px;position:relative;overflow:hidden;cursor:pointer;}
+  .listcard+.listcard{margin-top:10px;}
+  .listcard .edge{position:absolute;left:0;top:0;bottom:0;width:4px;}
+  .listcard .t{display:flex;align-items:flex-start;gap:10px;}
+  .listcard .cli{font-size:15.5px;font-weight:700;letter-spacing:-.2px;flex:1;}
+  .listcard .meta{font-size:12px;color:var(--muted);font-weight:500;}
+  .listcard .meta b{color:#5b6270;font-weight:600;}
+
+  .badge{font-size:10.5px;font-weight:700;padding:4px 10px;border-radius:var(--r-pill);white-space:nowrap;}
+  .b-info{background:var(--info-bg);color:var(--info-fg);} .e-info{background:var(--info-m);}
+  .b-done{background:var(--exec-bg);color:var(--exec-fg);} .e-done{background:var(--exec-m);}
+  .b-warn{background:var(--warn-bg);color:var(--warn-fg);} .e-warn{background:var(--warn-m);}
+  .b-pend{background:var(--pend-bg);color:var(--pend-fg);} .e-pend{background:var(--pend-m);}
+
+  /* detail bits */
+  .dh .no{font-size:12px;color:var(--muted);font-weight:600;letter-spacing:.3px;font-variant-numeric:tabular-nums;}
+  .dh .cli{font-size:20px;font-weight:700;letter-spacing:-.4px;margin-top:2px;}
+  .dh .mt{font-size:12.5px;color:var(--muted);margin-top:5px;line-height:1.5;}
+  .orient{background:#F3F6FC;border:1px solid #E3EAF5;border-left:3px solid var(--blue);border-radius:12px;padding:12px 14px;margin-top:14px;}
+  .orient .k{font-size:10px;font-weight:700;letter-spacing:1px;color:var(--muted);text-transform:uppercase;}
+  .orient .v{font-size:15px;font-weight:600;margin-top:3px;}
+  .prod{padding:12px 0;border-top:1px solid var(--line);}
+  .prod .pn{font-size:13px;font-weight:600;line-height:1.35;}
+  .prod .chips{display:flex;gap:7px;margin-top:8px;flex-wrap:wrap;}
+  .chip{font-size:11px;font-weight:600;padding:4px 9px;border-radius:8px;}
+  .c-orc{background:#EEF0F4;color:#6c7480;} .c-lev{background:#E7F1FC;color:#1565C0;} .c-uti{background:#E6F6EC;color:#0B7A43;}
+  .ratmini{background:#fff;border:1px solid var(--line);border-radius:14px;padding:13px 14px;margin-top:10px;display:flex;justify-content:space-between;align-items:center;}
+  .ratmini .l{font-size:14px;font-weight:700;} .ratmini .s{font-size:11.5px;color:var(--muted);margin-top:2px;}
+  .ratmini .r{text-align:right;} .ratmini .conf{font-size:11px;font-weight:700;color:var(--exec-fg);display:flex;align-items:center;gap:5px;justify-content:flex-end;}
+  .ratmini .conf i{width:7px;height:7px;border-radius:50%;background:var(--exec-m);} .ratmini .dt{font-size:11px;color:var(--muted);margin-top:3px;font-variant-numeric:tabular-nums;}
+
+  /* form */
+  .info{background:#EAF2FC;border:1px solid #D5E5F8;border-radius:13px;padding:12px 14px;font-size:12.5px;color:#1f5fa6;font-weight:600;line-height:1.45;}
+  .fcard{background:var(--card);border:1px solid var(--line);border-left:4px solid var(--blue);border-radius:var(--r-lg);padding:15px;margin-top:12px;}
+  .fcard>.h{display:flex;align-items:center;gap:10px;font-size:11.5px;font-weight:700;letter-spacing:.6px;text-transform:uppercase;margin-bottom:13px;}
+  .fcard>.h .hi{width:30px;height:30px;border-radius:9px;display:grid;place-items:center;flex:none;}
+  .fcard>.h .hi svg{width:17px;height:17px;stroke:#fff;fill:none;stroke-width:2;}
+  .fc-blue{border-left-color:var(--blue);}    .fc-blue>.h{color:#1565C0;}    .fc-blue>.h .hi{background:var(--blue);}
+  .fc-green{border-left-color:var(--green);}  .fc-green>.h{color:#0B7A43;}  .fc-green>.h .hi{background:var(--green);}
+  .fc-purple{border-left-color:var(--purple);}.fc-purple>.h{color:#6c2f96;}.fc-purple>.h .hi{background:var(--purple);}
+  .fc-orange{border-left-color:var(--orange);}.fc-orange>.h{color:#b85e0a;}.fc-orange>.h .hi{background:var(--orange);}
+  .fc-red{border-left-color:var(--red);}      .fc-red>.h{color:#c0362c;}    .fc-red>.h .hi{background:var(--red);}
+  .lc-info{background:#F2F8FE;} .lc-warn{background:#FFF9EE;} .lc-done{background:#F2FAF5;}
+  .det-accent{border-left:4px solid var(--exec-m);}
+  .field{margin-bottom:12px;} .field:last-child{margin-bottom:0;}
+  .lab{display:block;font-size:12px;font-weight:600;color:#5b6270;margin-bottom:6px;}
+  .req{color:var(--red);}
+  .inp,.sel,.ta{width:100%;font-family:inherit;font-size:14.5px;font-weight:500;color:var(--ink);background:#fff;border:1px solid #DCE0E8;border-radius:var(--r-md);padding:12px 13px;}
+  .inp:focus,.sel:focus,.ta:focus{outline:none;border-color:var(--blue);box-shadow:0 0 0 3px rgba(30,138,224,.14);}
+  .inp.filled{background:#F7F8FB;font-weight:600;}
+  .ta{min-height:74px;resize:vertical;}
+  .two{display:flex;gap:10px;} .two .field{flex:1;}
+  .photo{border:1.6px dashed #C6CCDA;border-radius:var(--r-md);padding:16px;display:flex;align-items:center;justify-content:center;gap:9px;color:#5b6270;font-size:13.5px;font-weight:600;background:#FAFBFD;cursor:pointer;}
+  .photo svg{width:19px;height:19px;stroke:var(--blue);fill:none;stroke-width:1.8;}
+  .calc{background:linear-gradient(135deg,#E9F7EE,#E0F3EA);border:1px solid #BFE6CC;border-radius:var(--r-md);padding:13px 15px;display:flex;align-items:center;gap:11px;}
+  .calc svg{width:20px;height:20px;stroke:var(--exec-fg);fill:none;stroke-width:2;}
+  .calc .k{font-size:11px;font-weight:600;color:var(--exec-fg);text-transform:uppercase;letter-spacing:.5px;}
+  .calc .v{font-size:19px;font-weight:700;color:#0a6e3c;font-variant-numeric:tabular-nums;letter-spacing:-.5px;}
+  .checks{border:1px solid #DCE0E8;border-radius:var(--r-md);overflow:hidden;}
+  .ck{display:flex;align-items:center;gap:11px;padding:11px 13px;font-size:14px;font-weight:600;}
+  .ck+.ck{border-top:1px solid var(--line);}
+  .ck .box{width:20px;height:20px;border-radius:6px;border:1.6px solid #C6CCDA;flex:none;}
+  .ck.on{color:var(--blue);} .ck.on .box{background:var(--blue);border-color:var(--blue);position:relative;}
+  .ck.on .box::after{content:"✓";color:#fff;font-size:13px;position:absolute;inset:0;display:grid;place-items:center;}
+  .hintn{font-size:11.5px;color:var(--muted);margin-top:6px;line-height:1.4;}
+  .foot{display:flex;gap:10px;margin-top:14px;}
+  .foot .btn{font-size:14.5px;}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="hd">
+    <h1>App do técnico — redesenho no padrão</h1>
+    <p>Mesmo conteúdo das telas atuais, agora na identidade vívida. Foco: dar vontade de usar e de preencher.</p>
+  </div>
+  <div class="rail">
+
+    <!-- ===================== HOME ===================== -->
+    <div>
+      <div class="cap">Home</div>
+      <div class="phone"><div class="screen"><div class="scroll">
+        <div class="appbar">
+          <div class="mk">SR</div>
+          <div class="who">Service Report<b>Pablo Soares</b></div>
+          <div class="toolbar"><span class="pill-on"><i></i>online</span><span class="sair">Sair</span></div>
+        </div>
+        <div class="hero">
+          <div class="eb">Terça · 9 jun</div>
+          <h1>Olá, Pablo</h1>
+          <div class="stats">
+            <div><div class="n num">3</div><div class="l">tarefas hoje</div></div>
+            <div><div class="n num">1</div><div class="l">em execução</div></div>
+            <div><div class="n num">2</div><div class="l">na fila p/ enviar</div></div>
+          </div>
+          <button class="cta">↻ Sincronizar</button>
+        </div>
+        <div class="sec">Áreas</div>
+        <div class="grid">
+          <div class="tile t-green">
+            <div class="ic"><svg viewBox="0 0 24 24"><path d="M9 5H7a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V7a2 2 0 0 0-2-2h-2"/><rect x="9" y="3" width="6" height="4" rx="1"/><path d="m9 14 2 2 4-4"/></svg></div>
+            <div><div class="lbl">Minhas Tarefas</div><div class="sub">OS atribuídas a você</div></div><div class="cnt num">3</div>
+          </div>
+          <div class="tile t-blue">
+            <div class="ic"><svg viewBox="0 0 24 24"><path d="M3 9h18M3 9l1.5-4h15L21 9M5 9v10a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1V9M10 13h4"/></svg></div>
+            <div><div class="lbl">Minhas RATs</div><div class="sub">Relatórios no aparelho</div></div><div class="cnt num">2</div>
+          </div>
+          <div class="tile t-yellow">
+            <div class="ic"><svg viewBox="0 0 24 24"><path d="M14 3v4a1 1 0 0 0 1 1h4"/><path d="M17 21H7a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h7l5 5v11a2 2 0 0 1-2 2Z"/><path d="m12 11 1 1m-3 3 3-3"/></svg></div>
+            <div><div class="lbl">Pré-Orçamento</div><div class="sub">Levantamento em campo</div></div>
+          </div>
+          <div class="tile t-purple">
+            <div class="ic"><svg viewBox="0 0 24 24"><circle cx="12" cy="13" r="8"/><path d="M12 9v4l2 2M9 2h6"/></svg></div>
+            <div><div class="lbl">Jornada do dia</div><div class="sub">Tempo por atividade</div></div>
+          </div>
+        </div>
+        <div class="strip">
+          <div class="ic"><svg viewBox="0 0 24 24"><path d="M3 17h2m14 0h2M5 17a2 2 0 1 0 4 0 2 2 0 0 0-4 0Zm10 0a2 2 0 1 0 4 0 2 2 0 0 0-4 0Z"/><path d="M5 17V8a1 1 0 0 1 1-1h8l4 4v6"/></svg></div>
+          <div><div class="lbl">Deslocamento</div><div class="sub">Pernoite / viagem</div></div><div class="ar">›</div>
+        </div>
+      </div></div></div>
+    </div>
+
+    <!-- ===================== MINHAS TAREFAS ===================== -->
+    <div>
+      <div class="cap">Minhas Tarefas</div>
+      <div class="phone"><div class="screen"><div class="scroll">
+        <div class="topbar"><button class="back">‹</button><h2>Minhas Tarefas</h2>
+          <div class="toolbar"><span class="pill-on"><i></i>online</span></div></div>
+        <div class="btn-row" style="margin-top:0">
+          <button class="btn btn-ghost">↻ Atualizar</button>
+          <button class="btn btn-primary">+ Nova tarefa</button>
+        </div>
+        <div style="margin-top:14px"></div>
+        <div class="listcard lc-info"><span class="edge e-info"></span>
+          <div class="t"><span class="cli">WESTROCK — FBTB</span><span class="badge b-info">Em execução</span></div>
+          <div class="meta">Nº <b>04741</b> · Agendada 07 jun. 2026</div>
+        </div>
+        <div class="listcard lc-warn"><span class="edge e-warn"></span>
+          <div class="t"><span class="cli">WESTROCK — FBTB</span><span class="badge b-warn">Concluída c/ pendência</span></div>
+          <div class="meta">Nº <b>04742</b> · Agendada 06 jun. 2026</div>
+        </div>
+        <div class="listcard lc-done"><span class="edge e-done"></span>
+          <div class="t"><span class="cli">INCASA S/A</span><span class="badge b-done">Concluída</span></div>
+          <div class="meta">Nº <b>04740</b> · Agendada 07 jun. 2026</div>
+        </div>
+      </div></div></div>
+    </div>
+
+    <!-- ===================== TAREFA (detalhe) ===================== -->
+    <div>
+      <div class="cap">Tarefa (detalhe)</div>
+      <div class="phone"><div class="screen"><div class="scroll">
+        <div class="topbar"><button class="back">‹</button><h2>Tarefa</h2>
+          <div class="toolbar"><span class="pill-on"><i></i>online</span></div></div>
+        <div class="card det-accent">
+          <div class="dh">
+            <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:10px">
+              <div><div class="no">TAREFA Nº 04740</div><div class="cli">INCASA S/A</div></div>
+              <span class="badge b-done">Concluída</span>
+            </div>
+            <div class="mt">Agendada para 07 jun. 2026<br>Tipo: Contrato — Manutenção Preventiva / Corretiva</div>
+          </div>
+          <div class="orient"><div class="k">Orientação</div><div class="v">Preventiva</div></div>
+          <div class="sec" style="margin:16px 0 2px">Produtos</div>
+          <div class="prod">
+            <div class="pn">CABO DE REDE CAT5E F/UTP 24AWGX4P OUTDOOR UBIQUITI TC-PRO</div>
+            <div class="chips"><span class="chip c-orc">Orçado —</span><span class="chip c-lev">Levado —</span><span class="chip c-uti">Utilizado —</span></div>
+          </div>
+          <div class="prod">
+            <div class="pn">CONECTOR MACHO CAT5E BLINDADO UBIQUITI TC-CON-001</div>
+            <div class="chips"><span class="chip c-orc">Orçado —</span><span class="chip c-lev">Levado 2</span><span class="chip c-uti">Utilizado 1</span></div>
+          </div>
+          <div class="prod">
+            <div class="pn">CONECTOR 1" 1/2 S/PINT TRAMONTINA 56251/055</div>
+            <div class="chips"><span class="chip c-orc">Orçado —</span><span class="chip c-lev">Levado —</span><span class="chip c-uti">Utilizado —</span></div>
+          </div>
+          <div class="sec" style="margin:16px 0 2px">RATs desta tarefa</div>
+          <div class="ratmini">
+            <div><div class="l">RAT</div><div class="s">Concluída</div></div>
+            <div class="r"><div class="conf"><i></i>Confirmado</div><div class="dt">08 jun. 2026 16:14</div></div>
+          </div>
+          <div style="margin-top:16px"><button class="btn btn-primary">▶ Iniciar RAT desta tarefa</button></div>
+          <div class="btn-row">
+            <button class="btn btn-ok-o">✓ Concluir</button>
+            <button class="btn btn-warn-o">⚠ Concluir c/ pend.</button>
+          </div>
+        </div>
+      </div></div></div>
+    </div>
+
+    <!-- ===================== NOVA RAT (form) ===================== -->
+    <div>
+      <div class="cap">Nova RAT — preenchimento</div>
+      <div class="phone"><div class="screen"><div class="scroll">
+        <div class="topbar"><button class="back">‹</button><h2>Nova RAT</h2>
+          <div class="toolbar"><span class="pill-on"><i></i>online</span></div></div>
+
+        <div class="info">RAT da Tarefa Nº 04741 · WESTROCK — FBTB · Contrato — Manutenção Preventiva / Corretiva</div>
+
+        <div class="fcard fc-blue">
+          <div class="h"><span class="hi"><svg viewBox="0 0 24 24"><path d="M16 21v-2a4 4 0 0 0-8 0v2M12 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8Z"/></svg></span>Cliente &amp; equipe</div>
+          <div class="field"><label class="lab">Cliente <span class="req">*</span></label><input class="inp filled" value="WESTROCK — FBTB" readonly></div>
+          <div class="field"><label class="lab">Data <span class="req">*</span></label><input class="inp filled" value="8 de jun. de 2026" readonly></div>
+          <div class="field"><label class="lab">Técnicos responsáveis <span class="req">*</span></label>
+            <div class="checks">
+              <div class="ck on"><span class="box"></span>Pablo Soares</div>
+              <div class="ck on"><span class="box"></span>Field Team</div>
+              <div class="ck"><span class="box"></span>Maicon Rocha</div>
+            </div>
+          </div>
+        </div>
+
+        <div class="fcard fc-green">
+          <div class="h"><span class="hi"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg></span>Tempo</div>
+          <div class="two">
+            <div class="field"><label class="lab">Início</label><input class="inp" value="08:00" placeholder="--:--"></div>
+            <div class="field"><label class="lab">Término</label><input class="inp" value="10:35" placeholder="--:--"></div>
+          </div>
+          <div class="two">
+            <div class="field"><label class="lab">Almoço <span class="req">*</span></label><select class="sel"><option>Não houve</option></select></div>
+            <div class="field"><label class="lab">Pausa</label><select class="sel"><option>Nenhuma</option></select></div>
+          </div>
+          <div class="field"><label class="lab">Deslocamento <span class="req">*</span></label><select class="sel"><option>Sem deslocamento</option></select></div>
+          <div class="calc">
+            <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>
+            <div><div class="k">Tempo trabalhado (calculado)</div><div class="v">02:35</div></div>
+          </div>
+        </div>
+
+        <div class="fcard fc-purple">
+          <div class="h"><span class="hi"><svg viewBox="0 0 24 24"><path d="M4 6h16M4 12h16M4 18h10"/></svg></span>O serviço</div>
+          <div class="field"><label class="lab">Serviço executado <span class="req">*</span></label><textarea class="ta" placeholder="O que foi feito no atendimento…"></textarea></div>
+          <div class="field"><label class="lab">Pendências / observações</label><textarea class="ta" placeholder="Ficou algo pendente? Anote aqui."></textarea></div>
+        </div>
+
+        <div class="fcard fc-orange">
+          <div class="h"><span class="hi"><svg viewBox="0 0 24 24"><path d="M3 7h4l2-2h6l2 2h4v12H3z"/><circle cx="12" cy="13" r="3.2"/></svg></span>Evidências</div>
+          <div class="field"><label class="lab">Fotos <span class="req">*</span></label>
+            <div class="photo"><svg viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg>Adicionar foto</div>
+            <div class="hintn">Uma foto do antes/depois já conta muito. Sobe rápido mesmo no campo.</div>
+          </div>
+        </div>
+
+        <div class="fcard fc-red">
+          <div class="h"><span class="hi"><svg viewBox="0 0 24 24"><path d="M12 21s7-6.5 7-12a7 7 0 1 0-14 0c0 5.5 7 12 7 12Z"/><circle cx="12" cy="9" r="2.4"/></svg></span>Local &amp; situação</div>
+          <div class="field"><label class="lab">Local do atendimento (GPS)</label>
+            <button class="btn btn-ghost" style="justify-content:center">📍 Marcar local atual</button>
+            <div class="hintn">Opcional — registra onde o atendimento foi feito.</div>
+          </div>
+          <div class="field"><label class="lab">Situação do atendimento <span class="req">*</span></label>
+            <select class="sel"><option>Atendimento continua (em execução)</option></select>
+            <div class="hintn">"Continua" = mais visitas/RATs depois.</div>
+          </div>
+        </div>
+
+        <div class="foot">
+          <button class="btn btn-ghost">Cancelar</button>
+          <button class="btn btn-primary">Salvar e continuar</button>
+        </div>
+      </div></div></div>
+    </div>
+
+  </div>
+</div>
+</body>
+</html>

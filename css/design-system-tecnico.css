@@ -1,0 +1,179 @@
+/* ============================================================================
+   SERVICE REPORT · DESIGN SYSTEM — APP DO TÉCNICO (campo)
+   ----------------------------------------------------------------------------
+   Fonte única do visual do app de campo. Consolidado a partir do mockup aprovado
+   (docs/mockups/mockup-app-tecnico-telas.html) — mesmos nomes de classe, então o
+   markup do mockup mapeia 1:1 neste CSS.
+
+   COMO USAR
+   1) Fonte Manrope no <head>:
+      <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+   2) Linke este arquivo.
+   3) Estrutura da tela:  <body class="tec">  →  <div class="screen"> …conteúdo… </div>
+
+   MAPA DE COR (manter consistente em todas as telas)
+     Minhas Tarefas → verde   | Minhas RATs → azul   | Pré-Orçamento → amarelo (texto escuro)
+     Jornada do dia → roxo    | Deslocamento → laranja (faixa)   | Herói/ação → azul
+   STATUS DE TAREFA: Em execução → azul(info) · Concluída → verde · c/ pendência → âmbar · Agendada → cinza
+   STATUS DE JORNADA/SEGMENTO: execução verde · aguardando cinza · pausa amarelo · pendência vermelho
+   FORM (cor por bloco): Cliente&equipe azul · Tempo verde · Serviço roxo · Evidências laranja · Local vermelho
+   Campos de input ficam BRANCOS (legibilidade); a cor vai em cabeçalhos, tiles, badges e acentos.
+============================================================================ */
+
+:root{
+  /* paleta vívida */
+  --red:#E5403A; --orange:#F4861F; --yellow:#F7B81E; --green:#28A94C; --blue:#1E8AE0; --purple:#8E45B5;
+  /* neutros (tema claro) */
+  --bg:#F3F4F8; --card:#FFFFFF; --line:#ECEEF3; --ink:#1B1E26; --muted:#7C8290;
+  /* status (fundo · texto · marca) */
+  --exec-bg:#E6F6EC; --exec-fg:#0B7A43; --exec-m:#28A94C;
+  --info-bg:#E7F1FC; --info-fg:#1565C0; --info-m:#1E8AE0;
+  --warn-bg:#FEF3DA; --warn-fg:#92670A; --warn-m:#F7B81E;
+  --pend-bg:#FDECEA; --pend-fg:#C0362C; --pend-m:#E5403A;
+  --aguard-bg:#EEF0F4; --aguard-fg:#5B6573; --aguard-m:#9CA3AF;
+  /* raio */
+  --r-xl:24px; --r-lg:20px; --r-md:15px; --r-sm:11px; --r-pill:999px;
+  --font:'Manrope',system-ui,-apple-system,sans-serif;
+}
+
+/* ---------- BASE ---------- */
+*{box-sizing:border-box;margin:0;padding:0;}
+.tec{font-family:var(--font);font-weight:500;color:var(--ink);background:var(--bg);-webkit-font-smoothing:antialiased;}
+.screen{max-width:480px;margin:0 auto;padding:16px 15px 22px;}
+.num{font-variant-numeric:tabular-nums;letter-spacing:-.5px;}
+
+/* ---------- APP BAR (home) ----------
+   <div class="appbar"><div class="mk">SR</div><div class="who">Service Report<b>Nome</b></div>
+     <div class="toolbar"><span class="pill-on"><i></i>online</span><span class="sair">Sair</span></div></div> */
+.appbar{display:flex;align-items:center;gap:11px;margin-bottom:15px;}
+.mk{width:37px;height:37px;border-radius:var(--r-sm);background:var(--blue);color:#fff;display:grid;place-items:center;font-weight:700;font-size:13px;letter-spacing:.5px;}
+.who{font-size:11px;color:var(--muted);font-weight:500;}
+.who b{display:block;color:var(--ink);font-size:15px;font-weight:700;letter-spacing:-.2px;}
+.toolbar{margin-left:auto;display:flex;align-items:center;gap:7px;}
+.pill-on{display:inline-flex;align-items:center;gap:5px;background:var(--exec-bg);color:var(--exec-fg);font-size:11px;font-weight:600;padding:6px 10px;border-radius:var(--r-pill);}
+.pill-on i{width:6px;height:6px;border-radius:50%;background:var(--exec-m);}
+.pill-on.off{background:var(--pend-bg);color:var(--pend-fg);} .pill-on.off i{background:var(--pend-m);}
+.sair{font-size:12px;font-weight:600;color:var(--muted);background:#fff;border:1px solid var(--line);padding:6px 11px;border-radius:var(--r-pill);cursor:pointer;}
+
+/* ---------- TOP BAR (telas internas) ----------
+   <div class="topbar"><button class="back">‹</button><h2>Título</h2>
+     <div class="toolbar"><span class="pill-on"><i></i>online</span></div></div> */
+.topbar{display:flex;align-items:center;gap:10px;margin-bottom:15px;}
+.back{width:37px;height:37px;border:1px solid var(--line);border-radius:var(--r-sm);background:#fff;color:var(--ink);font-size:20px;line-height:1;cursor:pointer;flex:none;}
+.topbar h2{font-size:17px;font-weight:700;letter-spacing:-.3px;}
+
+/* ---------- HERÓI ---------- */
+.hero{background:linear-gradient(135deg,#2A8BE6,#1C6FD0);border-radius:var(--r-xl);padding:20px;color:#fff;box-shadow:0 14px 26px rgba(30,138,224,.26);}
+.hero .eb{font-size:10.5px;font-weight:600;letter-spacing:1.4px;text-transform:uppercase;opacity:.85;}
+.hero h1{font-size:23px;font-weight:600;margin-top:4px;letter-spacing:-.6px;}
+.hero .stats{display:flex;gap:22px;margin-top:15px;}
+.hero .stats .n{font-size:28px;font-weight:600;line-height:1;letter-spacing:-1px;}
+.hero .stats .l{font-size:11px;opacity:.85;margin-top:4px;}
+.hero .cta{margin-top:17px;width:100%;border:none;background:#fff;color:#175fb0;font-family:inherit;font-size:15px;font-weight:700;padding:14px;border-radius:var(--r-md);cursor:pointer;letter-spacing:-.2px;}
+
+/* ---------- TÍTULO DE SEÇÃO ---------- */
+.sec{font-size:10.5px;font-weight:600;letter-spacing:1.3px;text-transform:uppercase;color:var(--muted);margin:20px 4px 11px;}
+
+/* ---------- TILES DE ÁREA + FAIXA ---------- */
+.grid{display:grid;grid-template-columns:1fr 1fr;gap:11px;}
+.tile{border-radius:var(--r-lg);padding:15px;color:#fff;min-height:108px;display:flex;flex-direction:column;justify-content:space-between;position:relative;overflow:hidden;cursor:pointer;text-decoration:none;}
+.tile .ic{width:36px;height:36px;border-radius:var(--r-sm);background:rgba(255,255,255,.22);display:grid;place-items:center;}
+.tile .ic svg{width:20px;height:20px;stroke:currentColor;fill:none;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round;}
+.tile .lbl{font-size:14.5px;font-weight:600;line-height:1.18;letter-spacing:-.2px;}
+.tile .sub{font-size:11px;opacity:.85;font-weight:500;margin-top:2px;}
+.tile .cnt{position:absolute;top:14px;right:15px;font-size:25px;font-weight:700;line-height:1;letter-spacing:-1px;font-variant-numeric:tabular-nums;}
+.t-green{background:var(--green);} .t-blue{background:var(--blue);} .t-purple{background:var(--purple);} .t-red{background:var(--red);}
+.t-yellow{background:var(--yellow);color:#1A1A1A;} .t-yellow .ic{background:rgba(0,0,0,.12);}
+.strip{margin-top:11px;border-radius:var(--r-lg);padding:15px 17px;background:var(--orange);color:#fff;display:flex;align-items:center;gap:13px;cursor:pointer;text-decoration:none;}
+.strip .ic{width:38px;height:38px;border-radius:var(--r-sm);background:rgba(255,255,255,.24);display:grid;place-items:center;flex:none;}
+.strip .ic svg{width:21px;height:21px;stroke:#fff;fill:none;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round;}
+.strip .lbl{font-size:15px;font-weight:600;letter-spacing:-.2px;}
+.strip .sub{font-size:11.5px;color:rgba(255,255,255,.85);margin-top:1px;}
+.strip .ar{margin-left:auto;font-size:21px;opacity:.95;font-weight:300;}
+
+/* ---------- BOTÕES ---------- */
+.btn{display:flex;align-items:center;justify-content:center;gap:8px;width:100%;border:none;font-family:inherit;font-size:15px;font-weight:700;padding:14px;border-radius:var(--r-md);cursor:pointer;letter-spacing:-.2px;}
+.btn-primary{background:var(--blue);color:#fff;}
+.btn-ghost{background:#fff;color:var(--ink);border:1px solid var(--line);}
+.btn-ok-o{background:#fff;color:var(--exec-fg);border:1.5px solid #9AD3B0;}
+.btn-warn-o{background:#fff;color:var(--warn-fg);border:1.5px solid #EBC777;}
+.btn-row{display:flex;gap:10px;margin-top:10px;}
+.btn-row .btn{font-size:14px;padding:13px;}
+
+/* ---------- CARD genérico + LISTA ---------- */
+.card{background:var(--card);border:1px solid var(--line);border-radius:var(--r-lg);padding:16px;}
+.det-accent{border-left:4px solid var(--exec-m);}   /* acento de status no detalhe */
+.listcard{background:var(--card);border:1px solid var(--line);border-radius:var(--r-lg);padding:14px 15px;display:flex;flex-direction:column;gap:5px;position:relative;overflow:hidden;cursor:pointer;}
+.listcard+.listcard{margin-top:10px;}
+.listcard .edge{position:absolute;left:0;top:0;bottom:0;width:4px;}
+.listcard .t{display:flex;align-items:flex-start;gap:10px;}
+.listcard .cli{font-size:15.5px;font-weight:700;letter-spacing:-.2px;flex:1;}
+.listcard .meta{font-size:12px;color:var(--muted);font-weight:500;}
+.listcard .meta b{color:#5b6270;font-weight:600;}
+.lc-info{background:#F2F8FE;} .lc-warn{background:#FFF9EE;} .lc-done{background:#F2FAF5;}
+
+/* ---------- BADGES de status (reutilizável) ---------- */
+.badge{font-size:10.5px;font-weight:700;padding:4px 10px;border-radius:var(--r-pill);white-space:nowrap;}
+.b-info{background:var(--info-bg);color:var(--info-fg);} .b-done{background:var(--exec-bg);color:var(--exec-fg);}
+.b-warn{background:var(--warn-bg);color:var(--warn-fg);} .b-pend{background:var(--pend-bg);color:var(--pend-fg);}
+.b-aguard{background:var(--aguard-bg);color:var(--aguard-fg);}
+.edge.e-info{background:var(--info-m);} .edge.e-done{background:var(--exec-m);}
+.edge.e-warn{background:var(--warn-m);} .edge.e-pend{background:var(--pend-m);} .edge.e-aguard{background:var(--aguard-m);}
+
+/* ---------- DETALHE DA TAREFA ---------- */
+.dh .no{font-size:12px;color:var(--muted);font-weight:600;letter-spacing:.3px;font-variant-numeric:tabular-nums;}
+.dh .cli{font-size:20px;font-weight:700;letter-spacing:-.4px;margin-top:2px;}
+.dh .mt{font-size:12.5px;color:var(--muted);margin-top:5px;line-height:1.5;}
+.orient{background:#F3F6FC;border:1px solid #E3EAF5;border-left:3px solid var(--blue);border-radius:12px;padding:12px 14px;margin-top:14px;}
+.orient .k{font-size:10px;font-weight:700;letter-spacing:1px;color:var(--muted);text-transform:uppercase;}
+.orient .v{font-size:15px;font-weight:600;margin-top:3px;}
+.prod{padding:12px 0;border-top:1px solid var(--line);}
+.prod .pn{font-size:13px;font-weight:600;line-height:1.35;}
+.prod .chips{display:flex;gap:7px;margin-top:8px;flex-wrap:wrap;}
+.chip{font-size:11px;font-weight:600;padding:4px 9px;border-radius:8px;}
+.c-orc{background:#EEF0F4;color:#6c7480;} .c-lev{background:#E7F1FC;color:#1565C0;} .c-uti{background:#E6F6EC;color:#0B7A43;}
+.ratmini{background:#fff;border:1px solid var(--line);border-radius:14px;padding:13px 14px;margin-top:10px;display:flex;justify-content:space-between;align-items:center;}
+.ratmini .l{font-size:14px;font-weight:700;} .ratmini .s{font-size:11.5px;color:var(--muted);margin-top:2px;}
+.ratmini .r{text-align:right;}
+.ratmini .conf{font-size:11px;font-weight:700;color:var(--exec-fg);display:flex;align-items:center;gap:5px;justify-content:flex-end;}
+.ratmini .conf i{width:7px;height:7px;border-radius:50%;background:var(--exec-m);}
+.ratmini .dt{font-size:11px;color:var(--muted);margin-top:3px;font-variant-numeric:tabular-nums;}
+
+/* ---------- FORMULÁRIO em BLOCOS coloridos ---------- */
+.info{background:#EAF2FC;border:1px solid #D5E5F8;border-radius:13px;padding:12px 14px;font-size:12.5px;color:#1f5fa6;font-weight:600;line-height:1.45;}
+.fcard{background:var(--card);border:1px solid var(--line);border-left:4px solid var(--blue);border-radius:var(--r-lg);padding:15px;margin-top:12px;}
+.fcard>.h{display:flex;align-items:center;gap:10px;font-size:11.5px;font-weight:700;letter-spacing:.6px;text-transform:uppercase;margin-bottom:13px;}
+.fcard>.h .hi{width:30px;height:30px;border-radius:9px;display:grid;place-items:center;flex:none;}
+.fcard>.h .hi svg{width:17px;height:17px;stroke:#fff;fill:none;stroke-width:2;}
+.fc-blue{border-left-color:var(--blue);}     .fc-blue>.h{color:#1565C0;}     .fc-blue>.h .hi{background:var(--blue);}
+.fc-green{border-left-color:var(--green);}   .fc-green>.h{color:#0B7A43;}   .fc-green>.h .hi{background:var(--green);}
+.fc-purple{border-left-color:var(--purple);} .fc-purple>.h{color:#6c2f96;}  .fc-purple>.h .hi{background:var(--purple);}
+.fc-orange{border-left-color:var(--orange);} .fc-orange>.h{color:#b85e0a;}  .fc-orange>.h .hi{background:var(--orange);}
+.fc-red{border-left-color:var(--red);}       .fc-red>.h{color:#c0362c;}     .fc-red>.h .hi{background:var(--red);}
+.field{margin-bottom:12px;} .field:last-child{margin-bottom:0;}
+.lab{display:block;font-size:12px;font-weight:600;color:#5b6270;margin-bottom:6px;}
+.req{color:var(--red);}
+.inp,.sel,.ta{width:100%;font-family:inherit;font-size:14.5px;font-weight:500;color:var(--ink);background:#fff;border:1px solid #DCE0E8;border-radius:var(--r-md);padding:12px 13px;}
+.inp:focus,.sel:focus,.ta:focus{outline:none;border-color:var(--blue);box-shadow:0 0 0 3px rgba(30,138,224,.14);}
+.inp.filled{background:#F7F8FB;font-weight:600;}
+.ta{min-height:74px;resize:vertical;}
+.two{display:flex;gap:10px;} .two .field{flex:1;}
+.photo{border:1.6px dashed #C6CCDA;border-radius:var(--r-md);padding:16px;display:flex;align-items:center;justify-content:center;gap:9px;color:#5b6270;font-size:13.5px;font-weight:600;background:#FAFBFD;cursor:pointer;}
+.photo svg{width:19px;height:19px;stroke:var(--blue);fill:none;stroke-width:1.8;}
+.calc{background:linear-gradient(135deg,#E9F7EE,#E0F3EA);border:1px solid #BFE6CC;border-radius:var(--r-md);padding:13px 15px;display:flex;align-items:center;gap:11px;}
+.calc svg{width:20px;height:20px;stroke:var(--exec-fg);fill:none;stroke-width:2;}
+.calc .k{font-size:11px;font-weight:600;color:var(--exec-fg);text-transform:uppercase;letter-spacing:.5px;}
+.calc .v{font-size:19px;font-weight:700;color:#0a6e3c;font-variant-numeric:tabular-nums;letter-spacing:-.5px;}
+.checks{border:1px solid #DCE0E8;border-radius:var(--r-md);overflow:hidden;}
+.ck{display:flex;align-items:center;gap:11px;padding:11px 13px;font-size:14px;font-weight:600;}
+.ck+.ck{border-top:1px solid var(--line);}
+.ck .box{width:20px;height:20px;border-radius:6px;border:1.6px solid #C6CCDA;flex:none;}
+.ck.on{color:var(--blue);} .ck.on .box{background:var(--blue);border-color:var(--blue);position:relative;}
+.ck.on .box::after{content:"✓";color:#fff;font-size:13px;position:absolute;inset:0;display:grid;place-items:center;}
+.hintn{font-size:11.5px;color:var(--muted);margin-top:6px;line-height:1.4;}
+.foot{display:flex;gap:10px;margin-top:14px;}
+.foot .btn{font-size:14.5px;}
+
+/* ---------- ACESSIBILIDADE / qualidade mínima ---------- */
+:focus-visible{outline:2px solid var(--blue);outline-offset:2px;}
+@media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important;}}

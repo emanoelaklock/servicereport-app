@@ -1,0 +1,129 @@
+/* ============================================================================
+   SERVICE REPORT · SKIN DO APP DO TÉCNICO  (escopado em .tskin)
+   Reaproveita o design system do mockup (docs/mockups/mockup-app-tecnico-telas.html).
+   Tudo é prefixado com .tskin para conviver com as telas ainda não migradas.
+   Fonte: Manrope.
+============================================================================ */
+:root{
+  --red:#E5403A; --orange:#F4861F; --yellow:#F7B81E; --green:#28A94C; --blue:#1E8AE0; --purple:#8E45B5;
+  --t-bg:#F3F4F8; --t-card:#FFFFFF; --t-line:#ECEEF3; --t-ink:#1B1E26; --t-muted:#7C8290;
+  --exec-bg:#E6F6EC; --exec-fg:#0B7A43; --exec-m:#28A94C;
+  --info-bg:#E7F1FC; --info-fg:#1565C0; --info-m:#1E8AE0;
+  --warn-bg:#FEF3DA; --warn-fg:#92670A; --warn-m:#F7B81E;
+  --pend-bg:#FDECEA; --pend-fg:#C0362C; --pend-m:#E5403A;
+  --aguard-bg:#EEF0F4; --aguard-fg:#5B6573; --aguard-m:#9CA3AF;
+  --r-xl:24px; --r-lg:20px; --r-md:15px; --r-sm:11px; --r-pill:999px;
+  --t-font:'Manrope',system-ui,-apple-system,sans-serif;
+}
+
+.tskin{font-family:var(--t-font);font-weight:500;color:var(--t-ink);-webkit-font-smoothing:antialiased;}
+.tskin *{box-sizing:border-box;}
+.tskin .num{font-variant-numeric:tabular-nums;letter-spacing:-.5px;}
+
+/* ---------- HERÓI ---------- */
+.tskin .hero{background:linear-gradient(135deg,#2A8BE6,#1C6FD0);border-radius:var(--r-xl);padding:20px;color:#fff;box-shadow:0 14px 26px rgba(30,138,224,.26);}
+.tskin .hero .eb{font-size:10.5px;font-weight:600;letter-spacing:1.4px;text-transform:uppercase;opacity:.85;}
+.tskin .hero h1{font-size:23px;font-weight:600;margin-top:4px;letter-spacing:-.6px;}
+.tskin .hero .stats{display:flex;gap:22px;margin-top:15px;}
+.tskin .hero .stats .n{font-size:28px;font-weight:600;line-height:1;letter-spacing:-1px;}
+.tskin .hero .stats .l{font-size:11px;opacity:.85;margin-top:4px;}
+.tskin .hero .cta{margin-top:17px;width:100%;border:none;background:#fff;color:#175fb0;font-family:inherit;font-size:15px;font-weight:700;padding:14px;border-radius:var(--r-md);cursor:pointer;letter-spacing:-.2px;}
+
+/* ---------- TÍTULO DE SEÇÃO ---------- */
+.tskin .sec{font-size:10.5px;font-weight:600;letter-spacing:1.3px;text-transform:uppercase;color:var(--t-muted);margin:20px 4px 11px;}
+
+/* ---------- TILES + FAIXA ---------- */
+.tskin .grid{display:grid;grid-template-columns:1fr 1fr;gap:11px;}
+.tskin .tile{border-radius:var(--r-lg);padding:15px;color:#fff;min-height:108px;display:flex;flex-direction:column;justify-content:space-between;position:relative;overflow:hidden;cursor:pointer;text-decoration:none;border:none;font-family:inherit;text-align:left;width:100%;}
+.tskin .tile .ic{width:36px;height:36px;border-radius:var(--r-sm);background:rgba(255,255,255,.22);display:grid;place-items:center;}
+.tskin .tile .ic svg{width:20px;height:20px;stroke:currentColor;fill:none;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round;}
+.tskin .tile .lbl{font-size:14.5px;font-weight:600;line-height:1.18;letter-spacing:-.2px;}
+.tskin .tile .sub{font-size:11px;opacity:.85;font-weight:500;margin-top:2px;}
+.tskin .tile .cnt{position:absolute;top:14px;right:15px;font-size:25px;font-weight:700;line-height:1;letter-spacing:-1px;font-variant-numeric:tabular-nums;}
+.tskin .t-green{background:var(--green);} .tskin .t-blue{background:var(--blue);} .tskin .t-purple{background:var(--purple);} .tskin .t-red{background:var(--red);}
+.tskin .t-yellow{background:var(--yellow);color:#1A1A1A;} .tskin .t-yellow .ic{background:rgba(0,0,0,.12);}
+.tskin .strip{margin-top:11px;border-radius:var(--r-lg);padding:15px 17px;background:var(--orange);color:#fff;display:flex;align-items:center;gap:13px;cursor:pointer;text-decoration:none;border:none;font-family:inherit;text-align:left;width:100%;}
+.tskin .strip .ic{width:38px;height:38px;border-radius:var(--r-sm);background:rgba(255,255,255,.24);display:grid;place-items:center;flex:none;}
+.tskin .strip .ic svg{width:21px;height:21px;stroke:#fff;fill:none;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round;}
+.tskin .strip .lbl{font-size:15px;font-weight:600;letter-spacing:-.2px;}
+.tskin .strip .sub{font-size:11.5px;color:rgba(255,255,255,.85);margin-top:1px;}
+.tskin .strip .ar{margin-left:auto;font-size:21px;opacity:.95;font-weight:300;}
+
+/* ---------- BOTÕES ---------- */
+.tskin .btn{display:flex;align-items:center;justify-content:center;gap:8px;width:100%;border:none;font-family:inherit;font-size:15px;font-weight:700;padding:14px;border-radius:var(--r-md);cursor:pointer;letter-spacing:-.2px;}
+.tskin .btn-primary{background:var(--blue);color:#fff;}
+.tskin .btn-ghost{background:#fff;color:var(--t-ink);border:1px solid var(--t-line);}
+.tskin .btn-ok-o{background:#fff;color:var(--exec-fg);border:1.5px solid #9AD3B0;}
+.tskin .btn-warn-o{background:#fff;color:var(--warn-fg);border:1.5px solid #EBC777;}
+.tskin .btn-row{display:flex;gap:10px;margin-top:10px;}
+.tskin .btn-row .btn{font-size:14px;padding:13px;}
+
+/* ---------- CARD + LISTA ---------- */
+.tskin .card{background:var(--t-card);border:1px solid var(--t-line);border-radius:var(--r-lg);padding:16px;}
+.tskin .det-accent{border-left:4px solid var(--exec-m);}
+.tskin .listcard{background:var(--t-card);border:1px solid var(--t-line);border-radius:var(--r-lg);padding:14px 15px;display:flex;flex-direction:column;gap:5px;position:relative;overflow:hidden;cursor:pointer;}
+.tskin .listcard+.listcard{margin-top:10px;}
+.tskin .listcard .edge{position:absolute;left:0;top:0;bottom:0;width:4px;}
+.tskin .listcard .t{display:flex;align-items:flex-start;gap:10px;}
+.tskin .listcard .cli{font-size:15.5px;font-weight:700;letter-spacing:-.2px;flex:1;}
+.tskin .listcard .meta{font-size:12px;color:var(--t-muted);font-weight:500;}
+.tskin .listcard .meta b{color:#5b6270;font-weight:600;}
+.tskin .lc-info{background:#F2F8FE;} .tskin .lc-warn{background:#FFF9EE;} .tskin .lc-done{background:#F2FAF5;}
+
+/* ---------- BADGES ---------- */
+.tskin .badge{font-size:10.5px;font-weight:700;padding:4px 10px;border-radius:var(--r-pill);white-space:nowrap;}
+.tskin .b-info{background:var(--info-bg);color:var(--info-fg);} .tskin .b-done{background:var(--exec-bg);color:var(--exec-fg);}
+.tskin .b-warn{background:var(--warn-bg);color:var(--warn-fg);} .tskin .b-pend{background:var(--pend-bg);color:var(--pend-fg);}
+.tskin .b-aguard{background:var(--aguard-bg);color:var(--aguard-fg);}
+.tskin .edge.e-info{background:var(--info-m);} .tskin .edge.e-done{background:var(--exec-m);}
+.tskin .edge.e-warn{background:var(--warn-m);} .tskin .edge.e-pend{background:var(--pend-m);} .tskin .edge.e-aguard{background:var(--aguard-m);}
+
+/* ---------- DETALHE DA TAREFA ---------- */
+.tskin .dh .no{font-size:12px;color:var(--t-muted);font-weight:600;letter-spacing:.3px;font-variant-numeric:tabular-nums;}
+.tskin .dh .cli{font-size:20px;font-weight:700;letter-spacing:-.4px;margin-top:2px;}
+.tskin .dh .mt{font-size:12.5px;color:var(--t-muted);margin-top:5px;line-height:1.5;}
+.tskin .orient{background:#F3F6FC;border:1px solid #E3EAF5;border-left:3px solid var(--blue);border-radius:12px;padding:12px 14px;margin-top:14px;}
+.tskin .orient .k{font-size:10px;font-weight:700;letter-spacing:1px;color:var(--t-muted);text-transform:uppercase;}
+.tskin .orient .v{font-size:15px;font-weight:600;margin-top:3px;white-space:pre-wrap;}
+.tskin .prod{padding:12px 0;border-top:1px solid var(--t-line);}
+.tskin .prod .pn{font-size:13px;font-weight:600;line-height:1.35;}
+.tskin .prod .chips{display:flex;gap:7px;margin-top:8px;flex-wrap:wrap;}
+.tskin .chip{font-size:11px;font-weight:600;padding:4px 9px;border-radius:8px;}
+.tskin .c-orc{background:#EEF0F4;color:#6c7480;} .tskin .c-lev{background:#E7F1FC;color:#1565C0;} .tskin .c-uti{background:#E6F6EC;color:#0B7A43;}
+.tskin .ratmini{background:#fff;border:1px solid var(--t-line);border-radius:14px;padding:13px 14px;margin-top:10px;display:flex;justify-content:space-between;align-items:center;cursor:pointer;}
+.tskin .ratmini .l{font-size:14px;font-weight:700;} .tskin .ratmini .s{font-size:11.5px;color:var(--t-muted);margin-top:2px;}
+.tskin .ratmini .r{text-align:right;}
+.tskin .ratmini .conf{font-size:11px;font-weight:700;color:var(--exec-fg);display:flex;align-items:center;gap:5px;justify-content:flex-end;}
+.tskin .ratmini .conf i{width:7px;height:7px;border-radius:50%;background:var(--exec-m);}
+.tskin .ratmini .dt{font-size:11px;color:var(--t-muted);margin-top:3px;font-variant-numeric:tabular-nums;}
+
+/* ---------- FORM em BLOCOS coloridos ---------- */
+.tskin .info{background:#EAF2FC;border:1px solid #D5E5F8;border-radius:13px;padding:12px 14px;font-size:12.5px;color:#1f5fa6;font-weight:600;line-height:1.45;}
+.tskin .fcard{background:var(--t-card);border:1px solid var(--t-line);border-left:4px solid var(--blue);border-radius:var(--r-lg);padding:15px;margin-top:12px;}
+.tskin .fcard>.h{display:flex;align-items:center;gap:10px;font-size:11.5px;font-weight:700;letter-spacing:.6px;text-transform:uppercase;margin-bottom:13px;}
+.tskin .fcard>.h .hi{width:30px;height:30px;border-radius:9px;display:grid;place-items:center;flex:none;}
+.tskin .fcard>.h .hi svg{width:17px;height:17px;stroke:#fff;fill:none;stroke-width:2;}
+.tskin .fc-blue{border-left-color:var(--blue);}     .tskin .fc-blue>.h{color:#1565C0;}     .tskin .fc-blue>.h .hi{background:var(--blue);}
+.tskin .fc-green{border-left-color:var(--green);}   .tskin .fc-green>.h{color:#0B7A43;}   .tskin .fc-green>.h .hi{background:var(--green);}
+.tskin .fc-purple{border-left-color:var(--purple);} .tskin .fc-purple>.h{color:#6c2f96;}  .tskin .fc-purple>.h .hi{background:var(--purple);}
+.tskin .fc-orange{border-left-color:var(--orange);} .tskin .fc-orange>.h{color:#b85e0a;}  .tskin .fc-orange>.h .hi{background:var(--orange);}
+.tskin .fc-red{border-left-color:var(--red);}       .tskin .fc-red>.h{color:#c0362c;}     .tskin .fc-red>.h .hi{background:var(--red);}
+.tskin .field{margin-bottom:12px;} .tskin .field:last-child{margin-bottom:0;}
+.tskin .lab{display:block;font-size:12px;font-weight:600;color:#5b6270;margin-bottom:6px;}
+.tskin .req{color:var(--red);}
+.tskin .inp,.tskin .sel,.tskin .ta{width:100%;font-family:inherit;font-size:14.5px;font-weight:500;color:var(--t-ink);background:#fff;border:1px solid #DCE0E8;border-radius:var(--r-md);padding:12px 13px;}
+.tskin .inp:focus,.tskin .sel:focus,.tskin .ta:focus{outline:none;border-color:var(--blue);box-shadow:0 0 0 3px rgba(30,138,224,.14);}
+.tskin .inp.filled{background:#F7F8FB;font-weight:600;}
+.tskin .ta{min-height:74px;resize:vertical;}
+.tskin .two{display:flex;gap:10px;} .tskin .two .field{flex:1;}
+.tskin .photo{border:1.6px dashed #C6CCDA;border-radius:var(--r-md);padding:16px;display:flex;align-items:center;justify-content:center;gap:9px;color:#5b6270;font-size:13.5px;font-weight:600;background:#FAFBFD;cursor:pointer;}
+.tskin .photo svg{width:19px;height:19px;stroke:var(--blue);fill:none;stroke-width:1.8;}
+.tskin .calc{background:linear-gradient(135deg,#E9F7EE,#E0F3EA);border:1px solid #BFE6CC;border-radius:var(--r-md);padding:13px 15px;display:flex;align-items:center;gap:11px;}
+.tskin .calc svg{width:20px;height:20px;stroke:var(--exec-fg);fill:none;stroke-width:2;}
+.tskin .calc .k{font-size:11px;font-weight:600;color:var(--exec-fg);text-transform:uppercase;letter-spacing:.5px;}
+.tskin .calc .v{font-size:19px;font-weight:700;color:#0a6e3c;font-variant-numeric:tabular-nums;letter-spacing:-.5px;}
+.tskin .hintn{font-size:11.5px;color:var(--t-muted);margin-top:6px;line-height:1.4;}
+.tskin .foot{display:flex;gap:10px;margin-top:14px;}
+.tskin .foot .btn{font-size:14.5px;}
+
+.tskin :focus-visible{outline:2px solid var(--blue);outline-offset:2px;}

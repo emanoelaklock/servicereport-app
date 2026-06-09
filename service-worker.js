@@ -9,7 +9,7 @@
    não do cache do SW.
 ═══════════════════════════════════════════════ */
 
-const CACHE = 'sr-shell-v211'
+const CACHE = 'sr-shell-v212'
 
 const SHELL = [
   'index.html',
@@ -23,6 +23,7 @@ const SHELL = [
   'jornada.html',
   'deslocamentos.html',
   'css/theme.css',
+  'css/tecnico-skin.css',
   'js/utils.js',
   'js/supabase-client.js',
   'js/auth.js',
