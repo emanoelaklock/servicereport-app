@@ -143,6 +143,10 @@
 .tskin .fg input:focus,.tskin .fg select:focus,.tskin .fg textarea:focus{outline:none;border-color:var(--blue);box-shadow:0 0 0 3px rgba(30,138,224,.14);}
 .tskin .fg textarea{min-height:74px;resize:vertical;}
 .tskin .fg .ac{position:relative;}
+/* validação inline */
+.tskin .campo-erro>label,.tskin .campo-erro label{color:var(--red)!important;}
+.tskin .campo-erro input,.tskin .campo-erro select,.tskin .campo-erro textarea{border-color:var(--red)!important;box-shadow:0 0 0 3px rgba(229,64,58,.14)!important;}
+.tskin .btn-erro{outline:2px solid var(--red);outline-offset:2px;box-shadow:0 0 0 4px rgba(229,64,58,.18);}
 .tskin .calc .v{font-size:19px;}
 /* botão "auto" (não ocupa a largura toda) p/ Produtos no topo */
 .tskin .btn.btn-auto{width:auto;padding:9px 13px;font-size:13px;}

@@ -536,6 +536,19 @@
     // carrega o formulário do tipo da tarefa (ou mostra aviso se a tarefa não tem tipo)
     const formId = (ref.tipos.find(x => x.id === tipoId) || {}).formulario_id || null
     await carregarFormularioPorId(formId)
+    capturarGpsAuto()   // carimba o local automaticamente (se o GPS permitir)
+  }
+  // Captura o GPS do atendimento sem precisar de clique (só se ainda não houver).
+  async function capturarGpsAuto() {
+    if (!cur || !cur.client_uuid) return
+    try {
+      const r = await D().obterRat(cur.client_uuid)
+      if (r && r.checkin_lat != null) return
+      const pos = await getPos()
+      if (!pos) return
+      await D().salvarRat(cur.client_uuid, { checkin_lat: pos.lat, checkin_lng: pos.lng, checkin_precisao: pos.acc, checkin_em: new Date().toISOString() })
+      refreshGpsRat()
+    } catch (e) { /* sem permissão/sinal: usa o botão manual */ }
   }
 
   // ─────────────────────── Navegação (home + módulos) ───────────────────────
@@ -962,7 +975,7 @@
     for (const c of cur.campos) cont.appendChild(renderCampo(c))
     const sc = cont.querySelector('canvas.sig-pad')
     if (sc) { sig = initSignature(sc); sig.resize() }
-    const onFormChange = (e) => { aplicarEspelhos(e); atualizarTempo(); aplicarCondicionais() }
+    const onFormChange = (e) => { aplicarEspelhos(e); atualizarTempo(); aplicarCondicionais(); const w = e.target.closest && e.target.closest('[data-field]'); if (w) w.classList.remove('campo-erro') }
     cont.oninput = onFormChange
     cont.onchange = onFormChange
     atualizarTempo()
@@ -1087,11 +1100,33 @@
   }
 
   // ─────────────────────────── Fotos ───────────────────────────
+  // Comprime/redimensiona a foto antes de salvar (sobe rápido no 4G; mantém qualidade boa).
+  function comprimirFoto(file) {
+    return new Promise((resolve) => {
+      if (!file || !file.type || !file.type.startsWith('image/')) return resolve(file)
+      const url = URL.createObjectURL(file)
+      const img = new Image()
+      img.onload = () => {
+        URL.revokeObjectURL(url)
+        const MAX = 1600
+        let w = img.naturalWidth, h = img.naturalHeight
+        if (w > MAX || h > MAX) { const r = Math.min(MAX / w, MAX / h); w = Math.round(w * r); h = Math.round(h * r) }
+        try {
+          const cv = document.createElement('canvas'); cv.width = w; cv.height = h
+          cv.getContext('2d').drawImage(img, 0, 0, w, h)
+          cv.toBlob(b => resolve(b && b.size < file.size ? b : file), 'image/jpeg', 0.72)
+        } catch (e) { resolve(file) }
+      }
+      img.onerror = () => { URL.revokeObjectURL(url); resolve(file) }
+      img.src = url
+    })
+  }
   async function adicionarFotos(fileList) {
     const files = Array.from(fileList || [])
     for (const f of files) {
       if (!f.type.startsWith('image/')) continue
-      await D().adicionarFoto(cur.client_uuid, f, null)   // legenda preenchida depois, por foto
+      const blob = await comprimirFoto(f)
+      await D().adicionarFoto(cur.client_uuid, blob, null)   // legenda preenchida depois, por foto
     }
     await refreshThumbs()
   }
@@ -1265,7 +1300,7 @@
 
   function coletarRespostas() {
     const respostas = {}
-    let faltando = []
+    const faltando = [], faltandoIds = []
     for (const c of cur.campos) {
       if (curVisivel[c.id] === false) continue   // campo oculto por condição
       if (c.tipo === 'foto' || c.tipo === 'assinatura' || c.tipo === 'produtos') continue
@@ -1276,10 +1311,24 @@
         const el = document.querySelector(`[data-campo="${CSS.escape(c.id)}"]`)
         v = el ? String(el.value || '').trim() : ''
       }
-      if (c.obrigatorio && !v) faltando.push(c.label)
+      if (c.obrigatorio && !v) { faltando.push(c.label); faltandoIds.push(c.id) }
       if (v) respostas[c.id] = v
     }
-    return { respostas, faltando }
+    return { respostas, faltando, faltandoIds }
+  }
+  // Validação inline: destaca os campos faltantes e rola até o primeiro.
+  function limparErros() {
+    document.querySelectorAll('#view-form .campo-erro').forEach(e => e.classList.remove('campo-erro'))
+    document.querySelectorAll('#view-form .btn-erro').forEach(e => e.classList.remove('btn-erro'))
+  }
+  function marcarErros(ids, extraEls) {
+    let primeiro = null
+    for (const id of (ids || [])) {
+      const w = document.querySelector(`#campos-container [data-field="${CSS.escape(id)}"]`)
+      if (w) { w.classList.add('campo-erro'); primeiro = primeiro || w }
+    }
+    for (const el of (extraEls || [])) { if (el) { el.classList.add('btn-erro'); primeiro = primeiro || el } }
+    if (primeiro) primeiro.scrollIntoView({ behavior: 'smooth', block: 'center' })
   }
 
   async function salvar() {
@@ -1292,17 +1341,18 @@
     // Atendimento continua (em execução) → salva parcial, sem exigir os obrigatórios.
     const emExecucao = (sit === 'em_andamento')
 
-    const { respostas, faltando } = coletarRespostas()
+    const { respostas, faltando, faltandoIds } = coletarRespostas()
     const vis = (c) => curVisivel[c.id] !== false
     const fotoObrig = cur.campos.some(c => c.tipo === 'foto' && c.obrigatorio && vis(c))
     const assinaturaObrig = cur.campos.some(c => c.tipo === 'assinatura' && c.obrigatorio && vis(c))
     const produtosObrig = cur.campos.some(c => c.tipo === 'produtos' && c.obrigatorio && vis(c))
 
+    limparErros()
     const fotos = await D().listarFotos(cur.client_uuid)
     if (!emExecucao) {
-      if (faltando.length) return toast('Preencha: ' + faltando.join(', '), 'err')
-      if (fotoObrig && fotos.length === 0) return toast('Anexe ao menos uma foto.', 'err')
-      if (produtosObrig && (await D().listarMateriais(cur.client_uuid)).length === 0) return toast('Adicione ao menos um produto.', 'err')
+      if (faltando.length) { marcarErros(faltandoIds); return toast('Preencha os campos destacados.', 'err') }
+      if (fotoObrig && fotos.length === 0) { marcarErros([], [document.getElementById('form-fotos-btn')]); return toast('Anexe ao menos uma foto.', 'err') }
+      if (produtosObrig && (await D().listarMateriais(cur.client_uuid)).length === 0) { marcarErros([], [document.getElementById('form-produtos-btn')]); return toast('Adicione ao menos um produto.', 'err') }
     }
 
     let assinatura_local = null
@@ -1311,7 +1361,10 @@
     if (temAssinatura) assinatura_local = sig.dataURL()
 
     const pendencias = document.getElementById('f-pendencias').value.trim()
-    if (sit === 'concluida_pendencia' && !pendencias) return toast('Descreva a pendência.', 'err')
+    if (sit === 'concluida_pendencia' && !pendencias) {
+      const w = document.getElementById('f-pendencias-wrap'); if (w) { w.classList.add('campo-erro'); w.scrollIntoView({ behavior: 'smooth', block: 'center' }) }
+      return toast('Descreva a pendência.', 'err')
+    }
 
     const cli = ref.clientes.find(c => c.id === cliId)
 
