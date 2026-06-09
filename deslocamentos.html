@@ -25,6 +25,10 @@
   .d-fora .sub{color:#9a6a1a;font-size:12px}
   .d-list{width:100%;border-collapse:collapse;font-size:13px}
   .d-list th{text-align:left;font-size:11px;text-transform:none;letter-spacing:normal;color:var(--tx3);padding:8px 10px;border-bottom:1px solid var(--bd)}
+  .listpanel .d-list thead th{background:#FAFBFD;padding-top:13px;padding-bottom:13px}
+  .listpanel .d-list th:first-child,.listpanel .d-list td:first-child{padding-left:20px}
+  .listpanel .d-list th:last-child,.listpanel .d-list td:last-child{padding-right:20px}
+  .listpanel .d-list tbody tr:last-child td{border-bottom:none}
   .d-list td{padding:10px;border-bottom:1px solid var(--sur2);color:var(--tx);vertical-align:top}
   .d-sent{font-size:11px;font-weight:700;padding:2px 9px;border-radius:999px;white-space:nowrap}
   .d-sent.ida{background:#E8F0FE;color:#1C54B8}.d-sent.volta{background:#FDF3E2;color:#B7791F}.d-sent.outro{background:var(--sur2);color:var(--tx2)}
@@ -69,7 +73,7 @@
         <span class="dim" id="d-count" style="font-size:12px"></span>
       </div>
       <div class="d-fora" id="d-fora" style="display:none"></div>
-      <div class="tcard"><div style="overflow-x:auto"><table class="d-list">
+      <div class="listpanel"><div style="overflow-x:auto"><table class="d-list">
         <thead><tr><th>Sentido</th><th>Cliente/obra</th><th>Rota</th><th>Veículo</th><th>A bordo</th><th>Saída</th><th>Chegada</th><th>Ações</th></tr></thead>
         <tbody id="d-tbody"></tbody>
       </table></div></div>
