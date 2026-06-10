@@ -542,7 +542,16 @@
   }
 
   const naoAprovado = () => mudarStatusSimples({ status: 'nao_aprovado', data_resposta: new Date().toISOString().slice(0, 10) }, 'nao_aprovado', 'Marcado como não aprovado.')
-  const reabrir = () => mudarStatusSimples({ status: 'rascunho' }, 'rascunho', 'Reaberto para revisão.')
+  const reabrir = async () => {
+    if (!cur || !cur.id) return toast('Salve o orçamento primeiro.', 'err')
+    if (!confirm('Reabrir para revisão? A Tarefa (OS) gerada na aprovação será REMOVIDA.')) return
+    const r = await invoke('reabrir-orcamento', { id: cur.id })
+    if (!r) return
+    cur.status = 'rascunho'; cur._tarefaMsg = null
+    document.getElementById('ed-status').textContent = STATUS_LABEL['rascunho'] || 'rascunho'
+    toast(r.tarefa_removida ? `Reaberto · Tarefa Nº ${r.tarefa_removida} removida.` : 'Reaberto para revisão.', 'ok')
+    aplicarEstado()
+  }
   const desarquivar = () => { cur.arquivado = false; mudarStatusSimples({ arquivado: false, arquivado_em: null }, null, 'Desarquivado.') }
 
   async function arquivar() {
