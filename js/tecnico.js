@@ -201,8 +201,6 @@
     document.getElementById('po-desloc').onchange = onDeslocPoChange
     document.getElementById('view-preorc-form').addEventListener('input', atualizarTempoPo)
     document.getElementById('po-prod-add-btn').onclick = poAddItem
-    const poIa = document.getElementById('po-ia-btn')
-    if (poIa) poIa.onclick = () => melhorarTextoEl(document.getElementById('po-descricao'), poIa)
     const pf = document.getElementById('po-foto-input')
     document.getElementById('po-btn-foto').onclick = () => pf.click()
     pf.onchange = () => poAddFotos(pf.files)
@@ -1162,9 +1160,7 @@
     if (c.tipo === 'texto') {
       wrap.innerHTML = `${label}<input type="text" data-campo="${esc(c.id)}" data-tipo="texto"/>`
     } else if (c.tipo === 'texto_longo') {
-      wrap.innerHTML = `${label}<textarea class="ta-longo" data-campo="${esc(c.id)}" data-tipo="texto_longo" placeholder="…"></textarea>
-        <button type="button" class="ia-btn" title="Melhorar escrita (IA)"><svg viewBox="0 0 24 24"><path d="M12 3l1.9 4.7 4.7 1.9-4.7 1.9L12 16.2l-1.9-4.7L5.4 9.6l4.7-1.9L12 3Z"/><path d="M19 14.5l.8 2 2 .8-2 .8-.8 2-.8-2-2-.8 2-.8.8-2Z"/></svg></button>`
-      setTimeout(() => { const b = wrap.querySelector('.ia-btn'); if (b) b.onclick = () => melhorarTexto(c.id, b) }, 0)
+      wrap.innerHTML = `${label}<textarea class="ta-longo" data-campo="${esc(c.id)}" data-tipo="texto_longo" placeholder="…"></textarea>`
     } else if (c.tipo === 'data') {
       const hoje = new Date().toISOString().slice(0, 10)
       wrap.innerHTML = `${label}<input type="date" value="${hoje}" data-campo="${esc(c.id)}" data-tipo="data"/>`
@@ -1248,51 +1244,6 @@
   function fecharModalDeslocRat() { document.getElementById('modal-desloc-rat').classList.remove('open'); atualizarResumoDesloc() }
   function abrirModalPausa() { if (!cur) return; document.getElementById('modal-pausa').classList.add('open') }
   function fecharModalPausa() { document.getElementById('modal-pausa').classList.remove('open'); atualizarResumoPausa() }
-
-  // ── ✨ Melhorar escrita (IA): reescreve o texto do técnico em PT correto ──
-  // O texto vai à edge function melhorar-texto (Claude Haiku); volta numa PRÉVIA
-  // antes/depois e o técnico decide usar ou manter o original. Exige internet.
-  async function melhorarTexto(campoId, btn) {
-    return melhorarTextoEl(document.querySelector(`[data-campo="${CSS.escape(campoId)}"]`), btn)
-  }
-  async function melhorarTextoEl(ta, btn) {
-    if (!ta) return
-    const texto = (ta.value || '').trim()
-    if (!texto) return toast('Escreva o texto primeiro — a IA só ajusta o que você escreveu.', 'err')
-    if (!navigator.onLine) return toast('Melhorar escrita precisa de internet.', 'err')
-    btn.disabled = true
-    btn.classList.add('busy')
-    try {
-      const { data, error } = await getSupabase().functions.invoke('melhorar-texto', { body: { texto } })
-      if (error) throw new Error(error.message || 'falha na chamada')
-      if (data && data.error) throw new Error(data.error)
-      const novo = ((data && data.texto) || '').trim()
-      if (!novo) throw new Error('a IA não retornou texto')
-      abrirPreviaIA(texto, novo, (aceitou) => {
-        if (aceitou) {
-          ta.value = novo
-          ta.dispatchEvent(new Event('input', { bubbles: true }))   // autosave + condicionais
-          toast('Texto atualizado.', 'ok')
-        }
-      })
-    } catch (e) {
-      toast('Não consegui melhorar agora: ' + (e.message || e), 'err')
-    } finally {
-      btn.disabled = false
-      btn.classList.remove('busy')
-    }
-  }
-  function abrirPreviaIA(antes, depois, cb) {
-    const m = document.getElementById('modal-ia')
-    if (!m) return cb(true)
-    document.getElementById('ia-antes').textContent = antes
-    document.getElementById('ia-depois').textContent = depois
-    m.classList.add('open')
-    const fechar = (ok) => { m.classList.remove('open'); cb(ok) }
-    document.getElementById('ia-usar').onclick = () => fechar(true)
-    document.getElementById('ia-manter').onclick = () => fechar(false)
-    document.getElementById('ia-x').onclick = () => fechar(false)
-  }
 
   // ─────────────────────────── Fotos ───────────────────────────
   // Comprime/redimensiona a foto antes de salvar (sobe rápido no 4G; mantém qualidade boa).

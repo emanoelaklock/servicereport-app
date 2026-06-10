@@ -99,3 +99,63 @@ var debounce = (fn, ms = 300) => {
     t = setTimeout(() => fn(...args), ms)
   }
 }
+
+/* ─── ✨ Melhorar escrita (IA) — somente desktop ─────────────────────────
+   Botão reutilizável para textareas: insira window.IA_BTN_HTML logo APÓS a
+   <textarea> (ou aponte com data-ia-for="#id"). Clique → edge function
+   melhorar-texto (Claude) → prévia Original/Melhorado → Usar ou Manter.
+   A delegação global é inofensiva em páginas sem o botão (ex.: app técnico). */
+var IA_BTN_HTML = '<button type="button" class="ia-btn-desk" title="Melhorar escrita (IA)" style="margin-top:6px;display:inline-flex;align-items:center;gap:6px;border:1px dashed #C6CCDA;background:#fff;color:#7E37A6;border-radius:9px;padding:6px 11px;font:inherit;font-size:12.5px;font-weight:700;cursor:pointer"><svg viewBox="0 0 24 24" style="width:15px;height:15px;stroke:currentColor;fill:none;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round"><path d="M12 3l1.9 4.7 4.7 1.9-4.7 1.9L12 16.2l-1.9-4.7L5.4 9.6l4.7-1.9L12 3Z"/><path d="M19 14.5l.8 2 2 .8-2 .8-.8 2-.8-2-2-.8 2-.8.8-2Z"/></svg>Melhorar escrita</button>'
+
+document.addEventListener('click', async (e) => {
+  const b = e.target.closest && e.target.closest('.ia-btn-desk')
+  if (!b || b.disabled) return
+  const ta = b.dataset.iaFor ? document.querySelector(b.dataset.iaFor) : b.previousElementSibling
+  if (!ta || ta.tagName !== 'TEXTAREA') return
+  const texto = (ta.value || '').trim()
+  if (!texto) return toast('Escreva o texto primeiro — a IA só ajusta o que foi escrito.', 'err')
+  if (!navigator.onLine) return toast('Melhorar escrita precisa de internet.', 'err')
+  b.disabled = true
+  b.style.opacity = '.5'
+  try {
+    const { data, error } = await getSupabase().functions.invoke('melhorar-texto', { body: { texto } })
+    if (error) throw new Error(error.message || 'falha na chamada')
+    if (data && data.error) throw new Error(data.error)
+    const novo = ((data && data.texto) || '').trim()
+    if (!novo) throw new Error('a IA não retornou texto')
+    _iaPrevia(texto, novo, (ok) => {
+      if (ok) {
+        ta.value = novo
+        ta.dispatchEvent(new Event('input', { bubbles: true }))
+        ta.dispatchEvent(new Event('change', { bubbles: true }))
+      }
+    })
+  } catch (err) {
+    toast('Não consegui melhorar agora: ' + (err.message || err), 'err')
+  } finally {
+    b.disabled = false
+    b.style.opacity = ''
+  }
+})
+
+function _iaPrevia(antes, depois, cb) {
+  const old = document.getElementById('ia-previa-ovl'); if (old) old.remove()
+  const ovl = document.createElement('div')
+  ovl.id = 'ia-previa-ovl'
+  ovl.style.cssText = 'position:fixed;inset:0;background:rgba(20,30,55,.5);z-index:9999;display:flex;align-items:center;justify-content:center;padding:20px'
+  const box = (lab, txt, bg) => `<div style="font-size:11px;font-weight:700;color:#7C8290;margin:12px 0 4px">${lab}</div><div style="border:1px solid #EAEDF2;border-radius:10px;padding:10px 12px;font-size:13.5px;line-height:1.5;white-space:pre-wrap;background:${bg};max-height:30vh;overflow:auto">${esc(txt)}</div>`
+  ovl.innerHTML = `<div style="background:#fff;border-radius:14px;width:100%;max-width:560px;max-height:85vh;overflow:auto;box-shadow:0 24px 64px rgba(20,30,55,.3);padding:18px 20px;font-family:inherit;color:#1B1E26">
+    <div style="font-size:15px;font-weight:700">Texto melhorado</div>
+    ${box('Original', antes, '#F4F5F8')}
+    ${box('Melhorado', depois, '#F3EDF8')}
+    <div style="display:flex;justify-content:flex-end;gap:10px;margin-top:16px">
+      <button type="button" id="ia-pv-manter" style="border:1px solid #EAEDF2;background:#fff;border-radius:10px;padding:9px 14px;font:inherit;font-size:13px;font-weight:600;cursor:pointer">Manter original</button>
+      <button type="button" id="ia-pv-usar" style="border:none;background:#1B7FC4;color:#fff;border-radius:10px;padding:9px 16px;font:inherit;font-size:13px;font-weight:700;cursor:pointer">Usar texto melhorado</button>
+    </div>
+  </div>`
+  document.body.appendChild(ovl)
+  const fechar = (ok) => { ovl.remove(); cb(ok) }
+  ovl.querySelector('#ia-pv-usar').onclick = () => fechar(true)
+  ovl.querySelector('#ia-pv-manter').onclick = () => fechar(false)
+  ovl.onclick = (ev) => { if (ev.target === ovl) fechar(false) }
+}

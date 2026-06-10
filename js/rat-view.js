@@ -136,7 +136,7 @@ window.RatView = (function () {
       if (isLong) {
         longSecs.push(`<div class="rd-sec"><div class="rd-sec-t">${esc(c.label)}</div>` +
           (edit
-            ? `<textarea class="rd-edit" data-campo="${esc(c.id)}" rows="5">${esc(String(val || ''))}</textarea>`
+            ? `<textarea class="rd-edit" data-campo="${esc(c.id)}" rows="5">${esc(String(val || ''))}</textarea>${typeof IA_BTN_HTML !== 'undefined' ? IA_BTN_HTML : ''}`
             : `<div class="rd-long">${escMulti(val) || '—'}</div>`) + `</div>`)
       } else {
         grid.push(`<div class="rd-f"><label>${esc(c.label)}</label>` +

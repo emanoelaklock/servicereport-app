@@ -163,6 +163,11 @@ const TarefaApp = (() => {
     document.getElementById('f-tipo').innerHTML = '<option value="">Tipo: todos</option>' +
       ref.tipos.map(t => `<option value="${esc(t.id)}">${esc(t.nome || '')}</option>`).join('')
     bind()
+    // ✨ Melhorar escrita (IA) nas textareas da Tarefa (desktop)
+    if (typeof IA_BTN_HTML !== 'undefined') {
+      const o = document.getElementById('cc-d-orientacao'); if (o) o.insertAdjacentHTML('afterend', IA_BTN_HTML)
+      const ob = document.getElementById('cc-d-obs'); if (ob) ob.insertAdjacentHTML('afterend', IA_BTN_HTML)
+    }
     const params = new URLSearchParams(location.search)
     const f = params.get('f')
     if (f) document.getElementById('f-status').value = f
