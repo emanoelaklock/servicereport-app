@@ -331,7 +331,7 @@
       return `<div class="listcard ${lc}" data-uuid="${esc(r.client_uuid)}"><span class="edge e-${sk}"></span>
         <div class="t"><span class="cli">${esc(r.cliente_nome || 'Sem cliente')}</span><span class="badge b-${sk}">${esc(ratSit(r.status || 'em_andamento'))}</span></div>
         <div class="meta">${tarLabel(r)}<b>${esc(syncTxt)}</b></div>
-        <div class="meta" style="display:flex;justify-content:space-between;align-items:center"><span>${fdt(r.criado_em, { withTime: true })}</span><button type="button" class="rat-del" data-del="${esc(r.client_uuid)}" title="Excluir RAT" style="background:none;border:none;cursor:pointer;font-size:15px">🗑</button></div>
+        <div class="meta" style="display:flex;justify-content:space-between;align-items:center"><span>${fdt(r.criado_em, { withTime: true })}</span><button type="button" class="rat-del" data-del="${esc(r.client_uuid)}" title="Excluir RAT" style="background:none;border:none;cursor:pointer"><svg viewBox="0 0 24 24"><path d="M3 6h18M8 6V4a1 1 0 0 1 1-1h6a1 1 0 0 1 1 1v2m4 0v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6"/></svg></button></div>
       </div>`
     }).join('')
     box.querySelectorAll('.listcard').forEach(el => {
@@ -668,8 +668,8 @@
 
   // ───────────────────── Jornada do dia (§10.1 dia contínuo) ─────────────────────
   const SEG_META = {
-    trabalho: { ic: '🔧', lb: 'Trabalho' }, pausa: { ic: '⏸️', lb: 'Pausa' },
-    almoco: { ic: '🍽️', lb: 'Almoço' }, deslocamento: { ic: '🚗', lb: 'Deslocamento' },
+    trabalho: { ic: '<svg viewBox="0 0 24 24" style="width:14px;height:14px;stroke:currentColor;fill:none;stroke-width:2;vertical-align:-2px"><rect x="3" y="7" width="18" height="13" rx="2"/><path d="M9 7V5a2 2 0 0 1 2-2h2a2 2 0 0 1 2 2v2"/></svg>', lb: 'Trabalho' }, pausa: { ic: '<svg viewBox="0 0 24 24" style="width:14px;height:14px;stroke:currentColor;fill:none;stroke-width:2;vertical-align:-2px"><path d="M9 5v14M15 5v14"/></svg>', lb: 'Pausa' },
+    almoco: { ic: '<svg viewBox="0 0 24 24" style="width:14px;height:14px;stroke:currentColor;fill:none;stroke-width:2;vertical-align:-2px"><path d="M5 3v7a2 2 0 0 0 4 0V3M7 12v9M17 21V3c-1.8 1-3 3.2-3 6 0 2.4 1.2 4 3 4"/></svg>', lb: 'Almoço' }, deslocamento: { ic: '<svg viewBox="0 0 24 24" style="width:14px;height:14px;stroke:currentColor;fill:none;stroke-width:2;vertical-align:-2px"><path d="M3 17h2m14 0h2M5 17a2 2 0 1 0 4 0 2 2 0 0 0-4 0Zm10 0a2 2 0 1 0 4 0 2 2 0 0 0-4 0Z"/><path d="M5 17V8a1 1 0 0 1 1-1h8l4 4v6"/></svg>', lb: 'Deslocamento' },
   }
   let segTipoSel = 'trabalho'
   let jorTick = null
@@ -704,12 +704,12 @@
         ${(aberto.titulo && aberto.tipo === 'trabalho') ? `<div class="jn-tt">${esc(aberto.titulo)}</div>` : ''}
         <div class="jn-cron" id="jor-cron">${segDur(aberto.inicio)}</div>
         <div class="jn-sub">desde ${segHHMM(aberto.inicio)}${sub ? ` · ${esc(sub)}` : ''}</div></div>`
-      acoes.innerHTML = `<button class="btn btn-primary" id="jor-trocar" style="flex:1">↻ Trocar atividade</button><button class="btn btn-ghost btn-auto" id="jor-encerrar">⏹ Encerrar dia</button>`
+      acoes.innerHTML = `<button class="btn btn-primary" id="jor-trocar" style="flex:1">Trocar atividade</button><button class="btn btn-ghost btn-auto" id="jor-encerrar">Encerrar dia</button>`
       document.getElementById('jor-trocar').onclick = () => abrirSeg('trocar')
       document.getElementById('jor-encerrar').onclick = encerrarDia
     } else {
       now.innerHTML = `<div class="jor-now idle">${segs.length ? 'Dia encerrado.' : 'Nenhuma atividade hoje.'}</div>`
-      acoes.innerHTML = `<button class="btn btn-primary" id="jor-iniciar" style="flex:1">▶ ${segs.length ? 'Iniciar nova atividade' : 'Iniciar dia'}</button>`
+      acoes.innerHTML = `<button class="btn btn-primary" id="jor-iniciar" style="flex:1"><svg viewBox="0 0 24 24"><path d="M7 4.5v15l12-7.5-12-7.5Z"/></svg>${segs.length ? 'Iniciar nova atividade' : 'Iniciar dia'}</button>`
       document.getElementById('jor-iniciar').onclick = () => abrirSeg('iniciar')
     }
     const tl = document.getElementById('jor-timeline')
@@ -784,13 +784,13 @@
     btn.disabled = false; btn.textContent = old
     if (!pos) { st.textContent = 'Não foi possível obter o GPS (permita a localização no navegador).'; return }
     await D().salvarRat(cur.client_uuid, { checkin_lat: pos.lat, checkin_lng: pos.lng, checkin_precisao: pos.acc, checkin_em: new Date().toISOString() })
-    st.innerHTML = `📍 Local marcado (±${pos.acc} m). <a href="https://www.google.com/maps?q=${pos.lat},${pos.lng}" target="_blank" rel="noopener">ver no mapa</a>`
+    st.innerHTML = `Local marcado (±${pos.acc} m). <a href="https://www.google.com/maps?q=${pos.lat},${pos.lng}" target="_blank" rel="noopener">ver no mapa</a>`
   }
   async function refreshGpsRat() {
     const st = document.getElementById('f-gps-status'); if (!st || !cur || !cur.client_uuid) return
     const r = await D().obterRat(cur.client_uuid)
     if (r && r.checkin_lat != null) {
-      st.innerHTML = `📍 Local marcado${r.checkin_precisao ? ` (±${r.checkin_precisao} m)` : ''}. <a href="https://www.google.com/maps?q=${r.checkin_lat},${r.checkin_lng}" target="_blank" rel="noopener">ver no mapa</a>`
+      st.innerHTML = `Local marcado${r.checkin_precisao ? ` (±${r.checkin_precisao} m)` : ''}. <a href="https://www.google.com/maps?q=${r.checkin_lat},${r.checkin_lng}" target="_blank" rel="noopener">ver no mapa</a>`
     } else st.textContent = 'Opcional — registra onde o atendimento foi feito.'
   }
   // Geocodificação reversa: coordenadas → { cidade, uf }. Só online (Nominatim/OpenStreetMap, grátis).
@@ -839,14 +839,14 @@
       if (!pos) { st.textContent = 'Não foi possível obter o GPS (permita a localização no aparelho).'; return }
       dlSaidaPos = pos
       if (!document.getElementById('dl-saida').value) document.getElementById('dl-saida').value = nowLocal()
-      st.textContent = `📍 Saída marcada (±${pos.acc} m). Buscando cidade…`
+      st.textContent = `Saída marcada (±${pos.acc} m). Buscando cidade…`
       const g = await geoReverse(pos.lat, pos.lng)
       if (g && (g.cidade || g.uf)) {
         const ci = document.getElementById('dl-origem-cidade'), uf = document.getElementById('dl-origem-uf')
         if (!ci.value && g.cidade) ci.value = g.cidade
         if (!uf.value && g.uf) uf.value = g.uf
-        st.textContent = `📍 Saída marcada (±${pos.acc} m) · ${[g.cidade, g.uf].filter(Boolean).join('/')}`
-      } else st.textContent = `📍 Saída marcada (±${pos.acc} m).`
+        st.textContent = `Saída marcada (±${pos.acc} m) · ${[g.cidade, g.uf].filter(Boolean).join('/')}`
+      } else st.textContent = `Saída marcada (±${pos.acc} m).`
     }
   }
   // Define cidade/UF de um lado (origem|destino) se ainda estiver vazio.
@@ -937,9 +937,9 @@
       return `<div class="listcard lc-${sk === 'info' ? 'info' : sk === 'done' ? 'done' : ''}"><span class="edge e-${sk}"></span>
         <div class="t"><span class="cli">${esc(cliNomeDe(d.cliente_id, '—'))}</span><span style="display:flex;gap:6px;align-items:center">${fila}<span class="badge b-${sk}">${esc(DL_SENT[d.sentido] || d.sentido)}</span></span></div>
         <div class="meta">${esc(d.origem || '—')} → ${esc(d.destino || '—')} · ${esc(veicLbl(d.veiculo_id))}</div>
-        <div class="meta">Saída <b>${dt(d.saida_em)}</b>${d.saida_lat ? ' 📍' : ''}${d.chegada_em ? ` · Chegada <b>${dt(d.chegada_em)}</b>${d.chegada_lat ? ' 📍' : ''}` : ''}</div>
+        <div class="meta">Saída <b>${dt(d.saida_em)}</b>${d.saida_lat ? ' · GPS' : ''}${d.chegada_em ? ` · Chegada <b>${dt(d.chegada_em)}</b>${d.chegada_lat ? ' · GPS' : ''}` : ''}</div>
         <div class="meta">A bordo: ${esc(nomes || '—')}</div>
-        ${!d.chegada_em ? `<button class="btn btn-ok btn-auto" data-chegada="${esc(d.id)}" style="margin-top:8px;font-size:13px;padding:9px 13px">📍 Marcar chegada agora</button>` : ''}
+        ${!d.chegada_em ? `<button class="btn btn-ok btn-auto" data-chegada="${esc(d.id)}" style="margin-top:8px;font-size:13px;padding:9px 13px"><svg viewBox="0 0 24 24"><path d="M20 10c0 6-8 12-8 12S4 16 4 10a8 8 0 0 1 16 0Z"/><circle cx="12" cy="10" r="3"/></svg> Marcar chegada agora</button>` : ''}
       </div>`
     }).join('')
     box.querySelectorAll('[data-chegada]').forEach(b => b.onclick = (e) => { e.stopPropagation(); marcarChegada(b.dataset.chegada) })
@@ -1075,11 +1075,11 @@
       const vi = ($ini() || {}).value || '', vf = ($fim() || {}).value || ''
       if (!vi) {
         bar2.className = 'atd-timer'
-        bar2.innerHTML = '<div class="tt">Atendimento ainda não iniciado</div><button type="button" class="go">▶ Iniciar atendimento</button>'
+        bar2.innerHTML = '<div class="tt">Atendimento ainda não iniciado</div><button type="button" class="go"><svg viewBox="0 0 24 24"><path d="M7 4.5v15l12-7.5-12-7.5Z"/></svg>Iniciar atendimento</button>'
         bar2.querySelector('.go').onclick = () => { const el = $ini(); if (!el) return; el.value = hhmm(); disparar(el); capturarGpsAuto(); render() }
       } else if (!vf) {
         bar2.className = 'atd-timer run'
-        bar2.innerHTML = `<div class="tt">Em atendimento desde <b>${esc(vi)}</b> · <span class="el">${decorrido(vi)}</span></div><button type="button" class="stop">⏹ Encerrar</button>`
+        bar2.innerHTML = `<div class="tt">Em atendimento desde <b>${esc(vi)}</b> · <span class="el">${decorrido(vi)}</span></div><button type="button" class="stop"><svg viewBox="0 0 24 24"><rect x="6" y="6" width="12" height="12" rx="1.5"/></svg>Encerrar</button>`
         bar2.querySelector('.stop').onclick = () => { const el = $fim(); if (!el) return; el.value = hhmm(); disparar(el); render() }
       } else {
         bar2.className = 'atd-timer'
@@ -1163,7 +1163,7 @@
       wrap.innerHTML = `${label}<input type="text" data-campo="${esc(c.id)}" data-tipo="texto"/>`
     } else if (c.tipo === 'texto_longo') {
       wrap.innerHTML = `${label}<textarea class="ta-longo" data-campo="${esc(c.id)}" data-tipo="texto_longo" placeholder="…"></textarea>
-        <button type="button" class="ia-btn" title="Melhorar escrita (IA)">✨</button>`
+        <button type="button" class="ia-btn" title="Melhorar escrita (IA)"><svg viewBox="0 0 24 24"><path d="M12 3l1.9 4.7 4.7 1.9-4.7 1.9L12 16.2l-1.9-4.7L5.4 9.6l4.7-1.9L12 3Z"/><path d="M19 14.5l.8 2 2 .8-2 .8-.8 2-.8-2-2-.8 2-.8.8-2Z"/></svg></button>`
       setTimeout(() => { const b = wrap.querySelector('.ia-btn'); if (b) b.onclick = () => melhorarTexto(c.id, b) }, 0)
     } else if (c.tipo === 'data') {
       const hoje = new Date().toISOString().slice(0, 10)
@@ -1261,8 +1261,7 @@
     if (!texto) return toast('Escreva o texto primeiro — a IA só ajusta o que você escreveu.', 'err')
     if (!navigator.onLine) return toast('Melhorar escrita precisa de internet.', 'err')
     btn.disabled = true
-    const old = btn.textContent
-    btn.textContent = '⏳'
+    btn.classList.add('busy')
     try {
       const { data, error } = await getSupabase().functions.invoke('melhorar-texto', { body: { texto } })
       if (error) throw new Error(error.message || 'falha na chamada')
@@ -1280,7 +1279,7 @@
       toast('Não consegui melhorar agora: ' + (e.message || e), 'err')
     } finally {
       btn.disabled = false
-      btn.textContent = old
+      btn.classList.remove('busy')
     }
   }
   function abrirPreviaIA(antes, depois, cb) {

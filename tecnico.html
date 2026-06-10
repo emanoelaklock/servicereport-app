@@ -209,9 +209,20 @@ try{if(localStorage.getItem('sr_dark')==='1')document.documentElement.classList.
   /* ===== Produtos: sugestões do catálogo ===== */
   .prod-cat-h{font-size:11px;font-weight:700;color:var(--tx3);margin:16px 2px 6px;text-transform:none}
 
-  /* ===== ✨ Melhorar escrita (IA) ===== */
-  .ia-btn{margin-top:8px;width:42px;height:38px;border:1px dashed #C6CCDA;background:var(--sur);border-radius:10px;font:inherit;font-size:17px;line-height:1;cursor:pointer}
+  /* ===== Ícones SVG fora dos .btn padrão ===== */
+  .tskin .hero .cta{display:flex;align-items:center;justify-content:center;gap:8px}
+  .tskin .hero .cta svg{width:17px;height:17px;stroke:currentColor;fill:none;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
+  .prod-search span svg{width:16px;height:16px;stroke:#7C8290;fill:none;stroke-width:2;stroke-linecap:round;stroke-linejoin:round;display:block}
+  .rat-del svg{width:16px;height:16px;stroke:#9aa3b2;fill:none;stroke-width:2;stroke-linecap:round;stroke-linejoin:round;display:block}
+  .atd-timer button{display:inline-flex;align-items:center;gap:7px}
+  .atd-timer button svg{width:14px;height:14px;stroke:currentColor;fill:none;stroke-width:2.2;stroke-linecap:round;stroke-linejoin:round}
+
+  /* ===== Melhorar escrita (IA) ===== */
+  .ia-btn{margin-top:8px;width:42px;height:38px;border:1px dashed #C6CCDA;background:var(--sur);border-radius:10px;font:inherit;line-height:1;cursor:pointer;display:inline-flex;align-items:center;justify-content:center}
+  .ia-btn svg{width:19px;height:19px;stroke:#7E37A6;fill:none;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}
   .ia-btn:disabled{opacity:.6;cursor:default}
+  .ia-btn.busy{animation:iapulse 1s infinite}
+  @keyframes iapulse{50%{opacity:.45}}
   .ia-lab{font-size:11px;font-weight:700;color:var(--tx3);margin-bottom:4px}
   .ia-txt{border:1px solid var(--bd);border-radius:10px;padding:10px 12px;font-size:13.5px;white-space:pre-wrap;line-height:1.5}
   .ia-original{background:var(--sur2);color:var(--tx2)}
@@ -277,9 +288,9 @@ try{if(localStorage.getItem('sr_dark')==='1')document.documentElement.classList.
         <button class="ft-logout" onclick="fazerLogout()">Sair</button>
       </div>
     </div>
-    <div id="off-banner">📴 Sem conexão — seu trabalho fica salvo no aparelho e sobe sozinho quando a internet voltar.</div>
+    <div id="off-banner">Sem conexão — seu trabalho fica salvo no aparelho e sobe sozinho quando a internet voltar.</div>
     <div id="ios-hint">
-      <span class="tx">📲 Instale o app: toque em <b>Compartilhar</b> (quadrado com seta ↑) e depois em <b>“Adicionar à Tela de Início”</b>.</span>
+      <span class="tx">Instale o app: toque em <b>Compartilhar</b> (quadrado com seta ↑) e depois em <b>“Adicionar à Tela de Início”</b>.</span>
       <button type="button" id="ios-hint-x" aria-label="Dispensar">✕</button>
     </div>
     <div class="field-body">
@@ -294,7 +305,7 @@ try{if(localStorage.getItem('sr_dark')==='1')document.documentElement.classList.
             <div><div class="n num" id="home-st-exec">—</div><div class="l">em execução</div></div>
             <div><div class="n num" id="home-st-fila">—</div><div class="l">na fila p/ enviar</div></div>
           </div>
-          <button class="cta" id="btn-sync-home">↻ Sincronizar</button>
+          <button class="cta" id="btn-sync-home"><svg viewBox="0 0 24 24"><path d="M3 12a9 9 0 1 0 3-6.7L3 8"/><path d="M3 3v5h5"/></svg>Sincronizar</button>
         </div>
         <div class="sec">Áreas</div>
         <div class="grid">
@@ -350,7 +361,7 @@ try{if(localStorage.getItem('sr_dark')==='1')document.documentElement.classList.
       <div id="view-lista" class="tskin" style="display:none">
         <div style="display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:12px">
           <h2 style="font-size:17px;font-weight:700;margin:0">Minhas RATs</h2>
-          <button class="btn btn-ghost btn-auto" id="btn-sync" title="Sincronizar">↻ Sincronizar</button>
+          <button class="btn btn-ghost btn-auto" id="btn-sync" title="Sincronizar"><svg viewBox="0 0 24 24"><path d="M3 12a9 9 0 1 0 3-6.7L3 8"/><path d="M3 3v5h5"/></svg>Sincronizar</button>
         </div>
         <div id="lista-rats"></div>
       </div>
@@ -358,7 +369,7 @@ try{if(localStorage.getItem('sr_dark')==='1')document.documentElement.classList.
       <!-- TAREFAS (atribuídas) -->
       <div id="view-tarefas" class="tskin" style="display:none">
         <div class="btn-row" style="margin-top:0">
-          <button class="btn btn-ghost" id="btn-tarefas-sync" title="Atualizar">↻ Atualizar</button>
+          <button class="btn btn-ghost" id="btn-tarefas-sync" title="Atualizar"><svg viewBox="0 0 24 24"><path d="M3 12a9 9 0 1 0 3-6.7L3 8"/><path d="M3 3v5h5"/></svg>Atualizar</button>
           <button class="btn btn-primary" id="btn-nova-tarefa">+ Nova tarefa</button>
         </div>
         <div id="lista-tarefas" style="margin-top:14px"></div>
@@ -396,7 +407,7 @@ try{if(localStorage.getItem('sr_dark')==='1')document.documentElement.classList.
             <div class="sec" style="margin:16px 0 2px">RATs desta tarefa</div>
             <div id="t-det-rats"></div>
           </div>
-          <div style="margin-top:16px"><button class="btn btn-primary" id="btn-iniciar-rat">▶ Iniciar RAT desta tarefa</button></div>
+          <div style="margin-top:16px"><button class="btn btn-primary" id="btn-iniciar-rat"><svg viewBox="0 0 24 24"><path d="M7 4.5v15l12-7.5-12-7.5Z"/></svg>Iniciar RAT desta tarefa</button></div>
           <div class="btn-row" id="t-det-concluir" style="display:none">
             <button class="btn btn-ok" id="btn-concluir">✓ Concluir</button>
             <button class="btn btn-warn" id="btn-concluir-pend">⚠ Concluir c/ pend.</button>
@@ -451,7 +462,7 @@ try{if(localStorage.getItem('sr_dark')==='1')document.documentElement.classList.
           <div class="h"><span class="hi"><svg viewBox="0 0 24 24"><path d="M12 21s7-6.5 7-12a7 7 0 1 0-14 0c0 5.5 7 12 7 12Z"/><circle cx="12" cy="9" r="2.4"/></svg></span>Local &amp; situação</div>
           <div class="fg campo">
             <label>Local do atendimento (GPS)</label>
-            <button class="btn btn-ghost" id="f-gps-btn" type="button">📍 Marcar local atual</button>
+            <button class="btn btn-ghost" id="f-gps-btn" type="button"><svg viewBox="0 0 24 24"><path d="M20 10c0 6-8 12-8 12S4 16 4 10a8 8 0 0 1 16 0Z"/><circle cx="12" cy="10" r="3"/></svg>Marcar local atual</button>
             <p class="hintn" id="f-gps-status">Opcional — registra onde o atendimento foi feito.</p>
           </div>
           <div class="fg campo">
@@ -501,7 +512,7 @@ try{if(localStorage.getItem('sr_dark')==='1')document.documentElement.classList.
           <div class="fg campo">
             <label>Descrição do levantamento <span style="color:var(--re)">*</span></label>
             <textarea class="ta-longo" id="po-descricao" placeholder="O que foi avaliado, escopo, condições do local…"></textarea>
-            <button type="button" class="ia-btn" id="po-ia-btn" title="Melhorar escrita (IA)">✨</button>
+            <button type="button" class="ia-btn" id="po-ia-btn" title="Melhorar escrita (IA)"><svg viewBox="0 0 24 24"><path d="M12 3l1.9 4.7 4.7 1.9-4.7 1.9L12 16.2l-1.9-4.7L5.4 9.6l4.7-1.9L12 3Z"/><path d="M19 14.5l.8 2 2 .8-2 .8-.8 2-.8-2-2-.8 2-.8.8-2Z"/></svg></button>
           </div>
 
           <div class="fg campo">
@@ -589,7 +600,7 @@ try{if(localStorage.getItem('sr_dark')==='1')document.documentElement.classList.
   <div class="tm-box" style="display:flex;flex-direction:column">
     <div class="tm-h"><span>Produtos</span><button class="tm-x" id="prod-x">✕</button></div>
     <div class="tm-b" style="flex:1;overflow:auto;min-height:0">
-      <div class="prod-search"><span>🔍</span><input id="prod-busca" placeholder="Nome ou Descrição" autocomplete="off"></div>
+      <div class="prod-search"><span><svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="m21 21-4.3-4.3"/></svg></span><input id="prod-busca" placeholder="Nome ou Descrição" autocomplete="off"></div>
       <div class="prod-tabs">
         <button type="button" class="prod-tab" data-tab="add">Adicionados</button>
         <button type="button" class="prod-tab on" data-tab="comigo">Comigo</button>
@@ -642,10 +653,10 @@ try{if(localStorage.getItem('sr_dark')==='1')document.documentElement.classList.
     <div class="tm-b">
       <label>Tipo de atividade</label>
       <div class="seg-tipos" id="seg-tipos">
-        <button type="button" class="seg-tipo on" data-tipo="trabalho">🔧 Trabalho</button>
-        <button type="button" class="seg-tipo" data-tipo="pausa">⏸️ Pausa</button>
-        <button type="button" class="seg-tipo" data-tipo="almoco">🍽️ Almoço</button>
-        <button type="button" class="seg-tipo" data-tipo="deslocamento">🚗 Deslocamento</button>
+        <button type="button" class="seg-tipo on" data-tipo="trabalho"><svg viewBox="0 0 24 24"><rect x="3" y="7" width="18" height="13" rx="2"/><path d="M9 7V5a2 2 0 0 1 2-2h2a2 2 0 0 1 2 2v2"/></svg>Trabalho</button>
+        <button type="button" class="seg-tipo" data-tipo="pausa"><svg viewBox="0 0 24 24"><path d="M9 5v14M15 5v14"/></svg>Pausa</button>
+        <button type="button" class="seg-tipo" data-tipo="almoco"><svg viewBox="0 0 24 24"><path d="M5 3v7a2 2 0 0 0 4 0V3M7 12v9M17 21V3c-1.8 1-3 3.2-3 6 0 2.4 1.2 4 3 4"/></svg>Almoço</button>
+        <button type="button" class="seg-tipo" data-tipo="deslocamento"><svg viewBox="0 0 24 24"><path d="M3 17h2m14 0h2M5 17a2 2 0 1 0 4 0 2 2 0 0 0-4 0Zm10 0a2 2 0 1 0 4 0 2 2 0 0 0-4 0Z"/><path d="M5 17V8a1 1 0 0 1 1-1h8l4 4v6"/></svg>Deslocamento</button>
       </div>
       <div id="seg-trabalho">
         <label style="margin-top:12px">Cliente</label>
@@ -700,7 +711,7 @@ try{if(localStorage.getItem('sr_dark')==='1')document.documentElement.classList.
         <div style="flex:1"><label>Saída</label><input type="datetime-local" id="dl-saida"></div>
         <div style="flex:1"><label>Chegada</label><input type="datetime-local" id="dl-chegada"></div>
       </div>
-      <button class="btn" id="dl-gps-saida" type="button" style="margin-top:8px;width:100%;justify-content:center">📍 Marcar saída agora (GPS)</button>
+      <button class="btn" id="dl-gps-saida" type="button" style="margin-top:8px;width:100%;justify-content:center"><svg viewBox="0 0 24 24"><path d="M20 10c0 6-8 12-8 12S4 16 4 10a8 8 0 0 1 16 0Z"/><circle cx="12" cy="10" r="3"/></svg>Marcar saída agora (GPS)</button>
       <div class="dim" id="dl-gps-status" style="font-size:12px;margin-top:6px"></div>
       <label style="margin-top:12px">Motivo (opcional)</label>
       <input type="text" id="dl-motivo" placeholder="Ex.: instalação / manutenção na obra">
@@ -719,7 +730,7 @@ try{if(localStorage.getItem('sr_dark')==='1')document.documentElement.classList.
     <div class="tm-b tskin" style="flex:1;overflow:auto;min-height:0">
       <div id="desloc-campos"></div>
       <div class="prod-empty" id="desloc-vazio" style="display:none">Este formulário não tem perguntas de deslocamento.</div>
-      <button type="button" class="btn" id="dr-trajeto" style="margin-top:16px;width:100%;justify-content:center">🚗 Registrar trajeto / pernoite</button>
+      <button type="button" class="btn" id="dr-trajeto" style="margin-top:16px;width:100%;justify-content:center"><svg viewBox="0 0 24 24"><path d="M3 17h2m14 0h2M5 17a2 2 0 1 0 4 0 2 2 0 0 0-4 0Zm10 0a2 2 0 1 0 4 0 2 2 0 0 0-4 0Z"/><path d="M5 17V8a1 1 0 0 1 1-1h8l4 4v6"/></svg>Registrar trajeto / pernoite</button>
       <p class="hintn">Use o trajeto para viagens com saída/chegada e pernoite.</p>
     </div>
     <div class="tm-f" style="justify-content:flex-end"><button class="btn btn-p" id="dr-ok">Concluir</button></div>
@@ -738,7 +749,7 @@ try{if(localStorage.getItem('sr_dark')==='1')document.documentElement.classList.
 <!-- Modal: prévia do texto melhorado pela IA -->
 <div class="tm-back" id="modal-ia">
   <div class="tm-box">
-    <div class="tm-h"><span>✨ Texto melhorado</span><button class="tm-x" id="ia-x">✕</button></div>
+    <div class="tm-h"><span>Texto melhorado</span><button class="tm-x" id="ia-x">✕</button></div>
     <div class="tm-b tskin" style="max-height:60vh;overflow:auto">
       <div class="ia-lab">Como você escreveu</div>
       <div class="ia-txt ia-original" id="ia-antes"></div>
@@ -765,7 +776,7 @@ try{if(localStorage.getItem('sr_dark')==='1')document.documentElement.classList.
     const b = document.getElementById('net-badge'); if (!b) return
     b.style.cursor = 'pointer'
     if (!navigator.onLine) { b.textContent = '⚠ offline'; b.className = 'net-badge net-off'; return }
-    if (estado === 'sync') { b.textContent = '↻ sincronizando…'; b.className = 'net-badge net-sync'; return }
+    if (estado === 'sync') { b.textContent = 'sincronizando…'; b.className = 'net-badge net-sync'; return }
     try {
       const D = window.DBLocal
       const rats = await D.listarRats()
