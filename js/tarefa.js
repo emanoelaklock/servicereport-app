@@ -128,7 +128,16 @@ const TarefaApp = (() => {
     const { data: { user: u } } = await sb().auth.getUser()
     user.id = u?.id || null
     const [prod, tec, tip, eq, cli] = await Promise.all([
-      sb().from('produtos').select('id,codigo,descricao,unidade,preco_venda').eq('ativo', true).eq('oculto', false).order('descricao'),
+      (async () => {   // pagina p/ trazer TODOS os produtos (Supabase corta em 1000/req)
+        const all = []; const P = 1000
+        for (let i = 0; ; i += P) {
+          const r = await sb().from('produtos').select('id,codigo,descricao,unidade,preco_venda').eq('ativo', true).eq('oculto', false).order('descricao').range(i, i + P - 1)
+          if (r.error) return { data: all, error: r.error }
+          all.push(...(r.data || []))
+          if (!r.data || r.data.length < P) break
+        }
+        return { data: all }
+      })(),
       sb().rpc('sr_usuarios'),   // usuários do SR (papel vindo do Portal/portal_acessos)
       sb().from('tipos_servico').select('id,nome').eq('ativo', true).order('nome'),
       sb().from('equipamentos_axis').select('id,tipo,part_number,modelo,serial').order('modelo'),

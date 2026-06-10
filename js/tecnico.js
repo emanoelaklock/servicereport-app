@@ -190,7 +190,16 @@
         sb.from('formulario_modelos').select('id,nome,campos').eq('ativo', true),
         sb.rpc('sr_usuarios'),   // técnicos do SR (papel vindo do Portal); filtra abaixo
         sb.from('veiculos').select('id,modelo,placa,ativo').eq('ativo', true).order('modelo'),
-        sb.from('produtos').select('id,codigo,descricao,unidade,ativo').eq('ativo', true).eq('oculto', false).order('descricao'),
+        (async () => {   // pagina p/ trazer TODOS os produtos (Supabase corta em 1000/req)
+          const all = []; const P = 1000
+          for (let i = 0; ; i += P) {
+            const r = await sb.from('produtos').select('id,codigo,descricao,unidade,ativo').eq('ativo', true).eq('oculto', false).order('descricao').range(i, i + P - 1)
+            if (r.error) return { data: all, error: r.error }
+            all.push(...(r.data || []))
+            if (!r.data || r.data.length < P) break
+          }
+          return { data: all }
+        })(),
         sb.from('org_config').select('base_cidade,base_uf').eq('id', 1).maybeSingle(),
         sb.from('status_tarefa').select('chave,label,cor'),
       ])

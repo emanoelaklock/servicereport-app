@@ -117,7 +117,16 @@
   async function carregarRef() {
     const [cli, prod, pre] = await Promise.all([
       sb().from('clientes').select('id,nome,documento,endereco').eq('oculto', false).order('nome'),
-      sb().from('produtos').select('id,codigo,descricao,unidade,preco_venda').eq('ativo', true).eq('oculto', false).order('descricao'),
+      (async () => {   // pagina p/ trazer TODOS os produtos (Supabase corta em 1000/req)
+        const all = []; const P = 1000
+        for (let i = 0; ; i += P) {
+          const r = await sb().from('produtos').select('id,codigo,descricao,unidade,preco_venda').eq('ativo', true).eq('oculto', false).order('descricao').range(i, i + P - 1)
+          if (r.error) return { data: all, error: r.error }
+          all.push(...(r.data || []))
+          if (!r.data || r.data.length < P) break
+        }
+        return { data: all }
+      })(),
       sb().from('pre_orcamentos').select('id,numero,cliente_id,cliente_nome,descricao,status').eq('status', 'concluido').order('numero', { ascending: false }),
     ])
     ref.clientes = cli.data || []
