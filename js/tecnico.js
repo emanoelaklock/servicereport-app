@@ -1146,7 +1146,9 @@
     if (c.tipo === 'texto') {
       wrap.innerHTML = `${label}<input type="text" data-campo="${esc(c.id)}" data-tipo="texto"/>`
     } else if (c.tipo === 'texto_longo') {
-      wrap.innerHTML = `${label}<textarea class="ta-longo" data-campo="${esc(c.id)}" data-tipo="texto_longo" placeholder="…"></textarea>`
+      wrap.innerHTML = `${label}<textarea class="ta-longo" data-campo="${esc(c.id)}" data-tipo="texto_longo" placeholder="…"></textarea>
+        <button type="button" class="ia-btn">✨ Melhorar escrita</button>`
+      setTimeout(() => { const b = wrap.querySelector('.ia-btn'); if (b) b.onclick = () => melhorarTexto(c.id, b) }, 0)
     } else if (c.tipo === 'data') {
       const hoje = new Date().toISOString().slice(0, 10)
       wrap.innerHTML = `${label}<input type="date" value="${hoje}" data-campo="${esc(c.id)}" data-tipo="data"/>`
@@ -1190,6 +1192,50 @@
       wrap.innerHTML = `${label}<input type="text" data-campo="${esc(c.id)}" data-tipo="texto"/>`
     }
     return wrap
+  }
+
+  // ── ✨ Melhorar escrita (IA): reescreve o texto do técnico em PT correto ──
+  // O texto vai à edge function melhorar-texto (Claude Haiku); volta numa PRÉVIA
+  // antes/depois e o técnico decide usar ou manter o original. Exige internet.
+  async function melhorarTexto(campoId, btn) {
+    const ta = document.querySelector(`[data-campo="${CSS.escape(campoId)}"]`)
+    if (!ta) return
+    const texto = (ta.value || '').trim()
+    if (!texto) return toast('Escreva o texto primeiro — a IA só ajusta o que você escreveu.', 'err')
+    if (!navigator.onLine) return toast('Melhorar escrita precisa de internet.', 'err')
+    btn.disabled = true
+    const old = btn.textContent
+    btn.textContent = '✨ Melhorando…'
+    try {
+      const { data, error } = await getSupabase().functions.invoke('melhorar-texto', { body: { texto } })
+      if (error) throw new Error(error.message || 'falha na chamada')
+      if (data && data.error) throw new Error(data.error)
+      const novo = ((data && data.texto) || '').trim()
+      if (!novo) throw new Error('a IA não retornou texto')
+      abrirPreviaIA(texto, novo, (aceitou) => {
+        if (aceitou) {
+          ta.value = novo
+          ta.dispatchEvent(new Event('input', { bubbles: true }))   // autosave + condicionais
+          toast('Texto atualizado.', 'ok')
+        }
+      })
+    } catch (e) {
+      toast('Não consegui melhorar agora: ' + (e.message || e), 'err')
+    } finally {
+      btn.disabled = false
+      btn.textContent = old
+    }
+  }
+  function abrirPreviaIA(antes, depois, cb) {
+    const m = document.getElementById('modal-ia')
+    if (!m) return cb(true)
+    document.getElementById('ia-antes').textContent = antes
+    document.getElementById('ia-depois').textContent = depois
+    m.classList.add('open')
+    const fechar = (ok) => { m.classList.remove('open'); cb(ok) }
+    document.getElementById('ia-usar').onclick = () => fechar(true)
+    document.getElementById('ia-manter').onclick = () => fechar(false)
+    document.getElementById('ia-x').onclick = () => fechar(false)
   }
 
   // ─────────────────────────── Fotos ───────────────────────────
