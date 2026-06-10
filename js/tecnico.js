@@ -195,6 +195,8 @@
     document.getElementById('po-desloc').onchange = onDeslocPoChange
     document.getElementById('view-preorc-form').addEventListener('input', atualizarTempoPo)
     document.getElementById('po-prod-add-btn').onclick = poAddItem
+    const poIa = document.getElementById('po-ia-btn')
+    if (poIa) poIa.onclick = () => melhorarTextoEl(document.getElementById('po-descricao'), poIa)
     const pf = document.getElementById('po-foto-input')
     document.getElementById('po-btn-foto').onclick = () => pf.click()
     pf.onchange = () => poAddFotos(pf.files)
@@ -1198,7 +1200,9 @@
   // O texto vai à edge function melhorar-texto (Claude Haiku); volta numa PRÉVIA
   // antes/depois e o técnico decide usar ou manter o original. Exige internet.
   async function melhorarTexto(campoId, btn) {
-    const ta = document.querySelector(`[data-campo="${CSS.escape(campoId)}"]`)
+    return melhorarTextoEl(document.querySelector(`[data-campo="${CSS.escape(campoId)}"]`), btn)
+  }
+  async function melhorarTextoEl(ta, btn) {
     if (!ta) return
     const texto = (ta.value || '').trim()
     if (!texto) return toast('Escreva o texto primeiro — a IA só ajusta o que você escreveu.', 'err')
