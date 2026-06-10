@@ -522,13 +522,15 @@
     const r = await invoke('aprovar-orcamento', { id: cur.id })
     if (!r) return
     cur.status = 'aprovado'
-    cur._tarefaMsg = r.resynced
-      ? `Aprovado — Tarefa (OS) Nº ${r.tarefa_numero} atualizada com as alterações (Levada e itens avulsos preservados).`
-      : r.tarefa_numero
-        ? `Aprovado — Tarefa (OS) Nº ${r.tarefa_numero} gerada. Gerencie em Execução → Tarefas (atribua um técnico e agende).`
-        : 'Aprovado — Tarefa (OS) gerada. Gerencie em Execução → Tarefas.'
+    cur._tarefaMsg = r.sem_servico
+      ? 'Aprovado — orçamento sem serviço (somente produtos); nenhuma Tarefa (OS) foi gerada.'
+      : r.resynced
+        ? `Aprovado — Tarefa (OS) Nº ${r.tarefa_numero} atualizada com as alterações (Levada e itens avulsos preservados).`
+        : r.tarefa_numero
+          ? `Aprovado — Tarefa (OS) Nº ${r.tarefa_numero} gerada. Gerencie em Execução → Tarefas (atribua um técnico e agende).`
+          : 'Aprovado — Tarefa (OS) gerada. Gerencie em Execução → Tarefas.'
     document.getElementById('ed-status').textContent = 'Aprovado'
-    toast(r.resynced ? 'Tarefa atualizada com as alterações.' : (r.already ? 'Já estava aprovado.' : 'Aprovado e Tarefa gerada.'), 'ok')
+    toast(r.sem_servico ? 'Aprovado (sem serviço — sem OS).' : (r.resynced ? 'Tarefa atualizada com as alterações.' : (r.already ? 'Já estava aprovado.' : 'Aprovado e Tarefa gerada.')), 'ok')
     aplicarEstado()
   }
 
