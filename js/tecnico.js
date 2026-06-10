@@ -562,6 +562,8 @@
 
   async function iniciarRatDaTarefa(t) {
     const tipoId = t.tipo_servico_id || ''
+    // tarefa entra em execução assim que ganha uma RAT (o servidor confirma via trigger)
+    if (t.status === 'aguardando_execucao') t.status = 'em_execucao'
     const rat = await D().novoRat({ tarefa_id: t.id, tarefa_numero: t.numero || null, cliente_id: t.cliente_id || null, cliente_nome: cliNomeDe(t.cliente_id, null) })
     cur = { client_uuid: rat.client_uuid, campos: [], tarefa_id: t.id, tarefa_numero: t.numero }
     document.getElementById('form-titulo').textContent = 'Nova RAT'
@@ -1005,7 +1007,7 @@
     }
     atualizarTempo()
     aplicarCondicionais()
-    montarTimerAtendimento()   // re-render: reflete as horas repopuladas
+    montarTimers()   // re-render: reflete as horas repopuladas
     atualizarResumoDesloc()
     atualizarResumoPausa()
     mostrar('form')
@@ -1029,7 +1031,7 @@
     distribuirCamposModais()   // desloc/pausa saem do form e vão para os botões (modais)
     const sc = cont.querySelector('canvas.sig-pad')
     if (sc) { sig = initSignature(sc); sig.resize() }
-    const onFormChange = (e) => { aplicarEspelhos(e); atualizarTempo(); aplicarCondicionais(); atualizarResumoDesloc(); atualizarResumoPausa(); const w = e.target.closest && e.target.closest('[data-field]'); if (w) w.classList.remove('campo-erro'); agendarAutosave() }
+    const onFormChange = (e) => { aplicarEspelhos(e); atualizarTempo(); aplicarCondicionais(); atualizarResumoDesloc(); atualizarResumoPausa(); if (timersRender) timersRender(); const w = e.target.closest && e.target.closest('[data-field]'); if (w) w.classList.remove('campo-erro'); agendarAutosave() }
     cont.oninput = onFormChange
     cont.onchange = onFormChange
     const dCont = document.getElementById('desloc-campos')
@@ -1038,7 +1040,7 @@
     if (pCont) { pCont.oninput = onFormChange; pCont.onchange = onFormChange }
     atualizarTempo()
     aplicarCondicionais()
-    montarTimerAtendimento()
+    montarTimers()
     await refreshThumbs()
     await refreshGpsRat()
   }
@@ -1046,19 +1048,27 @@
   // ── Timer de atendimento: Iniciar/Encerrar preenche hora_inicio/hora_termino ──
   // Só aparece quando o formulário tem esses campos (ids estáveis usados no calcTempo).
   // O técnico continua podendo editar as horas manualmente nos campos.
-  let atdTick = null
-  let atdRender = null   // listener anterior — removido a cada montagem (evita acúmulo entre RATs)
-  function montarTimerAtendimento() {
-    const old = document.getElementById('atd-timer'); if (old) old.remove()
-    if (atdTick) { clearInterval(atdTick); atdTick = null }
-    const cont = document.getElementById('campos-container')
-    if (atdRender) { cont.removeEventListener('change', atdRender); atdRender = null }
-    const $ini = () => cont.querySelector('[data-campo="hora_inicio"]')
-    const $fim = () => cont.querySelector('[data-campo="hora_termino"]')
-    if (!$ini() || !$fim()) return
-    const bar = document.createElement('div')
-    bar.id = 'atd-timer'; bar.className = 'atd-timer'
-    cont.parentNode.insertBefore(bar, cont)
+  // ── Timers Iniciar/Encerrar/Reabrir para pares de horário ──
+  // Atendimento (no formulário), Almoço e Pausa (modal Pausa), Ida e Retorno
+  // (modal Deslocamento). Cada barra preenche os campos de hora do par e permite
+  // DESFAZER o início e REABRIR depois de encerrado (imprevistos no caminho).
+  // A barra só aparece quando o formulário tem os dois campos do par.
+  let timersTick = null
+  let timersRender = null
+  function montarTimers() {
+    document.querySelectorAll('.atd-timer').forEach(el => el.remove())
+    if (timersTick) { clearInterval(timersTick); timersTick = null }
+    timersRender = null
+    if (!cur || !cur.campos || !cur.campos.length) return
+    const $c = (id) => document.querySelector(`[data-campo="${CSS.escape(id)}"]`)
+    const antesDe = (hostId) => (bar) => { const h = document.getElementById(hostId); if (h && h.parentNode) h.parentNode.insertBefore(bar, h) }
+    const DEFS = [
+      { ini: 'hora_inicio', fim: 'hora_termino', lb: 'atendimento', gps: true, mount: antesDe('campos-container') },
+      { ini: 'almoco_inicio', fim: 'almoco_termino', lb: 'almoço', mount: antesDe('pausa-campos') },
+      { ini: 'pausa_inicio', fim: 'pausa_termino', lb: 'pausa', mount: antesDe('pausa-campos') },
+      { ini: 'desloc_inicial_ida', fim: 'desloc_final_ida', lb: 'ida', mount: antesDe('desloc-campos') },
+      { ini: 'desloc_inicial_retorno', fim: 'desloc_final_retorno', lb: 'retorno', mount: antesDe('desloc-campos') },
+    ]
     const hhmm = () => { const d = new Date(); return String(d.getHours()).padStart(2, '0') + ':' + String(d.getMinutes()).padStart(2, '0') }
     const decorrido = (ini) => {
       const [h, m] = String(ini).split(':').map(Number)
@@ -1068,26 +1078,42 @@
       return `${Math.floor(t / 60)}h ${String(t % 60).padStart(2, '0')}min`
     }
     const disparar = (el) => { el.dispatchEvent(new Event('input', { bubbles: true })); el.dispatchEvent(new Event('change', { bubbles: true })) }
-    function render() {
-      const bar2 = document.getElementById('atd-timer'); if (!bar2) return
-      const vi = ($ini() || {}).value || '', vf = ($fim() || {}).value || ''
+    const SVGP = '<svg viewBox="0 0 24 24"><path d="M7 4.5v15l12-7.5-12-7.5Z"/></svg>'
+    const SVGS = '<svg viewBox="0 0 24 24"><rect x="6" y="6" width="12" height="12" rx="1.5"/></svg>'
+    const SVGU = '<svg viewBox="0 0 24 24"><path d="M3 7v6h6"/><path d="M21 17a9 9 0 0 0-15-6.6L3 13"/></svg>'
+    const bars = []
+    for (const d of DEFS) {
+      if (!$c(d.ini) || !$c(d.fim)) continue
+      const bar = document.createElement('div')
+      bar.className = 'atd-timer'
+      d.mount(bar)
+      bars.push({ d, bar })
+    }
+    if (!bars.length) return
+    const cap = (s) => s.charAt(0).toUpperCase() + s.slice(1)
+    function renderBar({ d, bar }) {
+      if (!document.body.contains(bar)) return
+      const vi = ($c(d.ini) || {}).value || '', vf = ($c(d.fim) || {}).value || ''
       if (!vi) {
-        bar2.className = 'atd-timer'
-        bar2.innerHTML = '<div class="tt">Atendimento ainda não iniciado</div><button type="button" class="go"><svg viewBox="0 0 24 24"><path d="M7 4.5v15l12-7.5-12-7.5Z"/></svg>Iniciar atendimento</button>'
-        bar2.querySelector('.go').onclick = () => { const el = $ini(); if (!el) return; el.value = hhmm(); disparar(el); capturarGpsAuto(); render() }
+        bar.className = 'atd-timer'
+        bar.innerHTML = `<div class="tt">${cap(d.lb)} ainda não iniciado</div><button type="button" class="go">${SVGP}Iniciar ${esc(d.lb)}</button>`
+        bar.querySelector('.go').onclick = () => { const el = $c(d.ini); if (!el) return; el.value = hhmm(); disparar(el); if (d.gps) capturarGpsAuto(); renderAll() }
       } else if (!vf) {
-        bar2.className = 'atd-timer run'
-        bar2.innerHTML = `<div class="tt">Em atendimento desde <b>${esc(vi)}</b> · <span class="el">${decorrido(vi)}</span></div><button type="button" class="stop"><svg viewBox="0 0 24 24"><rect x="6" y="6" width="12" height="12" rx="1.5"/></svg>Encerrar</button>`
-        bar2.querySelector('.stop').onclick = () => { const el = $fim(); if (!el) return; el.value = hhmm(); disparar(el); render() }
+        bar.className = 'atd-timer run'
+        bar.innerHTML = `<div class="tt">${cap(d.lb)} desde <b>${esc(vi)}</b> · <span class="el">${decorrido(vi)}</span></div><button type="button" class="redo" title="Desfazer início">${SVGU}</button><button type="button" class="stop">${SVGS}Encerrar</button>`
+        bar.querySelector('.stop').onclick = () => { const el = $c(d.fim); if (!el) return; el.value = hhmm(); disparar(el); renderAll() }
+        bar.querySelector('.redo').onclick = () => { const el = $c(d.ini); if (!el) return; el.value = ''; disparar(el); renderAll() }
       } else {
-        bar2.className = 'atd-timer'
-        bar2.innerHTML = `<div class="tt">Atendimento <b>${esc(vi)}</b> – <b>${esc(vf)}</b> · <span class="el">${fmtMin(calcTempo())}</span> trabalhado</div>`
+        bar.className = 'atd-timer'
+        const extra = d.ini === 'hora_inicio' ? ` · <span class="el">${fmtMin(calcTempo())}</span> trabalhado` : ''
+        bar.innerHTML = `<div class="tt">${cap(d.lb)} <b>${esc(vi)}</b> – <b>${esc(vf)}</b>${extra}</div><button type="button" class="redo" title="Reabrir para refazer o término">${SVGU}Reabrir</button>`
+        bar.querySelector('.redo').onclick = () => { const el = $c(d.fim); if (!el) return; el.value = ''; disparar(el); renderAll() }
       }
     }
-    render()
-    atdRender = render
-    cont.addEventListener('change', render)
-    atdTick = setInterval(() => { if (!document.getElementById('atd-timer')) { clearInterval(atdTick); atdTick = null; return } render() }, 30000)
+    function renderAll() { bars.forEach(renderBar) }
+    timersRender = renderAll
+    renderAll()
+    timersTick = setInterval(() => { if (!document.querySelector('.atd-timer')) { clearInterval(timersTick); timersTick = null; return } renderAll() }, 30000)
   }
 
   // ── Espelho: um campo copia o valor de outro quando este muda ──
