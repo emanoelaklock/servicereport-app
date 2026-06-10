@@ -7,6 +7,8 @@
 <meta name="theme-color" content="#1B2A4A">
 <link rel="manifest" href="manifest.webmanifest">
 <link rel="apple-touch-icon" href="assets/icon.svg">
+<script>/* modo escuro sem flash: aplica a classe antes do CSS renderizar */
+try{if(localStorage.getItem('sr_dark')==='1')document.documentElement.classList.add('dark')}catch(e){}</script>
 <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
 <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="css/theme.css">
@@ -194,6 +196,43 @@
   .dl-item .dl-meta{font-size:12px;color:var(--tx3);margin-top:3px}
   .dl-sent{font-size:11px;font-weight:700;padding:2px 9px;border-radius:999px;white-space:nowrap}
   .dl-sent.ida{background:#E8F0FE;color:#1C54B8}.dl-sent.volta{background:#FDF3E2;color:#B7791F}.dl-sent.outro{background:var(--sur2);color:var(--tx2)}
+
+  /* ===== Timer de atendimento (Iniciar/Encerrar) ===== */
+  .atd-timer{display:flex;align-items:center;gap:10px;background:#EAF7F0;border:1px solid #CDE9D8;border-radius:12px;padding:10px 12px;margin-bottom:14px}
+  .atd-timer.run{background:#E7F1FC;border-color:#CBDFF5}
+  .atd-timer .tt{flex:1;font-size:13px;font-weight:600;color:var(--tx);line-height:1.35}
+  .atd-timer .el{font-variant-numeric:tabular-nums;font-weight:800}
+  .atd-timer button{border:none;border-radius:10px;padding:10px 14px;font:inherit;font-size:13.5px;font-weight:700;cursor:pointer;color:#fff;white-space:nowrap}
+  .atd-timer .go{background:#179A47}
+  .atd-timer .stop{background:#DE2C2C}
+
+  /* ===== Ditado por voz (textareas do questionário) ===== */
+  .ta-wrap{position:relative}
+  .ta-wrap .ta-longo{width:100%}
+  .mic-btn{position:absolute;right:8px;bottom:10px;width:36px;height:36px;border-radius:50%;border:1px solid var(--bd);background:var(--sur);font-size:16px;line-height:1;cursor:pointer;box-shadow:0 1px 4px rgba(20,30,55,.12)}
+  .mic-btn.rec{background:#DE2C2C;border-color:#DE2C2C;animation:micpulse 1.1s infinite}
+  @keyframes micpulse{50%{opacity:.55}}
+
+  /* ===== Banners: offline + instalar no iOS ===== */
+  #off-banner{display:none;background:#FFF6E5;color:#A2740C;border-bottom:1px solid #F2E2B6;padding:8px 14px;font-size:12.5px;font-weight:600;text-align:center}
+  #ios-hint{display:none;align-items:center;gap:10px;background:#E7F1FC;color:#1565C0;border-bottom:1px solid #CBDFF5;padding:8px 14px;font-size:12.5px}
+  #ios-hint .tx{flex:1;line-height:1.4}
+  #ios-hint button{border:none;background:none;color:inherit;font-size:15px;cursor:pointer;padding:4px}
+
+  /* ===== Modo escuro (toggle 🌙 no topo; persiste no aparelho) ===== */
+  html.dark{color-scheme:dark}
+  html.dark body{
+    --bg:#13161d;--sur:#1c2029;--sur2:#242936;--bd:#2c3344;--bd2:#3b445c;
+    --tx:#e8ebf3;--tx2:#c3c9d7;--tx3:#8e96a8;--acl:#1d2940;--acm:#2c4a78;
+    --t-bg:#13161d;--t-card:#1c2029;--t-line:#2c3344;--t-ink:#e8ebf3;--t-muted:#8e96a8;
+  }
+  html.dark .tm-box{background:var(--sur);color:var(--tx)}
+  html.dark .tskin .photo{background:var(--sur);border-color:var(--bd2);color:var(--tx2)}
+  html.dark #f-tarefa-banner{background:#1d2940;border-color:#2c4a78;color:#9fc1ff}
+  html.dark .atd-timer{background:#15251c;border-color:#1f3a2b}
+  html.dark .atd-timer.run{background:#16243a;border-color:#23406b}
+  html.dark .dl-sent.ida{background:#1d2940;color:#9fc1ff}
+  html.dark .dl-sent.volta{background:#2c2410;color:#e7c068}
 </style>
 </head>
 <body>
@@ -229,8 +268,14 @@
       <span class="ft-title" id="ft-title">Service Report</span>
       <div style="display:flex;align-items:center;gap:10px">
         <span class="net-badge" id="net-badge">—</span>
+        <button class="ft-logout" id="btn-dark" title="Modo claro/escuro" style="padding:8px 10px">🌙</button>
         <button class="ft-logout" onclick="fazerLogout()">Sair</button>
       </div>
+    </div>
+    <div id="off-banner">📴 Sem conexão — seu trabalho fica salvo no aparelho e sobe sozinho quando a internet voltar.</div>
+    <div id="ios-hint">
+      <span class="tx">📲 Instale o app: toque em <b>Compartilhar</b> (quadrado com seta ↑) e depois em <b>“Adicionar à Tela de Início”</b>.</span>
+      <button type="button" id="ios-hint-x" aria-label="Dispensar">✕</button>
     </div>
     <div class="field-body">
 
@@ -521,7 +566,11 @@
     <div class="tm-h"><span>Fotos / Evidências</span><button class="tm-x" id="fotos-x">✕</button></div>
     <div class="tm-b tskin" style="flex:1;overflow:auto;min-height:0">
       <input type="file" accept="image/*" capture="environment" multiple id="foto-input" style="display:none">
-      <div class="photo" id="btn-foto"><svg viewBox="0 0 24 24"><path d="M3 7h4l2-2h6l2 2h4v12H3z"/><circle cx="12" cy="13" r="3.2"/></svg>Adicionar foto</div>
+      <input type="file" accept="image/*" multiple id="foto-input-gal" style="display:none">
+      <div style="display:flex;gap:10px">
+        <div class="photo" id="btn-foto" style="flex:1"><svg viewBox="0 0 24 24"><path d="M3 7h4l2-2h6l2 2h4v12H3z"/><circle cx="12" cy="13" r="3.2"/></svg>Câmera</div>
+        <div class="photo" id="btn-foto-gal" style="flex:1"><svg viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><path d="m21 15-5-5L5 21"/></svg>Galeria</div>
+      </div>
       <p class="hintn" id="fotos-hint">Uma foto do antes/depois já conta muito. Sobe rápido mesmo no campo.</p>
       <div class="thumbs" id="thumbs" style="margin-top:12px"></div>
     </div>
@@ -664,6 +713,8 @@
 
   // Indicador de sincronização: offline / sincronizando / N na fila / sincronizado.
   async function pintarRede(estado) {
+    const ob = document.getElementById('off-banner')
+    if (ob) ob.style.display = navigator.onLine ? 'none' : 'block'
     const b = document.getElementById('net-badge'); if (!b) return
     b.style.cursor = 'pointer'
     if (!navigator.onLine) { b.textContent = '⚠ offline'; b.className = 'net-badge net-off'; return }
@@ -682,6 +733,33 @@
   window.addEventListener('online', () => pintarRede())
   window.addEventListener('offline', () => pintarRede())
   window.onSyncStart = () => pintarRede('sync')
+  pintarRede()   // estado inicial (cobre abrir o app já offline)
+
+  // Modo escuro: toggle persistido no aparelho (classe aplicada cedo no <head>).
+  ;(function () {
+    const b = document.getElementById('btn-dark'); if (!b) return
+    const pintar = () => { b.textContent = document.documentElement.classList.contains('dark') ? '☀️' : '🌙' }
+    b.onclick = () => {
+      const on = document.documentElement.classList.toggle('dark')
+      try { localStorage.setItem('sr_dark', on ? '1' : '0') } catch (e) {}
+      pintar()
+    }
+    pintar()
+  })()
+
+  // iOS fora do app instalado: ensina a adicionar à Tela de Início (push só funciona instalado).
+  ;(function () {
+    const el = document.getElementById('ios-hint'); if (!el) return
+    const isIOS = /iphone|ipad|ipod/i.test(navigator.userAgent)
+    const standalone = (window.matchMedia && window.matchMedia('(display-mode: standalone)').matches) || window.navigator.standalone
+    let off = false; try { off = localStorage.getItem('sr_ios_hint') === 'off' } catch (e) {}
+    if (!isIOS || standalone || off) return
+    el.style.display = 'flex'
+    document.getElementById('ios-hint-x').onclick = () => {
+      el.style.display = 'none'
+      try { localStorage.setItem('sr_ios_hint', 'off') } catch (e) {}
+    }
+  })()
 
   // Atualiza a tela atual e o indicador quando uma rodada de sync termina.
   window.onSyncDone = ({ ok, fail }) => {

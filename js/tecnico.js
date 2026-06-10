@@ -98,7 +98,27 @@
 
     bind()
     await carregarRef()
+    await limparRascunhosVazios()
     await restaurarTela()
+  }
+
+  // Varredura na abertura: remove rascunhos órfãos (abertos e abandonados sem nenhum
+  // conteúdo real — sem respostas, fotos, assinatura ou produtos). Complementa o
+  // descarte do cancelar(): cobre quem saiu fechando o navegador no meio.
+  async function limparRascunhosVazios() {
+    try {
+      const rs = await D().listarRats({ status: D().STATUS.RASCUNHO })
+      for (const r of rs) {
+        if (cur && cur.client_uuid === r.client_uuid) continue
+        if (r.tem_foto || r.tem_assinatura || r.questionario_ok || r.respostas) continue
+        const fotos = await D().listarFotos(r.client_uuid)
+        if (fotos.length) continue
+        const mats = await D().listarMateriais(r.client_uuid)
+        // levados pré-carregados (qtd 0) não são trabalho do técnico; avulso/qtd>0 são
+        if (mats.some(m => (Number(m.quantidade) || 0) > 0 || m.qtd_levada == null)) continue
+        await D().removerRat(r.client_uuid)
+      }
+    } catch (e) { /* limpeza é melhor-esforço */ }
   }
 
   // Restaura a última tela após recarregar (pull-to-refresh do iOS, etc.) — não volta pra home.
@@ -127,7 +147,11 @@
     document.getElementById('fotos-x').onclick = fecharModalFotos
     document.getElementById('fotos-ok').onclick = fecharModalFotos
     document.getElementById('btn-foto').onclick = () => document.getElementById('foto-input').click()
-    document.getElementById('foto-input').onchange = (e) => adicionarFotos(e.target.files)
+    document.getElementById('foto-input').onchange = (e) => { adicionarFotos(e.target.files); e.target.value = '' }
+    const bfg = document.getElementById('btn-foto-gal')
+    if (bfg) bfg.onclick = () => document.getElementById('foto-input-gal').click()
+    const fig = document.getElementById('foto-input-gal')
+    if (fig) fig.onchange = (e) => { adicionarFotos(e.target.files); e.target.value = '' }
     document.getElementById('prod-x').onclick = fecharModalProd
     document.getElementById('prod-ok').onclick = fecharModalProd
     document.getElementById('prod-avulso-btn').onclick = adicionarAvulsoUI
@@ -204,15 +228,23 @@
         sb.from('status_tarefa').select('chave,label,cor'),
       ])
       if (cli.error || tip.error || forms.error) throw (cli.error || tip.error || forms.error)
+      // Falha PARCIAL (ex.: só a query de produtos) não pode apagar o cache anterior:
+      // cada bloco cai no valor cacheado quando a própria consulta falhou.
+      let cacheRef = {}
+      try { cacheRef = JSON.parse(localStorage.getItem(REF_KEY) || '{}') } catch (e) { cacheRef = {} }
       ref.clientes = cli.data || []
       ref.tipos = tip.data || []
       ref.formularios = {}
       ;(forms.data || []).forEach(f => { ref.formularios[f.id] = f })
-      ref.tecnicos = tec.error ? [] : (tec.data || []).filter(u => u.role === 'tecnico_campo' && u.ativo)
-      ref.veiculos = veic.error ? [] : (veic.data || [])
-      ref.produtos = prod.error ? [] : (prod.data || [])
-      ref.base = (base && base.data) ? { cidade: base.data.base_cidade || '', uf: base.data.base_uf || '' } : { cidade: '', uf: '' }
-      ref.status = {}; if (sts && !sts.error) (sts.data || []).forEach(s => { ref.status[s.chave] = { label: s.label, cor: s.cor } })
+      ref.tecnicos = tec.error ? (cacheRef.tecnicos || []) : (tec.data || []).filter(u => u.role === 'tecnico_campo' && u.ativo)
+      ref.veiculos = veic.error ? (cacheRef.veiculos || []) : (veic.data || [])
+      ref.produtos = prod.error
+        ? (((cacheRef.produtos || []).length > (prod.data || []).length) ? cacheRef.produtos : (prod.data || []))
+        : (prod.data || [])
+      ref.base = (base && base.data) ? { cidade: base.data.base_cidade || '', uf: base.data.base_uf || '' } : (cacheRef.base || { cidade: '', uf: '' })
+      ref.status = {}
+      if (sts && !sts.error) (sts.data || []).forEach(s => { ref.status[s.chave] = { label: s.label, cor: s.cor } })
+      else if (cacheRef.status) ref.status = cacheRef.status
       localStorage.setItem(REF_KEY, JSON.stringify(ref))
     } catch (e) {
       const cache = localStorage.getItem(REF_KEY)
@@ -967,6 +999,7 @@
     }
     atualizarTempo()
     aplicarCondicionais()
+    montarTimerAtendimento()   // re-render: reflete as horas repopuladas
     mostrar('form')
   }
 
@@ -987,13 +1020,58 @@
     for (const c of cur.campos) cont.appendChild(renderCampo(c))
     const sc = cont.querySelector('canvas.sig-pad')
     if (sc) { sig = initSignature(sc); sig.resize() }
-    const onFormChange = (e) => { aplicarEspelhos(e); atualizarTempo(); aplicarCondicionais(); const w = e.target.closest && e.target.closest('[data-field]'); if (w) w.classList.remove('campo-erro') }
+    const onFormChange = (e) => { aplicarEspelhos(e); atualizarTempo(); aplicarCondicionais(); const w = e.target.closest && e.target.closest('[data-field]'); if (w) w.classList.remove('campo-erro'); agendarAutosave() }
     cont.oninput = onFormChange
     cont.onchange = onFormChange
     atualizarTempo()
     aplicarCondicionais()
+    montarTimerAtendimento()
     await refreshThumbs()
     await refreshGpsRat()
+  }
+
+  // ── Timer de atendimento: Iniciar/Encerrar preenche hora_inicio/hora_termino ──
+  // Só aparece quando o formulário tem esses campos (ids estáveis usados no calcTempo).
+  // O técnico continua podendo editar as horas manualmente nos campos.
+  let atdTick = null
+  function montarTimerAtendimento() {
+    const old = document.getElementById('atd-timer'); if (old) old.remove()
+    if (atdTick) { clearInterval(atdTick); atdTick = null }
+    const cont = document.getElementById('campos-container')
+    const $ini = () => cont.querySelector('[data-campo="hora_inicio"]')
+    const $fim = () => cont.querySelector('[data-campo="hora_termino"]')
+    if (!$ini() || !$fim()) return
+    const bar = document.createElement('div')
+    bar.id = 'atd-timer'; bar.className = 'atd-timer'
+    cont.parentNode.insertBefore(bar, cont)
+    const hhmm = () => { const d = new Date(); return String(d.getHours()).padStart(2, '0') + ':' + String(d.getMinutes()).padStart(2, '0') }
+    const decorrido = (ini) => {
+      const [h, m] = String(ini).split(':').map(Number)
+      if (isNaN(h) || isNaN(m)) return ''
+      const d = new Date(); let t = (d.getHours() * 60 + d.getMinutes()) - (h * 60 + m)
+      if (t < 0) t += 1440
+      return `${Math.floor(t / 60)}h ${String(t % 60).padStart(2, '0')}min`
+    }
+    const disparar = (el) => { el.dispatchEvent(new Event('input', { bubbles: true })); el.dispatchEvent(new Event('change', { bubbles: true })) }
+    function render() {
+      const bar2 = document.getElementById('atd-timer'); if (!bar2) return
+      const vi = ($ini() || {}).value || '', vf = ($fim() || {}).value || ''
+      if (!vi) {
+        bar2.className = 'atd-timer'
+        bar2.innerHTML = '<div class="tt">Atendimento ainda não iniciado</div><button type="button" class="go">▶ Iniciar atendimento</button>'
+        bar2.querySelector('.go').onclick = () => { const el = $ini(); if (!el) return; el.value = hhmm(); disparar(el); capturarGpsAuto(); render() }
+      } else if (!vf) {
+        bar2.className = 'atd-timer run'
+        bar2.innerHTML = `<div class="tt">Em atendimento desde <b>${esc(vi)}</b> · <span class="el">${decorrido(vi)}</span></div><button type="button" class="stop">⏹ Encerrar</button>`
+        bar2.querySelector('.stop').onclick = () => { const el = $fim(); if (!el) return; el.value = hhmm(); disparar(el); render() }
+      } else {
+        bar2.className = 'atd-timer'
+        bar2.innerHTML = `<div class="tt">Atendimento <b>${esc(vi)}</b> – <b>${esc(vf)}</b> · <span class="el">${fmtMin(calcTempo())}</span> trabalhado</div>`
+      }
+    }
+    render()
+    cont.addEventListener('change', render)
+    atdTick = setInterval(() => { if (!document.getElementById('atd-timer')) { clearInterval(atdTick); atdTick = null; return } render() }, 30000)
   }
 
   // ── Espelho: um campo copia o valor de outro quando este muda ──
@@ -1065,7 +1143,9 @@
     if (c.tipo === 'texto') {
       wrap.innerHTML = `${label}<input type="text" data-campo="${esc(c.id)}" data-tipo="texto"/>`
     } else if (c.tipo === 'texto_longo') {
-      wrap.innerHTML = `${label}<textarea class="ta-longo" data-campo="${esc(c.id)}" data-tipo="texto_longo" placeholder="…"></textarea>`
+      const SRec = window.SpeechRecognition || window.webkitSpeechRecognition
+      wrap.innerHTML = `${label}<div class="ta-wrap"><textarea class="ta-longo" data-campo="${esc(c.id)}" data-tipo="texto_longo" placeholder="…"></textarea>${SRec ? `<button type="button" class="mic-btn" title="Ditar por voz">🎤</button>` : ''}</div>`
+      if (SRec) setTimeout(() => { const b = wrap.querySelector('.mic-btn'); if (b) b.onclick = () => ditar(c.id, b) }, 0)
     } else if (c.tipo === 'data') {
       const hoje = new Date().toISOString().slice(0, 10)
       wrap.innerHTML = `${label}<input type="date" value="${hoje}" data-campo="${esc(c.id)}" data-tipo="data"/>`
@@ -1109,6 +1189,35 @@
       wrap.innerHTML = `${label}<input type="text" data-campo="${esc(c.id)}" data-tipo="texto"/>`
     }
     return wrap
+  }
+
+  // ── Ditado por voz (Web Speech, pt-BR) — botão 🎤 nas textareas do questionário ──
+  // Aparece só quando o navegador suporta. Toque para começar; toque de novo para parar.
+  let recAtivo = null
+  function ditar(campoId, btn) {
+    const SRec = window.SpeechRecognition || window.webkitSpeechRecognition
+    if (!SRec) return
+    if (recAtivo) { try { recAtivo.stop() } catch (e) {} recAtivo = null; return }
+    const ta = document.querySelector(`[data-campo="${CSS.escape(campoId)}"]`)
+    if (!ta) return
+    const rec = new SRec()
+    rec.lang = 'pt-BR'; rec.continuous = true; rec.interimResults = false
+    rec.onresult = (ev) => {
+      let txt = ''
+      for (let i = ev.resultIndex; i < ev.results.length; i++) { if (ev.results[i].isFinal) txt += ev.results[i][0].transcript }
+      if (txt.trim()) {
+        ta.value = (ta.value ? ta.value.replace(/\s+$/, '') + ' ' : '') + txt.trim()
+        ta.dispatchEvent(new Event('input', { bubbles: true }))
+      }
+    }
+    const parar = () => { btn.classList.remove('rec'); btn.textContent = '🎤'; recAtivo = null }
+    rec.onend = parar
+    rec.onerror = () => { parar(); toast('Não consegui ouvir — verifique a permissão do microfone.', 'err') }
+    try {
+      rec.start()
+      recAtivo = rec
+      btn.classList.add('rec'); btn.textContent = '⏹'
+    } catch (e) { parar() }
   }
 
   // ─────────────────────────── Fotos ───────────────────────────
@@ -1310,6 +1419,27 @@
     const el = document.getElementById('f-tempo'); if (el) { const v = fmtMin(calcTempo()); if ('value' in el && el.tagName === 'INPUT') el.value = v; else el.textContent = v }
   }
 
+  // ── Autosave: preserva o que foi digitado no rascunho local, a cada alteração ──
+  // Só age sobre RASCUNHO (não altera RAT já salva/enviada sem um Salvar explícito).
+  // respostas vazio grava null para manter a regra de "rascunho vazio" do descarte.
+  let autosaveT = null
+  function agendarAutosave() {
+    if (!cur || !cur.client_uuid) return
+    clearTimeout(autosaveT)
+    autosaveT = setTimeout(async () => {
+      try {
+        if (!cur || !cur.client_uuid) return
+        const r = await D().obterRat(cur.client_uuid)
+        if (!r || r.sync_status !== D().STATUS.RASCUNHO) return
+        const { respostas } = coletarRespostas()
+        await D().salvarRat(cur.client_uuid, {
+          respostas: Object.keys(respostas).length ? respostas : null,
+          tempo_trabalhado: calcTempo(),
+        })
+      } catch (e) { /* autosave é melhor-esforço */ }
+    }, 700)
+  }
+
   function coletarRespostas() {
     const respostas = {}
     const faltando = [], faltandoIds = []
@@ -1420,7 +1550,8 @@
       // (vêm automáticos da tarefa) — assim abrir e sair de uma RAT não deixa rascunho órfão.
       const vazio = rat && rat.sync_status === D().STATUS.RASCUNHO
         && !rat.tem_foto && !rat.tem_assinatura && !rat.questionario_ok && !rat.respostas
-        && fotos.length === 0 && mats.length === 0
+        && fotos.length === 0
+        && !mats.some(m => (Number(m.quantidade) || 0) > 0 || m.qtd_levada == null)
       if (vazio) await D().removerRat(cur.client_uuid)
     }
     cur = null; sig = null
