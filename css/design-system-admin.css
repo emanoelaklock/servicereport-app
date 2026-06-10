@@ -48,11 +48,11 @@
 .nav .ni{width:29px;height:29px;border-radius:8px;display:grid;place-items:center;flex:none;}
 .nav .ni svg{width:17px;height:17px;stroke:currentColor;fill:none;stroke-width:1.9;stroke-linecap:round;stroke-linejoin:round;}
 .nav:hover{background:#F3F4F8;}
-.c-blue{color:#1976D2;}   .c-blue .ni{background:rgba(30,138,224,.12);color:var(--blue);}
-.c-purple{color:#7E37A6;} .c-purple .ni{background:rgba(142,69,181,.12);color:var(--purple);}
-.c-green{color:#1F8F3F;}  .c-green .ni{background:rgba(40,169,76,.12);color:var(--green);}
-.c-amber{color:#B07D08;}  .c-amber .ni{background:rgba(247,184,30,.18);color:#C2900B;}
-.c-orange{color:#C96A12;} .c-orange .ni{background:rgba(244,134,31,.14);color:var(--orange);}
+.c-blue{color:#1976D2;}   .c-blue .ni{background:rgba(27,127,196,.12);color:var(--blue);}
+.c-purple{color:#7E37A6;} .c-purple .ni{background:rgba(115,50,142,.12);color:var(--purple);}
+.c-green{color:#1F8F3F;}  .c-green .ni{background:rgba(23,154,71,.12);color:var(--green);}
+.c-amber{color:#B07D08;}  .c-amber .ni{background:rgba(253,179,31,.18);color:#C2900B;}
+.c-orange{color:#C96A12;} .c-orange .ni{background:rgba(242,116,35,.14);color:var(--orange);}
 .c-pink{color:#C03A78;}   .c-pink .ni{background:rgba(214,51,132,.12);color:var(--pink);}
 .c-gray{color:#5B6270;}   .c-gray .ni{background:#EEF0F4;color:#8A909C;}
 .nav.on{color:#fff;} .nav.on .ni{background:rgba(255,255,255,.25);color:#fff;}
@@ -93,7 +93,7 @@
 /* ---------- BOTÕES ---------- */
 .btn{display:inline-flex;align-items:center;gap:8px;font-family:inherit;font-size:13.5px;font-weight:700;padding:11px 16px;border-radius:11px;cursor:pointer;border:none;}
 .btn svg{width:16px;height:16px;stroke:currentColor;fill:none;stroke-width:2;}
-.btn-primary{background:var(--blue);color:#fff;box-shadow:0 8px 16px rgba(30,138,224,.26);}
+.btn-primary{background:var(--blue);color:#fff;box-shadow:0 8px 16px rgba(27,127,196,.26);}
 .btn-ghost{background:#fff;color:var(--ink);border:1px solid var(--line);}
 .btn-icon{background:#fff;border:1px solid var(--line);color:var(--muted);padding:11px 12px;}
 .btn-danger{background:var(--pend-m);color:#fff;}
@@ -102,7 +102,7 @@
    (o design-system .btn zera a borda, deixando o .btn do tema invisível em cards brancos) */
 .tec-admin .btn{border:1px solid var(--line);background:#fff;color:var(--ink);text-decoration:none;}
 .tec-admin .btn:hover{background:#F5F7FA;border-color:#DDE1E9;}
-.tec-admin .btn-primary{background:var(--blue);color:#fff;border:none;box-shadow:0 8px 16px rgba(30,138,224,.22);}
+.tec-admin .btn-primary{background:var(--blue);color:#fff;border:none;box-shadow:0 8px 16px rgba(27,127,196,.22);}
 .tec-admin .btn-primary:hover{background:#1577c4;}
 .tec-admin .btn-p{background:var(--blue);color:#fff;border-color:var(--blue);}
 .tec-admin .btn-p:hover{background:#1577c4;border-color:#1577c4;color:#fff;}
@@ -155,10 +155,10 @@
 .kpi .lab{font-size:12px;font-weight:700;letter-spacing:normal;text-transform:none;opacity:.75;}
 .kpi .n{font-size:42px;font-weight:800;line-height:1.05;margin-top:8px;font-variant-numeric:tabular-nums;letter-spacing:-1px;}
 .kpi .sub{font-size:12px;opacity:.65;font-weight:500;margin-top:4px;}
-.k-blue{background:rgba(30,138,224,.13);box-shadow:0 8px 18px rgba(30,138,224,.10);}   .k-blue .ic{color:var(--blue);}
-.k-amber{background:rgba(245,166,35,.20);box-shadow:0 8px 18px rgba(245,166,35,.12);}  .k-amber .ic{color:#C2810A;}
-.k-purple{background:rgba(142,69,181,.13);box-shadow:0 8px 18px rgba(142,69,181,.10);} .k-purple .ic{color:var(--purple);}
-.k-green{background:rgba(40,169,76,.13);box-shadow:0 8px 18px rgba(40,169,76,.10);}    .k-green .ic{color:var(--green);}
+.k-blue{background:rgba(27,127,196,.13);box-shadow:0 8px 18px rgba(27,127,196,.10);}   .k-blue .ic{color:var(--blue);}
+.k-amber{background:rgba(253,179,31,.20);box-shadow:0 8px 18px rgba(253,179,31,.12);}  .k-amber .ic{color:#C2810A;}
+.k-purple{background:rgba(115,50,142,.13);box-shadow:0 8px 18px rgba(115,50,142,.10);} .k-purple .ic{color:var(--purple);}
+.k-green{background:rgba(23,154,71,.13);box-shadow:0 8px 18px rgba(23,154,71,.10);}    .k-green .ic{color:var(--green);}
 
 /* ---------- PANEL / COLUNAS ---------- */
 .cols{display:grid;grid-template-columns:1fr 360px;gap:18px;align-items:start;}
@@ -170,7 +170,7 @@
 .field{margin-bottom:15px;} .field:last-child{margin-bottom:0;}
 .lab{display:block;font-size:12px;font-weight:600;color:#5b6270;margin-bottom:7px;}
 .inp,.sel,.ta{width:100%;font-family:inherit;font-size:14px;font-weight:500;color:var(--ink);background:#fff;border:1px solid #DDE1E9;border-radius:10px;padding:11px 13px;}
-.inp:focus,.sel:focus,.ta:focus{outline:none;border-color:var(--blue);box-shadow:0 0 0 3px rgba(30,138,224,.13);}
+.inp:focus,.sel:focus,.ta:focus{outline:none;border-color:var(--blue);box-shadow:0 0 0 3px rgba(27,127,196,.13);}
 .ta{min-height:74px;resize:vertical;}
 .inp-wrap{position:relative;display:flex;align-items:center;} .inp-wrap .inp{padding-right:78px;}
 .inp-badge{position:absolute;right:9px;background:var(--info-bg);color:var(--info-fg);font-size:10.5px;font-weight:700;padding:3px 8px;border-radius:999px;}
@@ -233,8 +233,8 @@
 .ck-card{border-radius:14px;padding:15px 17px;color:#fff;}
 .ck-card .l{font-size:12px;font-weight:700;letter-spacing:normal;text-transform:none;opacity:.92;}
 .ck-card .v{font-size:25px;font-weight:800;margin-top:5px;letter-spacing:-.5px;font-variant-numeric:tabular-nums;}
-.ck-blue{background:linear-gradient(135deg,#3B7AF0,#1E8AE0);} .ck-green{background:linear-gradient(135deg,#34BD5A,#28A94C);}
-.ck-amber{background:linear-gradient(135deg,#F5A623,#E5890B);color:#fff;} .ck-red{background:linear-gradient(135deg,#EF5A52,#E5403A);}
+.ck-blue{background:linear-gradient(135deg,#3B7AF0,#1B7FC4);} .ck-green{background:linear-gradient(135deg,#34BD5A,#179A47);}
+.ck-amber{background:linear-gradient(135deg,#F5A623,#E5890B);color:#fff;} .ck-red{background:linear-gradient(135deg,#EF5A52,#DE2C2C);}
 table.concil{width:100%;border-collapse:collapse;}
 table.concil thead th{font-size:12px;font-weight:700;letter-spacing:normal;text-transform:none;color:var(--muted);text-align:right;padding:0 10px 11px;border-bottom:1px solid var(--line);}
 table.concil thead th.l{text-align:left;}
