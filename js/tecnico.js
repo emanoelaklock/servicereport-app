@@ -1034,10 +1034,12 @@
   // Só aparece quando o formulário tem esses campos (ids estáveis usados no calcTempo).
   // O técnico continua podendo editar as horas manualmente nos campos.
   let atdTick = null
+  let atdRender = null   // listener anterior — removido a cada montagem (evita acúmulo entre RATs)
   function montarTimerAtendimento() {
     const old = document.getElementById('atd-timer'); if (old) old.remove()
     if (atdTick) { clearInterval(atdTick); atdTick = null }
     const cont = document.getElementById('campos-container')
+    if (atdRender) { cont.removeEventListener('change', atdRender); atdRender = null }
     const $ini = () => cont.querySelector('[data-campo="hora_inicio"]')
     const $fim = () => cont.querySelector('[data-campo="hora_termino"]')
     if (!$ini() || !$fim()) return
@@ -1070,6 +1072,7 @@
       }
     }
     render()
+    atdRender = render
     cont.addEventListener('change', render)
     atdTick = setInterval(() => { if (!document.getElementById('atd-timer')) { clearInterval(atdTick); atdTick = null; return } render() }, 30000)
   }
@@ -1143,9 +1146,7 @@
     if (c.tipo === 'texto') {
       wrap.innerHTML = `${label}<input type="text" data-campo="${esc(c.id)}" data-tipo="texto"/>`
     } else if (c.tipo === 'texto_longo') {
-      const SRec = window.SpeechRecognition || window.webkitSpeechRecognition
-      wrap.innerHTML = `${label}<div class="ta-wrap"><textarea class="ta-longo" data-campo="${esc(c.id)}" data-tipo="texto_longo" placeholder="…"></textarea>${SRec ? `<button type="button" class="mic-btn" title="Ditar por voz">🎤</button>` : ''}</div>`
-      if (SRec) setTimeout(() => { const b = wrap.querySelector('.mic-btn'); if (b) b.onclick = () => ditar(c.id, b) }, 0)
+      wrap.innerHTML = `${label}<textarea class="ta-longo" data-campo="${esc(c.id)}" data-tipo="texto_longo" placeholder="…"></textarea>`
     } else if (c.tipo === 'data') {
       const hoje = new Date().toISOString().slice(0, 10)
       wrap.innerHTML = `${label}<input type="date" value="${hoje}" data-campo="${esc(c.id)}" data-tipo="data"/>`
@@ -1189,35 +1190,6 @@
       wrap.innerHTML = `${label}<input type="text" data-campo="${esc(c.id)}" data-tipo="texto"/>`
     }
     return wrap
-  }
-
-  // ── Ditado por voz (Web Speech, pt-BR) — botão 🎤 nas textareas do questionário ──
-  // Aparece só quando o navegador suporta. Toque para começar; toque de novo para parar.
-  let recAtivo = null
-  function ditar(campoId, btn) {
-    const SRec = window.SpeechRecognition || window.webkitSpeechRecognition
-    if (!SRec) return
-    if (recAtivo) { try { recAtivo.stop() } catch (e) {} recAtivo = null; return }
-    const ta = document.querySelector(`[data-campo="${CSS.escape(campoId)}"]`)
-    if (!ta) return
-    const rec = new SRec()
-    rec.lang = 'pt-BR'; rec.continuous = true; rec.interimResults = false
-    rec.onresult = (ev) => {
-      let txt = ''
-      for (let i = ev.resultIndex; i < ev.results.length; i++) { if (ev.results[i].isFinal) txt += ev.results[i][0].transcript }
-      if (txt.trim()) {
-        ta.value = (ta.value ? ta.value.replace(/\s+$/, '') + ' ' : '') + txt.trim()
-        ta.dispatchEvent(new Event('input', { bubbles: true }))
-      }
-    }
-    const parar = () => { btn.classList.remove('rec'); btn.textContent = '🎤'; recAtivo = null }
-    rec.onend = parar
-    rec.onerror = () => { parar(); toast('Não consegui ouvir — verifique a permissão do microfone.', 'err') }
-    try {
-      rec.start()
-      recAtivo = rec
-      btn.classList.add('rec'); btn.textContent = '⏹'
-    } catch (e) { parar() }
   }
 
   // ─────────────────────────── Fotos ───────────────────────────
