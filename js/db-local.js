@@ -234,6 +234,8 @@
       produto_id: m.produto_id || null, codigo_produto: m.codigo_produto || null,
       descricao: m.descricao || null, unidade: m.unidade || null,
       quantidade: Number(m.quantidade) || 0, qtd_levada: (m.qtd_levada != null ? Number(m.qtd_levada) : null),
+      qtd_orcada: (m.qtd_orcada != null ? Number(m.qtd_orcada) : null),
+      qtd_usada_tarefa: (m.qtd_usada_tarefa != null ? Number(m.qtd_usada_tarefa) : null),
       criado_em: agora(),
     }
     await tx([ST_MATERIAIS], 'readwrite', (t) => { t.objectStore(ST_MATERIAIS).add(reg) })
