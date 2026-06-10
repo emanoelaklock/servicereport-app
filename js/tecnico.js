@@ -1149,7 +1149,7 @@
       wrap.innerHTML = `${label}<input type="text" data-campo="${esc(c.id)}" data-tipo="texto"/>`
     } else if (c.tipo === 'texto_longo') {
       wrap.innerHTML = `${label}<textarea class="ta-longo" data-campo="${esc(c.id)}" data-tipo="texto_longo" placeholder="…"></textarea>
-        <button type="button" class="ia-btn">✨ Melhorar escrita</button>`
+        <button type="button" class="ia-btn" title="Melhorar escrita (IA)">✨</button>`
       setTimeout(() => { const b = wrap.querySelector('.ia-btn'); if (b) b.onclick = () => melhorarTexto(c.id, b) }, 0)
     } else if (c.tipo === 'data') {
       const hoje = new Date().toISOString().slice(0, 10)
@@ -1209,7 +1209,7 @@
     if (!navigator.onLine) return toast('Melhorar escrita precisa de internet.', 'err')
     btn.disabled = true
     const old = btn.textContent
-    btn.textContent = '✨ Melhorando…'
+    btn.textContent = '⏳'
     try {
       const { data, error } = await getSupabase().functions.invoke('melhorar-texto', { body: { texto } })
       if (error) throw new Error(error.message || 'falha na chamada')
