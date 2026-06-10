@@ -1415,7 +1415,12 @@
     if (cur) {
       const rat = await D().obterRat(cur.client_uuid)
       const fotos = await D().listarFotos(cur.client_uuid)
-      const vazio = rat && rat.sync_status === D().STATUS.RASCUNHO && !rat.cliente_id && fotos.length === 0
+      const mats = await D().listarMateriais(cur.client_uuid)
+      // "vazio" = rascunho recém-aberto sem trabalho real. Ignora cliente/tarefa
+      // (vêm automáticos da tarefa) — assim abrir e sair de uma RAT não deixa rascunho órfão.
+      const vazio = rat && rat.sync_status === D().STATUS.RASCUNHO
+        && !rat.tem_foto && !rat.tem_assinatura && !rat.questionario_ok && !rat.respostas
+        && fotos.length === 0 && mats.length === 0
       if (vazio) await D().removerRat(cur.client_uuid)
     }
     cur = null; sig = null
