@@ -1354,7 +1354,7 @@
   function abrirModalDesloc() { if (!cur) return; document.getElementById('modal-desloc-rat').classList.add('open') }
   function fecharModalDesloc() { document.getElementById('modal-desloc-rat').classList.remove('open'); atualizarBadgeDesloc() }
   // ── Progresso da RAT: itens obrigatórios para concluir ──
-  // Conta campos obrigatórios visíveis + pergunta de produtos + foto + assinatura.
+  // Conta campos obrigatórios visíveis + pergunta de produtos + foto obrigatória.
   async function atualizarProgresso() {
     const fill = document.getElementById('rat-prog-fill'), txt = document.getElementById('rat-prog-txt')
     if (!fill || !txt || !cur || !cur.campos || !cur.campos.length) return
