@@ -566,15 +566,16 @@
     const rat = await D().novoRat({ tarefa_id: t.id, tarefa_numero: t.numero || null, cliente_id: t.cliente_id || null, cliente_nome: cliNomeDe(t.cliente_id, null) })
     cur = { client_uuid: rat.client_uuid, campos: [], tarefa_id: t.id, tarefa_numero: t.numero }
     usoProd = null
-    document.getElementById('form-titulo').textContent = 'Nova RAT'
     const tipoNome = (ref.tipos.find(x => x.id === tipoId) || {}).nome
-    const banner = document.getElementById('f-tarefa-banner')
-    banner.style.display = 'block'
-    banner.textContent = `RAT da Tarefa Nº ${osNo(t.numero)} · ${cliNomeDe(t.cliente_id)}${tipoNome ? ' · ' + tipoNome : ''}`
-    // cliente travado (vem da tarefa)
+    // card de contexto: nº da RAT dentro da tarefa + cliente + tipo
+    const seqNova = (await D().listarRats()).filter(r => r.tarefa_id === t.id).length
+    preencherCtx({
+      no: t.numero != null ? `Nº ${osNo(t.numero)}${seqNova ? '/' + String(seqNova).padStart(2, '0') : ''}` : '',
+      cliente: cliNomeDe(t.cliente_id), tipo: tipoNome || '', clienteEditavel: false,
+    })
+    // cliente vem da tarefa (campo oculto usado no salvar)
     document.getElementById('f-cliente').value = t.cliente_id || ''
-    const cb = document.getElementById('f-cliente-busca')
-    cb.value = cliNomeDe(t.cliente_id); cb.readOnly = true
+    document.getElementById('f-cliente-busca').value = cliNomeDe(t.cliente_id)
     // tipo é SEMPRE da tarefa: o seletor nunca aparece na RAT
     document.getElementById('f-tipo').value = tipoId
     document.getElementById('f-tipo-wrap').style.display = 'none'
@@ -961,21 +962,20 @@
     if (!rat) return
     cur = { client_uuid, campos: [], tarefa_id: rat.tarefa_id || null, tarefa_numero: rat.tarefa_numero || null }
     usoProd = rat.uso_produtos || (rat.respostas && rat.respostas.uso_produtos) || null
-    document.getElementById('form-titulo').textContent = 'Editar RAT'
-    const banner = document.getElementById('f-tarefa-banner')
     const cb = document.getElementById('f-cliente-busca')
     // tipo é da Tarefa (não da RAT): busca pelo vínculo da tarefa, só para exibir
     const tarefaDela = tarefas.find(x => x.id === rat.tarefa_id)
     const tipoNomeR = (ref.tipos.find(x => x.id === (tarefaDela ? tarefaDela.tipo_servico_id : null)) || {}).nome
     const numR = (tarefaDela && tarefaDela.numero != null) ? tarefaDela.numero : rat.tarefa_numero
     const subR = (rat.rat_seq != null) ? '/' + String(rat.rat_seq).padStart(2, '0') : ''
-    if (rat.tarefa_id) {
-      banner.style.display = 'block'
-      banner.textContent = `RAT da Tarefa ${numR != null ? 'Nº ' + osNo(numR) + subR : '(na fila ↑)'} · ${cliNomeDe(rat.cliente_id, rat.cliente_nome)}${tipoNomeR ? ' · ' + tipoNomeR : ''}`
-      cb.readOnly = true
-    } else { banner.style.display = 'none'; cb.readOnly = false }
+    preencherCtx({
+      no: rat.tarefa_id ? (numR != null ? `Nº ${osNo(numR)}${subR}` : 'na fila ↑') : '',
+      cliente: (ref.clientes.find(c => c.id === rat.cliente_id) || {}).nome || rat.cliente_nome || '—',
+      tipo: tipoNomeR || '', clienteEditavel: !rat.tarefa_id,
+    })
     document.getElementById('f-cliente').value = rat.cliente_id || ''
     cb.value = (ref.clientes.find(c => c.id === rat.cliente_id) || {}).nome || rat.cliente_nome || ''
+    cb.readOnly = false
     document.getElementById('f-tipo-wrap').style.display = 'none'
     document.getElementById('f-status').value = RAT_SIT_LABEL[rat.status] ? rat.status : 'em_andamento'
     document.getElementById('f-pendencias').value = rat.pendencias || ''
@@ -1004,6 +1004,7 @@
     atualizarBadgeDesloc()
     atualizarBadgeProd()
     mostrar('form')
+    document.getElementById('ft-title').textContent = 'Editar RAT'
   }
 
   // Tipo de serviço é da TAREFA; a RAT só guarda qual formulário respondeu (formulario_id).
@@ -1315,24 +1316,38 @@
     })
   }
   function atualizarResumoAlmoco() {
-    const b = document.getElementById('form-pausa-btn'); if (!b) return
+    const card = document.getElementById('form-pausa-btn'), st = document.getElementById('reg-pausa-st')
+    if (!card || !st) return
     const campos = (cur && cur.campos) || []
     const perguntas = ['pausa', 'almoco'].filter(id => campos.some(c => c.id === id))
-    if (!perguntas.length) { b.textContent = 'Pausa/Almoço'; return }
+    if (!perguntas.length) return
     const ok = perguntas.every(id => !!valorCampo(id))
-    b.innerHTML = 'Pausa/Almoço ' + (ok ? '<span class="pbg pbg-ok">✓</span>' : '<span class="pbg pbg-warn">Pendente</span>')
-    if (ok) b.classList.remove('btn-erro')
+    if (ok) {
+      const nenhum = perguntas.every(id => valorCampo(id) === 'Não')
+      st.className = 'st st-ok'; st.textContent = nenhum ? 'Não houve ✓' : '✓'
+      card.classList.remove('btn-erro')
+    } else { st.className = 'st st-pend'; st.textContent = 'Pendente' }
   }
   // badge do botão Deslocamento: Pendente / resposta ✓
   function atualizarBadgeDesloc() {
-    const b = document.getElementById('form-desloc-btn'); if (!b) return
-    if (!cur || !(cur.campos || []).some(c => c.id === 'deslocamento')) { b.textContent = 'Deslocamento'; return }
+    const card = document.getElementById('form-desloc-btn'), st = document.getElementById('reg-desloc-st')
+    if (!card || !st || !cur || !(cur.campos || []).some(c => c.id === 'deslocamento')) return
     const v = valorCampo('deslocamento')
-    b.innerHTML = 'Deslocamento ' + (v ? `<span class="pbg pbg-ok">${esc(v)} ✓</span>` : '<span class="pbg pbg-warn">Pendente</span>')
-    if (v) b.classList.remove('btn-erro')
+    if (v) { st.className = 'st st-ok'; st.textContent = v === 'Não' ? 'Não houve ✓' : 'Houve ✓'; card.classList.remove('btn-erro') }
+    else { st.className = 'st st-pend'; st.textContent = 'Pendente' }
   }
   function abrirModalDesloc() { if (!cur) return; document.getElementById('modal-desloc-rat').classList.add('open') }
   function fecharModalDesloc() { document.getElementById('modal-desloc-rat').classList.remove('open'); atualizarBadgeDesloc() }
+  // Card de contexto no topo da RAT (funde a faixa azul + Cliente & Serviço)
+  function preencherCtx({ no, cliente, tipo, clienteEditavel }) {
+    const noEl = document.getElementById('ctx-no'); if (noEl) noEl.textContent = no || ''
+    const cli = document.getElementById('ctx-cli')
+    if (cli) { cli.style.display = clienteEditavel ? 'none' : ''; cli.textContent = cliente || '—' }
+    const tp = document.getElementById('ctx-tipo')
+    if (tp) { tp.style.display = tipo ? '' : 'none'; tp.textContent = tipo || '' }
+    const cw = document.getElementById('f-cliente-wrap')
+    if (cw) cw.style.display = clienteEditavel ? '' : 'none'
+  }
   function abrirModalAlmoco() { if (!cur) return; document.getElementById('modal-pausa').classList.add('open') }
   function fecharModalAlmoco() { document.getElementById('modal-pausa').classList.remove('open'); atualizarResumoAlmoco() }
 
@@ -1389,10 +1404,11 @@
   function abrirModalFotos() { if (!cur) return; document.getElementById('modal-fotos').classList.add('open'); refreshThumbs() }
   function fecharModalFotos() { document.getElementById('modal-fotos').classList.remove('open'); atualizarResumoFotos() }
   async function atualizarResumoFotos() {
-    const b = document.getElementById('form-fotos-btn'); if (!b || !cur) return
+    const card = document.getElementById('form-fotos-btn'), st = document.getElementById('reg-fotos-st')
+    if (!card || !st || !cur) return
     const n = (await D().listarFotos(cur.client_uuid)).length
-    b.innerHTML = 'Fotos ' + (n ? `<span class="pbg pbg-ok">${n} ✓</span>` : '<span class="pbg pbg-warn">Pendente</span>')
-    if (n) b.classList.remove('btn-erro')
+    if (n) { st.className = 'st st-ok'; st.textContent = `${n} foto${n === 1 ? '' : 's'} ✓`; card.classList.remove('btn-erro') }
+    else { st.className = 'st st-pend'; st.textContent = 'Pendente' }
   }
 
   // ── Produtos da RAT: pergunta obrigatória + apontamento com stepper ──
@@ -1444,16 +1460,16 @@
   }
   // badge de estado no botão "Produtos" do formulário
   async function atualizarBadgeProd() {
-    const b = document.getElementById('form-produtos-btn'); if (!b || !cur) return
+    const card = document.getElementById('form-produtos-btn'), st = document.getElementById('reg-prod-st')
+    if (!card || !st || !cur) return
     const temCampo = (cur.campos || []).some(c => c.tipo === 'produtos')
-    if (!temCampo) { b.textContent = 'Produtos'; return }
-    let badge = '<span class="pbg pbg-warn">Pendente</span>'
-    if (usoProd === 'Não') badge = '<span class="pbg pbg-ok">Sem uso ✓</span>'
+    card.style.display = temCampo ? '' : 'none'
+    if (!temCampo) return
+    if (usoProd === 'Não') { st.className = 'st st-ok'; st.textContent = 'Sem uso ✓' }
     else if (usoProd === 'Sim') {
       const n = (await D().listarMateriais(cur.client_uuid)).filter(m => (Number(m.quantidade) || 0) > 0).length
-      badge = `<span class="pbg pbg-info">${n} ite${n === 1 ? 'm' : 'ns'}</span>`
-    }
-    b.innerHTML = 'Produtos ' + badge
+      st.className = 'st st-ok'; st.textContent = `${n} ite${n === 1 ? 'm' : 'ns'} ✓`
+    } else { st.className = 'st st-pend'; st.textContent = 'Pendente' }
   }
   // Busca no catálogo (ref.produtos — cacheado p/ offline): sugere e inclui com qtd 1.
   async function renderCatalogoSug() {
