@@ -1224,7 +1224,7 @@
       wrap.innerHTML = `${label}<div class="multi-chk">${checks || '<span class="dim">Nenhum técnico cadastrado</span>'}</div>`
     } else if (c.tipo === 'veiculo') {
       const ops = (ref.veiculos || []).map(v => { const lbl = `${v.modelo || ''} (${v.placa || ''})`; return `<option value="${esc(lbl)}">${esc(lbl)}</option>` }).join('')
-      wrap.innerHTML = `${label}<select data-campo="${esc(c.id)}" data-tipo="veiculo"><option value="">Selecione…</option>${ops}</select>`
+      wrap.innerHTML = `${label}<select data-campo="${esc(c.id)}" data-tipo="veiculo"><option value="">Selecione…</option><option value="Sem veículo">Sem veículo</option>${ops}</select>`
     } else if (c.tipo === 'produtos') {
       // Produtos têm o botão próprio no topo do formulário ("🧰 Produtos"); o campo só dispara a pré-carga dos levados.
       wrap.className = ''
