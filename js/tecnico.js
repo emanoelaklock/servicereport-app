@@ -143,7 +143,9 @@
     // Botões do formulário da RAT
     document.getElementById('form-produtos-btn').onclick = abrirModalProd
     document.getElementById('form-fotos-btn').onclick = abrirModalFotos
-    document.getElementById('form-desloc-btn').onclick = abrirDesloc          // Trajeto / pernoite
+    document.getElementById('form-desloc-btn').onclick = abrirModalDesloc   // deslocamento DO DIA (pernoite é à parte, na home)
+    document.getElementById('dr-x').onclick = fecharModalDesloc
+    document.getElementById('dr-ok').onclick = fecharModalDesloc
     document.getElementById('form-pausa-btn').onclick = abrirModalAlmoco
     document.getElementById('pa-x').onclick = fecharModalAlmoco
     document.getElementById('pa-ok').onclick = fecharModalAlmoco
@@ -1008,6 +1010,7 @@
     montarTimers()   // re-render: reflete as horas repopuladas
     sincronizarSegmentados()
     atualizarResumoAlmoco()
+    atualizarBadgeDesloc()
     atualizarBadgeProd()
     mostrar('form')
   }
@@ -1030,7 +1033,7 @@
     organizarCamposForm()   // ordem cronológica + almoço no modal
     const sc = cont.querySelector('canvas.sig-pad')
     if (sc) { sig = initSignature(sc); sig.resize() }
-    const onFormChange = (e) => { aplicarEspelhos(e); atualizarTempo(); aplicarCondicionais(); atualizarResumoAlmoco(); if (timersRender) timersRender(); const w = e.target.closest && e.target.closest('[data-field]'); if (w) w.classList.remove('campo-erro'); agendarAutosave() }
+    const onFormChange = (e) => { aplicarEspelhos(e); atualizarTempo(); aplicarCondicionais(); atualizarResumoAlmoco(); atualizarBadgeDesloc(); if (timersRender) timersRender(); const w = e.target.closest && e.target.closest('[data-field]'); if (w) w.classList.remove('campo-erro'); agendarAutosave() }
     cont.oninput = onFormChange
     cont.onchange = onFormChange
     const dCont = document.getElementById('desloc-campos')
@@ -1263,9 +1266,11 @@
   // Houve deslocamento? (+detalhes) → Hora início → Houve pausa? (+detalhes) → Hora término.
   // O Almoço NÃO muda neste pacote: segue no modal do botão "Almoço".
   const ALMOCO_ID = /^almoco/i
+  const idsModalDesloc = new Set()   // campos que moram no modal Deslocamento
   const wrapDe = (id) => document.querySelector(`[data-field="${CSS.escape(id)}"]`)
   function organizarCamposForm() {
     const campos = (cur && cur.campos) || []
+    const dependeDe = (c, alvo) => !!(c.cond && (c.cond.regras || []).some(r => r.campo === alvo))
     // 1) almoço → modal do botão "Almoço"
     const ac = document.getElementById('pausa-campos')
     if (ac) ac.innerHTML = ''
@@ -1276,21 +1281,30 @@
       if (w && ac) { ac.appendChild(w); nA++ }
     }
     const pb = document.getElementById('form-pausa-btn'); if (pb) pb.style.display = nA ? '' : 'none'
-    // 2) sequência cronológica inline
+    // 2) deslocamento DO DIA → modal do botão "Deslocamento" (pernoite é à parte, na home)
+    idsModalDesloc.clear()
+    const dc = document.getElementById('desloc-campos')
+    if (dc) dc.innerHTML = ''
+    let nD = 0
+    for (const c of campos) {
+      if (!(c.id === 'deslocamento' || dependeDe(c, 'deslocamento'))) continue
+      const w = document.querySelector(`#campos-container [data-field="${CSS.escape(c.id)}"]`)
+      if (w && dc) { dc.appendChild(w); idsModalDesloc.add(c.id); nD++ }
+    }
+    const db = document.getElementById('form-desloc-btn'); if (db) db.style.display = nD ? '' : 'none'
+    // 3) sequência cronológica inline do restante: hora início → pausa (+detalhes) → hora término
     const tem = (id) => campos.some(c => c.id === id)
-    const dependeDe = (c, alvo) => !!(c.cond && (c.cond.regras || []).some(r => r.campo === alvo))
-    const SEQ = []
-    if (tem('deslocamento')) { SEQ.push('deslocamento'); for (const c of campos) if (dependeDe(c, 'deslocamento')) SEQ.push(c.id) }
-    SEQ.push('hora_inicio')
+    const SEQ = ['hora_inicio']
     if (tem('pausa')) { SEQ.push('pausa'); for (const c of campos) if (dependeDe(c, 'pausa')) SEQ.push(c.id) }
     SEQ.push('hora_termino')
     let refW = null
     for (const id of SEQ) {
-      const w = wrapDe(id); if (!w) continue
+      const w = wrapDe(id); if (!w || idsModalDesloc.has(id)) continue
       if (refW) refW.after(w)
       refW = w
     }
     atualizarResumoAlmoco()
+    atualizarBadgeDesloc()
   }
   // segmented Sim/Não: reflete o valor do input oculto nos botões (após repopular)
   function sincronizarSegmentados() {
@@ -1304,6 +1318,16 @@
     const b = document.getElementById('form-pausa-btn'); if (!b) return
     b.textContent = valorCampo('almoco') ? 'Almoço ✓' : 'Almoço'
   }
+  // badge do botão Deslocamento: Pendente / resposta ✓
+  function atualizarBadgeDesloc() {
+    const b = document.getElementById('form-desloc-btn'); if (!b) return
+    if (!cur || !(cur.campos || []).some(c => c.id === 'deslocamento')) { b.textContent = 'Deslocamento'; return }
+    const v = valorCampo('deslocamento')
+    b.innerHTML = 'Deslocamento ' + (v ? `<span class="pbg pbg-ok">${esc(v)} ✓</span>` : '<span class="pbg pbg-warn">Pendente</span>')
+    if (v) b.classList.remove('btn-erro')
+  }
+  function abrirModalDesloc() { if (!cur) return; document.getElementById('modal-desloc-rat').classList.add('open') }
+  function fecharModalDesloc() { document.getElementById('modal-desloc-rat').classList.remove('open'); atualizarBadgeDesloc() }
   function abrirModalAlmoco() { if (!cur) return; document.getElementById('modal-pausa').classList.add('open') }
   function fecharModalAlmoco() { document.getElementById('modal-pausa').classList.remove('open'); atualizarResumoAlmoco() }
 
@@ -1668,11 +1692,18 @@
         marcarErros([], [document.getElementById('form-produtos-btn')])
         return toast('Informe se houve uso de produtos.', 'err')
       }
+      // Deslocamento do dia precisa ser respondido (mora no botão "Deslocamento")
+      const temDesloc = cur.campos.some(c => c.id === 'deslocamento' && vis(c))
+      if (temDesloc && !respostas.deslocamento) {
+        marcarErros([], [document.getElementById('form-desloc-btn')])
+        return toast('Abra "Deslocamento" e responda.', 'err')
+      }
       if (faltando.length) {
-        // campos do modal Almoço destacam o botão; o resto destaca inline
+        // campos dos modais (Deslocamento/Almoço) destacam o botão; o resto inline
         const noForm = [], botoes = []
         for (const id of faltandoIds) {
           if (ALMOCO_ID.test(id)) botoes.push(document.getElementById('form-pausa-btn'))
+          else if (idsModalDesloc.has(id)) botoes.push(document.getElementById('form-desloc-btn'))
           else noForm.push(id)
         }
         marcarErros(noForm, botoes)
