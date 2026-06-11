@@ -240,16 +240,13 @@ try{if(localStorage.getItem('sr_dark')==='1')document.documentElement.classList.
   .r-teal{background:#12A5A5}
   .r-purple{background:var(--purple,#73328E)}
   .r-orange{background:var(--orange,#F27423)}
-  .r-yellow{background:var(--yellow,#FDB31F);color:#1A1A1A}
+  .r-yellow{background:var(--yellow,#FDB31F)}
   .reg .top{display:flex;align-items:center;gap:9px}
   .reg .ic{width:32px;height:32px;border-radius:9px;background:rgba(255,255,255,.22);display:grid;place-items:center;flex:none}
   .reg .ic svg{width:17px;height:17px;stroke:#fff;fill:none;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
-  .r-yellow .ic{background:rgba(0,0,0,.12)}
-  .r-yellow .ic svg{stroke:#1A1A1A}
   .reg .lbl{font-size:13.5px;font-weight:700;letter-spacing:-.2px;line-height:1.1}
   .reg .st{align-self:flex-start;font-size:10.5px;font-weight:700;padding:4px 9px;border-radius:999px}
   .reg .st-pend{background:rgba(255,255,255,.28);color:#fff}
-  .r-yellow .st-pend{background:rgba(0,0,0,.12);color:#1A1A1A}
   .reg .st-ok{background:#fff;color:#0F7A33}
 
   /* ===== Produtos: sugestões do catálogo ===== */
@@ -631,7 +628,7 @@ try{if(localStorage.getItem('sr_dark')==='1')document.documentElement.classList.
       <p class="hintn" id="fotos-hint">Uma foto do antes/depois já conta muito. Sobe rápido mesmo no campo.</p>
       <div class="thumbs" id="thumbs" style="margin-top:12px"></div>
     </div>
-    <div class="tm-f" style="justify-content:flex-end"><button class="btn btn-p" id="fotos-ok">Concluir</button></div>
+    <div class="tm-f" style="justify-content:flex-end"><button class="btn btn-purple" id="fotos-ok">Concluir</button></div>
   </div>
 </div>
 
@@ -670,7 +667,7 @@ try{if(localStorage.getItem('sr_dark')==='1')document.documentElement.classList.
     </div>
     <div class="tm-f" style="justify-content:space-between;align-items:center">
       <span style="font-weight:700;font-size:13.5px" id="prod-resumo-foot">—</span>
-      <button class="btn btn-p" id="prod-ok">Concluir</button>
+      <button class="btn btn-teal" id="prod-ok">Concluir</button>
     </div>
   </div>
 </div>
@@ -788,7 +785,7 @@ try{if(localStorage.getItem('sr_dark')==='1')document.documentElement.classList.
   <div class="tm-box" style="display:flex;flex-direction:column">
     <div class="tm-h"><span>Deslocamento</span><button class="tm-x" id="dr-x">✕</button></div>
     <div class="tm-b tskin" style="flex:1;overflow:auto;min-height:0"><div id="desloc-campos"></div></div>
-    <div class="tm-f" style="justify-content:flex-end"><button class="btn btn-p" id="dr-ok">Concluir</button></div>
+    <div class="tm-f" style="justify-content:flex-end"><button class="btn btn-orange" id="dr-ok">Concluir</button></div>
   </div>
 </div>
 
@@ -797,7 +794,7 @@ try{if(localStorage.getItem('sr_dark')==='1')document.documentElement.classList.
   <div class="tm-box" style="display:flex;flex-direction:column">
     <div class="tm-h"><span>Pausa/Almoço</span><button class="tm-x" id="pa-x">✕</button></div>
     <div class="tm-b tskin" style="flex:1;overflow:auto;min-height:0"><div id="pausa-campos"></div></div>
-    <div class="tm-f" style="justify-content:flex-end"><button class="btn btn-p" id="pa-ok">Concluir</button></div>
+    <div class="tm-f" style="justify-content:flex-end"><button class="btn btn-yellow" id="pa-ok">Concluir</button></div>
   </div>
 </div>
 

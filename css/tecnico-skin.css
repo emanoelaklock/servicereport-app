@@ -55,7 +55,8 @@
 .tskin .btn-purple{background:var(--purple);color:#fff;}
 .tskin .btn-orange{background:var(--orange);color:#fff;}
 .tskin .btn-red{background:var(--red);color:#fff;}
-.tskin .btn-yellow{background:var(--yellow);color:#1A1A1A;}
+.tskin .btn-teal{background:#12A5A5;color:#fff;}
+.tskin .btn-yellow{background:var(--yellow);color:#fff;}
 .tskin .btn svg{width:17px;height:17px;stroke:currentColor;fill:none;stroke-width:2;stroke-linecap:round;stroke-linejoin:round;flex:none;}
 .tskin .seg-tipo svg{width:15px;height:15px;stroke:currentColor;fill:none;stroke-width:2;stroke-linecap:round;stroke-linejoin:round;vertical-align:-2px;margin-right:5px;}
 .tskin .btn-ghost{background:#fff;color:var(--t-ink);border:1px solid var(--t-line);}
