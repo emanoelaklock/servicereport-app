@@ -125,11 +125,6 @@ try{if(localStorage.getItem('sr_dark')==='1')document.documentElement.classList.
   .prod-item{display:grid;grid-template-columns:1fr auto 24px;gap:8px;align-items:center;background:var(--sur);border:1px solid var(--bd);border-radius:8px;padding:6px 10px;font-size:13px}
   .prod-item .prod-qtd{font-family:var(--mono);font-size:12px;color:var(--tx2)}
   .prod-item .thumb-x{position:static;width:22px;height:22px}
-  .prod-search{display:flex;align-items:center;gap:8px;border:1px solid var(--bd);border-radius:10px;padding:9px 12px;background:var(--sur)}
-  .prod-search input{border:none;outline:none;background:none;font:inherit;font-size:14px;flex:1;min-width:0}
-  .prod-tabs{display:flex;border-bottom:1px solid var(--bd)}
-  .prod-tabs .prod-tab{flex:1;background:none;border:none;padding:10px 4px;font:inherit;font-size:13px;font-weight:700;color:var(--tx3);border-bottom:2px solid transparent;cursor:pointer}
-  .prod-tabs .prod-tab.on{color:var(--ac);border-bottom-color:var(--ac)}
   .prod-row{display:flex;align-items:center;gap:10px;padding:10px 2px;border-bottom:1px solid var(--sur2);font-size:13px}
   .prod-row .pr-main{flex:1;min-width:0}
   .prod-row .pr-desc{font-weight:600;color:var(--tx)}
@@ -141,7 +136,6 @@ try{if(localStorage.getItem('sr_dark')==='1')document.documentElement.classList.
   .prod-empty{text-align:center;color:var(--tx3);font-size:13px;padding:24px 0}
   .prod-avulso{margin-top:8px;width:100%;justify-content:center}
   /* override da regra genérica .tm-b input (width:100%) dentro do modal de produtos */
-  #modal-prod .prod-search input{width:100%;border:none;background:none;padding:0}
   #modal-prod .prod-row{display:flex;align-items:center;gap:10px}
   #modal-prod .prod-row .pr-main{flex:1 1 auto;min-width:0;word-break:break-word}
   #modal-prod .prod-row input.pr-qtd{flex:0 0 76px;width:76px;box-sizing:border-box;text-align:right;padding:6px 8px;border:1px solid var(--bd);border-radius:7px}
@@ -207,13 +201,39 @@ try{if(localStorage.getItem('sr_dark')==='1')document.documentElement.classList.
   .atd-timer .stop{background:#DE2C2C}
   .atd-timer .redo{background:var(--sur);color:var(--tx2);border:1px solid var(--bd)}
 
+  /* ===== Pergunta Sim/Não (segmented) ===== */
+  .segq{display:flex;gap:10px}
+  .segq button{flex:1;padding:13px;border:1.6px solid var(--bd);border-radius:12px;background:var(--sur);font:inherit;font-size:15px;font-weight:700;color:var(--tx2);cursor:pointer}
+  .segq button.on{border-color:#1B7FC4;background:#E7F1FC;color:#175fb0}
+  html.dark .segq button.on{background:#16243a;color:#9fc1ff}
+
+  /* ===== Produtos da RAT: linhas com stepper ===== */
+  .prod-row2{display:flex;align-items:center;gap:10px;padding:12px 0;border-bottom:1px solid var(--bd)}
+  .prod-row2 .pr-main{flex:1;min-width:0}
+  .prod-row2 .pr-desc{font-size:14px;font-weight:700;color:var(--tx)}
+  .prod-row2 .pr-un{color:var(--tx3);font-weight:700;font-size:11.5px}
+  .prod-row2 .pr-sub{font-size:11.5px;color:var(--tx3);margin-top:2px}
+  .prod-row2 .pr-x{background:none;border:none;color:var(--tx3);font-size:18px;cursor:pointer;padding:4px}
+  .stp{display:flex;align-items:stretch;border:1px solid var(--bd);border-radius:11px;overflow:hidden;background:var(--sur);flex:none}
+  .stp button{border:none;background:none;font:inherit;cursor:pointer}
+  .stp .stp-m,.stp .stp-p{width:42px;font-size:20px;font-weight:700;color:var(--tx2);background:var(--sur2)}
+  .stp .stp-n{min-width:56px;height:44px;padding:0 6px;font-size:15.5px;font-weight:800;font-variant-numeric:tabular-nums;color:var(--tx)}
+  .stp .stp-n.over{color:#DE2C2C}
+  .stp .stp-i{width:64px;height:44px;border:none;text-align:center;font:inherit;font-size:15.5px;font-weight:800;outline:2px solid #1B7FC4;background:var(--sur);color:var(--tx)}
+  #prod-avulso-form input{width:100%;padding:10px 11px;border:1px solid var(--bd);border-radius:9px;font:inherit;font-size:16px;background:var(--sur);color:var(--tx)}
+
+  /* ===== Badge de estado no botão Produtos ===== */
+  .pbg{font-size:10.5px;font-weight:800;padding:3px 8px;border-radius:999px;margin-left:4px}
+  .pbg-warn{background:#FCF1DB;color:#8A5A00}
+  .pbg-ok{background:#DEF3E6;color:#0F7A33}
+  .pbg-info{background:#E7F1FC;color:#175fb0}
+
   /* ===== Produtos: sugestões do catálogo ===== */
   .prod-cat-h{font-size:11px;font-weight:700;color:var(--tx3);margin:16px 2px 6px;text-transform:none}
 
   /* ===== Ícones SVG fora dos .btn padrão ===== */
   .tskin .hero .cta{display:flex;align-items:center;justify-content:center;gap:8px}
   .tskin .hero .cta svg{width:17px;height:17px;stroke:currentColor;fill:none;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
-  .prod-search span svg{width:16px;height:16px;stroke:#7C8290;fill:none;stroke-width:2;stroke-linecap:round;stroke-linejoin:round;display:block}
   .rat-del svg{width:16px;height:16px;stroke:#9aa3b2;fill:none;stroke-width:2;stroke-linecap:round;stroke-linejoin:round;display:block}
   .atd-timer button{display:inline-flex;align-items:center;gap:7px}
   .atd-timer button svg{width:14px;height:14px;stroke:currentColor;fill:none;stroke-width:2.2;stroke-linecap:round;stroke-linejoin:round}
@@ -412,8 +432,8 @@ try{if(localStorage.getItem('sr_dark')==='1')document.documentElement.classList.
           <div style="display:flex;gap:8px;flex-wrap:wrap;justify-content:flex-end">
             <button type="button" class="btn btn-red btn-auto" id="form-produtos-btn">Produtos</button>
             <button type="button" class="btn btn-purple btn-auto" id="form-fotos-btn" style="display:none">Fotos</button>
-            <button type="button" class="btn btn-orange btn-auto" id="form-desloc-btn">Deslocamento</button>
-            <button type="button" class="btn btn-yellow btn-auto" id="form-pausa-btn" style="display:none">Pausa</button>
+            <button type="button" class="btn btn-orange btn-auto" id="form-desloc-btn">Trajeto</button>
+            <button type="button" class="btn btn-yellow btn-auto" id="form-pausa-btn" style="display:none">Almoço</button>
           </div>
         </div>
         <div class="info" id="f-tarefa-banner" style="display:none;margin-top:10px"></div>
@@ -586,19 +606,39 @@ try{if(localStorage.getItem('sr_dark')==='1')document.documentElement.classList.
 
 <div class="tm-back tm-fs" id="modal-prod">
   <div class="tm-box" style="display:flex;flex-direction:column">
-    <div class="tm-h"><span>Produtos</span><button class="tm-x" id="prod-x">✕</button></div>
-    <div class="tm-b" style="flex:1;overflow:auto;min-height:0">
-      <div class="prod-search"><span><svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="m21 21-4.3-4.3"/></svg></span><input id="prod-busca" placeholder="Nome ou Descrição" autocomplete="off"></div>
-      <div class="prod-tabs">
-        <button type="button" class="prod-tab" data-tab="add">Adicionados</button>
-        <button type="button" class="prod-tab on" data-tab="comigo">Disponível</button>
+    <div class="tm-h" style="gap:10px">
+      <button type="button" class="tm-x" id="prod-x" style="width:auto;font-size:14px;padding:6px 10px">‹ Voltar</button>
+      <span style="flex:1;text-align:center">Produtos da RAT</span>
+      <button type="button" class="btn btn-p" id="prod-salvar-top" style="width:auto;padding:8px 14px;font-size:13px">Salvar</button>
+    </div>
+    <div class="tm-b tskin" style="flex:1;overflow:auto;min-height:0">
+      <div class="fg">
+        <label>Foi utilizado produto neste atendimento? <span style="color:var(--re,#DE2C2C)">*</span></label>
+        <div class="segq" id="prod-uso-seg">
+          <button type="button" data-v="Sim">Sim</button>
+          <button type="button" data-v="Não">Não</button>
+        </div>
       </div>
-      <div class="prod-list" id="prod-list"></div>
-      <button type="button" class="btn btn-sm prod-avulso" id="prod-avulso-btn">+ Item fora dos disponíveis</button>
+      <div class="prod-empty" id="prod-semuso" style="display:none">Sem material utilizado neste atendimento — isso fica registrado na RAT.</div>
+      <div id="prod-lista-wrap" style="display:none">
+        <div class="prod-list" id="prod-list"></div>
+        <button type="button" class="btn btn-sm prod-avulso" id="prod-avulso-btn">+ Item avulso</button>
+        <div id="prod-avulso-form" style="display:none;margin-top:10px">
+          <div style="display:flex;gap:8px">
+            <input id="pav-nome" placeholder="Nome do item" style="flex:2;min-width:0">
+            <input id="pav-un" placeholder="Un." style="flex:.55;min-width:0">
+            <input id="pav-qtd" inputmode="decimal" placeholder="Qtd" style="flex:.55;min-width:0">
+          </div>
+          <div style="display:flex;gap:8px;margin-top:8px;justify-content:flex-end">
+            <button type="button" class="btn btn-sm" id="pav-cancelar" style="width:auto;padding:9px 13px;font-size:13px">Cancelar</button>
+            <button type="button" class="btn btn-sm btn-p" id="pav-add" style="width:auto;padding:9px 13px;font-size:13px">Adicionar</button>
+          </div>
+        </div>
+      </div>
     </div>
     <div class="tm-f" style="justify-content:space-between;align-items:center">
-      <span style="font-weight:800;font-size:14px">Total: <span id="prod-total">--</span></span>
-      <button class="btn btn-p" id="prod-ok">Concluir</button>
+      <span style="font-weight:700;font-size:13.5px" id="prod-resumo-foot">—</span>
+      <button class="btn btn-p" id="prod-ok">Salvar</button>
     </div>
   </div>
 </div>
@@ -711,24 +751,10 @@ try{if(localStorage.getItem('sr_dark')==='1')document.documentElement.classList.
   </div>
 </div>
 
-<!-- Modal: Deslocamento da RAT (perguntas do questionário + trajeto/pernoite) -->
-<div class="tm-back tm-fs" id="modal-desloc-rat">
-  <div class="tm-box" style="display:flex;flex-direction:column">
-    <div class="tm-h"><span>Deslocamento</span><button class="tm-x" id="dr-x">✕</button></div>
-    <div class="tm-b tskin" style="flex:1;overflow:auto;min-height:0">
-      <div id="desloc-campos"></div>
-      <div class="prod-empty" id="desloc-vazio" style="display:none">Este formulário não tem perguntas de deslocamento.</div>
-      <button type="button" class="btn" id="dr-trajeto" style="margin-top:16px;width:100%;justify-content:center"><svg viewBox="0 0 24 24"><path d="M3 17h2m14 0h2M5 17a2 2 0 1 0 4 0 2 2 0 0 0-4 0Zm10 0a2 2 0 1 0 4 0 2 2 0 0 0-4 0Z"/><path d="M5 17V8a1 1 0 0 1 1-1h8l4 4v6"/></svg>Registrar trajeto / pernoite</button>
-      <p class="hintn">Use o trajeto para viagens com saída/chegada e pernoite.</p>
-    </div>
-    <div class="tm-f" style="justify-content:flex-end"><button class="btn btn-p" id="dr-ok">Concluir</button></div>
-  </div>
-</div>
-
-<!-- Modal: Pausa / Almoço (perguntas do questionário) -->
+<!-- Modal: Almoço (perguntas do questionário) -->
 <div class="tm-back tm-fs" id="modal-pausa">
   <div class="tm-box" style="display:flex;flex-direction:column">
-    <div class="tm-h"><span>Pausa / Almoço</span><button class="tm-x" id="pa-x">✕</button></div>
+    <div class="tm-h"><span>Almoço</span><button class="tm-x" id="pa-x">✕</button></div>
     <div class="tm-b tskin" style="flex:1;overflow:auto;min-height:0"><div id="pausa-campos"></div></div>
     <div class="tm-f" style="justify-content:flex-end"><button class="btn btn-p" id="pa-ok">Concluir</button></div>
   </div>

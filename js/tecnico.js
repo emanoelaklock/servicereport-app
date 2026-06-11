@@ -16,7 +16,7 @@
   let ref = { clientes: [], tipos: [], formularios: {}, tecnicos: [], veiculos: [], produtos: [], base: { cidade: '', uf: '' }, status: {} }   // formularios: { [id]: {nome,campos} }
   let tecnico = { id: null, nome: null }
   let cur = null            // RAT em edição: { client_uuid, campos: [], tarefa_id?, tarefa_numero? }
-  let prodTab = 'add'       // aba do seletor de produtos da RAT: add | comigo | estoque
+  let usoProd = null        // "Foi utilizado produto neste atendimento?" ('Sim' | 'Não' | null)
   let sig = null            // controlador do canvas de assinatura
   let curVisivel = {}       // id do campo -> visível? (condicionais)
   const TAREFAS_KEY = 'sr_tarefas_v1'
@@ -110,7 +110,7 @@
       const rs = await D().listarRats({ status: D().STATUS.RASCUNHO })
       for (const r of rs) {
         if (cur && cur.client_uuid === r.client_uuid) continue
-        if (r.tem_foto || r.tem_assinatura || r.questionario_ok || r.respostas) continue
+        if (r.tem_foto || r.tem_assinatura || r.questionario_ok || r.respostas || r.uso_produtos) continue
         const fotos = await D().listarFotos(r.client_uuid)
         if (fotos.length) continue
         const mats = await D().listarMateriais(r.client_uuid)
@@ -140,16 +140,13 @@
     document.getElementById('btn-cancelar').onclick = cancelar
     document.getElementById('btn-salvar').onclick = salvar
     document.getElementById('f-gps-btn').onclick = marcarGpsRat
-    // Modal de produtos da RAT
+    // Botões do formulário da RAT
     document.getElementById('form-produtos-btn').onclick = abrirModalProd
     document.getElementById('form-fotos-btn').onclick = abrirModalFotos
-    document.getElementById('form-desloc-btn').onclick = abrirModalDeslocRat
-    document.getElementById('dr-x').onclick = fecharModalDeslocRat
-    document.getElementById('dr-ok').onclick = fecharModalDeslocRat
-    document.getElementById('dr-trajeto').onclick = abrirDesloc
-    document.getElementById('form-pausa-btn').onclick = abrirModalPausa
-    document.getElementById('pa-x').onclick = fecharModalPausa
-    document.getElementById('pa-ok').onclick = fecharModalPausa
+    document.getElementById('form-desloc-btn').onclick = abrirDesloc          // Trajeto / pernoite
+    document.getElementById('form-pausa-btn').onclick = abrirModalAlmoco
+    document.getElementById('pa-x').onclick = fecharModalAlmoco
+    document.getElementById('pa-ok').onclick = fecharModalAlmoco
     document.getElementById('fotos-x').onclick = fecharModalFotos
     document.getElementById('fotos-ok').onclick = fecharModalFotos
     document.getElementById('btn-foto').onclick = () => document.getElementById('foto-input').click()
@@ -158,15 +155,14 @@
     if (bfg) bfg.onclick = () => document.getElementById('foto-input-gal').click()
     const fig = document.getElementById('foto-input-gal')
     if (fig) fig.onchange = (e) => { adicionarFotos(e.target.files); e.target.value = '' }
+    // Modal Produtos da RAT (Voltar e Salvar fecham; tudo persiste na hora)
     document.getElementById('prod-x').onclick = fecharModalProd
     document.getElementById('prod-ok').onclick = fecharModalProd
-    document.getElementById('prod-avulso-btn').onclick = adicionarAvulsoUI
-    document.getElementById('prod-busca').oninput = () => refreshMateriais()
-    document.querySelectorAll('#modal-prod .prod-tab').forEach(b => b.onclick = () => {
-      prodTab = b.dataset.tab
-      document.querySelectorAll('#modal-prod .prod-tab').forEach(x => x.classList.toggle('on', x === b))
-      refreshMateriais()
-    })
+    const pst = document.getElementById('prod-salvar-top'); if (pst) pst.onclick = fecharModalProd
+    document.querySelectorAll('#prod-uso-seg button').forEach(b => { b.onclick = () => responderUsoProd(b.dataset.v) })
+    document.getElementById('prod-avulso-btn').onclick = () => { document.getElementById('prod-avulso-form').style.display = ''; document.getElementById('pav-nome').focus() }
+    document.getElementById('pav-cancelar').onclick = () => { document.getElementById('prod-avulso-form').style.display = 'none' }
+    document.getElementById('pav-add').onclick = adicionarAvulso
     document.getElementById('f-tipo').onchange = onTipoChange
     document.getElementById('f-status').onchange = togglePendencias
     // Navegação da home
@@ -566,6 +562,7 @@
     if (t.status === 'aguardando_execucao') t.status = 'em_execucao'
     const rat = await D().novoRat({ tarefa_id: t.id, tarefa_numero: t.numero || null, cliente_id: t.cliente_id || null, cliente_nome: cliNomeDe(t.cliente_id, null) })
     cur = { client_uuid: rat.client_uuid, campos: [], tarefa_id: t.id, tarefa_numero: t.numero }
+    usoProd = null
     document.getElementById('form-titulo').textContent = 'Nova RAT'
     const tipoNome = (ref.tipos.find(x => x.id === tipoId) || {}).nome
     const banner = document.getElementById('f-tarefa-banner')
@@ -970,6 +967,7 @@
     const rat = await D().obterRat(client_uuid)
     if (!rat) return
     cur = { client_uuid, campos: [], tarefa_id: rat.tarefa_id || null, tarefa_numero: rat.tarefa_numero || null }
+    usoProd = rat.uso_produtos || (rat.respostas && rat.respostas.uso_produtos) || null
     document.getElementById('form-titulo').textContent = 'Editar RAT'
     const banner = document.getElementById('f-tarefa-banner')
     const cb = document.getElementById('f-cliente-busca')
@@ -1008,8 +1006,9 @@
     atualizarTempo()
     aplicarCondicionais()
     montarTimers()   // re-render: reflete as horas repopuladas
-    atualizarResumoDesloc()
-    atualizarResumoPausa()
+    sincronizarSegmentados()
+    atualizarResumoAlmoco()
+    atualizarBadgeProd()
     mostrar('form')
   }
 
@@ -1028,10 +1027,10 @@
     cur.campos = form.campos || []
     cont.innerHTML = ''
     for (const c of cur.campos) cont.appendChild(renderCampo(c))
-    distribuirCamposModais()   // desloc/pausa saem do form e vão para os botões (modais)
+    organizarCamposForm()   // ordem cronológica + almoço no modal
     const sc = cont.querySelector('canvas.sig-pad')
     if (sc) { sig = initSignature(sc); sig.resize() }
-    const onFormChange = (e) => { aplicarEspelhos(e); atualizarTempo(); aplicarCondicionais(); atualizarResumoDesloc(); atualizarResumoPausa(); if (timersRender) timersRender(); const w = e.target.closest && e.target.closest('[data-field]'); if (w) w.classList.remove('campo-erro'); agendarAutosave() }
+    const onFormChange = (e) => { aplicarEspelhos(e); atualizarTempo(); aplicarCondicionais(); atualizarResumoAlmoco(); if (timersRender) timersRender(); const w = e.target.closest && e.target.closest('[data-field]'); if (w) w.classList.remove('campo-erro'); agendarAutosave() }
     cont.oninput = onFormChange
     cont.onchange = onFormChange
     const dCont = document.getElementById('desloc-campos')
@@ -1043,6 +1042,7 @@
     montarTimers()
     await refreshThumbs()
     await refreshGpsRat()
+    atualizarBadgeProd()
   }
 
   // ── Timer de atendimento: Iniciar/Encerrar preenche hora_inicio/hora_termino ──
@@ -1061,13 +1061,15 @@
     timersRender = null
     if (!cur || !cur.campos || !cur.campos.length) return
     const $c = (id) => document.querySelector(`[data-campo="${CSS.escape(id)}"]`)
-    const antesDe = (hostId) => (bar) => { const h = document.getElementById(hostId); if (h && h.parentNode) h.parentNode.insertBefore(bar, h) }
+    // a barra fica logo ACIMA do campo inicial do par (form ou modal) e
+    // acompanha a visibilidade dele (revelação progressiva Sim/Não)
+    const antesDoCampo = (id) => (bar) => { const w = wrapDe(id); if (w && w.parentNode) w.parentNode.insertBefore(bar, w) }
     const DEFS = [
-      { ini: 'hora_inicio', fim: 'hora_termino', lb: 'atendimento', gps: true, mount: antesDe('campos-container') },
-      { ini: 'almoco_inicio', fim: 'almoco_termino', lb: 'almoço', mount: antesDe('pausa-campos') },
-      { ini: 'pausa_inicio', fim: 'pausa_termino', lb: 'pausa', mount: antesDe('pausa-campos') },
-      { ini: 'desloc_inicial_ida', fim: 'desloc_final_ida', lb: 'ida', mount: antesDe('desloc-campos') },
-      { ini: 'desloc_inicial_retorno', fim: 'desloc_final_retorno', lb: 'retorno', mount: antesDe('desloc-campos') },
+      { ini: 'hora_inicio', fim: 'hora_termino', lb: 'atendimento', gps: true, mount: antesDoCampo('hora_inicio') },
+      { ini: 'almoco_inicio', fim: 'almoco_termino', lb: 'almoço', mount: antesDoCampo('almoco_inicio') },
+      { ini: 'pausa_inicio', fim: 'pausa_termino', lb: 'pausa', mount: antesDoCampo('pausa_inicio') },
+      { ini: 'desloc_inicial_ida', fim: 'desloc_final_ida', lb: 'ida', mount: antesDoCampo('desloc_inicial_ida') },
+      { ini: 'desloc_inicial_retorno', fim: 'desloc_final_retorno', lb: 'retorno', mount: antesDoCampo('desloc_inicial_retorno') },
     ]
     const hhmm = () => { const d = new Date(); return String(d.getHours()).padStart(2, '0') + ':' + String(d.getMinutes()).padStart(2, '0') }
     const decorrido = (ini) => {
@@ -1093,6 +1095,9 @@
     const cap = (s) => s.charAt(0).toUpperCase() + s.slice(1)
     function renderBar({ d, bar }) {
       if (!document.body.contains(bar)) return
+      const wIni = wrapDe(d.ini)
+      bar.style.display = (!wIni || wIni.style.display === 'none') ? 'none' : ''
+      if (bar.style.display === 'none') return
       const vi = ($c(d.ini) || {}).value || '', vf = ($c(d.fim) || {}).value || ''
       if (!vi) {
         bar.className = 'atd-timer'
@@ -1195,6 +1200,25 @@
     } else if (c.tipo === 'numero') {
       wrap.innerHTML = `${label}<input type="number" inputmode="decimal" data-campo="${esc(c.id)}" data-tipo="numero"/>`
     } else if (c.tipo === 'selecao') {
+      const PERG_SEG = { deslocamento: 'Houve deslocamento?', pausa: 'Houve pausa?' }
+      if (PERG_SEG[c.id]) {
+        // pergunta em botões grandes Sim/Não — salva o MESMO valor do dropdown antigo
+        wrap.innerHTML = `<label>${esc(PERG_SEG[c.id])}${req}</label>
+          <input type="hidden" data-campo="${esc(c.id)}" data-tipo="selecao">
+          <div class="segq">${(c.opcoes || ['Sim', 'Não']).map(o => `<button type="button" data-v="${esc(o)}">${esc(o)}</button>`).join('')}</div>`
+        setTimeout(() => {
+          const hid = wrap.querySelector('[data-campo]')
+          wrap.querySelectorAll('.segq button').forEach(b => {
+            b.onclick = () => {
+              hid.value = b.dataset.v
+              wrap.querySelectorAll('.segq button').forEach(x => x.classList.toggle('on', x === b))
+              hid.dispatchEvent(new Event('input', { bubbles: true }))
+              hid.dispatchEvent(new Event('change', { bubbles: true }))
+            }
+          })
+        }, 0)
+        return wrap
+      }
       const ops = (c.opcoes || []).map(o => `<option value="${esc(o)}">${esc(o)}</option>`).join('')
       wrap.innerHTML = `${label}<select data-campo="${esc(c.id)}" data-tipo="selecao"><option value="">Selecione…</option>${ops}</select>`
     } else if (c.tipo === 'tecnico') {
@@ -1233,43 +1257,55 @@
     return wrap
   }
 
-  // ── Deslocamento e Pausa: campos do questionário moram nos botões (modais) ──
-  // Tudo que for de deslocamento (ids desloc*) vai pro botão "Deslocamento";
-  // almoço/pausa (ids almoco*/pausa*) vão pro botão "Pausa".
-  const DESLOC_ID = /^desloc/i
-  const PAUSA_ID = /^(almoco|pausa)/i
-  function distribuirCamposModais() {
-    const dc = document.getElementById('desloc-campos')
-    const pc = document.getElementById('pausa-campos')
-    if (dc) dc.innerHTML = ''
-    if (pc) pc.innerHTML = ''
-    let nD = 0, nP = 0
-    for (const c of ((cur && cur.campos) || [])) {
+  // ── Organização do formulário (ordem cronológica) + modal Almoço ──
+  // Deslocamento e Pausa são perguntas Sim/Não INLINE no formulário, com
+  // revelação progressiva (condicionais já existentes). Ordem do bloco de tempo:
+  // Houve deslocamento? (+detalhes) → Hora início → Houve pausa? (+detalhes) → Hora término.
+  // O Almoço NÃO muda neste pacote: segue no modal do botão "Almoço".
+  const ALMOCO_ID = /^almoco/i
+  const wrapDe = (id) => document.querySelector(`[data-field="${CSS.escape(id)}"]`)
+  function organizarCamposForm() {
+    const campos = (cur && cur.campos) || []
+    // 1) almoço → modal do botão "Almoço"
+    const ac = document.getElementById('pausa-campos')
+    if (ac) ac.innerHTML = ''
+    let nA = 0
+    for (const c of campos) {
+      if (!ALMOCO_ID.test(c.id)) continue
       const w = document.querySelector(`#campos-container [data-field="${CSS.escape(c.id)}"]`)
-      if (!w) continue
-      if (DESLOC_ID.test(c.id)) { if (dc) { dc.appendChild(w); nD++ } }
-      else if (PAUSA_ID.test(c.id)) { if (pc) { pc.appendChild(w); nP++ } }
+      if (w && ac) { ac.appendChild(w); nA++ }
     }
-    const dv = document.getElementById('desloc-vazio'); if (dv) dv.style.display = nD ? 'none' : ''
-    const pb = document.getElementById('form-pausa-btn'); if (pb) pb.style.display = nP ? '' : 'none'
-    atualizarResumoDesloc(); atualizarResumoPausa()
+    const pb = document.getElementById('form-pausa-btn'); if (pb) pb.style.display = nA ? '' : 'none'
+    // 2) sequência cronológica inline
+    const tem = (id) => campos.some(c => c.id === id)
+    const dependeDe = (c, alvo) => !!(c.cond && (c.cond.regras || []).some(r => r.campo === alvo))
+    const SEQ = []
+    if (tem('deslocamento')) { SEQ.push('deslocamento'); for (const c of campos) if (dependeDe(c, 'deslocamento')) SEQ.push(c.id) }
+    SEQ.push('hora_inicio')
+    if (tem('pausa')) { SEQ.push('pausa'); for (const c of campos) if (dependeDe(c, 'pausa')) SEQ.push(c.id) }
+    SEQ.push('hora_termino')
+    let refW = null
+    for (const id of SEQ) {
+      const w = wrapDe(id); if (!w) continue
+      if (refW) refW.after(w)
+      refW = w
+    }
+    atualizarResumoAlmoco()
   }
-  // ✓ no botão quando já respondido
-  function atualizarResumoDesloc() {
-    const b = document.getElementById('form-desloc-btn'); if (!b) return
-    const ok = !!valorCampo('deslocamento')
-    b.textContent = ok ? 'Deslocamento ✓' : 'Deslocamento'
-    if (ok) b.classList.remove('btn-erro')
+  // segmented Sim/Não: reflete o valor do input oculto nos botões (após repopular)
+  function sincronizarSegmentados() {
+    document.querySelectorAll('#view-form .segq').forEach(sg => {
+      const hid = sg.parentElement && sg.parentElement.querySelector('[data-campo]')
+      const v = hid ? hid.value : ''
+      sg.querySelectorAll('button').forEach(b => b.classList.toggle('on', !!v && b.dataset.v === v))
+    })
   }
-  function atualizarResumoPausa() {
+  function atualizarResumoAlmoco() {
     const b = document.getElementById('form-pausa-btn'); if (!b) return
-    const tem = ['almoco_inicio', 'almoco_termino', 'pausa_inicio', 'pausa_termino'].some(id => valorCampo(id))
-    b.textContent = tem ? 'Pausa ✓' : 'Pausa'
+    b.textContent = valorCampo('almoco') ? 'Almoço ✓' : 'Almoço'
   }
-  function abrirModalDeslocRat() { if (!cur) return; document.getElementById('modal-desloc-rat').classList.add('open') }
-  function fecharModalDeslocRat() { document.getElementById('modal-desloc-rat').classList.remove('open'); atualizarResumoDesloc() }
-  function abrirModalPausa() { if (!cur) return; document.getElementById('modal-pausa').classList.add('open') }
-  function fecharModalPausa() { document.getElementById('modal-pausa').classList.remove('open'); atualizarResumoPausa() }
+  function abrirModalAlmoco() { if (!cur) return; document.getElementById('modal-pausa').classList.add('open') }
+  function fecharModalAlmoco() { document.getElementById('modal-pausa').classList.remove('open'); atualizarResumoAlmoco() }
 
   // ─────────────────────────── Fotos ───────────────────────────
   // Comprime/redimensiona a foto antes de salvar (sobe rápido no 4G; mantém qualidade boa).
@@ -1329,33 +1365,79 @@
     b.textContent = n ? `Fotos (${n})` : 'Fotos'
   }
 
-  // ── Produtos (materiais, origem 'usado') — janela separada, abas Comigo / Adicionados ──
-  function abrirModalProd() {
+  // ── Produtos da RAT: pergunta obrigatória + apontamento com stepper ──
+  // 1) "Foi utilizado produto neste atendimento?" (Sim/Não) — obrigatória p/ concluir.
+  //    A resposta fica no rascunho local (uso_produtos) e dentro de respostas (sync).
+  // 2) Sim → linhas da tarefa (orçado/levado) com stepper −/+ e edição direta ao tocar
+  //    no número (decimal p/ unidades fracionárias como m — salvo SEM arredondar;
+  //    inteiro p/ PC). Pode passar do levado: fica vermelho, o back-office acusa.
+  // 3) Não → registro explícito "sem material utilizado" (zera apontamentos).
+  const UN_FRAC = /^(m|mt|m2|m²|m3|m³|kg|g|l|lt|ml|km)$/i
+  const ehFracionaria = (u) => UN_FRAC.test(String(u || '').trim())
+  const fmtQtd = (n) => (Number(n) || 0).toLocaleString('pt-BR', { maximumFractionDigits: 3 })
+  async function abrirModalProd() {
     if (!cur) return
-    prodTab = 'comigo'
-    document.querySelectorAll('#modal-prod .prod-tab').forEach(x => x.classList.toggle('on', x.dataset.tab === 'comigo'))
-    document.getElementById('prod-busca').value = ''
+    document.getElementById('prod-avulso-form').style.display = 'none'
     document.getElementById('modal-prod').classList.add('open')
-    refreshMateriais()
+    await renderProdModal()
   }
-  function fecharModalProd() { document.getElementById('modal-prod').classList.remove('open'); atualizarResumoProd() }
-  async function atualizarResumoProd() {
-    const el = document.getElementById('prod-resumo'); if (!el || !cur) return
-    const mats = await D().listarMateriais(cur.client_uuid)
-    const usados = mats.filter(m => (Number(m.quantidade) || 0) > 0)
-    const total = usados.reduce((s, m) => s + (Number(m.quantidade) || 0), 0)
-    el.textContent = usados.length ? `${usados.length} item(ns) · ${total.toLocaleString('pt-BR', { maximumFractionDigits: 3 })}` : 'nenhum'
+  async function fecharModalProd() {
+    document.getElementById('modal-prod').classList.remove('open')
+    await atualizarBadgeProd()
   }
-  async function adicionarAvulsoUI() {
-    const desc = (document.getElementById('prod-busca').value || '').trim() || prompt('Descrição do item avulso:')
-    if (!desc) return
-    await D().adicionarMaterial(cur.client_uuid, { produto_id: null, codigo_produto: null, descricao: desc, unidade: null, quantidade: 0 })
-    document.getElementById('prod-busca').value = ''
-    prodTab = 'add'
-    document.querySelectorAll('.prod-tab').forEach(x => x.classList.toggle('on', x.dataset.tab === 'add'))
+  async function responderUsoProd(v) {
+    if (!cur) return
+    if (v === 'Não') {
+      const mats = await D().listarMateriais(cur.client_uuid)
+      const usados = mats.filter(m => (Number(m.quantidade) || 0) > 0)
+      if (usados.length && !confirm(`Zerar os ${usados.length} item(ns) já apontados?`)) return
+      for (const m of usados) await D().atualizarMaterial(m.id, { quantidade: 0 })
+    }
+    usoProd = v
+    await D().salvarRat(cur.client_uuid, { uso_produtos: v })
+    const fb = document.getElementById('form-produtos-btn'); if (fb) fb.classList.remove('btn-erro')
+    await renderProdModal()
+  }
+  async function renderProdModal() {
+    document.querySelectorAll('#prod-uso-seg button').forEach(b => b.classList.toggle('on', usoProd === b.dataset.v))
+    document.getElementById('prod-semuso').style.display = usoProd === 'Não' ? '' : 'none'
+    document.getElementById('prod-lista-wrap').style.display = usoProd === 'Sim' ? '' : 'none'
+    if (usoProd === 'Sim') await refreshMateriais()
+    else await atualizarResumoFoot()
+  }
+  async function atualizarResumoFoot() {
+    const el = document.getElementById('prod-resumo-foot'); if (!el || !cur) return
+    if (usoProd === 'Não') { el.textContent = 'Sem material utilizado'; return }
+    if (usoProd !== 'Sim') { el.textContent = 'Responda a pergunta acima'; return }
+    const n = (await D().listarMateriais(cur.client_uuid)).filter(m => (Number(m.quantidade) || 0) > 0).length
+    el.textContent = `${n} ite${n === 1 ? 'm' : 'ns'} com uso`
+  }
+  // badge de estado no botão "Produtos" do formulário
+  async function atualizarBadgeProd() {
+    const b = document.getElementById('form-produtos-btn'); if (!b || !cur) return
+    const temCampo = (cur.campos || []).some(c => c.tipo === 'produtos')
+    if (!temCampo) { b.textContent = 'Produtos'; return }
+    let badge = '<span class="pbg pbg-warn">Pendente</span>'
+    if (usoProd === 'Não') badge = '<span class="pbg pbg-ok">Sem uso ✓</span>'
+    else if (usoProd === 'Sim') {
+      const n = (await D().listarMateriais(cur.client_uuid)).filter(m => (Number(m.quantidade) || 0) > 0).length
+      badge = `<span class="pbg pbg-info">${n} ite${n === 1 ? 'm' : 'ns'}</span>`
+    }
+    b.innerHTML = 'Produtos ' + badge
+  }
+  async function adicionarAvulso() {
+    const nome = (document.getElementById('pav-nome').value || '').trim()
+    const un = (document.getElementById('pav-un').value || '').trim()
+    if (!nome) return toast('Informe o nome do item.', 'err')
+    let v = Number(String(document.getElementById('pav-qtd').value || '').trim().replace(',', '.'))
+    if (!isFinite(v) || v < 0) v = 0
+    if (!ehFracionaria(un)) v = Math.round(v)
+    await D().adicionarMaterial(cur.client_uuid, { produto_id: null, codigo_produto: null, descricao: nome, unidade: un || null, quantidade: v })
+    document.getElementById('pav-nome').value = ''; document.getElementById('pav-un').value = ''; document.getElementById('pav-qtd').value = ''
+    document.getElementById('prod-avulso-form').style.display = 'none'
     await refreshMateriais()
   }
-  // Traz os produtos LEVADOS da tarefa para a RAT (qtd utilizada = 0), sem o técnico redigitar.
+  // Traz os produtos da TAREFA (orçados/levados) para a RAT com qtd 0, sem redigitar.
   async function precarregarLevados() {
     if (!cur || !cur.tarefa_id || !navigator.onLine) return
     try {
@@ -1374,71 +1456,75 @@
           qtd_orcada: m.qtd_orcada, qtd_usada_tarefa: m.qtd_utilizada,
         })
       }
-    } catch (e) { /* offline/sem view: técnico adiciona na mão */ }
+    } catch (e) { /* offline/sem view: técnico usa item avulso */ }
   }
   async function refreshMateriais() {
-    const box = document.getElementById('prod-list'); if (!box) return
+    const box = document.getElementById('prod-list'); if (!box || !cur) return
     const mats = await D().listarMateriais(cur.client_uuid)
-    const busca = document.getElementById('prod-busca')
-    const q = normStr(busca ? busca.value : '')
-    const bate = (nome, cod) => !q || normStr(nome || '').includes(q) || normStr(cod || '').includes(q)
-    const un = (m) => m.unidade ? ' ' + esc(m.unidade) : ''
-    // linha de material: Orçado (proposta) · Disponível (levado) · Usado na tarefa; qtd utilizada editável
-    const subDe = (m) => {
-      const p = []
-      if ((Number(m.qtd_orcada) || 0) > 0) p.push(`Orçado: ${m.qtd_orcada}${un(m)}`)
-      if ((Number(m.qtd_levada) || 0) > 0) p.push(`Disponível: ${m.qtd_levada}${un(m)}`)
-      if ((Number(m.qtd_usada_tarefa) || 0) > 0) p.push(`Usado na tarefa: ${m.qtd_usada_tarefa}${un(m)}`)
-      if (!p.length && m.codigo_produto) p.push(esc(m.codigo_produto))
-      return p.join(' · ')
+    if (!mats.length) {
+      box.innerHTML = '<div class="prod-empty">Nenhum produto vinculado à tarefa. Use <b>+ Item avulso</b>.</div>'
+    } else {
+      box.innerHTML = mats.map(m => {
+        const lev = Number(m.qtd_levada) || 0, orc = Number(m.qtd_orcada) || 0
+        const v = Number(m.quantidade) || 0
+        const daTarefa = lev > 0 || orc > 0
+        const acima = daTarefa && v > lev
+        const refTxt = daTarefa
+          ? `Orçado ${orc > 0 ? fmtQtd(orc) : '—'} · Levado ${lev > 0 ? fmtQtd(lev) : '—'}`
+          : (m.codigo_produto ? esc(m.codigo_produto) : 'item avulso')
+        return `<div class="prod-row2">
+          <div class="pr-main">
+            <div class="pr-desc">${esc(m.descricao || m.codigo_produto || '—')}${m.unidade ? ` <span class="pr-un">${esc(m.unidade)}</span>` : ''}</div>
+            <div class="pr-sub">${refTxt}</div>
+          </div>
+          <div class="stp" data-mid="${esc(m.id)}">
+            <button type="button" class="stp-m" aria-label="menos">−</button>
+            <button type="button" class="stp-n${acima ? ' over' : ''}">${fmtQtd(v)}</button>
+            <button type="button" class="stp-p" aria-label="mais">+</button>
+          </div>
+          ${daTarefa ? '' : `<button type="button" class="pr-x" data-mid="${esc(m.id)}">×</button>`}
+        </div>`
+      }).join('')
+      box.querySelectorAll('.stp').forEach(st => {
+        const mid = st.dataset.mid
+        st.querySelector('.stp-m').onclick = () => ajustarQtd(mid, -1)
+        st.querySelector('.stp-p').onclick = () => ajustarQtd(mid, +1)
+        st.querySelector('.stp-n').onclick = () => editarQtdDireto(mid, st)
+      })
+      box.querySelectorAll('.pr-x').forEach(b => { b.onclick = async () => { await D().removerMaterial(b.dataset.mid); await refreshMateriais() } })
     }
-    const rowMat = (m) => `<div class="prod-row">
-        <div class="pr-main"><div class="pr-desc">${esc(m.descricao || m.codigo_produto || '—')}</div>
-          ${subDe(m) ? `<div class="pr-sub">${subDe(m)}</div>` : ''}</div>
-        <input type="number" class="pr-qtd" data-mid="${esc(m.id)}" inputmode="decimal" min="0" step="any" value="${m.quantidade || 0}">
-        <button type="button" class="pr-x" data-mid="${esc(m.id)}">×</button>
-      </div>`
-    let lst
-    if (prodTab === 'comigo') {
-      // Produtos da tarefa (orçados e/ou levados); o técnico lança a quantidade utilizada aqui.
-      lst = mats.filter(m => ((Number(m.qtd_levada) || 0) > 0 || (Number(m.qtd_orcada) || 0) > 0) && bate(m.descricao, m.codigo_produto))
-      box.innerHTML = lst.length ? lst.map(rowMat).join('') : '<div class="prod-empty">Nenhum produto orçado/disponível para esta tarefa.</div>'
-    } else { // adicionados = o que será reportado: usados (qtd>0) + itens incluídos fora da tarefa
-      lst = mats.filter(m => ((Number(m.quantidade) || 0) > 0 || ((Number(m.qtd_levada) || 0) <= 0 && (Number(m.qtd_orcada) || 0) <= 0)) && bate(m.descricao, m.codigo_produto))
-      box.innerHTML = lst.length ? lst.map(rowMat).join('') : '<div class="prod-empty">Nada utilizado ainda. Lance a quantidade na aba <b>Disponível</b> ou inclua um produto pela busca.</div>'
-    }
-    // Incluir produto do catálogo: ao buscar, sugere itens que ainda não estão na lista
-    if (q) {
-      const ja = new Set(mats.map(m => m.produto_id).filter(Boolean))
-      const sugest = (ref.produtos || [])
-        .filter(p => !ja.has(p.id) && (normStr(p.descricao || '').includes(q) || normStr(p.codigo || '').includes(q)))
-        .slice(0, 8)
-      if (sugest.length) {
-        box.innerHTML += '<div class="prod-cat-h">Incluir do catálogo</div>' + sugest.map(p => `
-          <div class="prod-row"><div class="pr-main"><div class="pr-desc">${esc(p.descricao || '—')}</div>${p.codigo ? `<div class="pr-sub">${esc(p.codigo)}</div>` : ''}</div>
-          <button type="button" class="btn btn-sm pr-add" data-pid="${esc(p.id)}" style="width:auto;padding:8px 12px;font-size:13px">+ Incluir</button></div>`).join('')
-        box.querySelectorAll('.pr-add').forEach(b => {
-          b.onclick = async () => {
-            const p = ref.produtos.find(x => x.id === b.dataset.pid); if (!p) return
-            await D().adicionarMaterial(cur.client_uuid, { produto_id: p.id, codigo_produto: p.codigo || null, descricao: p.descricao, unidade: p.unidade || null, quantidade: 0 })
-            document.getElementById('prod-busca').value = ''
-            prodTab = 'add'
-            document.querySelectorAll('#modal-prod .prod-tab').forEach(x => x.classList.toggle('on', x.dataset.tab === 'add'))
-            await refreshMateriais()
-          }
-        })
-      }
-    }
-    box.querySelectorAll('.pr-qtd').forEach(inp => { inp.onchange = async () => { await D().atualizarMaterial(inp.dataset.mid, { quantidade: inp.value }); await refreshMateriais() } })
-    box.querySelectorAll('.pr-x').forEach(b => { b.onclick = async () => { await D().removerMaterial(b.dataset.mid); await refreshMateriais() } })
-    atualizarTotalProd(mats)
-    atualizarResumoProd()
+    await atualizarResumoFoot()
   }
-  async function atualizarTotalProd(mats) {
-    const el = document.getElementById('prod-total'); if (!el) return
-    const arr = mats || await D().listarMateriais(cur.client_uuid)
-    const total = arr.reduce((s, m) => s + (Number(m.quantidade) || 0), 0)
-    el.textContent = total ? total.toLocaleString('pt-BR', { maximumFractionDigits: 3 }) : '--'
+  async function ajustarQtd(mid, delta) {
+    const m = (await D().listarMateriais(cur.client_uuid)).find(x => x.id === mid); if (!m) return
+    const v = Math.max(0, (Number(m.quantidade) || 0) + delta)
+    await D().atualizarMaterial(mid, { quantidade: v })
+    await refreshMateriais()
+  }
+  // tocar no número abre a edição direta (teclado numérico); decimais p/ "m",
+  // inteiro p/ "PC"; o decimal é salvo EXATAMENTE como digitado (sem arredondar).
+  async function editarQtdDireto(mid, st) {
+    const m = (await D().listarMateriais(cur.client_uuid)).find(x => x.id === mid); if (!m) return
+    const frac = ehFracionaria(m.unidade)
+    const n = st.querySelector('.stp-n'); if (!n) return
+    const inp = document.createElement('input')
+    inp.className = 'stp-i'
+    inp.inputMode = frac ? 'decimal' : 'numeric'
+    inp.value = (Number(m.quantidade) || 0) ? String(m.quantidade).replace('.', ',') : ''
+    n.replaceWith(inp)
+    inp.focus(); inp.select()
+    let feito = false
+    const commit = async () => {
+      if (feito) return
+      feito = true
+      let v = Number(String(inp.value || '').trim().replace(',', '.'))
+      if (!isFinite(v) || v < 0) v = Number(m.quantidade) || 0
+      if (!frac) v = Math.round(v)
+      await D().atualizarMaterial(mid, { quantidade: v })
+      await refreshMateriais()
+    }
+    inp.onblur = commit
+    inp.onkeydown = (e) => { if (e.key === 'Enter') inp.blur() }
   }
 
   // ───────────────────── Assinatura (canvas) ─────────────────────
@@ -1514,9 +1600,11 @@
         const r = await D().obterRat(cur.client_uuid)
         if (!r || r.sync_status !== D().STATUS.RASCUNHO) return
         const { respostas } = coletarRespostas()
+        if (usoProd) respostas.uso_produtos = usoProd
         await D().salvarRat(cur.client_uuid, {
           respostas: Object.keys(respostas).length ? respostas : null,
           tempo_trabalhado: calcTempo(),
+          uso_produtos: usoProd || null,
         })
       } catch (e) { /* autosave é melhor-esforço */ }
     }, 700)
@@ -1574,25 +1662,24 @@
     limparErros()
     const fotos = await D().listarFotos(cur.client_uuid)
     if (!emExecucao) {
-      // Deslocamento precisa ser respondido (mora no botão "Deslocamento")
-      const temPerguntaDesloc = cur.campos.some(c => c.id === 'deslocamento' && vis(c))
-      if (temPerguntaDesloc && !respostas.deslocamento) {
-        marcarErros([], [document.getElementById('form-desloc-btn')])
-        return toast('Abra "Deslocamento" e responda antes de concluir.', 'err')
+      // Pergunta de produtos é obrigatória para concluir (resposta explícita Sim/Não)
+      const temProdutosCampo = cur.campos.some(c => c.tipo === 'produtos' && vis(c))
+      if (temProdutosCampo && !usoProd) {
+        marcarErros([], [document.getElementById('form-produtos-btn')])
+        return toast('Informe se houve uso de produtos.', 'err')
       }
       if (faltando.length) {
-        // campos que moram nos modais destacam o botão correspondente
+        // campos do modal Almoço destacam o botão; o resto destaca inline
         const noForm = [], botoes = []
         for (const id of faltandoIds) {
-          if (DESLOC_ID.test(id)) botoes.push(document.getElementById('form-desloc-btn'))
-          else if (PAUSA_ID.test(id)) botoes.push(document.getElementById('form-pausa-btn'))
+          if (ALMOCO_ID.test(id)) botoes.push(document.getElementById('form-pausa-btn'))
           else noForm.push(id)
         }
         marcarErros(noForm, botoes)
         return toast('Preencha os campos destacados.', 'err')
       }
       if (fotoObrig && fotos.length === 0) { marcarErros([], [document.getElementById('form-fotos-btn')]); return toast('Anexe ao menos uma foto.', 'err') }
-      if (produtosObrig && (await D().listarMateriais(cur.client_uuid)).length === 0) { marcarErros([], [document.getElementById('form-produtos-btn')]); return toast('Adicione ao menos um produto.', 'err') }
+      if (produtosObrig && usoProd !== 'Não' && (await D().listarMateriais(cur.client_uuid)).filter(m => (Number(m.quantidade) || 0) > 0).length === 0) { marcarErros([], [document.getElementById('form-produtos-btn')]); return toast('Aponte os produtos utilizados (ou responda "Não").', 'err') }
     }
 
     let assinatura_local = null
@@ -1607,6 +1694,7 @@
     }
 
     const cli = ref.clientes.find(c => c.id === cliId)
+    if (usoProd) respostas.uso_produtos = usoProd
 
     await D().salvarRat(cur.client_uuid, {
       tarefa_id: cur.tarefa_id || null,
@@ -1621,6 +1709,7 @@
       tempo_trabalhado: calcTempo(),
       data_tarefa: new Date().toISOString(),
       respostas,
+      uso_produtos: usoProd || null,
       questionario_ok: faltando.length === 0,
       tem_assinatura: !!temAssinatura,
       assinatura_local,
@@ -1631,7 +1720,7 @@
     if (!emExecucao && navigator.onLine && window.notificarPush) {
       notificarPush('rat_concluida', { numero: cur.tarefa_numero, cliente: cli?.nome, tarefa_id: cur.tarefa_id })
     }
-    cur = null; sig = null
+    cur = null; sig = null; usoProd = null
     mostrar('lista')
     await renderLista()
     // Tenta sincronizar imediatamente se houver conexão (passo 5).
@@ -1647,12 +1736,12 @@
       // "vazio" = rascunho recém-aberto sem trabalho real. Ignora cliente/tarefa
       // (vêm automáticos da tarefa) — assim abrir e sair de uma RAT não deixa rascunho órfão.
       const vazio = rat && rat.sync_status === D().STATUS.RASCUNHO
-        && !rat.tem_foto && !rat.tem_assinatura && !rat.questionario_ok && !rat.respostas
+        && !rat.tem_foto && !rat.tem_assinatura && !rat.questionario_ok && !rat.respostas && !rat.uso_produtos
         && fotos.length === 0
         && !mats.some(m => (Number(m.quantidade) || 0) > 0 || m.qtd_levada == null)
       if (vazio) await D().removerRat(cur.client_uuid)
     }
-    cur = null; sig = null
+    cur = null; sig = null; usoProd = null
     mostrar('lista')
     await renderLista()
   }

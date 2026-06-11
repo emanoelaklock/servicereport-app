@@ -635,7 +635,8 @@ const TarefaApp = (() => {
         const fora = l.situacao === 'sem_orcada'
         const orcada = Number(l.qtd_orcada) || 0
         const lev = Number(l.qtd_levada) || 0
-        const util = Number(l.qtd_utilizada) || 0
+        const util = Number(l.qtd_utilizada) || 0          // oficial: teto da soma das RATs
+        const utilReal = Number(l.qtd_utilizada_real) || 0 // soma crua (auditoria)
         const dev = Number(l.qtd_devolvida) || 0
         const devNeg = dev < 0                 // usado sem ter sido levado: não imprime negativo
         const devShown = Math.max(0, dev)
@@ -646,7 +647,8 @@ const TarefaApp = (() => {
         // caixa somente-leitura (igual à da Levada); 0 em cinza; sem "—"
         const box = (v, cls) => `<div class="cc-box${cls ? ' ' + cls : ''}">${v}</div>`
         const cOrcada = `<td>${box(qtd(orcada), orcada === 0 ? 'zero' : '')}</td>`
-        const cUtil = `<td>${box(qtd(util), devNeg ? 'alert' : (util === 0 ? 'zero' : ''))}</td>`
+        const somaReal = (utilReal !== util) ? `<div class="cc-real">Σ ${qtd(utilReal)}${l.unidade ? ' ' + esc(l.unidade) : ''}</div>` : ''
+        const cUtil = `<td>${box(qtd(util), devNeg ? 'alert' : (util === 0 ? 'zero' : ''))}${somaReal}</td>`
         const cDev = `<td>${box(qtd(devShown), devShown === 0 ? 'zero' : '')}</td>`
         const cPreco = semOrcada
           ? `<td><span class="cc-edit-money"><span class="rs">R$</span><input class="cc-preco" type="number" inputmode="decimal" min="0" step="0.01" value="${preco > 0 ? preco : ''}" data-i="${i}" placeholder="0,00"></span></td>`
