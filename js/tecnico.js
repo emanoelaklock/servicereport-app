@@ -163,6 +163,9 @@
     document.getElementById('prod-avulso-btn').onclick = () => { document.getElementById('prod-avulso-form').style.display = ''; document.getElementById('pav-nome').focus() }
     document.getElementById('pav-cancelar').onclick = () => { document.getElementById('prod-avulso-form').style.display = 'none' }
     document.getElementById('pav-add').onclick = adicionarAvulso
+    document.getElementById('tec-x').onclick = fecharModalTecnicos
+    document.getElementById('tec-ok').onclick = fecharModalTecnicos
+    document.getElementById('tec-busca').oninput = filtrarTecnicos
     const pcb = document.getElementById('prod-cat-busca')
     if (pcb) pcb.oninput = () => renderCatalogoSug()
     document.getElementById('f-tipo').onchange = onTipoChange
@@ -999,6 +1002,7 @@
     aplicarCondicionais()
     montarTimers()   // re-render: reflete as horas repopuladas
     sincronizarSegmentados()
+    atualizarResumoTecnicos()
     atualizarResumoAlmoco()
     atualizarBadgeDesloc()
     atualizarBadgeProd()
@@ -1219,9 +1223,20 @@
       const ops = (ref.tecnicos || []).map(t => { const n = tcase(t.nome); return `<option value="${esc(n)}"${n === tcase(tecnico.nome) ? ' selected' : ''}>${esc(n)}</option>` }).join('')
       wrap.innerHTML = `${label}<select data-campo="${esc(c.id)}" data-tipo="tecnico"><option value="">Selecione…</option>${ops}</select>`
     } else if (c.tipo === 'tecnicos') {
-      // o técnico que está preenchendo já vem selecionado
-      const checks = (ref.tecnicos || []).map(t => { const n = tcase(t.nome); const eu = n === tcase(tecnico.nome); return `<label><input type="checkbox" data-multi="${esc(c.id)}" value="${esc(n)}"${eu ? ' checked' : ''}> ${esc(n)}</label>` }).join('')
-      wrap.innerHTML = `${label}<div class="multi-chk">${checks || '<span class="dim">Nenhum técnico cadastrado</span>'}</div>`
+      // muitos técnicos → seleção em modal fullscreen; o técnico logado já vem marcado
+      tecCampoId = c.id
+      const checks = (ref.tecnicos || []).map(t => { const n = tcase(t.nome); const eu = n === tcase(tecnico.nome); return `<label class="tec-row"><input type="checkbox" data-multi="${esc(c.id)}" value="${esc(n)}"${eu ? ' checked' : ''}><span>${esc(n)}</span></label>` }).join('')
+      wrap.innerHTML = `${label}<button type="button" class="tec-sel-btn" data-tecbtn="${esc(c.id)}"><span class="tec-sel-txt">Selecionar técnicos…</span><span class="tec-sel-n" style="display:none"></span></button>`
+      setTimeout(() => {
+        const lista = document.getElementById('tec-modal-lista')
+        if (lista) {
+          lista.innerHTML = checks || '<div class="prod-empty">Nenhum técnico cadastrado.</div>'
+          lista.onchange = () => { atualizarResumoTecnicos(); agendarAutosave() }
+        }
+        const b = wrap.querySelector('[data-tecbtn]')
+        if (b) b.onclick = () => abrirModalTecnicos(c.id)
+        atualizarResumoTecnicos()
+      }, 0)
     } else if (c.tipo === 'veiculo') {
       const ops = (ref.veiculos || []).map(v => { const lbl = `${v.modelo || ''} (${v.placa || ''})`; return `<option value="${esc(lbl)}">${esc(lbl)}</option>` }).join('')
       wrap.innerHTML = `${label}<select data-campo="${esc(c.id)}" data-tipo="veiculo"><option value="">Selecione…</option><option value="Sem veículo">Sem veículo</option>${ops}</select>`
@@ -1337,6 +1352,42 @@
   }
   function abrirModalDesloc() { if (!cur) return; document.getElementById('modal-desloc-rat').classList.add('open') }
   function fecharModalDesloc() { document.getElementById('modal-desloc-rat').classList.remove('open'); atualizarBadgeDesloc() }
+  // ── Técnicos responsáveis: seleção em modal fullscreen ──
+  let tecCampoId = null
+  function abrirModalTecnicos(campoId) {
+    if (!cur) return
+    if (campoId) tecCampoId = campoId
+    document.getElementById('tec-busca').value = ''
+    filtrarTecnicos()
+    document.getElementById('modal-tec').classList.add('open')
+    atualizarResumoTecnicos()
+  }
+  function fecharModalTecnicos() {
+    document.getElementById('modal-tec').classList.remove('open')
+    atualizarResumoTecnicos()
+    agendarAutosave()
+  }
+  function filtrarTecnicos() {
+    const q = normStr(document.getElementById('tec-busca').value || '')
+    document.querySelectorAll('#tec-modal-lista .tec-row').forEach(r => {
+      r.style.display = !q || normStr(r.textContent).includes(q) ? '' : 'none'
+    })
+  }
+  function atualizarResumoTecnicos() {
+    if (!tecCampoId) return
+    const sel = Array.from(document.querySelectorAll(`[data-multi="${CSS.escape(tecCampoId)}"]:checked`)).map(x => x.value)
+    const btn = document.querySelector(`[data-tecbtn="${CSS.escape(tecCampoId)}"]`)
+    if (btn) {
+      btn.querySelector('.tec-sel-txt').textContent = sel.length ? sel.join(', ') : 'Selecionar técnicos…'
+      const nEl = btn.querySelector('.tec-sel-n')
+      nEl.textContent = sel.length || ''
+      nEl.style.display = sel.length ? '' : 'none'
+      if (sel.length) { const w = btn.closest('[data-field]'); if (w) w.classList.remove('campo-erro') }
+    }
+    const foot = document.getElementById('tec-resumo-foot')
+    if (foot) foot.textContent = sel.length ? `${sel.length} selecionado${sel.length > 1 ? 's' : ''}` : 'Nenhum selecionado'
+  }
+
   // Card de contexto no topo da RAT (funde a faixa azul + Cliente & Serviço)
   function preencherCtx({ no, cliente, tipo, clienteEditavel }) {
     const noEl = document.getElementById('ctx-no'); if (noEl) noEl.textContent = no || ''
