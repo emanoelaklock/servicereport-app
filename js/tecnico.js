@@ -1277,7 +1277,6 @@
     const ac = document.getElementById('pausa-campos')
     if (ac) ac.innerHTML = ''
     let nA = 0
-    const paraModalPausa = (c) => c.id === 'pausa' || dependeDe(c, 'pausa') || ALMOCO_ID.test(c.id)
     for (const c of campos) {                      // pausa primeiro, depois almoço
       if (!(c.id === 'pausa' || dependeDe(c, 'pausa'))) continue
       const w = document.querySelector(`#campos-container [data-field="${CSS.escape(c.id)}"]`)
