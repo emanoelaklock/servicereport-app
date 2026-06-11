@@ -236,16 +236,21 @@ try{if(localStorage.getItem('sr_dark')==='1')document.documentElement.classList.
   .ctx .tipo{font-size:12px;color:var(--tx3);font-weight:600;margin-top:3px;line-height:1.4}
   html.dark .ctx .tag{background:#1d2940;color:#9fc1ff}
   .regs{display:grid;grid-template-columns:1fr 1fr;gap:10px}
-  .reg{background:var(--sur);border:1px solid var(--bd);border-radius:16px;padding:12px;display:flex;flex-direction:column;gap:9px;cursor:pointer;font:inherit;text-align:left;color:var(--tx)}
+  .reg{border:none;border-radius:16px;padding:12px;display:flex;flex-direction:column;gap:9px;cursor:pointer;font:inherit;text-align:left;color:#fff}
+  .r-teal{background:#12A5A5}
+  .r-purple{background:var(--purple,#73328E)}
+  .r-orange{background:var(--orange,#F27423)}
+  .r-yellow{background:var(--yellow,#FDB31F);color:#1A1A1A}
   .reg .top{display:flex;align-items:center;gap:9px}
-  .reg .ic{width:32px;height:32px;border-radius:9px;display:grid;place-items:center;flex:none}
+  .reg .ic{width:32px;height:32px;border-radius:9px;background:rgba(255,255,255,.22);display:grid;place-items:center;flex:none}
   .reg .ic svg{width:17px;height:17px;stroke:#fff;fill:none;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
+  .r-yellow .ic{background:rgba(0,0,0,.12)}
+  .r-yellow .ic svg{stroke:#1A1A1A}
   .reg .lbl{font-size:13.5px;font-weight:700;letter-spacing:-.2px;line-height:1.1}
   .reg .st{align-self:flex-start;font-size:10.5px;font-weight:700;padding:4px 9px;border-radius:999px}
-  .st-pend{background:#FCF1DB;color:#8A5A00}
-  .st-ok{background:#DEF3E6;color:#0F7A33}
-  .i-teal{background:#12A5A5}.i-purple{background:var(--purple,#73328E)}.i-orange{background:var(--orange,#F27423)}.i-yellow{background:var(--yellow,#FDB31F)}
-  .i-yellow svg{stroke:#1A1A1A!important}
+  .reg .st-pend{background:rgba(255,255,255,.28);color:#fff}
+  .r-yellow .st-pend{background:rgba(0,0,0,.12);color:#1A1A1A}
+  .reg .st-ok{background:#fff;color:#0F7A33}
 
   /* ===== Produtos: sugestões do catálogo ===== */
   .prod-cat-h{font-size:11px;font-weight:700;color:var(--tx3);margin:16px 2px 6px;text-transform:none}
@@ -467,19 +472,19 @@ try{if(localStorage.getItem('sr_dark')==='1')document.documentElement.classList.
         <!-- registros do atendimento: grid 2x2, cards brancos, estado no badge -->
         <div class="sec">Registros do atendimento</div>
         <div class="regs">
-          <button type="button" class="reg" id="form-produtos-btn">
+          <button type="button" class="reg r-teal" id="form-produtos-btn">
             <span class="top"><span class="ic i-teal"><svg viewBox="0 0 24 24"><path d="M21 16V8l-9-5-9 5v8l9 5 9-5Z"/><path d="m3.3 7 8.7 5 8.7-5M12 22V12"/></svg></span><span class="lbl">Produtos</span></span>
             <span class="st st-pend" id="reg-prod-st">Pendente</span>
           </button>
-          <button type="button" class="reg" id="form-fotos-btn" style="display:none">
+          <button type="button" class="reg r-purple" id="form-fotos-btn" style="display:none">
             <span class="top"><span class="ic i-purple"><svg viewBox="0 0 24 24"><path d="M3 7h4l2-2h6l2 2h4v12H3z"/><circle cx="12" cy="13" r="3.2"/></svg></span><span class="lbl">Fotos</span></span>
             <span class="st st-pend" id="reg-fotos-st">Pendente</span>
           </button>
-          <button type="button" class="reg" id="form-desloc-btn">
+          <button type="button" class="reg r-orange" id="form-desloc-btn">
             <span class="top"><span class="ic i-orange"><svg viewBox="0 0 24 24"><path d="M3 17h2m14 0h2M5 17a2 2 0 1 0 4 0 2 2 0 0 0-4 0Zm10 0a2 2 0 1 0 4 0 2 2 0 0 0-4 0Z"/><path d="M5 17V8a1 1 0 0 1 1-1h8l4 4v6"/></svg></span><span class="lbl">Deslocamento</span></span>
             <span class="st st-pend" id="reg-desloc-st">Pendente</span>
           </button>
-          <button type="button" class="reg" id="form-pausa-btn" style="display:none">
+          <button type="button" class="reg r-yellow" id="form-pausa-btn" style="display:none">
             <span class="top"><span class="ic i-yellow"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg></span><span class="lbl">Pausa/Almoço</span></span>
             <span class="st st-pend" id="reg-pausa-st">Pendente</span>
           </button>
