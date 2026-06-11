@@ -1391,7 +1391,8 @@
   async function atualizarResumoFotos() {
     const b = document.getElementById('form-fotos-btn'); if (!b || !cur) return
     const n = (await D().listarFotos(cur.client_uuid)).length
-    b.textContent = n ? `Fotos (${n})` : 'Fotos'
+    b.innerHTML = 'Fotos ' + (n ? `<span class="pbg pbg-ok">${n} ✓</span>` : '<span class="pbg pbg-warn">Pendente</span>')
+    if (n) b.classList.remove('btn-erro')
   }
 
   // ── Produtos da RAT: pergunta obrigatória + apontamento com stepper ──
