@@ -1006,6 +1006,7 @@
     atualizarResumoAlmoco()
     atualizarBadgeDesloc()
     atualizarBadgeProd()
+    atualizarProgresso()
     mostrar('form')
     document.getElementById('ft-title').textContent = 'Editar RAT'
   }
@@ -1028,7 +1029,7 @@
     organizarCamposForm()   // ordem cronológica + almoço no modal
     const sc = cont.querySelector('canvas.sig-pad')
     if (sc) { sig = initSignature(sc); sig.resize() }
-    const onFormChange = (e) => { aplicarEspelhos(e); atualizarTempo(); aplicarCondicionais(); atualizarResumoAlmoco(); atualizarBadgeDesloc(); if (timersRender) timersRender(); const w = e.target.closest && e.target.closest('[data-field]'); if (w) w.classList.remove('campo-erro'); agendarAutosave() }
+    const onFormChange = (e) => { aplicarEspelhos(e); atualizarTempo(); aplicarCondicionais(); atualizarResumoAlmoco(); atualizarBadgeDesloc(); atualizarProgresso(); if (timersRender) timersRender(); const w = e.target.closest && e.target.closest('[data-field]'); if (w) w.classList.remove('campo-erro'); agendarAutosave() }
     cont.oninput = onFormChange
     cont.onchange = onFormChange
     const dCont = document.getElementById('desloc-campos')
@@ -1352,6 +1353,27 @@
   }
   function abrirModalDesloc() { if (!cur) return; document.getElementById('modal-desloc-rat').classList.add('open') }
   function fecharModalDesloc() { document.getElementById('modal-desloc-rat').classList.remove('open'); atualizarBadgeDesloc() }
+  // ── Progresso da RAT: itens obrigatórios para concluir ──
+  // Conta campos obrigatórios visíveis + pergunta de produtos + foto + assinatura.
+  async function atualizarProgresso() {
+    const fill = document.getElementById('rat-prog-fill'), txt = document.getElementById('rat-prog-txt')
+    if (!fill || !txt || !cur || !cur.campos || !cur.campos.length) return
+    const vis = (c) => curVisivel[c.id] !== false
+    let total = 0, ok = 0
+    for (const c of cur.campos) {
+      if (!vis(c) || !c.obrigatorio) continue
+      if (c.tipo === 'foto' || c.tipo === 'assinatura' || c.tipo === 'produtos') continue
+      total++
+      if (valorCampo(c.id)) ok++
+    }
+    if (cur.campos.some(c => c.tipo === 'produtos' && vis(c))) { total++; if (usoProd) ok++ }
+    if (cur.campos.some(c => c.tipo === 'foto' && c.obrigatorio && vis(c))) { total++; if ((await D().listarFotos(cur.client_uuid)).length) ok++ }
+    const pct = total ? Math.round(ok / total * 100) : 0
+    fill.style.width = pct + '%'
+    fill.style.background = pct >= 100 ? '#179A47' : '#1B7FC4'
+    txt.textContent = `${ok}/${total} · ${pct}%`
+  }
+
   // ── Técnicos responsáveis: seleção em modal fullscreen ──
   let tecCampoId = null
   function abrirModalTecnicos(campoId) {
@@ -1386,6 +1408,7 @@
     }
     const foot = document.getElementById('tec-resumo-foot')
     if (foot) foot.textContent = sel.length ? `${sel.length} selecionado${sel.length > 1 ? 's' : ''}` : 'Nenhum selecionado'
+    atualizarProgresso()
   }
 
   // Card de contexto no topo da RAT (funde a faixa azul + Cliente & Serviço)
@@ -1459,6 +1482,7 @@
     const n = (await D().listarFotos(cur.client_uuid)).length
     if (n) { st.className = 'st st-ok'; st.textContent = `${n} foto${n === 1 ? '' : 's'} ✓`; card.classList.remove('btn-erro') }
     else { st.className = 'st st-pend'; st.textContent = 'Pendente' }
+    atualizarProgresso()
   }
 
   // ── Produtos da RAT: pergunta obrigatória + apontamento com stepper ──
@@ -1520,6 +1544,7 @@
       const n = (await D().listarMateriais(cur.client_uuid)).filter(m => (Number(m.quantidade) || 0) > 0).length
       st.className = 'st st-ok'; st.textContent = `${n} ite${n === 1 ? 'm' : 'ns'} ✓`
     } else { st.className = 'st st-pend'; st.textContent = 'Pendente' }
+    atualizarProgresso()
   }
   // Busca no catálogo (ref.produtos — cacheado p/ offline): sugere e inclui com qtd 1.
   async function renderCatalogoSug() {

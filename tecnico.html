@@ -236,6 +236,13 @@ try{if(localStorage.getItem('sr_dark')==='1')document.documentElement.classList.
   .tec-lista .tec-row{display:flex;align-items:center;gap:12px;padding:14px 4px;border-bottom:1px solid var(--bd);font-size:15px;font-weight:600;color:var(--tx);cursor:pointer}
   .tec-lista .tec-row input{width:20px;height:20px;accent-color:#1B7FC4;flex:none}
 
+  /* ===== Progresso da RAT ===== */
+  .prog{background:var(--sur);border:1px solid var(--bd);border-radius:14px;padding:11px 13px;margin-top:10px}
+  .prog .ph{display:flex;justify-content:space-between;font-size:11px;font-weight:700;color:var(--tx3)}
+  .prog .ph span:last-child{font-variant-numeric:tabular-nums;color:var(--tx)}
+  .prog .pt{height:8px;background:var(--sur2);border-radius:99px;margin-top:8px;overflow:hidden}
+  .prog .pf{height:100%;width:0;background:#1B7FC4;border-radius:99px;transition:width .25s}
+
   /* ===== Topo da Nova RAT: contexto + registros 2x2 ===== */
   .ctx{background:var(--sur);border:1px solid var(--bd);border-left:4px solid #1B7FC4;border-radius:16px;padding:14px 15px}
   .ctx .row1{display:flex;align-items:center;gap:8px}
@@ -473,6 +480,12 @@ try{if(localStorage.getItem('sr_dark')==='1')document.documentElement.classList.
             <label>Tipo de serviço <span class="req">*</span></label>
             <select id="f-tipo"><option value="">Selecione…</option></select>
           </div>
+        </div>
+
+        <!-- progresso para concluir a RAT -->
+        <div class="prog">
+          <div class="ph"><span>Progresso da RAT</span><span id="rat-prog-txt">—</span></div>
+          <div class="pt"><div class="pf" id="rat-prog-fill"></div></div>
         </div>
 
         <!-- registros do atendimento: grid 2x2, cards brancos, estado no badge -->
