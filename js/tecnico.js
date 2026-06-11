@@ -159,7 +159,6 @@
     // Modal Produtos da RAT (Voltar e Salvar fecham; tudo persiste na hora)
     document.getElementById('prod-x').onclick = fecharModalProd
     document.getElementById('prod-ok').onclick = fecharModalProd
-    const pst = document.getElementById('prod-salvar-top'); if (pst) pst.onclick = fecharModalProd
     document.querySelectorAll('#prod-uso-seg button').forEach(b => { b.onclick = () => responderUsoProd(b.dataset.v) })
     document.getElementById('prod-avulso-btn').onclick = () => { document.getElementById('prod-avulso-form').style.display = ''; document.getElementById('pav-nome').focus() }
     document.getElementById('pav-cancelar').onclick = () => { document.getElementById('prod-avulso-form').style.display = 'none' }

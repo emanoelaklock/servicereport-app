@@ -632,11 +632,7 @@ try{if(localStorage.getItem('sr_dark')==='1')document.documentElement.classList.
 
 <div class="tm-back tm-fs" id="modal-prod">
   <div class="tm-box" style="display:flex;flex-direction:column">
-    <div class="tm-h" style="gap:10px">
-      <button type="button" class="tm-x" id="prod-x" style="width:auto;font-size:14px;padding:6px 10px">‹ Voltar</button>
-      <span style="flex:1;text-align:center">Produtos da RAT</span>
-      <button type="button" class="btn btn-p" id="prod-salvar-top" style="width:auto;padding:8px 14px;font-size:13px">Salvar</button>
-    </div>
+    <div class="tm-h"><span>Produtos da RAT</span><button class="tm-x" id="prod-x">✕</button></div>
     <div class="tm-b tskin" style="flex:1;overflow:auto;min-height:0">
       <div class="fg">
         <label>Foi utilizado produto neste atendimento? <span style="color:var(--re,#DE2C2C)">*</span></label>
@@ -669,7 +665,7 @@ try{if(localStorage.getItem('sr_dark')==='1')document.documentElement.classList.
     </div>
     <div class="tm-f" style="justify-content:space-between;align-items:center">
       <span style="font-weight:700;font-size:13.5px" id="prod-resumo-foot">—</span>
-      <button class="btn btn-p" id="prod-ok">Salvar</button>
+      <button class="btn btn-p" id="prod-ok">Concluir</button>
     </div>
   </div>
 </div>
