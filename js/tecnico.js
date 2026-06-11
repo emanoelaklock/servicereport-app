@@ -139,7 +139,6 @@
     // RAT — sempre criada DENTRO de uma Tarefa (não há criação avulsa).
     document.getElementById('btn-cancelar').onclick = cancelar
     document.getElementById('btn-salvar').onclick = salvar
-    document.getElementById('f-gps-btn').onclick = marcarGpsRat
     // Botões do formulário da RAT
     document.getElementById('form-produtos-btn').onclick = abrirModalProd
     document.getElementById('form-fotos-btn').onclick = abrirModalFotos
@@ -165,6 +164,8 @@
     document.getElementById('prod-avulso-btn').onclick = () => { document.getElementById('prod-avulso-form').style.display = ''; document.getElementById('pav-nome').focus() }
     document.getElementById('pav-cancelar').onclick = () => { document.getElementById('prod-avulso-form').style.display = 'none' }
     document.getElementById('pav-add').onclick = adicionarAvulso
+    const pcb = document.getElementById('prod-cat-busca')
+    if (pcb) pcb.oninput = () => renderCatalogoSug()
     document.getElementById('f-tipo').onchange = onTipoChange
     document.getElementById('f-status').onchange = togglePendencias
     // Navegação da home
@@ -775,16 +776,6 @@
         () => res(null), { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 })
     })
   }
-  async function marcarGpsRat() {
-    if (!cur || !cur.client_uuid) return
-    const btn = document.getElementById('f-gps-btn'), st = document.getElementById('f-gps-status'), old = btn.textContent
-    btn.disabled = true; btn.textContent = 'Capturando GPS…'
-    const pos = await getPos()
-    btn.disabled = false; btn.textContent = old
-    if (!pos) { st.textContent = 'Não foi possível obter o GPS (permita a localização no navegador).'; return }
-    await D().salvarRat(cur.client_uuid, { checkin_lat: pos.lat, checkin_lng: pos.lng, checkin_precisao: pos.acc, checkin_em: new Date().toISOString() })
-    st.innerHTML = `Local marcado (±${pos.acc} m). <a href="https://www.google.com/maps?q=${pos.lat},${pos.lng}" target="_blank" rel="noopener">ver no mapa</a>`
-  }
   async function refreshGpsRat() {
     const st = document.getElementById('f-gps-status'); if (!st || !cur || !cur.client_uuid) return
     const r = await D().obterRat(cur.client_uuid)
@@ -1295,9 +1286,13 @@
     let nD = 0
     for (const c of campos) {
       if (!(c.id === 'deslocamento' || dependeDe(c, 'deslocamento'))) continue
+      if (c.tipo === 'veiculo') continue   // veículo fica no formulário, abaixo da Data
       const w = document.querySelector(`#campos-container [data-field="${CSS.escape(c.id)}"]`)
       if (w && dc) { dc.appendChild(w); idsModalDesloc.add(c.id); nD++ }
     }
+    // veículo logo abaixo da Data (continua condicionado a "Houve deslocamento? = Sim")
+    const wVei = (campos.find(c => c.tipo === 'veiculo') || {}).id
+    if (wVei) { const wV = wrapDe(wVei), wDt = wrapDe('data'); if (wV && wDt) wDt.after(wV) }
     const db = document.getElementById('form-desloc-btn'); if (db) db.style.display = nD ? '' : 'none'
     // 3) sequência cronológica inline do restante: hora início → hora término
     const SEQ = ['hora_inicio', 'hora_termino']
@@ -1458,6 +1453,31 @@
       badge = `<span class="pbg pbg-info">${n} ite${n === 1 ? 'm' : 'ns'}</span>`
     }
     b.innerHTML = 'Produtos ' + badge
+  }
+  // Busca no catálogo (ref.produtos — cacheado p/ offline): sugere e inclui com qtd 1.
+  async function renderCatalogoSug() {
+    const box = document.getElementById('prod-cat-sug'); if (!box || !cur) return
+    const q = normStr(document.getElementById('prod-cat-busca').value || '')
+    if (q.length < 2) { box.innerHTML = ''; return }
+    const mats = await D().listarMateriais(cur.client_uuid)
+    const ja = new Set(mats.map(m => m.produto_id).filter(Boolean))
+    const sugest = (ref.produtos || [])
+      .filter(p => !ja.has(p.id) && (normStr(p.descricao || '').includes(q) || normStr(p.codigo || '').includes(q)))
+      .slice(0, 8)
+    box.innerHTML = sugest.length ? sugest.map(p => `
+      <div class="prod-row2">
+        <div class="pr-main"><div class="pr-desc">${esc(p.descricao || '—')}${p.unidade ? ` <span class="pr-un">${esc(p.unidade)}</span>` : ''}</div>${p.codigo ? `<div class="pr-sub">${esc(p.codigo)}</div>` : ''}</div>
+        <button type="button" class="btn btn-sm btn-p pr-add" data-pid="${esc(p.id)}" style="width:auto;padding:9px 13px;font-size:13px">+ Incluir</button>
+      </div>`).join('') : '<div class="prod-empty">Nenhum produto encontrado no catálogo.</div>'
+    box.querySelectorAll('.pr-add').forEach(b => {
+      b.onclick = async () => {
+        const p = (ref.produtos || []).find(x => x.id === b.dataset.pid); if (!p) return
+        await D().adicionarMaterial(cur.client_uuid, { produto_id: p.id, codigo_produto: p.codigo || null, descricao: p.descricao, unidade: p.unidade || null, quantidade: 1 })
+        document.getElementById('prod-cat-busca').value = ''
+        box.innerHTML = ''
+        await refreshMateriais()
+      }
+    })
   }
   async function adicionarAvulso() {
     const nome = (document.getElementById('pav-nome').value || '').trim()

@@ -220,7 +220,7 @@ try{if(localStorage.getItem('sr_dark')==='1')document.documentElement.classList.
   .stp .stp-n{min-width:56px;height:44px;padding:0 6px;font-size:15.5px;font-weight:800;font-variant-numeric:tabular-nums;color:var(--tx)}
   .stp .stp-n.over{color:#DE2C2C}
   .stp .stp-i{width:64px;height:44px;border:none;text-align:center;font:inherit;font-size:15.5px;font-weight:800;outline:2px solid #1B7FC4;background:var(--sur);color:var(--tx)}
-  #prod-avulso-form input{width:100%;padding:10px 11px;border:1px solid var(--bd);border-radius:9px;font:inherit;font-size:16px;background:var(--sur);color:var(--tx)}
+  #prod-avulso-form input,#prod-cat-busca{width:100%;padding:10px 11px;border:1px solid var(--bd);border-radius:9px;font:inherit;font-size:16px;background:var(--sur);color:var(--tx)}
 
   /* ===== Badge de estado no botão Produtos ===== */
   .pbg{font-size:10.5px;font-weight:800;padding:3px 8px;border-radius:999px;margin-left:4px}
@@ -468,12 +468,7 @@ try{if(localStorage.getItem('sr_dark')==='1')document.documentElement.classList.
         </div>
 
         <div class="fcard fc-red">
-          <div class="h"><span class="hi"><svg viewBox="0 0 24 24"><path d="M12 21s7-6.5 7-12a7 7 0 1 0-14 0c0 5.5 7 12 7 12Z"/><circle cx="12" cy="9" r="2.4"/></svg></span>Local &amp; situação</div>
-          <div class="fg campo">
-            <label>Local do atendimento (GPS)</label>
-            <button class="btn btn-ghost" id="f-gps-btn" type="button"><svg viewBox="0 0 24 24"><path d="M20 10c0 6-8 12-8 12S4 16 4 10a8 8 0 0 1 16 0Z"/><circle cx="12" cy="10" r="3"/></svg>Marcar local atual</button>
-            <p class="hintn" id="f-gps-status">Opcional — registra onde o atendimento foi feito.</p>
-          </div>
+          <div class="h"><span class="hi"><svg viewBox="0 0 24 24"><path d="M20 6 9 17l-5-5"/></svg></span>Situação</div>
           <div class="fg campo">
             <label>Situação do atendimento</label>
             <select id="f-status">
@@ -622,6 +617,11 @@ try{if(localStorage.getItem('sr_dark')==='1')document.documentElement.classList.
       <div class="prod-empty" id="prod-semuso" style="display:none">Sem material utilizado neste atendimento — isso fica registrado na RAT.</div>
       <div id="prod-lista-wrap" style="display:none">
         <div class="prod-list" id="prod-list"></div>
+        <div class="fg" style="margin-top:14px">
+          <label>Incluir do catálogo</label>
+          <input id="prod-cat-busca" placeholder="Buscar produto por nome ou código…" autocomplete="off">
+          <div id="prod-cat-sug"></div>
+        </div>
         <button type="button" class="btn btn-sm prod-avulso" id="prod-avulso-btn">+ Item avulso</button>
         <div id="prod-avulso-form" style="display:none;margin-top:10px">
           <div style="display:flex;gap:8px">
