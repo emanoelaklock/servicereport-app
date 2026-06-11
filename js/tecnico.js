@@ -1267,18 +1267,26 @@
   // O Almoço NÃO muda neste pacote: segue no modal do botão "Almoço".
   const ALMOCO_ID = /^almoco/i
   const idsModalDesloc = new Set()   // campos que moram no modal Deslocamento
+  const idsModalPausa = new Set()    // campos que moram no modal Pausa/Almoço
   const wrapDe = (id) => document.querySelector(`[data-field="${CSS.escape(id)}"]`)
   function organizarCamposForm() {
     const campos = (cur && cur.campos) || []
     const dependeDe = (c, alvo) => !!(c.cond && (c.cond.regras || []).some(r => r.campo === alvo))
-    // 1) almoço → modal do botão "Almoço"
+    // 1) pausa (+detalhes) e almoço → modal do botão "Pausa/Almoço"
+    idsModalPausa.clear()
     const ac = document.getElementById('pausa-campos')
     if (ac) ac.innerHTML = ''
     let nA = 0
+    const paraModalPausa = (c) => c.id === 'pausa' || dependeDe(c, 'pausa') || ALMOCO_ID.test(c.id)
+    for (const c of campos) {                      // pausa primeiro, depois almoço
+      if (!(c.id === 'pausa' || dependeDe(c, 'pausa'))) continue
+      const w = document.querySelector(`#campos-container [data-field="${CSS.escape(c.id)}"]`)
+      if (w && ac) { ac.appendChild(w); idsModalPausa.add(c.id); nA++ }
+    }
     for (const c of campos) {
       if (!ALMOCO_ID.test(c.id)) continue
       const w = document.querySelector(`#campos-container [data-field="${CSS.escape(c.id)}"]`)
-      if (w && ac) { ac.appendChild(w); nA++ }
+      if (w && ac) { ac.appendChild(w); idsModalPausa.add(c.id); nA++ }
     }
     const pb = document.getElementById('form-pausa-btn'); if (pb) pb.style.display = nA ? '' : 'none'
     // 2) deslocamento DO DIA → modal do botão "Deslocamento" (pernoite é à parte, na home)
@@ -1292,11 +1300,8 @@
       if (w && dc) { dc.appendChild(w); idsModalDesloc.add(c.id); nD++ }
     }
     const db = document.getElementById('form-desloc-btn'); if (db) db.style.display = nD ? '' : 'none'
-    // 3) sequência cronológica inline do restante: hora início → pausa (+detalhes) → hora término
-    const tem = (id) => campos.some(c => c.id === id)
-    const SEQ = ['hora_inicio']
-    if (tem('pausa')) { SEQ.push('pausa'); for (const c of campos) if (dependeDe(c, 'pausa')) SEQ.push(c.id) }
-    SEQ.push('hora_termino')
+    // 3) sequência cronológica inline do restante: hora início → hora término
+    const SEQ = ['hora_inicio', 'hora_termino']
     let refW = null
     for (const id of SEQ) {
       const w = wrapDe(id); if (!w || idsModalDesloc.has(id)) continue
@@ -1308,15 +1313,21 @@
   }
   // segmented Sim/Não: reflete o valor do input oculto nos botões (após repopular)
   function sincronizarSegmentados() {
-    document.querySelectorAll('#view-form .segq').forEach(sg => {
+    document.querySelectorAll('.segq').forEach(sg => {
       const hid = sg.parentElement && sg.parentElement.querySelector('[data-campo]')
-      const v = hid ? hid.value : ''
+      if (!hid) return   // ex.: pergunta de produtos (sincroniza no próprio modal)
+      const v = hid.value || ''
       sg.querySelectorAll('button').forEach(b => b.classList.toggle('on', !!v && b.dataset.v === v))
     })
   }
   function atualizarResumoAlmoco() {
     const b = document.getElementById('form-pausa-btn'); if (!b) return
-    b.textContent = valorCampo('almoco') ? 'Almoço ✓' : 'Almoço'
+    const campos = (cur && cur.campos) || []
+    const perguntas = ['pausa', 'almoco'].filter(id => campos.some(c => c.id === id))
+    if (!perguntas.length) { b.textContent = 'Pausa/Almoço'; return }
+    const ok = perguntas.every(id => !!valorCampo(id))
+    b.innerHTML = 'Pausa/Almoço ' + (ok ? '<span class="pbg pbg-ok">✓</span>' : '<span class="pbg pbg-warn">Pendente</span>')
+    if (ok) b.classList.remove('btn-erro')
   }
   // badge do botão Deslocamento: Pendente / resposta ✓
   function atualizarBadgeDesloc() {
@@ -1702,7 +1713,7 @@
         // campos dos modais (Deslocamento/Almoço) destacam o botão; o resto inline
         const noForm = [], botoes = []
         for (const id of faltandoIds) {
-          if (ALMOCO_ID.test(id)) botoes.push(document.getElementById('form-pausa-btn'))
+          if (idsModalPausa.has(id) || ALMOCO_ID.test(id)) botoes.push(document.getElementById('form-pausa-btn'))
           else if (idsModalDesloc.has(id)) botoes.push(document.getElementById('form-desloc-btn'))
           else noForm.push(id)
         }
