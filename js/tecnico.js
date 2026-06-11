@@ -481,7 +481,7 @@
         <div class="pn">${esc(m.descricao || m.codigo_produto || '—')}</div>
         <div class="chips">
           <span class="chip c-orc">Orçado ${fmt(m.qtd_orcada, m.unidade)}</span>
-          <span class="chip c-lev">Levado ${fmt(m.qtd_levada, m.unidade)}</span>
+          <span class="chip c-lev">Disponível ${fmt(m.qtd_levada, m.unidade)}</span>
           <span class="chip c-uti">Utilizado ${fmt(m.qtd_utilizada, m.unidade)}</span>
         </div>
       </div>`).join('')
@@ -1402,10 +1402,10 @@
     if (prodTab === 'comigo') {
       // Produtos da tarefa (orçados e/ou levados); o técnico lança a quantidade utilizada aqui.
       lst = mats.filter(m => ((Number(m.qtd_levada) || 0) > 0 || (Number(m.qtd_orcada) || 0) > 0) && bate(m.descricao, m.codigo_produto))
-      box.innerHTML = lst.length ? lst.map(rowMat).join('') : '<div class="prod-empty">Nenhum produto orçado/levado para esta tarefa.</div>'
+      box.innerHTML = lst.length ? lst.map(rowMat).join('') : '<div class="prod-empty">Nenhum produto orçado/disponível para esta tarefa.</div>'
     } else { // adicionados = o que será reportado: usados (qtd>0) + itens incluídos fora da tarefa
       lst = mats.filter(m => ((Number(m.quantidade) || 0) > 0 || ((Number(m.qtd_levada) || 0) <= 0 && (Number(m.qtd_orcada) || 0) <= 0)) && bate(m.descricao, m.codigo_produto))
-      box.innerHTML = lst.length ? lst.map(rowMat).join('') : '<div class="prod-empty">Nada utilizado ainda. Lance a quantidade na aba <b>Comigo</b> ou inclua um produto pela busca.</div>'
+      box.innerHTML = lst.length ? lst.map(rowMat).join('') : '<div class="prod-empty">Nada utilizado ainda. Lance a quantidade na aba <b>Disponível</b> ou inclua um produto pela busca.</div>'
     }
     // Incluir produto do catálogo: ao buscar, sugere itens que ainda não estão na lista
     if (q) {
