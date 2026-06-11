@@ -1203,7 +1203,7 @@
     } else if (c.tipo === 'numero') {
       wrap.innerHTML = `${label}<input type="number" inputmode="decimal" data-campo="${esc(c.id)}" data-tipo="numero"/>`
     } else if (c.tipo === 'selecao') {
-      const PERG_SEG = { deslocamento: 'Houve deslocamento?', pausa: 'Houve pausa?' }
+      const PERG_SEG = { deslocamento: 'Houve deslocamento?', pausa: 'Houve pausa?', almoco: 'Houve almoço?' }
       if (PERG_SEG[c.id]) {
         // pergunta em botões grandes Sim/Não — salva o MESMO valor do dropdown antigo
         wrap.innerHTML = `<label>${esc(PERG_SEG[c.id])}${req}</label>
