@@ -1028,6 +1028,10 @@
         <input type="date" data-ldata="${i}" value="${esc(t.data || '')}">
         <div style="height:9px"></div>
         ${linha(SVG_PIN, 'Destino (para onde vai)', dest, 'mdest')}
+        <label class="flab">A bordo neste trecho</label>
+        <div class="tec-cards">${cards}</div>
+        <button type="button" class="tec-add-btn" data-bd="${i}">+ Adicionar técnico</button>
+        <div style="height:10px"></div>
         ${linha(SVG_CAR, 'Veículo', vei, 'mveic')}
         ${t.veiculo_id
           ? linha(SVG_VOL, 'Motorista — direção (dá pra revezar)', dir, 'mdir')
@@ -1035,10 +1039,7 @@
               <span class="ic">${SVG_VOL}</span>
               <span class="tx"><span class="k">Motorista — direção (dá pra revezar)</span><span class="v${t.nota_transporte ? '' : ' pend'}">${t.nota_transporte ? 'Sem veículo da empresa — dispensado' : 'Escolha o veículo da empresa primeiro'}</span></span>
               <span class="chev">›</span></button>`}
-        <label class="flab">A bordo neste trecho</label>
-        <div class="tec-cards">${cards}</div>
-        <button type="button" class="tec-add-btn" data-bd="${i}">+ Adicionar técnico</button>
-        <div style="height:10px"></div>
+        <div style="height:3px"></div>
         <div class="ltimers">${tbx('saida', 'Saída')}${tbx('chegada', 'Chegada')}</div>
         ${gpsLin}
       </div>`)
