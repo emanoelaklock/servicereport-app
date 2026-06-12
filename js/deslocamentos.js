@@ -301,6 +301,19 @@ const DeslocApp = (() => {
   const horaMais = (hhmm, min) => { const [h, m] = String(hhmm).split(':').map(Number); if (isNaN(h)) return ''; const t = (h * 60 + (m || 0) + min) % 1440; return `${String(Math.floor(t / 60)).padStart(2, '0')}:${String(t % 60).padStart(2, '0')}` }
   const vmAlmRows = () => Object.entries(vmAlmHor).filter(([, h]) => h && h.inicio && h.fim)
     .map(([dia, h]) => ({ dia, inicio: h.inicio, fim: h.fim }))
+  // A DATA do trecho é a única fonte de data: saída/chegada são só HORA, ancoradas nela.
+  const hhIso = (iso) => { if (!iso) return ''; const d = new Date(iso); return `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}` }
+  const isoNoDia = (dia, hhmm, fallbackIso) => {
+    if (!hhmm) return null
+    const d = dia || (fallbackIso ? new Date(fallbackIso).toISOString().slice(0, 10) : new Date().toISOString().slice(0, 10))
+    return new Date(`${d}T${hhmm}:00`).toISOString()
+  }
+  // chegada "antes" da saída = virou o dia (chegou de madrugada) → soma 1 dia
+  const ajustaMadrugada = (t) => {
+    if (t.saida_em && t.chegada_em && new Date(t.chegada_em) <= new Date(t.saida_em)) {
+      t.chegada_em = new Date(new Date(t.chegada_em).getTime() + 86400000).toISOString()
+    }
+  }
   function renderVmTotal() {
     const box = document.getElementById('vm-total'); if (!box || !vmCur) return
     const { total, bruto, almoco, aberto, temTempo } = tempoViagemMin(vmCur.trechos, vmAlmRows())
@@ -416,8 +429,8 @@ const DeslocApp = (() => {
             ${!t.destino_local_id ? `<input type="text" data-vmdest="${i}" value="${esc(t.destino || '')}" placeholder="Digite o destino (ex.: Campinas/SP)" style="margin-top:6px">` : ''}
           </div>
           <div class="dm-row" style="margin-top:10px">
-            <div><label>Saída</label><input type="datetime-local" data-vmsaida="${i}" value="${esc(toLocalInput(t.saida_em))}"></div>
-            <div><label>Chegada</label><input type="datetime-local" data-vmcheg="${i}" value="${esc(toLocalInput(t.chegada_em))}"></div>
+            <div><label>Saída (hora)</label><input type="time" data-vmsaida="${i}" value="${esc(hhIso(t.saida_em))}"></div>
+            <div><label>Chegada (hora)</label><input type="time" data-vmcheg="${i}" value="${esc(hhIso(t.chegada_em))}"></div>
           </div>
           <div class="dm-row" style="margin-top:10px">
             <div><label>Veículo</label><select data-vmveic="${i}">
@@ -444,7 +457,16 @@ const DeslocApp = (() => {
     }).join('')
     const T = vmCur.trechos
     box.querySelectorAll('[data-vmorig]').forEach(el => { el.oninput = () => { T[+el.dataset.vmorig].origem = el.value } })
-    box.querySelectorAll('[data-vmdata]').forEach(el => { el.onchange = () => { T[+el.dataset.vmdata].data = el.value || null } })
+    box.querySelectorAll('[data-vmdata]').forEach(el => {
+      el.onchange = () => {
+        const t = T[+el.dataset.vmdata]
+        t.data = el.value || null
+        // re-ancora saída/chegada na nova data (mantém as horas)
+        if (t.saida_em) t.saida_em = isoNoDia(t.data, hhIso(t.saida_em), t.saida_em)
+        if (t.chegada_em) { t.chegada_em = isoNoDia(t.data, hhIso(t.chegada_em), t.chegada_em); ajustaMadrugada(t) }
+        renderVmAlmoco(); renderVmTotal()
+      }
+    })
     box.querySelectorAll('[data-vmdest]').forEach(el => { el.oninput = () => { T[+el.dataset.vmdest].destino = el.value } })
     box.querySelectorAll('[data-vmloc]').forEach(el => {
       el.onchange = () => {
@@ -454,8 +476,22 @@ const DeslocApp = (() => {
         renderVmTrechos()
       }
     })
-    box.querySelectorAll('[data-vmsaida]').forEach(el => { el.onchange = () => { T[+el.dataset.vmsaida].saida_em = inputToISO(el.value); renderVmTotal() } })
-    box.querySelectorAll('[data-vmcheg]').forEach(el => { el.onchange = () => { T[+el.dataset.vmcheg].chegada_em = inputToISO(el.value); renderVmTotal() } })
+    box.querySelectorAll('[data-vmsaida]').forEach(el => {
+      el.onchange = () => {
+        const t = T[+el.dataset.vmsaida]
+        t.saida_em = isoNoDia(t.data, el.value, t.saida_em)
+        ajustaMadrugada(t)
+        renderVmTotal()
+      }
+    })
+    box.querySelectorAll('[data-vmcheg]').forEach(el => {
+      el.onchange = () => {
+        const t = T[+el.dataset.vmcheg]
+        t.chegada_em = isoNoDia(t.data, el.value, t.chegada_em)
+        ajustaMadrugada(t)
+        renderVmTotal()
+      }
+    })
     box.querySelectorAll('[data-vmveic]').forEach(el => {
       el.onchange = () => {
         const t = T[+el.dataset.vmveic]

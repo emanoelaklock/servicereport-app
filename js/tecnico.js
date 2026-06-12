@@ -934,11 +934,26 @@
   }
   function fecharDesloc() { document.getElementById('modal-desloc').classList.remove('open'); dlCur = null; dlModalTrecho = null }
 
+  // A DATA do trecho é a única fonte de data: os horários ancoram nela.
+  const isoNoDia = (dia, hhmm, fallbackIso) => {
+    if (!hhmm) return null
+    const d = dia || (fallbackIso ? new Date(fallbackIso).toISOString().slice(0, 10) : jorHoje())
+    return new Date(`${d}T${hhmm}:00`).toISOString()
+  }
+  // chegada "antes" da saída = virou o dia (chegou de madrugada) → soma 1 dia
+  const ajustaMadrugada = (t) => {
+    if (t.saida_em && t.chegada_em && new Date(t.chegada_em) <= new Date(t.saida_em)) {
+      t.chegada_em = new Date(new Date(t.chegada_em).getTime() + 86400000).toISOString()
+    }
+  }
   // GPS pontual automático ao marcar saída/chegada do trecho (sem botão dedicado)
   async function marcarTrecho(i, qual) {
     const t = dlCur && dlCur.trechos[i]; if (!t) return
-    t[qual + '_em'] = new Date().toISOString()
     if (qual === 'saida' && !t.data) t.data = jorHoje()
+    const ag = new Date()
+    const hh = `${String(ag.getHours()).padStart(2, '0')}:${String(ag.getMinutes()).padStart(2, '0')}`
+    t[qual + '_em'] = isoNoDia(t.data, hh)   // hora de agora, no DIA do trecho
+    ajustaMadrugada(t)
     renderTrechos()   // mostra a hora já; o GPS chega em seguida
     const pos = await getPos()
     if (pos) { t[qual + '_lat'] = pos.lat; t[qual + '_lng'] = pos.lng; t[qual + '_precisao'] = pos.acc }
@@ -1098,7 +1113,16 @@
     const T = dlCur.trechos
     box.querySelectorAll('[data-lorigem]').forEach(el => { el.oninput = () => { T[+el.dataset.lorigem].origem = el.value } })
     box.querySelectorAll('[data-suorig]').forEach(el => { el.onclick = () => { T[+el.dataset.suorig].origem = el.dataset.v; renderTrechos() } })
-    box.querySelectorAll('[data-ldata]').forEach(el => { el.onchange = () => { T[+el.dataset.ldata].data = el.value || null; renderTrechos(); renderDlAlmocos() } })
+    box.querySelectorAll('[data-ldata]').forEach(el => {
+      el.onchange = () => {
+        const t = T[+el.dataset.ldata]
+        t.data = el.value || null
+        // re-ancora os horários já marcados na nova data (mantém as horas)
+        if (t.saida_em) t.saida_em = isoNoDia(t.data, hhmmDe(t.saida_em), t.saida_em)
+        if (t.chegada_em) { t.chegada_em = isoNoDia(t.data, hhmmDe(t.chegada_em), t.chegada_em); ajustaMadrugada(t) }
+        renderTrechos(); renderDlAlmocos()
+      }
+    })
     box.querySelectorAll('[data-mdest]').forEach(el => { el.onclick = () => abrirDlDest(+el.dataset.mdest) })
     box.querySelectorAll('[data-mveic]').forEach(el => { el.onclick = () => abrirDlVeic(+el.dataset.mveic) })
     box.querySelectorAll('[data-mdir]').forEach(el => { el.onclick = () => abrirDlDir(+el.dataset.mdir) })
