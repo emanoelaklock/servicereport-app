@@ -259,6 +259,10 @@ try{if(localStorage.getItem('sr_dark')==='1')document.documentElement.classList.
   .pbg-ok{background:#DEF3E6;color:#0F7A33}
   .pbg-info{background:#E7F1FC;color:#175fb0}
 
+  /* ===== Linha dupla de campos (lado a lado) ===== */
+  .fg-row{display:flex;gap:10px}
+  .fg-row>.campo{flex:1;min-width:0}
+
   /* ===== Técnicos responsáveis: cards (padrão admin) + modal ===== */
   .tec-cards{display:flex;flex-direction:column;gap:8px;margin-bottom:10px}
   .tec-card{display:flex;align-items:center;gap:11px;background:var(--sur);border:1px solid var(--bd);border-radius:13px;padding:10px 12px}

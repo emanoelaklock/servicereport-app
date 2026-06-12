@@ -1062,7 +1062,7 @@
     const $c = (id) => document.querySelector(`[data-campo="${CSS.escape(id)}"]`)
     // a barra fica logo ACIMA do campo inicial do par (form ou modal) e
     // acompanha a visibilidade dele (revelação progressiva Sim/Não)
-    const antesDoCampo = (id) => (bar) => { const w = wrapDe(id); if (w && w.parentNode) w.parentNode.insertBefore(bar, w) }
+    const antesDoCampo = (id) => (bar) => { const w = wrapDe(id); if (!w) return; const host = w.closest('.fg-row') || w; if (host.parentNode) host.parentNode.insertBefore(bar, host) }
     const DEFS = [
       { ini: 'hora_inicio', fim: 'hora_termino', lb: 'atendimento', gps: true, mount: antesDoCampo('hora_inicio') },
       { ini: 'almoco_inicio', fim: 'almoco_termino', lb: 'almoço', mount: antesDoCampo('almoco_inicio') },
@@ -1324,6 +1324,17 @@
       if (refW) refW.after(w)
       refW = w
     }
+    // pares lado a lado: Data+Veículo · Hora início+Hora término
+    const parear = (idA, idB) => {
+      const a = wrapDe(idA), b = wrapDe(idB)
+      if (!a || !b || !a.parentNode) return
+      const row = document.createElement('div')
+      row.className = 'fg-row'
+      a.parentNode.insertBefore(row, a)
+      row.appendChild(a); row.appendChild(b)
+    }
+    if (wVei) parear('data', wVei)
+    parear('hora_inicio', 'hora_termino')
     atualizarResumoAlmoco()
     atualizarBadgeDesloc()
   }
