@@ -227,11 +227,16 @@ try{if(localStorage.getItem('sr_dark')==='1')document.documentElement.classList.
 
   /* ===== Pergunta Sim/Não (segmented) ===== */
   .segq{display:flex;gap:10px}
-  .segq button{flex:1;padding:16px 13px;border:1.6px solid var(--bd);border-radius:13px;background:var(--sur);font:inherit;font-size:16px;font-weight:800;color:var(--tx2);cursor:pointer}
-  .segq button.on{border-color:#1B7FC4;background:#1B7FC4;color:#fff}
-  #modal-prod .segq button.on{border-color:#12A5A5;background:#12A5A5;color:#fff}
-  #modal-desloc-rat .segq button.on{border-color:var(--orange,#F27423);background:var(--orange,#F27423);color:#fff}
-  #modal-pausa .segq button.on{border-color:var(--yellow,#FDB31F);background:var(--yellow,#FDB31F);color:#fff}
+  .segq button{flex:1;padding:16px 13px;border-radius:13px;font:inherit;font-size:16px;font-weight:800;cursor:pointer}
+  /* semântica: Sim = verde · Não = vermelho (dica de cor já no estado solto) */
+  .segq button[data-v="Sim"]{border:1.6px solid #BFE5CC;background:#F4FBF6;color:#0F7A33}
+  .segq button[data-v="Não"]{border:1.6px solid #F3C6C0;background:#FDF6F5;color:#B42318}
+  .segq button.on[data-v="Sim"]{background:#179A47;border-color:#179A47;color:#fff}
+  .segq button.on[data-v="Não"]{background:#DE2C2C;border-color:#DE2C2C;color:#fff}
+  html.dark .segq button[data-v="Sim"]{background:#15251c;border-color:#1f3a2b}
+  html.dark .segq button[data-v="Não"]{background:#2a1715;border-color:#4a2522}
+  html.dark .segq button.on[data-v="Sim"]{background:#179A47;color:#fff}
+  html.dark .segq button.on[data-v="Não"]{background:#DE2C2C;color:#fff}
 
   /* ===== Produtos da RAT: linhas com stepper ===== */
   .prod-row2{display:flex;align-items:center;gap:10px;padding:12px 0;border-bottom:1px solid var(--bd)}
