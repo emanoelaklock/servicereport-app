@@ -1174,6 +1174,10 @@
       b.onclick = () => {
         t.veiculo_id = b.dataset.veic; t.sem_veiculo = false; t.nota_transporte = null
         document.getElementById('modal-dl-veic').classList.remove('open')
+        // só um a bordo? ele é o motorista (trecho todo) — sem passo extra
+        if (!(t.motoristas || []).length && (t.tecnicos || []).length === 1) {
+          t.motoristas = [{ tecnico_id: t.tecnicos[0], hora_de: null, hora_ate: null }]
+        }
         renderTrechos()
         if (!(t.motoristas || []).length) abrirDlDir(dlModalTrecho)   // já emenda: quem dirige?
       }
@@ -1295,7 +1299,16 @@
     if (!(dlCur.trechos[0].tecnicos || []).length) return toast('Marque quem está a bordo.', 'err')
     for (let i = 0; i < dlCur.trechos.length; i++) {
       const t = dlCur.trechos[i]
-      if (t.veiculo_id && !(t.motoristas || []).length) return toast(`Defina a direção do trecho ${i + 1} (veículo da empresa).`, 'err')
+      if (t.veiculo_id && !(t.motoristas || []).length) {
+        // só um a bordo? resolve sozinho (motorista = ele, trecho todo)
+        if ((t.tecnicos || []).length === 1) {
+          t.motoristas = [{ tecnico_id: t.tecnicos[0], hora_de: null, hora_ate: null }]
+          continue
+        }
+        toast(`Trecho ${i + 1}: defina quem dirigiu (veículo da empresa).`, 'err')
+        abrirDlDir(i)   // abre direto onde resolver, em vez de só reclamar
+        return
+      }
     }
     dlCur.cliente_id = document.getElementById('dl-cli').value || dlCur.cliente_id || null
     // almoço por pessoa derivado dos horários do dia × quem estava a bordo no dia
