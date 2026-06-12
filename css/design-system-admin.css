@@ -123,7 +123,8 @@
 .meta.status .ic{background:var(--exec-bg);} .meta.status .ic svg{stroke:var(--exec-m);} .meta.status .v{color:var(--exec-fg);}
 .meta.date .ic{background:var(--info-bg);} .meta.date .ic svg{stroke:var(--info-m);}
 .meta .av{width:34px;height:34px;border-radius:50%;background:#D9E5F5;color:#3a5f8f;display:grid;place-items:center;font-weight:700;font-size:12px;flex:none;}
-.acts{display:flex;align-items:center;gap:9px;padding-left:18px;border-left:1px solid var(--line);}
+/* opacity:1 vence o .acts{opacity:0} do theme.css (lá é padrão de hover em linha de tabela) */
+.hd .acts{display:flex;align-items:center;gap:9px;padding-left:18px;border-left:1px solid var(--line);opacity:1;}
 
 /* ---------- SITUAÇÃO (radar de 6) ---------- */
 .situacao{display:grid;grid-template-columns:repeat(6,1fr);gap:12px;}
