@@ -812,11 +812,12 @@
   //  • CNPJ:  "Rua X, 10 · Bairro · São Paulo/SP · 01311-300"
   function cidadeUfDeEndereco(end) {
     const s = String(end || '')
+    // cidade em Title Case (cadastros do Omie vêm em CAIXA ALTA); UF sempre maiúscula
     const par = s.match(/([A-Za-zÀ-ÿ0-9 .'-]+?)\s*\(([A-Za-z]{2})\)/)   // Cidade (UF)
-    if (par) return { cidade: par[1].trim(), uf: par[2].toUpperCase() }
+    if (par) return { cidade: tcase(par[1].trim()), uf: par[2].toUpperCase() }
     for (const tok of s.split(/[·,]/)) {                                // Cidade/UF
       const m = tok.trim().match(/^(.+?)\/([A-Za-z]{2})$/)
-      if (m) return { cidade: m[1].trim(), uf: m[2].toUpperCase() }
+      if (m) return { cidade: tcase(m[1].trim()), uf: m[2].toUpperCase() }
     }
     return null
   }
