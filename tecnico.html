@@ -357,18 +357,42 @@ try{if(localStorage.getItem('sr_dark')==='1')document.documentElement.classList.
   .lgps{display:flex;align-items:center;gap:6px;margin-top:7px;font-size:10.5px;font-weight:700;color:#0B7A43}
   .lgps.off{color:var(--tx3)}
   .lgps svg{width:12px;height:12px;stroke:currentColor;fill:none;stroke-width:2;stroke-linecap:round;stroke-linejoin:round;flex:none}
+  /* linha-botão do trecho (abre modal fullscreen — padrão dos registros da RAT) */
+  .dlrow{display:flex;align-items:center;gap:10px;width:100%;background:var(--sur2);border:1px solid var(--bd);border-radius:12px;padding:10px 12px;font:inherit;cursor:pointer;text-align:left;margin-bottom:7px}
+  .dlrow .ic{width:30px;height:30px;border-radius:9px;background:#FDEFE0;color:#b85e0a;display:grid;place-items:center;flex:none}
+  html.dark .dlrow .ic{background:#3a2a14;color:#f0b070}
+  .dlrow .ic svg{width:16px;height:16px;stroke:currentColor;fill:none;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
+  .dlrow .tx{flex:1;min-width:0}
+  .dlrow .k{display:block;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:var(--tx3)}
+  .dlrow .v{display:block;font-size:13.5px;font-weight:700;color:var(--tx);margin-top:1px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .dlrow .v.pend{color:#b85e0a;font-weight:600}
+  .dlrow .chev{color:var(--tx3);flex:none;font-size:17px}
+  .leg .flab{display:block;font-size:10.5px;font-weight:700;color:var(--tx3);margin:9px 1px 5px;text-transform:uppercase;letter-spacing:.4px}
+  .sug-chips{display:flex;gap:6px;flex-wrap:wrap;margin:6px 0 2px}
+  .sug-chips button{border:1px solid var(--bd);background:var(--sur);color:var(--tx2);font:inherit;font-size:11.5px;font-weight:700;border-radius:999px;padding:5px 11px;cursor:pointer}
+  /* opções dos modais do trecho (destino/veículo) */
+  .opt-lista{display:flex;flex-direction:column;gap:8px;margin-top:10px}
+  .opt-row{display:flex;align-items:center;gap:11px;background:var(--sur);border:1.5px solid var(--bd);border-radius:13px;padding:12px;cursor:pointer;font:inherit;text-align:left;width:100%}
+  .opt-row.on{border-color:#F4861F;background:#FDEFE0}
+  html.dark .opt-row.on{background:#3a2a14}
+  .opt-row .oic{width:34px;height:34px;border-radius:10px;background:#FDEFE0;color:#b85e0a;display:grid;place-items:center;flex:none}
+  html.dark .opt-row .oic{background:#3a2a14;color:#f0b070}
+  .opt-row .oic svg{width:18px;height:18px;stroke:currentColor;fill:none;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
+  .opt-row .ot{flex:1;min-width:0}
+  .opt-row .on1{display:block;font-size:14px;font-weight:700;color:var(--tx)}
+  .opt-row .on2{display:block;font-size:11.5px;color:var(--tx3);font-weight:600;margin-top:1px}
+  .opt-sep{font-size:10.5px;font-weight:700;letter-spacing:.8px;text-transform:uppercase;color:var(--tx3);margin:16px 2px 6px}
   .between{display:flex;align-items:center;gap:9px;margin:2px 0 10px 11px;padding-left:14px;border-left:2px dashed #E2C9AC}
   .pn-chip{display:inline-flex;align-items:flex-start;gap:7px;font-size:11px;font-weight:700;background:#FDEFE0;color:#b85e0a;padding:7px 12px;border-radius:14px;line-height:1.4}
   .pn-chip svg{width:15px;height:15px;stroke:currentColor;fill:none;stroke-width:2;stroke-linecap:round;stroke-linejoin:round;flex:none;margin-top:1px}
   html.dark .pn-chip{background:#3a2a14;color:#f0b070}
   .dl-addleg{width:100%;border:1.5px dashed #C6CCDA;border-radius:15px;padding:12px;text-align:center;font-size:13px;font-weight:700;color:#1565C0;background:var(--sur);cursor:pointer;font-family:inherit;margin-top:2px}
   .dl-noites{font-size:11.5px;color:var(--tx3);font-weight:600;margin:8px 2px 0}
-  .dl-dia{background:var(--sur);border:1px solid var(--bd);border-radius:14px;padding:11px 13px;margin-bottom:8px}
-  .dl-dia .dh{font-size:11.5px;font-weight:800;color:var(--tx2);margin-bottom:8px}
-  .dl-dia .tpair{display:flex;gap:8px;margin-bottom:8px}
-  .dl-dia .tpair>div{flex:1}
-  .dl-dia .tpair label{display:block;font-size:10.5px;font-weight:700;color:var(--tx3);text-transform:uppercase;letter-spacing:.5px;margin-bottom:4px}
-  .dl-dia input[type="time"]{width:100%;padding:8px 10px;border:1px solid var(--bd);border-radius:10px;font:inherit;font-size:13.5px;background:var(--sur);color:var(--tx);-webkit-appearance:none;appearance:none}
+  .dl-dia{background:var(--sur);border:1px solid var(--bd);border-left:4px solid #FDB31F;border-radius:14px;padding:14px;margin-bottom:10px}
+  .dl-dia .dh{font-size:13px;font-weight:800;color:var(--tx);margin-bottom:10px}
+  .dl-dia .tpair{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:10px}
+  .dl-dia .tpair label{display:block;font-size:10.5px;font-weight:700;color:var(--tx3);text-transform:uppercase;letter-spacing:.5px;margin-bottom:5px}
+  .dl-dia input[type="time"]{width:100%;min-height:44px;padding:10px 12px;border:1px solid var(--bd);border-radius:11px;font:inherit;font-size:15.5px;font-weight:700;background:var(--sur);color:var(--tx);-webkit-appearance:none;appearance:none;display:block;text-align:left;font-variant-numeric:tabular-nums}
 
   /* ===== Progresso da RAT ===== */
   .prog{background:var(--sur);border:1px solid var(--bd);border-radius:14px;padding:11px 13px;margin-top:10px}
@@ -934,6 +958,56 @@ try{if(localStorage.getItem('sr_dark')==='1')document.documentElement.classList.
       <span id="dltec-foot" style="font-weight:700;font-size:13.5px">—</span>
       <button class="btn btn-p" id="dltec-ok">Concluir</button>
     </div>
+  </div>
+</div>
+
+<!-- Modal: Destino do trecho (Local do cliente ou texto livre) -->
+<div class="tm-back tm-fs" id="modal-dl-dest">
+  <div class="tm-box" style="display:flex;flex-direction:column">
+    <div class="tm-h tmh tmh-orange"><span class="tmh-ic"><svg viewBox="0 0 24 24"><path d="M12 21s-7-5.1-7-11a7 7 0 0 1 14 0c0 5.9-7 11-7 11Z"/><circle cx="12" cy="10" r="2.5"/></svg></span><span class="tmh-t">Destino do trecho</span><button class="tm-x" id="dldest-x">✕</button></div>
+    <div class="tm-b tskin" style="flex:1;overflow:auto;min-height:0">
+      <input id="dldest-busca" placeholder="Buscar local…" autocomplete="off" style="width:100%;padding:11px 12px;border:1px solid var(--bd);border-radius:10px;font:inherit;font-size:16px;background:var(--sur);color:var(--tx)">
+      <div class="opt-lista" id="dldest-lista"></div>
+      <div class="opt-sep">Ou outro lugar</div>
+      <input type="text" id="dldest-outro" placeholder="Digite o destino (ex.: Curitiba/PR)" style="width:100%;padding:12px;border:1px solid var(--bd);border-radius:11px;font:inherit;font-size:15px;background:var(--sur);color:var(--tx)">
+      <p class="dim" style="font-size:12px;margin-top:8px">Locais do cliente são cadastrados pelo escritório (Configurações → Empresas → Locais). Com local cadastrado, o GPS confirma a chegada sozinho.</p>
+    </div>
+    <div class="tm-f" style="justify-content:flex-end"><button class="btn btn-orange" id="dldest-ok">Concluir</button></div>
+  </div>
+</div>
+
+<!-- Modal: Veículo do trecho -->
+<div class="tm-back tm-fs" id="modal-dl-veic">
+  <div class="tm-box" style="display:flex;flex-direction:column">
+    <div class="tm-h tmh tmh-orange"><span class="tmh-ic"><svg viewBox="0 0 24 24"><path d="M3 17h2m14 0h2M5 17a2 2 0 1 0 4 0 2 2 0 0 0-4 0Zm10 0a2 2 0 1 0 4 0 2 2 0 0 0-4 0Z"/><path d="M5 17V8a1 1 0 0 1 1-1h8l4 4v6"/></svg></span><span class="tmh-t">Veículo do trecho</span><button class="tm-x" id="dlveic-x">✕</button></div>
+    <div class="tm-b tskin" style="flex:1;overflow:auto;min-height:0">
+      <div class="opt-sep" style="margin-top:0">Veículos da empresa</div>
+      <div class="opt-lista" id="dlveic-lista" style="margin-top:6px"></div>
+      <div class="opt-sep">Sem veículo da empresa</div>
+      <input type="text" id="dlveic-outro" placeholder="Digite como foi (carona, avião, carro alugado…)" style="width:100%;padding:12px;border:1px solid var(--bd);border-radius:11px;font:inherit;font-size:15px;background:var(--sur);color:var(--tx)">
+      <p class="dim" style="font-size:12px;margin-top:8px">Veículo da empresa pede a <b>direção</b> preenchida (quem dirigiu — dá pra revezar). Sem veículo da empresa, é só dizer como foi.</p>
+    </div>
+    <div class="tm-f" style="justify-content:flex-end"><button class="btn btn-orange" id="dlveic-ok">Concluir</button></div>
+  </div>
+</div>
+
+<!-- Modal: Direção do trecho (motorista + revezamento) -->
+<div class="tm-back tm-fs" id="modal-dl-dir">
+  <div class="tm-box" style="display:flex;flex-direction:column">
+    <div class="tm-h tmh tmh-orange"><span class="tmh-ic"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="2.5"/><path d="M12 3v6.5M4.2 16.5l6-3M19.8 16.5l-6-3"/></svg></span><span class="tmh-t">Direção do trecho</span><button class="tm-x" id="dldir-x">✕</button></div>
+    <div class="tm-b tskin" style="flex:1;overflow:auto;min-height:0">
+      <div class="opt-sep" style="margin-top:0">Quem dirigiu</div>
+      <div id="dldir-turnos"></div>
+      <div class="opt-sep" id="dldir-add-titulo">Definir motorista</div>
+      <div class="opt-lista" id="dldir-tecs" style="margin-top:6px"></div>
+      <div id="dldir-hora-wrap" style="display:none;margin-top:10px">
+        <label style="display:block;font-size:10.5px;font-weight:700;color:var(--tx3);text-transform:uppercase;letter-spacing:.5px;margin-bottom:5px">Hora da troca</label>
+        <input type="time" id="dldir-hora" style="width:100%;min-height:44px;padding:10px 12px;border:1px solid var(--bd);border-radius:11px;font:inherit;font-size:15.5px;font-weight:700;background:var(--sur);color:var(--tx);-webkit-appearance:none;appearance:none;display:block">
+      </div>
+      <button type="button" class="tec-add-btn" id="dldir-add" style="margin-top:10px">+ Adicionar</button>
+      <p class="dim" style="font-size:12px;margin-top:10px">Revezaram? Adicione quem assumiu e a hora da troca — os turnos ficam emendados e eventual multa cai no horário de quem dirigia.</p>
+    </div>
+    <div class="tm-f" style="justify-content:flex-end"><button class="btn btn-orange" id="dldir-ok">Concluir</button></div>
   </div>
 </div>
 
