@@ -261,8 +261,10 @@ try{if(localStorage.getItem('sr_dark')==='1')document.documentElement.classList.
 
   /* ===== Linha dupla de campos (lado a lado) ===== */
   .fg-row{display:grid;grid-template-columns:1fr 1fr;gap:10px;align-items:start}
-  .fg-row>.campo{min-width:0;width:auto}
-  .fg-row input,.fg-row select{width:100%;min-width:0}
+  .fg-row>.campo{min-width:0;width:auto;overflow:hidden}
+  .fg-row input,.fg-row select{width:100%;min-width:0;max-width:100%}
+  /* iOS: date/time tem largura minima nativa e vaza da coluna — desliga a aparencia */
+  .fg-row input[type="date"],.fg-row input[type="time"]{-webkit-appearance:none;appearance:none;display:block;min-height:42px;text-align:left}
 
   /* ===== Técnicos responsáveis: cards (padrão admin) + modal ===== */
   .tec-cards{display:flex;flex-direction:column;gap:8px;margin-bottom:10px}
