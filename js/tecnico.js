@@ -1190,8 +1190,13 @@
     if (c.tipo === 'texto') {
       wrap.innerHTML = `${label}<input type="text" data-campo="${esc(c.id)}" data-tipo="texto"/>`
     } else if (c.tipo === 'texto_longo') {
-      const ehServico = c.id === 'servico_executado'
-      const ph = ehServico ? 'Descreva o serviço executado, atividades realizadas e resultados obtidos' : '…'
+      // campos com orientação + bullets automáticos
+      const TA_DICAS = {
+        servico_executado: 'Descreva o serviço executado, atividades realizadas e resultados obtidos',
+        observacoes: 'Pendências, materiais necessários, observações ou retorno programado',
+      }
+      const ehServico = !!TA_DICAS[c.id]
+      const ph = TA_DICAS[c.id] || '…'
       wrap.innerHTML = `${label}<textarea class="ta-longo${ehServico ? ' ta-servico' : ''}" data-campo="${esc(c.id)}" data-tipo="texto_longo" placeholder="${esc(ph)}"></textarea>`
       if (ehServico) setTimeout(() => {
         const ta = wrap.querySelector('textarea'); if (!ta) return
