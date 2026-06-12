@@ -62,7 +62,7 @@ const DeslocApp = (() => {
 
   async function carregar() {
     const { data, error } = await sb().from('deslocamentos')
-      .select('id,sentido,cliente_id,origem,destino,origem_cidade,origem_uf,destino_cidade,destino_uf,motivo,saida_em,chegada_em,veiculo_id,saida_lat,saida_lng,chegada_lat,chegada_lng,criado_em,deslocamento_tecnicos(tecnico_id),deslocamento_trechos(id,ordem,origem,destino,destino_local_id,data,saida_em,chegada_em,saida_lat,saida_lng,saida_precisao,chegada_lat,chegada_lng,chegada_precisao,veiculo_id,nota_transporte,espelho_legado,cliente_locais(nome,cidade,uf),trecho_tecnicos(tecnico_id),trecho_direcao(id,tecnico_id,hora_de,hora_ate))')
+      .select('id,sentido,cliente_id,origem,destino,origem_cidade,origem_uf,destino_cidade,destino_uf,motivo,saida_em,chegada_em,veiculo_id,saida_lat,saida_lng,chegada_lat,chegada_lng,criado_em,deslocamento_tecnicos(tecnico_id),deslocamento_trechos(id,ordem,origem,destino,destino_local_id,data,saida_em,chegada_em,saida_lat,saida_lng,saida_precisao,chegada_lat,chegada_lng,chegada_precisao,veiculo_id,nota_transporte,espelho_legado,cliente_locais(nome,cidade,uf),trecho_tecnicos(tecnico_id),trecho_direcao(id,tecnico_id,hora_de,hora_ate)),deslocamento_almocos(tecnico_id,dia,inicio,fim)')
       .order('criado_em', { ascending: false }).limit(300)
     if (error) { toast('Erro: ' + error.message, 'err'); return }
     rows = data || []
@@ -72,6 +72,31 @@ const DeslocApp = (() => {
   const trechosDe = (d) => ((d.deslocamento_trechos || []).filter(t => !t.espelho_legado)).sort((a, b) => a.ordem - b.ordem)
   const destinoLbl = (t) => t.cliente_locais ? `${t.cliente_locais.nome}${t.cliente_locais.cidade ? ' · ' + fmtLugar([t.cliente_locais.cidade, t.cliente_locais.uf].filter(Boolean).join('/')) : ''}` : (fmtLugar(t.destino) || '—')
   const dia2 = (s) => s ? s.split('-').reverse().slice(0, 2).join('/') : '—'
+  // tempo de deslocamento = Σ (chegada − saída) dos trechos − almoço dentro do horário dos trechos do dia
+  const fmtHm = (m) => `${Math.floor(m / 60)}h${String(Math.round(m % 60)).padStart(2, '0')}`
+  function tempoViagemMin(ts, almRows) {
+    let bruto = 0
+    const porDia = {}
+    for (const t of (ts || [])) {
+      if (!t.saida_em || !t.chegada_em) continue
+      const a = new Date(t.saida_em).getTime(), b = new Date(t.chegada_em).getTime()
+      if (b <= a) continue
+      bruto += (b - a) / 60000
+      const dia = t.data || String(t.saida_em).slice(0, 10)
+      ;(porDia[dia] = porDia[dia] || []).push([a, b])
+    }
+    // um par de horários por dia (os registros por pessoa repetem o mesmo par)
+    const horDia = {}
+    for (const r of (almRows || [])) if (r.dia && r.inicio && r.fim && !horDia[r.dia]) horDia[r.dia] = r
+    let almoco = 0
+    for (const [dia, h] of Object.entries(horDia)) {
+      if (!porDia[dia]) continue
+      const hh = (t) => String(t).slice(0, 5)
+      const ai = new Date(`${dia}T${hh(h.inicio)}:00`).getTime(), af = new Date(`${dia}T${hh(h.fim)}:00`).getTime()
+      for (const [a, b] of porDia[dia]) almoco += Math.max(0, Math.min(b, af) - Math.max(a, ai)) / 60000
+    }
+    return { total: Math.max(0, Math.round(bruto - almoco)), bruto: Math.round(bruto), almoco: Math.round(almoco) }
+  }
 
   function render() {
     // "Quem está fora": viagens em andamento (trecho com saída sem chegada / roteiro aberto)
@@ -154,7 +179,7 @@ const DeslocApp = (() => {
         const st = emViagem ? '<span class="vst and"><i></i>Em andamento</span>'
           : (fechada ? '<span class="vst con"><i></i>Concluída</span>' : '<span class="vst pla"><i></i>Planejada</span>')
         return `<tr>
-          <td><div class="vtipo">Viagem · ${ts.length} trecho${ts.length > 1 ? 's' : ''}</div>${periodo ? `<div class="vper">${esc(periodo)}</div>` : ''}<div style="margin-top:5px">${st}</div></td>
+          <td><div class="vtipo">Viagem · ${ts.length} trecho${ts.length > 1 ? 's' : ''}</div>${periodo ? `<div class="vper">${esc(periodo)}</div>` : ''}${(() => { const tv = tempoViagemMin(ts, d.deslocamento_almocos); return tv.bruto ? `<div class="vper">Tempo: <b>${fmtHm(tv.total)}</b>${tv.almoco ? ' (− almoço)' : ''}</div>` : '' })()}<div style="margin-top:5px">${st}</div></td>
           <td>${esc(cliNomes[d.cliente_id] || '—')}</td>
           <td>${esc(fmtLugar(prim.origem) || '—')} → ${esc(destinoLbl(ult))}${detalhe}</td>
           <td>${veics.length ? veics.map(esc).join('<br>') : (semVeic.length ? `<span class="dim">${esc(semVeic.join(', '))}</span>` : '—')}</td>
@@ -250,7 +275,14 @@ const DeslocApp = (() => {
   }
 
   // ───────────────────── Editar VIAGEM (modelo novo: trechos) ─────────────────────
-  let vmCur = null, vmLocais = []
+  let vmCur = null, vmLocais = [], vmAlmocos = []
+  function renderVmTotal() {
+    const box = document.getElementById('vm-total'); if (!box || !vmCur) return
+    const { total, bruto, almoco } = tempoViagemMin(vmCur.trechos, vmAlmocos)
+    if (!bruto) { box.innerHTML = ''; return }
+    box.innerHTML = `<div class="vm-totcard"><span class="k">Tempo de deslocamento</span><span class="v">${fmtHm(total)}</span>
+      ${almoco ? `<span class="s">${fmtHm(bruto)} marcados − ${fmtHm(almoco)} de almoço (registrado pelo técnico na viagem)</span>` : '<span class="s">sem almoço descontado</span>'}</div>`
+  }
   const vmUuid = () => (crypto.randomUUID ? crypto.randomUUID() : `${Date.now()}-${Math.random().toString(16).slice(2)}`)
   function vmNovoTrecho() {
     const ant = vmCur.trechos[vmCur.trechos.length - 1]
@@ -281,6 +313,7 @@ const DeslocApp = (() => {
         motoristas: (t.trecho_direcao || []).map(m => ({ tecnico_id: m.tecnico_id, hora_de: m.hora_de ? String(m.hora_de).slice(0, 5) : null, hora_ate: m.hora_ate ? String(m.hora_ate).slice(0, 5) : null })),
       })),
     }
+    vmAlmocos = d.deslocamento_almocos || []
     document.getElementById('vm-id').value = d.id
     document.getElementById('vm-cli').innerHTML = '<option value="">— sem cliente —</option>' +
       cliArr.map(c => `<option value="${esc(c.id)}"${c.id === vmCur.cliente_id ? ' selected' : ''}>${esc(c.nome || '')}</option>`).join('')
@@ -354,8 +387,8 @@ const DeslocApp = (() => {
         renderVmTrechos()
       }
     })
-    box.querySelectorAll('[data-vmsaida]').forEach(el => { el.onchange = () => { T[+el.dataset.vmsaida].saida_em = inputToISO(el.value) } })
-    box.querySelectorAll('[data-vmcheg]').forEach(el => { el.onchange = () => { T[+el.dataset.vmcheg].chegada_em = inputToISO(el.value) } })
+    box.querySelectorAll('[data-vmsaida]').forEach(el => { el.onchange = () => { T[+el.dataset.vmsaida].saida_em = inputToISO(el.value); renderVmTotal() } })
+    box.querySelectorAll('[data-vmcheg]').forEach(el => { el.onchange = () => { T[+el.dataset.vmcheg].chegada_em = inputToISO(el.value); renderVmTotal() } })
     box.querySelectorAll('[data-vmveic]').forEach(el => {
       el.onchange = () => {
         const t = T[+el.dataset.vmveic]
@@ -390,6 +423,7 @@ const DeslocApp = (() => {
       }
     })
     box.querySelectorAll('[data-vmdelleg]').forEach(el => { el.onclick = () => { T.splice(+el.dataset.vmdelleg, 1); renderVmTrechos() } })
+    renderVmTotal()
   }
   async function salvarViagem() {
     if (!vmCur || !vmCur.id) return

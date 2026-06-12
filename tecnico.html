@@ -394,6 +394,11 @@ try{if(localStorage.getItem('sr_dark')==='1')document.documentElement.classList.
   html.dark .pn-chip{background:#3a2a14;color:#f0b070}
   .dl-addleg{width:100%;border:1.5px dashed #C6CCDA;border-radius:15px;padding:12px;text-align:center;font-size:13px;font-weight:700;color:#1565C0;background:var(--sur);cursor:pointer;font-family:inherit;margin-top:2px}
   .dl-noites{font-size:11.5px;color:var(--tx3);font-weight:600;margin:8px 2px 0}
+  .dl-totcard{display:flex;align-items:center;gap:10px;flex-wrap:wrap;background:#FDEFE0;border:1px solid #F2D9BC;border-radius:14px;padding:12px 14px;margin-top:10px}
+  html.dark .dl-totcard{background:#3a2a14;border-color:#5a4220}
+  .dl-totcard .k{font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:.5px;color:#b85e0a}
+  .dl-totcard .v{font-size:19px;font-weight:800;color:#b85e0a;font-variant-numeric:tabular-nums;margin-left:auto}
+  .dl-totcard .s{width:100%;font-size:11px;font-weight:600;color:var(--tx3)}
   .dl-dia{background:var(--sur);border:1px solid var(--bd);border-left:4px solid #FDB31F;border-radius:14px;padding:14px;margin-bottom:10px}
   .dl-dia .dh{font-size:13px;font-weight:800;color:var(--tx);margin-bottom:10px}
   .dl-dia .tpair{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:10px}
@@ -942,6 +947,7 @@ try{if(localStorage.getItem('sr_dark')==='1')document.documentElement.classList.
       <div id="dl-noites"></div>
       <div class="dl-sec">Almoço na estrada</div>
       <div id="dl-almocos"></div>
+      <div id="dl-total"></div>
       <div class="alm-hint">Trecho novo herda veículo, direção e passageiros do anterior. Veículo da empresa exige direção — "+ Revezamento" registra quem assumiu e a hora (a multa cai no horário de quem dirigia). GPS é marcado sozinho na saída/chegada; sem sinal, salva "sem GPS".</div>
     </div>
     <div class="tm-f">

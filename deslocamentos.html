@@ -98,6 +98,10 @@
   .vm-turno .vdel{border:none;background:none;color:#B42318;font-size:15px;cursor:pointer;flex:none}
   .vm-addmini{border:1px dashed var(--bd);background:#FAFBFD;color:#1C54B8;border-radius:8px;padding:7px 11px;font:inherit;font-size:12px;font-weight:700;cursor:pointer}
   .vm-addleg{width:100%;border:1.5px dashed #C6CCDA;background:#fff;color:#1C54B8;border-radius:11px;padding:11px;font:inherit;font-size:13px;font-weight:700;cursor:pointer}
+  .vm-totcard{display:flex;align-items:center;gap:10px;flex-wrap:wrap;background:#FDEFE0;border:1px solid #F2D9BC;border-radius:12px;padding:12px 16px;margin-top:12px;max-width:520px}
+  .vm-totcard .k{font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:.5px;color:#b85e0a}
+  .vm-totcard .v{font-size:19px;font-weight:800;color:#b85e0a;font-variant-numeric:tabular-nums;margin-left:auto}
+  .vm-totcard .s{width:100%;font-size:11px;font-weight:600;color:var(--tx3)}
 </style>
 </head>
 <body class="tec-admin">
@@ -177,6 +181,7 @@
         <label>Trechos</label>
         <div id="vm-trechos"></div>
         <button type="button" class="vm-addleg" id="vm-addleg">+ Adicionar trecho</button>
+        <div id="vm-total"></div>
       </div>
     </div>
     <div class="dm-f">
