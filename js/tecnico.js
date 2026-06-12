@@ -859,9 +859,10 @@
       veiculo_id: null, sem_veiculo: false, nota_transporte: null,
       motoristas: [], tecnicos: [tecnico.id],
     }
-    if (base) {   // trecho novo herda veículo, direção e passageiros do anterior
+    if (base) {   // trecho novo herda veículo, direção, passageiros e data do anterior
       t.veiculo_id = base.veiculo_id; t.sem_veiculo = base.sem_veiculo; t.nota_transporte = base.nota_transporte
       t.tecnicos = [...(base.tecnicos || [])]
+      if (base.data) t.data = base.data
       const ult = (base.motoristas || [])[(base.motoristas || []).length - 1]
       t.motoristas = ult ? [{ tecnico_id: ult.tecnico_id, hora_de: null, hora_ate: null }] : []
       const loc = dlCur && localDe(dlCur.cliente_id, base.destino_local_id)
@@ -1095,27 +1096,50 @@
     const t = dlCur && dlCur.trechos[dlModalTrecho]; if (!t) return
     const q = normStr(document.getElementById('dldest-busca').value || '')
     const lista = document.getElementById('dldest-lista')
-    // 1ª opção: a própria empresa da viagem (sede — cidade vem do endereço do cadastro)
+    const SVG_PREDIO = '<svg viewBox="0 0 24 24"><path d="M3 21h18M5 21V5a1 1 0 0 1 1-1h8a1 1 0 0 1 1 1v16M9 8h2m-2 4h2m-2 4h2M15 10h4a1 1 0 0 1 1 1v10"/></svg>'
+    const SVG_CASA = '<svg viewBox="0 0 24 24"><path d="M3 11 12 3l9 8M5 10v10h14V10M9 20v-6h6v6"/></svg>'
+    const cidadeDe = (c) => { const g = c && cidadeUfDeEndereco(c.endereco); return g ? [g.cidade, g.uf].filter(Boolean).join('/') : '' }
+    const escolheTexto = (valor) => {
+      t.destino_local_id = null
+      t.destino = valor
+      document.getElementById('modal-dl-dest').classList.remove('open')
+      renderTrechos()
+    }
+    // Base (a volta quase sempre termina aqui)
+    const baseLbl = [ref.base.cidade, ref.base.uf].filter(Boolean).join('/') || 'Base'
+    const baseRow = (!q || normStr(`base ${baseLbl}`).includes(q))
+      ? `<button type="button" class="opt-row${!t.destino_local_id && t.destino === baseLbl ? ' on' : ''}" data-basedest="1">
+          <span class="oic">${SVG_CASA}</span>
+          <span class="ot"><span class="on1">Base (Traders)</span><span class="on2">${esc(baseLbl)}</span></span>
+        </button>` : ''
+    // Empresa da viagem (sede — cidade do cadastro)
     const cli = (ref.clientes || []).find(c => c.id === dlCur.cliente_id)
-    const g = cli && cidadeUfDeEndereco(cli.endereco)
-    const cliCidade = g ? [g.cidade, g.uf].filter(Boolean).join('/') : ''
-    const cliSel = cli && !t.destino_local_id && t.destino && (t.destino === (cliCidade || cli.nome))
+    const cliCidade = cidadeDe(cli)
     const cliRow = (cli && (!q || normStr(cli.nome).includes(q)))
-      ? `<button type="button" class="opt-row${cliSel ? ' on' : ''}" data-clidest="1">
-          <span class="oic"><svg viewBox="0 0 24 24"><path d="M3 21h18M5 21V5a1 1 0 0 1 1-1h8a1 1 0 0 1 1 1v16M9 8h2m-2 4h2m-2 4h2M15 10h4a1 1 0 0 1 1 1v10"/></svg></span>
+      ? `<button type="button" class="opt-row${!t.destino_local_id && t.destino && t.destino === (cliCidade || cli.nome) ? ' on' : ''}" data-clidest="${esc(cli.id)}">
+          <span class="oic">${SVG_PREDIO}</span>
           <span class="ot"><span class="on1">${esc(cli.nome)}</span><span class="on2">Empresa da viagem${cliCidade ? ' · ' + esc(cliCidade) : ''}</span></span>
         </button>` : ''
+    // Locais cadastrados da empresa da viagem
     const locais = (locaisCache[dlCur.cliente_id] || []).filter(l => !q || normStr(`${l.nome} ${l.cidade || ''}`).includes(q))
-    lista.innerHTML = cliRow + (locais.map(l => `<button type="button" class="opt-row${t.destino_local_id === l.id ? ' on' : ''}" data-loc="${esc(l.id)}">
+    const locaisRows = locais.map(l => `<button type="button" class="opt-row${t.destino_local_id === l.id ? ' on' : ''}" data-loc="${esc(l.id)}">
         <span class="oic">${SVG_PIN}</span>
         <span class="ot"><span class="on1">${esc(l.nome)}</span>${l.cidade ? `<span class="on2">${esc([l.cidade, l.uf].filter(Boolean).join('/'))}${l.lat != null ? ' · valida chegada por GPS' : ''}</span>` : ''}</span>
-      </button>`).join('') || (cliRow ? '' : `<div class="prod-empty">${dlCur.cliente_id ? 'Nenhum local cadastrado para esta empresa — digite o destino abaixo.' : 'Escolha a empresa da viagem primeiro, ou digite o destino abaixo.'}</div>`))
+      </button>`).join('')
+    // Buscou? Acha também as DEMAIS empresas (trecho pode ir a outro cliente)
+    const outras = q ? (ref.clientes || [])
+      .filter(c => c.id !== dlCur.cliente_id && normStr(c.nome || '').includes(q)).slice(0, 8)
+      .map(c => `<button type="button" class="opt-row" data-clidest="${esc(c.id)}">
+          <span class="oic">${SVG_PREDIO}</span>
+          <span class="ot"><span class="on1">${esc(c.nome)}</span><span class="on2">Outra empresa${cidadeDe(c) ? ' · ' + esc(cidadeDe(c)) : ''}</span></span>
+        </button>`).join('') : ''
+    lista.innerHTML = (baseRow + cliRow + locaisRows + outras)
+      || `<div class="prod-empty">Nada encontrado para a busca — digite o destino abaixo.</div>`
+    lista.querySelectorAll('[data-basedest]').forEach(b => { b.onclick = () => escolheTexto(baseLbl) })
     lista.querySelectorAll('[data-clidest]').forEach(b => {
       b.onclick = () => {
-        t.destino_local_id = null
-        t.destino = cliCidade || cli.nome
-        document.getElementById('modal-dl-dest').classList.remove('open')
-        renderTrechos()
+        const c = (ref.clientes || []).find(x => x.id === b.dataset.clidest)
+        escolheTexto(cidadeDe(c) || (c && c.nome) || '')
       }
     })
     lista.querySelectorAll('[data-loc]').forEach(b => {
