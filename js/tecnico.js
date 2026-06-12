@@ -855,6 +855,7 @@
   function novoTrecho(base) {
     const t = {
       id: D().uuid(), origem: '', destino: '', destino_local_id: null, destino_cliente_id: null, tarefa_id: null,
+      almoco_inicio: null, almoco_fim: null,
       data: jorHoje(), saida_em: null, chegada_em: null,
       saida_lat: null, saida_lng: null, saida_precisao: null,
       chegada_lat: null, chegada_lng: null, chegada_precisao: null,
@@ -881,7 +882,7 @@
     document.getElementById('dl-addleg').onclick = () => {
       if (!dlCur) return
       dlCur.trechos.push(novoTrecho(dlCur.trechos[dlCur.trechos.length - 1] || null))
-      renderTrechos(); renderDlAlmocos()
+      renderTrechos()
     }
     // Ref. Tarefa do trecho (tarefas em aberto do cliente do destino)
     document.getElementById('dltar-x').onclick = fecharDlModal('modal-dl-tarefa')
@@ -896,10 +897,10 @@
     document.getElementById('dldir-ok').onclick = fecharDlModal('modal-dl-dir')
     document.getElementById('dldir-add').onclick = addTurnoDirecao
   }
-  const fecharDlModal = (id) => () => { document.getElementById(id).classList.remove('open'); renderTrechos(); renderDlAlmocos() }
+  const fecharDlModal = (id) => () => { document.getElementById(id).classList.remove('open'); renderTrechos() }
 
   async function abrirDeslocNova() {
-    dlCur = { id: D().uuid(), cliente_id: null, criado_por: tecnico.id, modelo: 'trechos', trechos: [], tarefas: [], almocos: [], almocoHorarios: {} }
+    dlCur = { id: D().uuid(), cliente_id: null, criado_por: tecnico.id, modelo: 'trechos', trechos: [], tarefas: [], almocos: [], observacoes: null }
     // nasce com 2 trechos (ida e volta) — o caso comum de hoje, zero mudança
     const ida = novoTrecho(null)
     ida.origem = [ref.base.cidade, ref.base.uf].filter(Boolean).join('/') || 'Base'
@@ -914,15 +915,15 @@
     const d = (await D().listarDeslocamentos()).find(x => x.id === id)
     if (!d || !Array.isArray(d.trechos)) return
     dlCur = JSON.parse(JSON.stringify(d))
-    dlCur.almocoHorarios = dlCur.almocoHorarios || {}
     dlCur.tarefas = dlCur.tarefas || []
     await abrirDeslocEditor()
   }
   async function abrirDeslocEditor() {
     dlModalTrecho = null
     carregarLocaisTodos().then(() => renderTrechos())   // nomes dos Locais nos cards
-    renderTrechos(); renderDlAlmocos()
-    carregarAlmocosViagem().then(renderDlAlmocos)   // estado "já almoçou" (dedup visual)
+    renderTrechos()
+    const obs = document.getElementById('dl-obs')
+    if (obs) { obs.value = dlCur.observacoes || ''; obs.oninput = () => { dlCur.observacoes = obs.value.trim() || null } }
     document.getElementById('modal-desloc').classList.add('open')
   }
   function fecharDesloc() { document.getElementById('modal-desloc').classList.remove('open'); dlCur = null; dlModalTrecho = null }
@@ -989,53 +990,41 @@
     if (window.SyncEngine) SyncEngine.syncAll()
   }
 
-  // Tempo total de deslocamento = Σ (chegada − saída) dos trechos − almoço que
-  // caiu DENTRO do horário dos trechos do dia (almoço fora da estrada não desconta).
-  function tempoViagemMin(trechos, almocoHorarios) {
-    let bruto = 0, aberto = false, temTempo = false
-    const porDia = {}
-    for (const t of (trechos || [])) {
-      if (!t.saida_em) continue
-      temTempo = true
-      const a = new Date(t.saida_em).getTime()
-      const b = t.chegada_em ? new Date(t.chegada_em).getTime() : Date.now()   // aberto conta até agora
-      if (!t.chegada_em) aberto = true
-      if (b <= a) continue
-      bruto += (b - a) / 60000
-      const dia = t.data || String(t.saida_em).slice(0, 10)
-      ;(porDia[dia] = porDia[dia] || []).push([a, b])
-    }
-    let almoco = 0
-    for (const [dia, h] of Object.entries(almocoHorarios || {})) {
-      if (!h || !h.inicio || !h.fim || !porDia[dia]) continue
-      const ai = new Date(`${dia}T${h.inicio}:00`).getTime(), af = new Date(`${dia}T${h.fim}:00`).getTime()
-      for (const [a, b] of porDia[dia]) almoco += Math.max(0, Math.min(b, af) - Math.max(a, ai)) / 60000
-    }
-    return { total: Math.max(0, Math.round(bruto - almoco)), bruto: Math.round(bruto), almoco: Math.round(almoco), aberto, temTempo }
-  }
-  const fmtHm = (m) => `${Math.floor(m / 60)}h${String(Math.round(m % 60)).padStart(2, '0')}`
-  // tempo de UM trecho, descontando o almoço do dia que cai dentro dele
-  function tempoTrechoMin(t, hor) {
+  // tempo de UM trecho: (chegada − saída) − a REFEIÇÃO do próprio trecho
+  // (desconta só a parte que cai dentro do horário do trecho)
+  function tempoTrechoMin(t) {
     if (!t || !t.saida_em) return null
     const a = new Date(t.saida_em).getTime()
     const aberto = !t.chegada_em
     const b = aberto ? Date.now() : new Date(t.chegada_em).getTime()
     if (b <= a) return { total: 0, almoco: 0, aberto }
     const dia = t.data || String(t.saida_em).slice(0, 10)
-    const h = (hor || {})[dia]
     let alm = 0
-    if (h && h.inicio && h.fim) {
-      const ai = new Date(`${dia}T${h.inicio}:00`).getTime(), af = new Date(`${dia}T${h.fim}:00`).getTime()
+    if (t.almoco_inicio && t.almoco_fim) {
+      const ai = new Date(`${dia}T${t.almoco_inicio}:00`).getTime(), af = new Date(`${dia}T${t.almoco_fim}:00`).getTime()
       alm = Math.max(0, Math.min(b, af) - Math.max(a, ai)) / 60000
     }
     return { total: Math.max(0, Math.round((b - a) / 60000 - alm)), almoco: Math.round(alm), aberto }
   }
+  // total da viagem = Σ dos trechos (cada um já líquido da própria refeição)
+  function tempoViagemMin(trechos) {
+    let total = 0, almoco = 0, aberto = false, temTempo = false
+    for (const t of (trechos || [])) {
+      const tt = tempoTrechoMin(t)
+      if (!tt) continue
+      temTempo = true
+      if (tt.aberto) aberto = true
+      total += tt.total; almoco += tt.almoco
+    }
+    return { total, bruto: total + almoco, almoco, aberto, temTempo }
+  }
+  const fmtHm = (m) => `${Math.floor(m / 60)}h${String(Math.round(m % 60)).padStart(2, '0')}`
   function renderDlTotal() {
     const box = document.getElementById('dl-total'); if (!box || !dlCur) return
-    const { total, bruto, almoco, aberto, temTempo } = tempoViagemMin(dlCur.trechos, dlCur.almocoHorarios)
+    const { total, bruto, almoco, aberto, temTempo } = tempoViagemMin(dlCur.trechos)
     if (!temTempo) { box.innerHTML = ''; return }
     box.innerHTML = `<div class="dl-totcard"><span class="k">Tempo de deslocamento${aberto ? ' · em andamento' : ''}</span><span class="v">${fmtHm(total)}</span>
-      <span class="s">${almoco ? `${fmtHm(bruto)} marcados − ${fmtHm(almoco)} de almoço` : 'sem almoço descontado'}${aberto ? ' · trecho aberto contando até agora' : ''}</span></div>`
+      <span class="s">${almoco ? `${fmtHm(bruto)} marcados − ${fmtHm(almoco)} de refeição` : 'sem refeição descontada'}${aberto ? ' · trecho aberto contando até agora' : ''}</span></div>`
   }
 
   function noitesPorPessoa() {
@@ -1142,7 +1131,9 @@
         <div style="height:3px"></div>
         <div class="ltimers">${tbx('saida', 'Saída')}${tbx('chegada', 'Chegada')}</div>
         ${gpsLin}
-        ${(() => { const tt = tempoTrechoMin(t, dlCur.almocoHorarios); return tt ? `<div class="leg-tot"><span>Tempo do trecho${tt.aberto ? ' · em andamento' : ''}${tt.almoco ? ` <i>(− ${fmtHm(tt.almoco)} almoço)</i>` : ''}</span><b>${fmtHm(tt.total)}</b></div>` : '' })()}
+        <label class="flab">Refeição no trecho (opcional)</label>
+        <div class="lrow"><input type="time" class="grow" data-lalmini="${i}" value="${esc(t.almoco_inicio || '')}" title="Início da refeição"><input type="time" class="grow" data-lalmfim="${i}" value="${esc(t.almoco_fim || '')}" title="Término da refeição"></div>
+        ${(() => { const tt = tempoTrechoMin(t); return tt ? `<div class="leg-tot"><span>Tempo do trecho${tt.aberto ? ' · em andamento' : ''}${tt.almoco ? ` <i>(− ${fmtHm(tt.almoco)} refeição)</i>` : ''}</span><b>${fmtHm(tt.total)}</b></div>` : '' })()}
       </div>`)
       // pernoite sugerido entre trechos de dias diferentes (derivado, ninguém digita)
       const prox = dlCur.trechos[i + 1]
@@ -1169,7 +1160,7 @@
         // re-ancora os horários já marcados na nova data (mantém as horas)
         if (t.saida_em) t.saida_em = isoNoDia(t.data, hhmmDe(t.saida_em), t.saida_em)
         if (t.chegada_em) { t.chegada_em = isoNoDia(t.data, hhmmDe(t.chegada_em), t.chegada_em); ajustaMadrugada(t) }
-        renderTrechos(); renderDlAlmocos()
+        renderTrechos()
       }
     })
     box.querySelectorAll('[data-mdest]').forEach(el => { el.onclick = () => abrirDlDest(+el.dataset.mdest) })
@@ -1178,6 +1169,25 @@
     box.querySelectorAll('[data-mdir]').forEach(el => { el.onclick = () => abrirDlDir(+el.dataset.mdir) })
     box.querySelectorAll('[data-mdirveic]').forEach(el => { el.onclick = () => abrirDlVeic(+el.dataset.mdirveic) })   // sem veículo definido → leva pro veículo
     box.querySelectorAll('[data-marca]').forEach(el => { el.onclick = () => { const [i, q] = el.dataset.marca.split(':'); marcarTrecho(+i, q) } })
+    box.querySelectorAll('[data-lalmini]').forEach(el => {
+      el.onchange = () => {
+        const t = T[+el.dataset.lalmini]
+        t.almoco_inicio = el.value || null
+        // término sugerido: 1h depois (editável); corrige término anterior ao início
+        if (el.value && (!t.almoco_fim || t.almoco_fim <= el.value)) t.almoco_fim = horaMais(el.value, 60)
+        renderTrechos()
+      }
+    })
+    box.querySelectorAll('[data-lalmfim]').forEach(el => {
+      el.onchange = () => {
+        const t = T[+el.dataset.lalmfim]
+        if (el.value && t.almoco_inicio && el.value <= t.almoco_inicio) {
+          toast('O término da refeição não pode ser antes do início.', 'err')
+          t.almoco_fim = horaMais(t.almoco_inicio, 60)
+        } else t.almoco_fim = el.value || null
+        renderTrechos()
+      }
+    })
     box.querySelectorAll('[data-bd]').forEach(el => { el.onclick = () => abrirModalTecDl(+el.dataset.bd) })
     box.querySelectorAll('[data-bdrem]').forEach(el => {
       el.onclick = () => {
@@ -1185,10 +1195,10 @@
         const t = T[+i]
         t.tecnicos = (t.tecnicos || []).filter(x => x !== tid)
         t.motoristas = (t.motoristas || []).filter(m => m.tecnico_id !== tid)
-        renderTrechos(); renderDlAlmocos()
+        renderTrechos()
       }
     })
-    box.querySelectorAll('[data-delleg]').forEach(el => { el.onclick = () => { T.splice(+el.dataset.delleg, 1); renderTrechos(); renderDlAlmocos() } })
+    box.querySelectorAll('[data-delleg]').forEach(el => { el.onclick = () => { T.splice(+el.dataset.delleg, 1); renderTrechos() } })
     const pill = document.getElementById('dl-pill')
     if (pill) pill.style.display = T.some(t => t.saida_em && !t.chegada_em) ? '' : 'none'
     renderDlTotal()
@@ -1353,77 +1363,6 @@
     renderDlDir()
   }
 
-  // ── Almoço na estrada: POR PESSOA por dia de viagem (mesma dedup da RAT) ──
-  let dlAlmocos = {}   // dia → registros do servidor (cache p/ offline)
-  async function carregarAlmocosViagem() {
-    if (!navigator.onLine || !dlCur) return
-    const dias = [...new Set(dlCur.trechos.map(t => t.data).filter(Boolean))]
-    const ids = [...new Set(dlCur.trechos.flatMap(t => t.tecnicos || []))]
-    if (!dias.length || !ids.length) return
-    try {
-      const { data } = await getSupabase().from('almocos')
-        .select('tecnico_id,dia,inicio,fim,origem,artefato_tipo,artefato_id')
-        .in('dia', dias).in('tecnico_id', ids)
-      dlAlmocos = {}
-      for (const r of (data || [])) (dlAlmocos[r.dia] = dlAlmocos[r.dia] || []).push(r)
-    } catch (e) { /* offline/erro: mantém cache */ }
-  }
-  function renderDlAlmocos() {
-    const box = document.getElementById('dl-almocos'); if (!box || !dlCur) return
-    const dias = [...new Set(dlCur.trechos.map(t => t.data).filter(Boolean))].sort()
-    if (!dias.length) { box.innerHTML = '<p class="dim" style="font-size:12px">Defina as datas dos trechos.</p>'; return }
-    const hhmm = (t) => String(t || '').slice(0, 5)
-    box.innerHTML = dias.map(dia => {
-      const h = (dlCur.almocoHorarios || {})[dia] || {}
-      const aboard = [...new Set(dlCur.trechos.filter(t => t.data === dia).flatMap(t => t.tecnicos || []))]
-      const cards = aboard.map(tid => {
-        const reg = (dlAlmocos[dia] || []).find(r => r.tecnico_id === tid && !(r.artefato_tipo === 'deslocamento' && r.artefato_id === dlCur.id))
-        let chip
-        if (reg) {
-          const onde = reg.origem === 'ponto' ? 'ponto' : (reg.artefato_tipo === 'rat' ? 'RAT' : 'outro deslocamento')
-          chip = `<span class="pst p-skip">já registrado · ${esc(onde)} ${esc(hhmm(reg.inicio))}–${esc(hhmm(reg.fim))}</span>`
-        } else if (h.inicio && h.fim) {
-          chip = `<span class="pst p-ok">✓ ${esc(h.inicio)}–${esc(h.fim)}</span>`
-        } else {
-          chip = '<span class="pst p-wait">sem almoço informado</span>'
-        }
-        return `<div class="pcard">${avDe(tid)}<span class="nm">${esc(nomeTec(tid))}</span>${chip}</div>`
-      }).join('')
-      return `<div class="dl-dia"><div class="dh">Almoço · ${esc(diaLabel(dia))}</div>
-        <div class="tpair"><div><label>Início</label><input type="time" data-almini="${esc(dia)}" value="${esc(h.inicio || '')}"></div>
-        <div><label>Término</label><input type="time" data-almfim="${esc(dia)}" value="${esc(h.fim || '')}"></div></div>${cards}</div>`
-    }).join('')
-    const setH = (dia, k, v) => {
-      dlCur.almocoHorarios = dlCur.almocoHorarios || {}
-      dlCur.almocoHorarios[dia] = dlCur.almocoHorarios[dia] || {}
-      dlCur.almocoHorarios[dia][k] = v || null
-    }
-    box.querySelectorAll('[data-almini]').forEach(el => {
-      el.onchange = () => {
-        const dia = el.dataset.almini
-        setH(dia, 'inicio', el.value)
-        // término sugerido: 1h depois (editável); também corrige término anterior ao início
-        const h = (dlCur.almocoHorarios || {})[dia] || {}
-        if (el.value && (!h.fim || h.fim <= el.value)) setH(dia, 'fim', horaMais(el.value, 60))
-        renderDlAlmocos(); renderTrechos()   // cards por trecho descontam o almoço
-      }
-    })
-    box.querySelectorAll('[data-almfim]').forEach(el => {
-      el.onchange = () => {
-        const dia = el.dataset.almfim
-        const h = (dlCur.almocoHorarios || {})[dia] || {}
-        if (el.value && h.inicio && el.value <= h.inicio) {
-          toast('O término do almoço não pode ser antes do início.', 'err')
-          setH(dia, 'fim', horaMais(h.inicio, 60))
-        } else {
-          setH(dia, 'fim', el.value)
-        }
-        renderDlAlmocos(); renderTrechos()
-      }
-    })
-    renderDlTotal()
-  }
-
   async function salvarDesloc() {
     if (!dlCur) return
     if (!dlCur.trechos.length) return toast('Adicione ao menos um trecho.', 'err')
@@ -1445,15 +1384,18 @@
     dlCur.cliente_id = (dlCur.trechos.find(t => t.destino_cliente_id) || {}).destino_cliente_id || null
     // tarefas da viagem = união das tarefas dos trechos (derivado)
     dlCur.tarefas = [...new Set(dlCur.trechos.map(t => t.tarefa_id).filter(Boolean))]
-    // almoço por pessoa derivado dos horários do dia × quem estava a bordo no dia
-    // (quem já tem almoço de OUTRO artefato no dia fica de fora — o servidor deduplica de novo)
+    // almoço por pessoa/dia derivado da REFEIÇÃO de cada trecho × quem estava a bordo
+    // (um por técnico/dia: o primeiro trecho do dia com refeição vale; o servidor deduplica
+    //  de novo contra RATs/outras viagens)
     dlCur.almocos = []
-    for (const [dia, h] of Object.entries(dlCur.almocoHorarios || {})) {
-      if (!h || !h.inicio || !h.fim) continue
-      const aboard = [...new Set(dlCur.trechos.filter(t => t.data === dia).flatMap(t => t.tecnicos || []))]
-      for (const tid of aboard) {
-        const outro = (dlAlmocos[dia] || []).find(r => r.tecnico_id === tid && !(r.artefato_tipo === 'deslocamento' && r.artefato_id === dlCur.id))
-        if (!outro) dlCur.almocos.push({ tecnico_id: tid, dia, inicio: h.inicio, fim: h.fim })
+    const visto = new Set()
+    for (const t of dlCur.trechos) {
+      if (!t.data || !t.almoco_inicio || !t.almoco_fim) continue
+      for (const tid of (t.tecnicos || [])) {
+        const k = `${tid}|${t.data}`
+        if (visto.has(k)) continue
+        visto.add(k)
+        dlCur.almocos.push({ tecnico_id: tid, dia: t.data, inicio: t.almoco_inicio, fim: t.almoco_fim })
       }
     }
     // derivados p/ a lista local e a leitura "estou a bordo" (união dos trechos)
@@ -1495,7 +1437,7 @@
           .map(id => cliNomeDe(id, '')).filter(Boolean)
         return `<div class="listcard${fechada ? ' lc-done' : ''}"${tomb ? '' : ` data-viagem="${esc(d.id)}" style="cursor:pointer"`}><span class="edge e-${tomb ? 'pend' : emViagem ? 'warn' : fechada ? 'done' : 'info'}"></span>
           <div class="t"><span class="cli">${esc(clisVisita.join(' · ') || cliNomeDe(d.cliente_id, '—'))}</span><span style="display:flex;gap:6px;align-items:center">${fila}${badge}</span></div>
-          <div class="meta">${rota} · ${ts.length} trecho${ts.length > 1 ? 's' : ''} · ${esc(per)}${(() => { const tv = tempoViagemMin(ts, d.almocoHorarios); return tv.temTempo ? ` · <b>${fmtHm(tv.total)}</b>${tv.aberto ? '…' : ''}${tv.almoco ? ' (− almoço)' : ''}` : '' })()}</div>
+          <div class="meta">${rota} · ${ts.length} trecho${ts.length > 1 ? 's' : ''} · ${esc(per)}${(() => { const tv = tempoViagemMin(ts); return tv.temTempo ? ` · <b>${fmtHm(tv.total)}</b>${tv.aberto ? '…' : ''}${tv.almoco ? ' (− refeição)' : ''}` : '' })()}</div>
           <div class="meta">A bordo: ${esc(nomes || '—')}</div>
           ${(d.tarefas || []).length ? `<div class="meta">Ref.: ${esc((d.tarefas).map(id => { const t = (tarefas || []).find(x => x.id === id); return t ? 'Tarefa Nº ' + osNo(t.numero) : null }).filter(Boolean).join(' · ') || d.tarefas.length + ' tarefa(s)')}</div>` : ''}
           ${tomb ? `<div class="meta" style="color:#C0362C">O escritório excluiu esta viagem — ela não será mais enviada. Se quiser, descarte a cópia local.</div>${btnDescartar(d.id)}` : ''}
@@ -2149,7 +2091,7 @@
       t.tecnicos = [...dlTecSel]
       // motorista que saiu do carro sai da direção
       t.motoristas = (t.motoristas || []).filter(m => dlTecSel.has(m.tecnico_id))
-      renderTrechos(); renderDlAlmocos()
+      renderTrechos()
     }
     dlTecTrecho = null
   }

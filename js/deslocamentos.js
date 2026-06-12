@@ -79,7 +79,7 @@ const DeslocApp = (() => {
 
   async function carregar() {
     const { data, error } = await sb().from('deslocamentos')
-      .select('id,sentido,cliente_id,origem,destino,origem_cidade,origem_uf,destino_cidade,destino_uf,motivo,saida_em,chegada_em,veiculo_id,saida_lat,saida_lng,chegada_lat,chegada_lng,criado_em,deslocamento_tecnicos(tecnico_id),deslocamento_trechos(id,ordem,origem,destino,destino_local_id,destino_cliente_id,tarefa_id,data,saida_em,chegada_em,saida_lat,saida_lng,saida_precisao,chegada_lat,chegada_lng,chegada_precisao,veiculo_id,nota_transporte,espelho_legado,cliente_locais(nome,cidade,uf),trecho_tecnicos(tecnico_id),trecho_direcao(id,tecnico_id,hora_de,hora_ate)),deslocamento_almocos(tecnico_id,dia,inicio,fim),deslocamento_tarefas(tarefa_id,tarefas(numero,status,cliente_id))')
+      .select('id,sentido,cliente_id,origem,destino,origem_cidade,origem_uf,destino_cidade,destino_uf,motivo,observacoes,saida_em,chegada_em,veiculo_id,saida_lat,saida_lng,chegada_lat,chegada_lng,criado_em,deslocamento_tecnicos(tecnico_id),deslocamento_trechos(id,ordem,origem,destino,destino_local_id,destino_cliente_id,tarefa_id,almoco_inicio,almoco_fim,data,saida_em,chegada_em,saida_lat,saida_lng,saida_precisao,chegada_lat,chegada_lng,chegada_precisao,veiculo_id,nota_transporte,espelho_legado,cliente_locais(nome,cidade,uf),trecho_tecnicos(tecnico_id),trecho_direcao(id,tecnico_id,hora_de,hora_ate)),deslocamento_almocos(tecnico_id,dia,inicio,fim),deslocamento_tarefas(tarefa_id,tarefas(numero,status,cliente_id))')
       .order('criado_em', { ascending: false }).limit(300)
     if (error) { toast('Erro: ' + error.message, 'err'); return }
     rows = data || []
@@ -99,33 +99,34 @@ const DeslocApp = (() => {
     return txt || '—'
   }
   const dia2 = (s) => s ? s.split('-').reverse().slice(0, 2).join('/') : '—'
-  // tempo de deslocamento = Σ (chegada − saída) dos trechos − almoço dentro do horário dos trechos do dia
+  // tempo de UM trecho: (chegada − saída) − a REFEIÇÃO do próprio trecho
   const fmtHm = (m) => `${Math.floor(m / 60)}h${String(Math.round(m % 60)).padStart(2, '0')}`
-  function tempoViagemMin(ts, almRows) {
-    let bruto = 0, aberto = false, temTempo = false
-    const porDia = {}
+  function tempoTrechoMin(t) {
+    if (!t || !t.saida_em) return null
+    const a = new Date(t.saida_em).getTime()
+    const aberto = !t.chegada_em
+    const b = aberto ? Date.now() : new Date(t.chegada_em).getTime()
+    if (b <= a) return { total: 0, almoco: 0, aberto }
+    const dia = t.data || String(t.saida_em).slice(0, 10)
+    let alm = 0
+    const hh = (x) => String(x || '').slice(0, 5)
+    if (t.almoco_inicio && t.almoco_fim) {
+      const ai = new Date(`${dia}T${hh(t.almoco_inicio)}:00`).getTime(), af = new Date(`${dia}T${hh(t.almoco_fim)}:00`).getTime()
+      alm = Math.max(0, Math.min(b, af) - Math.max(a, ai)) / 60000
+    }
+    return { total: Math.max(0, Math.round((b - a) / 60000 - alm)), almoco: Math.round(alm), aberto }
+  }
+  // total da viagem = Σ dos trechos (cada um já líquido da própria refeição)
+  function tempoViagemMin(ts) {
+    let total = 0, almoco = 0, aberto = false, temTempo = false
     for (const t of (ts || [])) {
-      if (!t.saida_em) continue
+      const tt = tempoTrechoMin(t)
+      if (!tt) continue
       temTempo = true
-      const a = new Date(t.saida_em).getTime()
-      const b = t.chegada_em ? new Date(t.chegada_em).getTime() : Date.now()   // aberto conta até agora
-      if (!t.chegada_em) aberto = true
-      if (b <= a) continue
-      bruto += (b - a) / 60000
-      const dia = t.data || String(t.saida_em).slice(0, 10)
-      ;(porDia[dia] = porDia[dia] || []).push([a, b])
+      if (tt.aberto) aberto = true
+      total += tt.total; almoco += tt.almoco
     }
-    // um par de horários por dia (os registros por pessoa repetem o mesmo par)
-    const horDia = {}
-    for (const r of (almRows || [])) if (r.dia && r.inicio && r.fim && !horDia[r.dia]) horDia[r.dia] = r
-    let almoco = 0
-    for (const [dia, h] of Object.entries(horDia)) {
-      if (!porDia[dia]) continue
-      const hh = (t) => String(t).slice(0, 5)
-      const ai = new Date(`${dia}T${hh(h.inicio)}:00`).getTime(), af = new Date(`${dia}T${hh(h.fim)}:00`).getTime()
-      for (const [a, b] of porDia[dia]) almoco += Math.max(0, Math.min(b, af) - Math.max(a, ai)) / 60000
-    }
-    return { total: Math.max(0, Math.round(bruto - almoco)), bruto: Math.round(bruto), almoco: Math.round(almoco), aberto, temTempo }
+    return { total, bruto: total + almoco, almoco, aberto, temTempo }
   }
 
   function render() {
@@ -214,7 +215,7 @@ const DeslocApp = (() => {
           ? clisVisita.map(id => `<div${id === d.cliente_id ? ' style="font-weight:700"' : ''}>${esc(cliNomes[id] || '—')}</div>`).join('')
           : esc(cliNomes[d.cliente_id] || '—')
         return `<tr>
-          <td><div class="vtipo">Viagem · ${ts.length} trecho${ts.length > 1 ? 's' : ''}</div>${periodo ? `<div class="vper">${esc(periodo)}</div>` : ''}${(() => { const tv = tempoViagemMin(ts, d.deslocamento_almocos); return tv.temTempo ? `<div class="vper">Tempo: <b>${fmtHm(tv.total)}</b>${tv.aberto ? '…' : ''}${tv.almoco ? ' (− almoço)' : ''}</div>` : '' })()}${(() => { const refs = (d.deslocamento_tarefas || []).map(x => x.tarefas ? `Tarefa Nº ${String(x.tarefas.numero).padStart(5, '0')}` : null).filter(Boolean); return refs.length ? `<div class="vper">Ref.: ${esc(refs.join(' · '))}</div>` : '' })()}<div style="margin-top:5px">${st}</div></td>
+          <td><div class="vtipo">Viagem · ${ts.length} trecho${ts.length > 1 ? 's' : ''}</div>${periodo ? `<div class="vper">${esc(periodo)}</div>` : ''}${(() => { const tv = tempoViagemMin(ts); return tv.temTempo ? `<div class="vper">Tempo: <b>${fmtHm(tv.total)}</b>${tv.aberto ? '…' : ''}${tv.almoco ? ' (− refeição)' : ''}</div>` : '' })()}${(() => { const refs = (d.deslocamento_tarefas || []).map(x => x.tarefas ? `Tarefa Nº ${String(x.tarefas.numero).padStart(5, '0')}` : null).filter(Boolean); return refs.length ? `<div class="vper">Ref.: ${esc(refs.join(' · '))}</div>` : '' })()}<div style="margin-top:5px">${st}</div></td>
           <td>${cliCell}</td>
           <td>${esc(fmtLugar(prim.origem) || '—')} → ${esc(destinoLbl(ult))}${detalhe}</td>
           <td>${veics.length ? veics.map(esc).join('<br>') : (semVeic.length ? `<span class="dim">${esc(semVeic.join(', '))}</span>` : '—')}</td>
@@ -310,7 +311,7 @@ const DeslocApp = (() => {
   }
 
   // ───────────────────── Editar VIAGEM (modelo novo: trechos) ─────────────────────
-  let vmCur = null, vmLocais = [], vmAlmocos = []
+  let vmCur = null, vmLocais = []
   // Ref. Tarefas: tarefas EM ABERTO dos clientes do destino
   const TAREFA_ABERTA = ['aguardando_execucao', 'em_execucao', 'devolvida']
   let vmTarAbertas = [], vmTarEmbed = {}
@@ -321,26 +322,7 @@ const DeslocApp = (() => {
     vmTarAbertas = data || []
   }
   const vmTarInfo = (id) => vmTarAbertas.find(t => t.id === id) || vmTarEmbed[id] || null
-  let vmAlmHor = {}   // dia → {inicio, fim} (editável pelo admin; grava em deslocamento_almocos)
   const horaMais = (hhmm, min) => { const [h, m] = String(hhmm).split(':').map(Number); if (isNaN(h)) return ''; const t = (h * 60 + (m || 0) + min) % 1440; return `${String(Math.floor(t / 60)).padStart(2, '0')}:${String(t % 60).padStart(2, '0')}` }
-  const vmAlmRows = () => Object.entries(vmAlmHor).filter(([, h]) => h && h.inicio && h.fim)
-    .map(([dia, h]) => ({ dia, inicio: h.inicio, fim: h.fim }))
-  // tempo de UM trecho, descontando o almoço do dia que cai dentro dele
-  function tempoTrechoMin(t, hor) {
-    if (!t || !t.saida_em) return null
-    const a = new Date(t.saida_em).getTime()
-    const aberto = !t.chegada_em
-    const b = aberto ? Date.now() : new Date(t.chegada_em).getTime()
-    if (b <= a) return { total: 0, almoco: 0, aberto }
-    const dia = t.data || String(t.saida_em).slice(0, 10)
-    const h = (hor || {})[dia]
-    let alm = 0
-    if (h && h.inicio && h.fim) {
-      const ai = new Date(`${dia}T${h.inicio}:00`).getTime(), af = new Date(`${dia}T${h.fim}:00`).getTime()
-      alm = Math.max(0, Math.min(b, af) - Math.max(a, ai)) / 60000
-    }
-    return { total: Math.max(0, Math.round((b - a) / 60000 - alm)), almoco: Math.round(alm), aberto }
-  }
   // A DATA do trecho é a única fonte de data: saída/chegada são só HORA, ancoradas nela.
   const hhIso = (iso) => { if (!iso) return ''; const d = new Date(iso); return `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}` }
   const isoNoDia = (dia, hhmm, fallbackIso) => {
@@ -356,48 +338,9 @@ const DeslocApp = (() => {
   }
   function renderVmTotal() {
     const box = document.getElementById('vm-total'); if (!box || !vmCur) return
-    const { total, bruto, almoco, aberto, temTempo } = tempoViagemMin(vmCur.trechos, vmAlmRows())
+    const { total, bruto, almoco, aberto, temTempo } = tempoViagemMin(vmCur.trechos)
     box.innerHTML = temTempo ? `<div class="vm-totcard"><span class="k">Tempo de deslocamento${aberto ? ' · em andamento' : ''}</span><span class="v">${fmtHm(total)}</span>
-      <span class="s">${almoco ? `${fmtHm(bruto)} marcados − ${fmtHm(almoco)} de almoço` : 'sem almoço descontado'}${aberto ? ' · trecho aberto contando até agora' : ''}</span></div>` : ''
-  }
-  // Card editável: um par de horários de almoço por dia da viagem.
-  // Ao salvar, vale para todos os técnicos a bordo no dia (dedup no servidor).
-  function renderVmAlmoco() {
-    const box = document.getElementById('vm-almoco'); if (!box || !vmCur) return
-    const dias = [...new Set([...vmCur.trechos.map(t => t.data).filter(Boolean), ...Object.keys(vmAlmHor)])].sort()
-    if (!dias.length) { box.innerHTML = ''; return }
-    box.innerHTML = `<div class="vm-alm"><div class="ah">Almoço na estrada</div>
-      ${dias.map(dia => {
-        const h = vmAlmHor[dia] || {}
-        return `<div class="adia"><span class="dlbl">${esc(dia2(dia))}</span>
-          <div><label>Início</label><input type="time" data-vmaini="${esc(dia)}" value="${esc(h.inicio || '')}"></div>
-          <div><label>Término</label><input type="time" data-vmafim="${esc(dia)}" value="${esc(h.fim || '')}"></div>
-          ${(h.inicio || h.fim) ? `<button type="button" class="alimpa" data-vmalimpa="${esc(dia)}" title="Limpar almoço do dia">×</button>` : '<span></span>'}
-        </div>`
-      }).join('')}
-      <div class="anota">Vale para todos os técnicos a bordo no dia (quem já tem almoço em outro artefato não duplica — o sistema mantém o 1º). Desconta do tempo quando cai dentro do horário dos trechos.</div>
-    </div>`
-    box.querySelectorAll('[data-vmaini]').forEach(el => {
-      el.onchange = () => {
-        const dia = el.dataset.vmaini
-        vmAlmHor[dia] = vmAlmHor[dia] || {}
-        vmAlmHor[dia].inicio = el.value || null
-        if (el.value && (!vmAlmHor[dia].fim || vmAlmHor[dia].fim <= el.value)) vmAlmHor[dia].fim = horaMais(el.value, 60)
-        renderVmTrechos()   // cards por trecho descontam o almoço
-      }
-    })
-    box.querySelectorAll('[data-vmafim]').forEach(el => {
-      el.onchange = () => {
-        const dia = el.dataset.vmafim
-        vmAlmHor[dia] = vmAlmHor[dia] || {}
-        if (el.value && vmAlmHor[dia].inicio && el.value <= vmAlmHor[dia].inicio) {
-          toast('O término do almoço não pode ser antes do início.', 'err')
-          vmAlmHor[dia].fim = horaMais(vmAlmHor[dia].inicio, 60)
-        } else vmAlmHor[dia].fim = el.value || null
-        renderVmTrechos()
-      }
-    })
-    box.querySelectorAll('[data-vmalimpa]').forEach(el => { el.onclick = () => { delete vmAlmHor[el.dataset.vmalimpa]; renderVmTrechos() } })
+      <span class="s">${almoco ? `${fmtHm(bruto)} marcados − ${fmtHm(almoco)} de refeição` : 'sem refeição descontada'}${aberto ? ' · trecho aberto contando até agora' : ''}</span></div>` : ''
   }
   const vmUuid = () => (crypto.randomUUID ? crypto.randomUUID() : `${Date.now()}-${Math.random().toString(16).slice(2)}`)
   // cidade/UF extraída do endereço do cliente (Title Case)
@@ -415,6 +358,7 @@ const DeslocApp = (() => {
     const ant = vmCur.trechos[vmCur.trechos.length - 1]
     return {
       id: vmUuid(), origem: ant ? (ant.destino || '') : '', destino: '', destino_local_id: null, destino_cliente_id: null, tarefa_id: null,
+      almoco_inicio: null, almoco_fim: null,
       data: ant ? ant.data : null, saida_em: null, chegada_em: null,
       saida_lat: null, saida_lng: null, saida_precisao: null, chegada_lat: null, chegada_lng: null, chegada_precisao: null,
       veiculo_id: ant ? ant.veiculo_id : null, nota_transporte: ant ? ant.nota_transporte : null,
@@ -433,6 +377,8 @@ const DeslocApp = (() => {
       trechos: trechosDe(d).map(t => ({
         id: t.id, origem: t.origem || '', destino: t.destino || '', destino_local_id: t.destino_local_id || null,
         destino_cliente_id: t.destino_cliente_id || null, tarefa_id: t.tarefa_id || null,
+        almoco_inicio: t.almoco_inicio ? String(t.almoco_inicio).slice(0, 5) : null,
+        almoco_fim: t.almoco_fim ? String(t.almoco_fim).slice(0, 5) : null,
         data: t.data || null, saida_em: t.saida_em || null, chegada_em: t.chegada_em || null,
         saida_lat: t.saida_lat ?? null, saida_lng: t.saida_lng ?? null, saida_precisao: t.saida_precisao ?? null,
         chegada_lat: t.chegada_lat ?? null, chegada_lng: t.chegada_lng ?? null, chegada_precisao: t.chegada_precisao ?? null,
@@ -441,11 +387,9 @@ const DeslocApp = (() => {
         motoristas: (t.trecho_direcao || []).map(m => ({ tecnico_id: m.tecnico_id, hora_de: m.hora_de ? String(m.hora_de).slice(0, 5) : null, hora_ate: m.hora_ate ? String(m.hora_ate).slice(0, 5) : null })),
       })),
     }
-    vmAlmocos = d.deslocamento_almocos || []
-    vmAlmHor = {}
-    for (const r of vmAlmocos) {
-      if (r.dia && r.inicio && r.fim && !vmAlmHor[r.dia]) vmAlmHor[r.dia] = { inicio: String(r.inicio).slice(0, 5), fim: String(r.fim).slice(0, 5) }
-    }
+    vmCur.observacoes = d.observacoes || null
+    const vmObs = document.getElementById('vm-obs')
+    if (vmObs) { vmObs.value = vmCur.observacoes || ''; vmObs.oninput = () => { vmCur.observacoes = vmObs.value.trim() || null } }
     vmCur.tarefas = (d.deslocamento_tarefas || []).map(x => x.tarefa_id)
     vmTarEmbed = {}
     for (const x of (d.deslocamento_tarefas || [])) if (x.tarefas) vmTarEmbed[x.tarefa_id] = { id: x.tarefa_id, ...x.tarefas }
@@ -490,7 +434,11 @@ const DeslocApp = (() => {
             <div><label>Saída (hora)</label><input type="time" data-vmsaida="${i}" value="${esc(hhIso(t.saida_em))}"></div>
             <div><label>Chegada (hora)</label><input type="time" data-vmcheg="${i}" value="${esc(hhIso(t.chegada_em))}"></div>
           </div>
-          ${(() => { const tt = tempoTrechoMin(t, vmAlmHor); return tt ? `<div class="vm-legtot"><span>Tempo do trecho${tt.aberto ? ' · em andamento' : ''}${tt.almoco ? ` <i>(− ${fmtHm(tt.almoco)} almoço)</i>` : ''}</span><b>${fmtHm(tt.total)}</b></div>` : '' })()}
+          <div class="dm-row" style="margin-top:10px">
+            <div><label>Refeição — início</label><input type="time" data-vmaini="${i}" value="${esc(t.almoco_inicio ? String(t.almoco_inicio).slice(0, 5) : '')}"></div>
+            <div><label>Refeição — término</label><input type="time" data-vmafim="${i}" value="${esc(t.almoco_fim ? String(t.almoco_fim).slice(0, 5) : '')}"></div>
+          </div>
+          ${(() => { const tt = tempoTrechoMin(t); return tt ? `<div class="vm-legtot"><span>Tempo do trecho${tt.aberto ? ' · em andamento' : ''}${tt.almoco ? ` <i>(− ${fmtHm(tt.almoco)} refeição)</i>` : ''}</span><b>${fmtHm(tt.total)}</b></div>` : '' })()}
           <div class="dm-row" style="margin-top:10px">
             <div><label>Veículo</label><select data-vmveic="${i}">
               <option value="">— sem veículo da empresa —</option>
@@ -523,7 +471,26 @@ const DeslocApp = (() => {
         // re-ancora saída/chegada na nova data (mantém as horas)
         if (t.saida_em) t.saida_em = isoNoDia(t.data, hhIso(t.saida_em), t.saida_em)
         if (t.chegada_em) { t.chegada_em = isoNoDia(t.data, hhIso(t.chegada_em), t.chegada_em); ajustaMadrugada(t) }
-        renderVmAlmoco(); renderVmTotal()
+        renderVmTrechos()
+      }
+    })
+    box.querySelectorAll('[data-vmaini]').forEach(el => {
+      el.onchange = () => {
+        const t = T[+el.dataset.vmaini]
+        t.almoco_inicio = el.value || null
+        if (el.value && (!t.almoco_fim || String(t.almoco_fim).slice(0, 5) <= el.value)) t.almoco_fim = horaMais(el.value, 60)
+        renderVmTrechos()
+      }
+    })
+    box.querySelectorAll('[data-vmafim]').forEach(el => {
+      el.onchange = () => {
+        const t = T[+el.dataset.vmafim]
+        const ini = t.almoco_inicio ? String(t.almoco_inicio).slice(0, 5) : ''
+        if (el.value && ini && el.value <= ini) {
+          toast('O término da refeição não pode ser antes do início.', 'err')
+          t.almoco_fim = horaMais(ini, 60)
+        } else t.almoco_fim = el.value || null
+        renderVmTrechos()
       }
     })
     box.querySelectorAll('[data-vmdest]').forEach(el => { el.oninput = () => { T[+el.dataset.vmdest].destino = el.value } })
@@ -608,7 +575,6 @@ const DeslocApp = (() => {
       const clis = [...new Set(T.map(t => t.destino_cliente_id).filter(Boolean))].map(id => cliNomes[id] || (cliArr.find(c => c.id === id) || {}).nome).filter(Boolean)
       resumoEl.textContent = clis.length ? `Clientes da viagem: ${clis.join(' · ')}` : ''
     }
-    renderVmAlmoco()
     renderVmTotal()
   }
   async function salvarViagem() {
@@ -619,7 +585,7 @@ const DeslocApp = (() => {
     }
     // cliente "principal" do registro = o do primeiro trecho com cliente (derivado)
     vmCur.cliente_id = (vmCur.trechos.find(t => t.destino_cliente_id) || {}).destino_cliente_id || null
-    const up = await sb().from('deslocamentos').update({ cliente_id: vmCur.cliente_id }).eq('id', vmCur.id)
+    const up = await sb().from('deslocamentos').update({ cliente_id: vmCur.cliente_id, observacoes: vmCur.observacoes || null }).eq('id', vmCur.id)
     if (up.error) return toast('Erro ao salvar: ' + up.error.message, 'err')
     // substituição completa dos trechos (cascade limpa a-bordo/direção) — preserva GPS capturado
     const del = await sb().from('deslocamento_trechos').delete().eq('deslocamento_id', vmCur.id)
@@ -627,7 +593,8 @@ const DeslocApp = (() => {
     const trechos = vmCur.trechos.map((t, i) => ({
       id: t.id || vmUuid(), deslocamento_id: vmCur.id, ordem: i + 1,
       origem: t.origem || null, destino: t.destino || null, destino_local_id: t.destino_local_id || null,
-      destino_cliente_id: t.destino_cliente_id || null,
+      destino_cliente_id: t.destino_cliente_id || null, tarefa_id: t.tarefa_id || null,
+      almoco_inicio: t.almoco_inicio || null, almoco_fim: t.almoco_fim || null,
       data: t.data || null, saida_em: t.saida_em || null, chegada_em: t.chegada_em || null,
       saida_lat: t.saida_lat ?? null, saida_lng: t.saida_lng ?? null, saida_precisao: t.saida_precisao ?? null,
       chegada_lat: t.chegada_lat ?? null, chegada_lng: t.chegada_lng ?? null, chegada_precisao: t.chegada_precisao ?? null,
@@ -659,10 +626,15 @@ const DeslocApp = (() => {
     // (o trigger materializa em `almocos` com a dedup de um por pessoa/dia)
     await sb().from('deslocamento_almocos').delete().eq('deslocamento_id', vmCur.id)
     const almRows = []
-    for (const { dia, inicio, fim } of vmAlmRows()) {
-      const aboard = [...new Set(vmCur.trechos.filter(t => t.data === dia).flatMap(t => t.tecnicos || []))]
-      const quem = aboard.length ? aboard : uni
-      for (const tid of quem) almRows.push({ deslocamento_id: vmCur.id, tecnico_id: tid, dia, inicio, fim })
+    const visto = new Set()   // um almoço por técnico/dia (1º trecho do dia com refeição vale)
+    for (const t of vmCur.trechos) {
+      if (!t.data || !t.almoco_inicio || !t.almoco_fim) continue
+      for (const tid of (t.tecnicos || [])) {
+        const k = `${tid}|${t.data}`
+        if (visto.has(k)) continue
+        visto.add(k)
+        almRows.push({ deslocamento_id: vmCur.id, tecnico_id: tid, dia: t.data, inicio: String(t.almoco_inicio).slice(0, 5), fim: String(t.almoco_fim).slice(0, 5) })
+      }
     }
     if (almRows.length) {
       const r = await sb().from('deslocamento_almocos').insert(almRows)

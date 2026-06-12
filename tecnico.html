@@ -335,7 +335,7 @@ try{if(localStorage.getItem('sr_dark')==='1')document.documentElement.classList.
   .leg .lrow>*{min-width:0}
   .leg .lrow .grow{flex:1}
   .leg input,.leg select{width:100%;padding:9px 11px;border:1px solid var(--bd);border-radius:10px;font:inherit;font-size:13.5px;background:var(--sur);color:var(--tx)}
-  .leg input[type="date"]{-webkit-appearance:none;appearance:none;min-height:40px}
+  .leg input[type="date"],.leg input[type="time"]{-webkit-appearance:none;appearance:none;min-height:40px;display:block;text-align:left}
   .drivers{background:var(--sur2);border:1px solid var(--bd);border-radius:11px;padding:8px 11px;margin-bottom:7px}
   .drivers .lbl{display:flex;align-items:center;gap:6px;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:var(--tx3);margin-bottom:7px}
   .drivers .lbl svg{width:13px;height:13px;stroke:currentColor;fill:none;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
@@ -944,10 +944,10 @@ try{if(localStorage.getItem('sr_dark')==='1')document.documentElement.classList.
       <div id="dl-trechos"></div>
       <button type="button" class="dl-addleg" id="dl-addleg">+ Adicionar trecho</button>
       <div id="dl-noites"></div>
-      <div class="dl-sec">Almoço na estrada</div>
-      <div id="dl-almocos"></div>
       <div id="dl-total"></div>
-      <div class="alm-hint">Trecho novo herda veículo, direção e passageiros do anterior. Veículo da empresa exige direção — "+ Revezamento" registra quem assumiu e a hora (a multa cai no horário de quem dirigia). GPS é marcado sozinho na saída/chegada; sem sinal, salva "sem GPS".</div>
+      <div class="dl-sec">Observações</div>
+      <textarea id="dl-obs" rows="3" placeholder="Observações da viagem (opcional)" style="width:100%;box-sizing:border-box;padding:11px 12px;border:1px solid var(--bd);border-radius:12px;font:inherit;font-size:14px;background:var(--sur);color:var(--tx);resize:vertical"></textarea>
+      <div class="alm-hint">Trecho novo herda veículo, direção e passageiros do anterior. Veículo da empresa exige direção — "+ Revezamento" registra quem assumiu e a hora (a multa cai no horário de quem dirigia). GPS é marcado sozinho na saída/chegada; sem sinal, salva "sem GPS". A refeição de cada trecho desconta do tempo daquele trecho.</div>
     </div>
     <div class="tm-f">
       <button class="btn" id="dl-cancelar">Cancelar</button>

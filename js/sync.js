@@ -258,7 +258,7 @@
   async function enviarViagem(sb, d, criadoPor) {
     const up = await sb.from('deslocamentos').upsert({
       id: d.id, sentido: 'outro', cliente_id: d.cliente_id || null,
-      motivo: d.motivo || null, criado_por: criadoPor,
+      motivo: d.motivo || null, observacoes: d.observacoes || null, criado_por: criadoPor,
     }, { onConflict: 'id' })
     if (up.error) throw up.error
     // trechos: substituição completa (cascade limpa a-bordo/direção)
@@ -268,6 +268,7 @@
       id: t.id, deslocamento_id: d.id, ordem: i + 1,
       origem: t.origem || null, destino: t.destino || null, destino_local_id: t.destino_local_id || null,
       destino_cliente_id: t.destino_cliente_id || null, tarefa_id: t.tarefa_id || null,
+      almoco_inicio: t.almoco_inicio || null, almoco_fim: t.almoco_fim || null,
       data: t.data || null, saida_em: t.saida_em || null, chegada_em: t.chegada_em || null,
       saida_lat: t.saida_lat ?? null, saida_lng: t.saida_lng ?? null, saida_precisao: t.saida_precisao ?? null,
       chegada_lat: t.chegada_lat ?? null, chegada_lng: t.chegada_lng ?? null, chegada_precisao: t.chegada_precisao ?? null,
