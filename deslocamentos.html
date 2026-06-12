@@ -74,8 +74,9 @@
   .vm-tec .ck{margin-left:auto;width:18px;height:18px;border-radius:6px;border:1.6px solid #C6CCDA;flex:none}
   .vm-tec.on .ck{background:#179A47;border-color:#179A47;position:relative}
   .vm-tec.on .ck::after{content:"✓";color:#fff;font-size:11px;position:absolute;inset:0;display:grid;place-items:center}
-  /* editar viagem (modelo novo: trechos) — FULLSCREEN, padrão dos modais do app */
-  #vm-back{padding:0;align-items:stretch}
+  /* editar viagem (modelo novo: trechos) — FULLSCREEN na área de conteúdo (sidebar fica visível) */
+  #vm-back{padding:0;align-items:stretch;left:240px}
+  @media(max-width:900px){#vm-back{left:0}}
   .vm-box{background:var(--bg,#F3F4F8);width:100%;height:100vh;max-width:none;border-radius:0;display:flex;flex-direction:column;overflow:hidden}
   .vm-box .dm-b{flex:1;overflow-y:auto;width:100%;max-width:920px;margin:0 auto;padding:22px 24px;box-sizing:border-box}
   .vm-box .dm-f{background:#fff;border-top:1px solid var(--bd);padding:14px 24px}
