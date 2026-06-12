@@ -1001,6 +1001,7 @@
           if (el) el.value = v
         }
       }
+      tecPart = (rat.respostas.tecnicos_part && typeof rat.respostas.tecnicos_part === 'object') ? { ...rat.respostas.tecnicos_part } : {}
     }
     atualizarTempo()
     aplicarCondicionais()
@@ -1025,6 +1026,7 @@
     const fb = document.getElementById('form-fotos-btn'); if (fb) fb.style.display = 'none'  // só aparece se houver campo de foto
     cur.campos = []
     cur.formulario_id = formId || null
+    tecPart = {}   // horários por técnico: recomeça com o formulário (abrirExistente repõe depois)
     const form = formId ? ref.formularios[formId] : null
     if (!form) { cont.innerHTML = formId ? '<p class="dim">Formulário não encontrado.</p>' : '<p class="dim">Esta tarefa não tem tipo de serviço/formulário configurado — peça ao administrativo.</p>'; return }
     cur.campos = form.campos || []
@@ -1326,6 +1328,10 @@
       const w = document.querySelector(`#campos-container [data-field="${CSS.escape(c.id)}"]`)
       if (w && ac) { ac.appendChild(w); idsModalPausa.add(c.id); nA++ }
     }
+    if (ac && nA) {
+      ac.insertAdjacentHTML('beforeend', '<div id="almoco-pessoas"></div>')
+      ac.oninput = () => renderAlmocoPessoas()   // horários/Sim-Não mudaram → chips por pessoa
+    }
     const pb = document.getElementById('form-pausa-btn'); if (pb) pb.style.display = nA ? '' : 'none'
     // 2) deslocamento DO DIA → modal do botão "Deslocamento" (pernoite é à parte, na home)
     idsModalDesloc.clear()
@@ -1419,7 +1425,35 @@
 
   // ── Técnicos responsáveis: cards (padrão admin) + modal de adição ──
   let tecCampoId = null
+  // Horário PRÓPRIO por técnico (tempo é da pessoa, §8): { "Nome": {inicio,fim} } só nas
+  // exceções — ausente = herda o horário da RAT. Vai em respostas.tecnicos_part; o servidor
+  // materializa rat_tecnicos (trigger fn_rat_sync_tempo).
+  let tecPart = {}
   const iniciaisDe = (n) => String(n || '').trim().split(/\s+/).slice(0, 2).map(p => p[0] || '').join('').toUpperCase()
+  function chipHorario(n) {
+    const p = tecPart[n]
+    const rIni = valorCampo('hora_inicio'), rFim = valorCampo('hora_termino')
+    if (p && (p.inicio || p.fim)) {
+      return `<button type="button" class="hchip h-edit" data-hr="${esc(n)}">${esc(p.inicio || rIni || '—')}–${esc(p.fim || rFim || '—')} <span class="tag">AJUSTADO</span></button>`
+    }
+    const faixa = (rIni && rFim) ? `${rIni}–${rFim}` : (rIni ? `${rIni}–…` : 'horário')
+    return `<button type="button" class="hchip h-inherit" data-hr="${esc(n)}">${esc(faixa)} · da RAT</button>`
+  }
+  // Toque no chip → editor inline (dois horários + OK / "da RAT" volta a herdar)
+  function abrirEditorHorario(n, chipEl) {
+    const p = tecPart[n] || {}
+    const wrap = document.createElement('span')
+    wrap.className = 'hedit'
+    wrap.innerHTML = `<input type="time" class="he-ini" value="${esc(p.inicio || valorCampo('hora_inicio') || '')}">–<input type="time" class="he-fim" value="${esc(p.fim || valorCampo('hora_termino') || '')}"><button type="button" class="he-ok">OK</button><button type="button" class="he-clear" title="Voltar a herdar o horário da RAT">da RAT</button>`
+    chipEl.replaceWith(wrap)
+    wrap.querySelector('.he-ok').onclick = () => {
+      const ini = wrap.querySelector('.he-ini').value, fim = wrap.querySelector('.he-fim').value
+      if (ini || fim) tecPart[n] = { inicio: ini || null, fim: fim || null }
+      else delete tecPart[n]
+      renderTecCards(); agendarAutosave(); renderAlmocoPessoas()
+    }
+    wrap.querySelector('.he-clear').onclick = () => { delete tecPart[n]; renderTecCards(); agendarAutosave(); renderAlmocoPessoas() }
+  }
   function renderTecCards() {
     if (!tecCampoId) return
     const box = document.querySelector(`[data-teccards="${CSS.escape(tecCampoId)}"]`); if (!box) return
@@ -1429,15 +1463,17 @@
       const rl = t.cargo ? `${t.cargo} · Técnico` : 'Técnico'
       const foto = (typeof avatarUrl === 'function') ? avatarUrl(t.foto_url) : null
       const av = foto ? `<img src="${esc(foto)}" alt="">` : esc(iniciaisDe(n))
-      return `<div class="tec-card"><span class="av">${av}</span><span class="ti"><span class="nm">${esc(n)}</span><span class="rl">${esc(rl)}</span></span><button type="button" class="tc-x" data-rem="${esc(n)}" title="Remover">×</button></div>`
+      return `<div class="tec-card"><span class="av">${av}</span><span class="ti"><span class="nm">${esc(n)}</span><span class="rl">${esc(rl)}</span>${chipHorario(n)}</span><button type="button" class="tc-x" data-rem="${esc(n)}" title="Remover">×</button></div>`
     }).join('') || '<div class="tec-vazio">Nenhum técnico selecionado.</div>'
     box.querySelectorAll('[data-rem]').forEach(b => {
       b.onclick = () => {
         const chk = document.querySelector(`[data-multi="${CSS.escape(tecCampoId)}"][value="${CSS.escape(b.dataset.rem)}"]`)
         if (chk) chk.checked = false
+        delete tecPart[b.dataset.rem]
         atualizarResumoTecnicos(); filtrarTecnicos(); agendarAutosave()
       }
     })
+    box.querySelectorAll('[data-hr]').forEach(b => { b.onclick = () => abrirEditorHorario(b.dataset.hr, b) })
   }
   function abrirModalTecnicos(campoId) {
     if (!cur) return
@@ -1519,8 +1555,60 @@
     const cw = document.getElementById('f-cliente-wrap')
     if (cw) cw.style.display = clienteEditavel ? '' : 'none'
   }
-  function abrirModalAlmoco() { if (!cur) return; document.getElementById('modal-pausa').classList.add('open') }
+  function abrirModalAlmoco() {
+    if (!cur) return
+    document.getElementById('modal-pausa').classList.add('open')
+    renderAlmocoPessoas()
+    // estado "já almoçou hoje" vem do servidor (almocos por pessoa/dia); offline usa o último cache
+    const dia = valorCampo('data') || jorHoje()
+    const ids = nomesSelecionados().map(n => ((ref.tecnicos || []).find(x => tcase(x.nome) === n) || {}).id).filter(Boolean)
+    carregarAlmocosDia(dia, ids).then(renderAlmocoPessoas)
+  }
   function fecharModalAlmoco() { document.getElementById('modal-pausa').classList.remove('open'); atualizarResumoAlmoco() }
+
+  // ── Almoço é DA PESSOA: um por técnico/dia em qualquer artefato (§8) ──
+  // O servidor materializa e deduplica (trigger da RAT + fn_registrar_almoco);
+  // aqui só mostramos PARA QUEM o almoço vai valer e quem já tem o do dia.
+  let almocoDia = { dia: null, rows: [] }
+  const nomesSelecionados = () => tecCampoId ? String(valorCampo(tecCampoId) || '').split(',').map(s => s.trim()).filter(Boolean) : []
+  async function carregarAlmocosDia(dia, ids) {
+    if (!navigator.onLine || !ids.length) return
+    try {
+      const { data } = await getSupabase().from('almocos')
+        .select('tecnico_id,inicio,fim,origem,artefato_tipo').eq('dia', dia).in('tecnico_id', ids)
+      almocoDia = { dia, rows: data || [] }
+    } catch (e) { /* offline/erro: mantém o cache anterior */ }
+  }
+  function renderAlmocoPessoas() {
+    const box = document.getElementById('almoco-pessoas'); if (!box || !cur) return
+    const houve = valorCampo('almoco') === 'Sim'
+    const nomes = nomesSelecionados()
+    if (!houve || !nomes.length) { box.innerHTML = ''; return }
+    const aIni = valorCampo('almoco_inicio'), aFim = valorCampo('almoco_termino')
+    const hhmm = (t) => String(t || '').slice(0, 5)
+    const rIni = valorCampo('hora_inicio'), rFim = valorCampo('hora_termino')
+    box.innerHTML = '<span class="alm-lab">Registrado para</span>' + nomes.map(n => {
+      const t = (ref.tecnicos || []).find(x => tcase(x.nome) === n) || {}
+      const foto = (typeof avatarUrl === 'function') ? avatarUrl(t.foto_url) : null
+      const av = foto ? `<img src="${esc(foto)}" alt="">` : esc(iniciaisDe(n))
+      const reg = almocoDia.rows.find(r => r.tecnico_id === t.id)
+      const p = tecPart[n] || {}
+      const pIni = p.inicio || rIni, pFim = p.fim || rFim
+      const cobre = !aIni || !pIni || !pFim || (aIni >= pIni && aIni < pFim)
+      let chip
+      if (reg && !(reg.artefato_tipo === 'rat' && hhmm(reg.inicio) === aIni && hhmm(reg.fim) === aFim)) {
+        const onde = reg.origem === 'ponto' ? 'ponto' : (reg.artefato_tipo === 'deslocamento' ? 'Deslocamento' : 'outra RAT')
+        chip = `<span class="pst p-skip">já registrado hoje · ${esc(onde)}</span>`
+      } else if (!cobre) {
+        chip = '<span class="pst p-wait">fora do horário dele</span>'
+      } else if (aIni && aFim) {
+        chip = `<span class="pst p-ok">✓ ${esc(aIni)}–${esc(aFim)}</span>`
+      } else {
+        chip = '<span class="pst p-wait">aguardando horários</span>'
+      }
+      return `<div class="pcard"><span class="av">${av}</span><span class="nm">${esc(n)}</span>${chip}</div>`
+    }).join('') + '<div class="alm-hint">O almoço vale pra quem estava na tarefa nesse horário. Quem já almoçou em outra RAT ou Deslocamento <b>não duplica</b> — o sistema mantém o primeiro e avisa o admin.</div>'
+  }
 
   // ─────────────────────────── Fotos ───────────────────────────
   // Comprime/redimensiona a foto antes de salvar (sobe rápido no 4G; mantém qualidade boa).
@@ -1869,6 +1957,14 @@
       }
       if (c.obrigatorio && !v) { faltando.push(c.label); faltandoIds.push(c.id) }
       if (v) respostas[c.id] = v
+    }
+    // horário próprio por técnico (só exceções, só dos selecionados) → tecnicos_part
+    if (tecCampoId && respostas[tecCampoId]) {
+      const partes = {}
+      for (const n of String(respostas[tecCampoId]).split(',').map(s => s.trim()).filter(Boolean)) {
+        if (tecPart[n] && (tecPart[n].inicio || tecPart[n].fim)) partes[n] = tecPart[n]
+      }
+      if (Object.keys(partes).length) respostas.tecnicos_part = partes
     }
     return { respostas, faltando, faltandoIds }
   }
