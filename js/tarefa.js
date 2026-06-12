@@ -1153,15 +1153,18 @@ const TarefaApp = (() => {
     const dadosOk = !!(cur && cur.id) && (tecPorTarefa[cur.id] || []).length > 0 && !!t.data_agendada
     const rats = (cur && cur.rats) || []
     const ratEmAnd = rats.some(r => r.status === 'em_andamento')
-    let devItens = 0, aRevisar = 0, foraN = 0
+    let devItens = 0, aRevisar = 0, foraN = 0, prodAtencao = 0
     for (const l of (linhas || [])) {
-      if ((Number(l.qtd_devolvida) || 0) > 0) devItens++
-      if (l.situacao && l.situacao !== 'ok' && !l.revisado) aRevisar++
+      const dev = (Number(l.qtd_devolvida) || 0) > 0
+      const rev = !!(l.situacao && l.situacao !== 'ok' && !l.revisado)
+      if (dev) devItens++
+      if (rev) aRevisar++
       if (l.situacao === 'sem_orcada') foraN++
+      if (dev || rev) prodAtencao++   // LINHAS com atenção (a mesma linha não conta 2x)
     }
     return {
       t, dadosOk, ratsLen: rats.length, ratEmAnd,
-      prodLen: (linhas || []).length, devItens, aRevisar, foraN,
+      prodLen: (linhas || []).length, devItens, aRevisar, foraN, prodAtencao,
       prodWarn: aRevisar > 0 || devItens > 0,
       fat: !!t.faturado, anx: ((cur && cur.anexos) || []).length, equipLen: ((cur && cur.equip) || []).length,
     }
@@ -1195,7 +1198,7 @@ const TarefaApp = (() => {
     const ind = {
       dados: e.dadosOk ? chk : '',
       rats: e.ratsLen === 0 ? '' : (e.ratEmAnd ? cnt(e.ratsLen) : chk),
-      material: e.prodLen === 0 ? '' : (e.prodWarn ? cnt(e.aRevisar + e.devItens) : chk),
+      material: e.prodLen === 0 ? '' : (e.prodWarn ? cnt(e.prodAtencao) : chk),
       fat: e.fat ? chk : '',
       equip: e.equipLen ? chk : '',
       anexos: e.anx ? chk : '',
