@@ -2,7 +2,7 @@
 
 > Documento vivo. Reúne tudo que foi desenhado até aqui. Serve de referência única para a construção (Claude Code) e para revisão do time. Ao lembrar de algo novo, acrescenta-se aqui — não precisa segurar nada de cabeça.
 >
-> **Última atualização: 12/06/2026** (incorpora o trabalho de 09–11/06: re-skin do admin, reorganização da RAT do técnico, timers reabríveis, IA "Melhorar escrita", pernoite, paleta oficial).
+> **Última atualização: 12/06/2026** (incorpora o trabalho de 09–11/06: re-skin do admin, reorganização da RAT do técnico, timers reabríveis, IA "Melhorar escrita", pernoite, paleta oficial — **+ decisões de design de 12/06:** tempo por técnico + Tangerino (§8) · Remessa/Container (§9) · decimais com teto na Tarefa (§9) · Viagem como referência futura (§4.1)).
 
 ---
 
@@ -52,9 +52,9 @@ Mapeamento com o que já existe no banco: `tecnico_campo` = técnico; `admin`/`g
 
 **Serviços transversais (construir uma vez, reusar):**
 - **Geração de PDF** — usada em pré-orçamento, orçamento e RAT.
-- **E-mail ao finalizar** — usada só onde faz sentido (ver §11).
+- **E-mail ao finalizar** — usada só onde faz sentido (ver §12).
 - **Bloco de controle de tempo** — deslocamento + início/fim + pausa + almoço + cálculo de tempo trabalhado. **Idêntico** em pré-orçamento e RAT.
-- **Infra offline-first** — captura local (IndexedDB), fila de sincronização, modelo de accountability (ver §10).
+- **Infra offline-first** — captura local (IndexedDB), fila de sincronização, modelo de accountability (ver §12).
 
 ---
 
@@ -77,6 +77,8 @@ Artefato **próprio** do técnico (não é um campo dentro da RAT — esse é o 
 
 > Não confundir com o **deslocamento do dia**, que mora dentro da RAT (botão "Deslocamento" no grid de registros — pergunta Sim/Não + horários de ida/retorno). Pernoite é viagem; deslocamento do dia é o trajeto da visita.
 
+**Evolução futura — módulo "Viagem" (desenho de referência; decidido 12/06: NÃO construir agora).** O módulo atual atende; a versão rica só será reavaliada **depois da jornada contínua (§10.1)** — a jornada já registra saiu/chegou/pernoite como segmentos, então a Viagem provavelmente encolhe para um cadastro fino por cima dela. Decisões já lapidadas (valem quando/se construir): vínculo a **cliente/contrato** (tarefas opcionais, nunca tarefa única); roteiro multi-destino; pernoite como toggle (cidade · hospedagem); **equipe a bordo com participação individual** (§8 — tempo é da pessoa); **transporte multi-select** (`Veículo da empresa` → veículo+motorista · `Avião` · `Alugado/outro`; sem trechos multimodais — caso "carro até o aeroporto + avião + aluguel" = marca os três); eventos com **GPS pontual** (sem rastreamento contínuo, **sem km/odômetro**); eventos geram os **segmentos de deslocamento da jornada** (fonte única de tempo); compatibilidade gerando registros no formato atual; visual laranja no DS. **Fora de qualquer versão:** despesas de viagem (financeiro), anexos/nº de voo, trechos multimodais.
+
 ---
 
 ## 5. Orçamento
@@ -88,7 +90,7 @@ Artefato **próprio** do técnico (não é um campo dentro da RAT — esse é o 
 - **Material do catálogo:** itemizado (descrição, unidade, qtd, valor unit., total). Preço puxa do **Omie**, mas **editável**.
 - **Item avulso:** itemizado, preço digitado na mão.
 - **Ao finalizar:** gera **só o PDF** (sem e-mail automático). O comercial/admin envia ao cliente do jeito dele (e-mail próprio, WhatsApp…).
-- **O técnico não vê preço** — nem do produto, nem do orçamento (ver regra de dados em §10).
+- **O técnico não vê preço** — nem do produto, nem do orçamento (ver regra de dados em §12).
 
 ### Layout do PDF (pré-orçamento e orçamento)
 
@@ -178,7 +180,7 @@ Os dois eixos podem colorir o card. Pausa/almoço são estados **momentâneos** 
 - O técnico pode ter **várias OS abertas no mesmo dia** (uma RAT por OS).
 - **1 almoço por dia** — só uma RAT pode estar em "almoço" no dia (o almoço é do dia do técnico, descontado uma única vez do tempo, mesmo rodando várias OS). Pausa não tem esse limite.
 
-→ Restrições no banco: RAT única por `(tarefa, dia)`; almoço único por `(técnico, dia)`.
+→ Restrições no banco: RAT única por `(tarefa, dia)`; almoço único por `(técnico, dia)`; sequência da RAT única por `(tarefa, sequência)` — numeração definitiva atribuída pelo servidor (já implementado).
 
 ### App do técnico (celular) — navegação e telas
 
@@ -260,6 +262,26 @@ Referência visual: `docs/mockups/mockup-nova-rat-topo.html`. Reorganização co
 
 São **eixos diferentes** e podem coexistir (uma RAT "concluída c/ pendência" ainda pode ser devolvida pelo admin se houver erro de dado).
 
+### Tempo por técnico (equipes compartilhadas e artefatos simultâneos) — casos "Marcelo" e "Pablo"
+
+**Princípio: tempo é da pessoa, não do documento — e vale para TODOS os artefatos com tempo (RAT, Deslocamento, futura jornada).** O artefato diz *o que* foi feito e *quem* participou; as **horas são por técnico**. Casos reais (levantados pela Thaís):
+- **Marcelo:** 2 tarefas simultâneas no cliente; ele sai da Tarefa A no meio do dia pra ajudar a B → consta nas duas RATs → tempo duplicava e almoço conflitava ("dois almoços").
+- **Pablo:** auxiliou a RAT até 10h e voltou mais cedo iniciando um **Deslocamento** → consta na RAT e no Deslocamento; a equipe almoça na RAT, ele almoça no Deslocamento → sistema entendia dois almoços dele, e a saída às 10h só existia nas observações (texto solto).
+
+- **Definitivo (já desenhado, §10.1 — jornada contínua, opt-in do FBTB):** cada técnico tem a própria linha do tempo em segmentos (tarefa · deslocamento · almoço · pausa); trocar = handoff; **almoço é um segmento da jornada da pessoa** (um por dia, por construção). Cada artefato mostra o participante com o **intervalo dele**. Conflito impossível — não existe "em qual documento marco o almoço".
+- **Transição (modelo atual, enquanto a jornada não é construída):**
+  1. **Horário por técnico em qualquer artefato que lista pessoas** (RAT e Deslocamento) — início/fim próprios por participante (padrão = horário do artefato; edita só na exceção). Saída antecipada / entrada tardia vira dado estruturado, não observação.
+  2. **Almoço/pausa pertence ao técnico no dia, independente de onde for registrado** — **um por pessoa/dia**; o sistema desconta uma única vez nos cálculos e **bloqueia/acusa** um segundo registro do mesmo técnico no mesmo dia, em qualquer combinação de artefatos (RAT+RAT, RAT+Deslocamento). Pessoas diferentes almoçando em artefatos diferentes: normal, um almoço de cada.
+- **Cálculo de horas (qualquer modelo):** por técnico, Σ dos intervalos de participação em todos os artefatos do dia − o almoço/pausa único daquele técnico.
+
+**Integração com o ponto (Tangerino / Sólides DP):** o almoço por técnico/dia é **puxado automaticamente do ponto**, em vez de digitado.
+- Edge Function agendada consulta a API `punch-controller` do Tangerino (batidas paginadas, com filtros; requer **token de integração** solicitado ao suporte — fica em Configurações > Integração). Mapeamento técnico SR ↔ colaborador Tangerino em tabela própria.
+- Dia normal = 4 batidas (entrada · saída almoço · volta · saída): o par do meio vira o registro de **almoço (origem "ponto")**, somente-leitura no app ("Almoço 12:02–13:04 · puxado do ponto").
+- **Identificação do almoço (3 camadas):** (1) se a API já entregar o intervalo classificado pelo próprio Tangerino (apuração CLT/folha), usar direto; (2) heurística nas batidas cruas — pareia entrada/saída; com 4 batidas o gap do meio é o almoço; com mais gaps, almoço = **maior gap dentro da janela de almoço** (parâmetros em Configurações: janela ex. 10:30–14:30 · duração plausível ex. 20min–2h30; demais gaps = pausas); (3) **na dúvida, não chuta** — batidas ímpares, sem almoço registrado ou sem gap plausível → "almoço não identificado", abre fallback manual sinalizado. Cada registro guarda **origem + regra aplicada** (auditoria: "ponto · camada 2 · gap 12:02–13:04, 62 min, janela ok").
+- **Fallback manual** só quando o ponto não veio — marcado como manual e sinalizado; ponto, quando chegar, prevalece. Releitura dos últimos ~7 dias por rodada (captura abonos/ajustes tardios).
+- **Bônus pra jornada contínua (§10.1):** entrada/saída do dia vêm da mesma consulta = a moldura da validação "Σ segmentos = entrada → saída".
+- Tangerino segue sendo o registro **oficial/legal**; o SR consome operacionalmente (arredondamento 5-em-5 e faturamento são camada do SR).
+
 ---
 
 ## 9. Material e conciliação
@@ -276,7 +298,7 @@ Coração do sistema. Conciliação **interna** (não depende do Omie).
 | **Devolvida** | Calculada (= Levada − Utilizada) | O que volta pro estoque. |
 | **Situação** | Calculada | Sinaliza divergências. |
 
-**Visibilidade do técnico:** vê *orçada* e *levada* (leitura), edita só *utilizada*. **Não vê preço** (ver §10).
+**Visibilidade do técnico:** vê *orçada* e *levada* (leitura), edita só *utilizada*. **Não vê preço** (ver §12).
 
 **Terminologia no app do técnico (11/06):** nos textos visíveis, "Levado"/"Comigo" virou **"Disponível"** (o conceito/coluna interna continua *levada*).
 
@@ -294,6 +316,8 @@ Ambos usam as mesmas 5 colunas.
 ### Problema da bobina (unidade)
 Registrar tudo na **unidade de consumo (ex.: metro)**, não na embalagem. Ex.: orçada 100 m / levada 500 m (a bobina inteira, em metros) / utilizada 95 m / devolvida 405 m. O sistema concilia em metros; não precisa saber que "é 1 bobina".
 
+**Decimais e arredondamento (decidido):** o técnico pode apontar **decimais na RAT** em unidades fracionárias (ex.: 0,3 m) e o valor é salvo como digitado. O **arredondamento acontece na Tarefa, não na RAT**: Utilizada da tarefa (por produto) = **teto (pra cima, inteiro) da Σ dos utilizados das RATs** — ex.: 0,3 + 0,4 + 0,5 = 1,2 → Utilizada **2 m** (uma só vez na soma; nunca por apontamento, que inflaria 1+1+1=3). A Devolvida usa o valor já arredondado. Na aba Produtos, exibir o arredondado como oficial com a soma real discreta ao lado ("2 · Σ 1,2 m") para auditoria; as RATs continuam exibindo o decimal real. Unidades inteiras (PC) só aceitam inteiro no apontamento.
+
 > **Evolução futura (não agora):** rastrear a bobina/lote específico (saldo daquela bobina: 500 → 405 m) — camada de estoque mais avançada, no módulo de inventário.
 
 ### Apresentação da tabela (back-office) — aba "Produtos"
@@ -307,6 +331,27 @@ Referência visual: `docs/mockups/mockup-tarefa.html`. **Só apresentação** �
 - **Devolvida nunca negativa na tela:** quando Utilizada > Levada, exibe Devolvida "—" e destaca a **Utilizada em vermelho**; o sinal fica no badge. (O cálculo interno continua.)
 - **Situação só no badge** (sem "• fora da proposta" inline); a linha fora-da-proposta ganha leve fundo. Badges: **OK** (verde) · **Devolver N** (âmbar, com a quantidade) · **Fora da proposta** (vermelho).
 - **KPI cards** mantidos, com moeda consistente.
+
+### Remessa de material e estoque em campo (Container) — caso contrato/pool (hoje WestRock-FBTB)
+
+**Problema que resolve:** no contrato por hora, o material sai como **pool da viagem/semana** (planilha do almoxarifado) e é consumido por várias tarefas — inclusive criadas em campo. A conciliação por tarefa não cobre isso; o fechamento era manual, RAT por RAT. *(Desenho validado com a responsável do almoxarifado.)*
+
+**Locais de estoque (mínimo, sem virar WMS):** `Matriz` · `Container WestRock-FBTB` (vinculado ao contrato). Só saldo por produto por local + movimentações (abastecimento · consumo via RAT · retorno · ajuste de inventário · retirada por terceiro).
+
+**Duas classes de material, na mesma remessa (decidido por item; padrão vem da categoria do produto):**
+- **Consumo/infraestrutura** (cabo, conectores comuns, fixação...) → **regra de ouro: tudo que vai pro cliente entra no saldo do Container** (abastecimento Matriz → Container), mesmo material usado no mesmo dia. O Container = "estoque no cliente", não a caixa física. Elimina origem por linha na RAT — consumo **sempre debita o Container**.
+- **Itens de valor / serializados** (câmeras etc.) → **modo viagem**: saem na remessa marcados "retorna no fim da visita", são usados ou devolvidos, **conferidos a cada visita**. Não compõem o saldo permanente do container. Item serializado **exige Nº de série** no apontamento da RAT e na retirada/devolução (sem série não fecha) — resolve a falta recorrente de série nas RATs.
+
+**Fluxo:**
+- **Remessa de abastecimento:** o registro da saída (substitui a planilha). Recorrente — pode duplicar a anterior. Reposição no meio da semana entra na mesma, com data. No app do técnico, ação rápida **"Levar material → [contrato]"** registra na hora o que foi pro carro (evita saída sem registro).
+- **Linhas de dois tipos (além das duas classes):** **pool do contrato** (sem destino certo) ou **vinculada a tarefa** (orçamento aprovado — vira a **Levada** da tarefa; sugestão automática ao montar a remessa a partir das tarefas agendadas; uma tarefa pode somar linhas de várias remessas; sobra pode "permanecer em campo").
+- **Consumo:** apontamento de material na RAT debita o saldo automaticamente — **nada muda pro técnico**. O app mostra o **saldo do Container** ao apontar/levar.
+- **Retorno definitivo:** transferência Container → Matriz.
+- **Inventário (contagem):** tela "Contagem do Container" no app (offline ok) — digita o contado, sistema compara com o saldo teórico e registra **divergência** como ajuste auditável (consumo não apontado / perda). **Quem conta é função, não pessoa:** técnico no local ou almoxarifado em visita; o registro guarda quem/quando. **Agendamento: mensal, ~1 semana antes do fechamento/faturamento das OS do contrato** — dá tempo de corrigir apontamentos de RAT antes de faturar (evita cobrar pendência antiga). Itens de valor: conferência **a cada visita** (automático no modo viagem). Na contagem, material do site que estiver no carro conta junto.
+- **Retiradas por terceiros:** **nada sai do container sem registro, e todo registro tem dono.** Terceiro não registra direto: ou um técnico TSRV registra **em nome dele** (movimentação "retirada por terceiro": nome, motivo, vínculo com tarefa se houver), ou — se recorrente/autorizado — recebe **perfil restrito** no app (só retirada/devolução). Tudo aparece no histórico e em relatório por pessoa/período; a contagem pega o que sair sem registro. *(Pendente: definir papel do Yago.)*
+- **Conciliação por tarefa** (Orçada/Levada/Utilizada/Devolvida) **continua igual** para tarefas com orçamento; a camada de local cobre o pool. Drill-down do consumo mostra qual RAT usou o quê (inclusive obra que "bebeu" do pool).
+- **Modo viagem com retorno** (sem estoque em campo) permanece disponível para outros clientes: mesmo mecanismo — movimentação entre locais + consumo via RAT + conferência com divergência no retorno.
+- Tela back-office do Container: saldo atual por produto, histórico de movimentações com drill-down, e "Fazer contagem".
 
 ---
 
@@ -408,6 +453,9 @@ O **técnico nunca escolhe a modalidade** — ela é **derivada** (do contrato/o
 4. **Modo "dia contínuo"** (WestRock-FBTB): linha do tempo contínua, handoff, arredondamento de 5 min — desenhado (§10.1), não construído.
 5. **Câmbio US$/PTAX** no material do orçamento — futuro desenhado (§5), é só plugar.
 6. **Rastreio de bobina/lote** — evolução futura do estoque (§9).
+7. **Tempo por técnico + integração Tangerino (§8)** — desenhado (casos Marcelo/Pablo; almoço por pessoa/dia puxado do ponto, 3 camadas). Pacote de transição pronto pra build; **passo zero: pedir o token de integração ao suporte do Tangerino**.
+8. **Remessa de material + estoque em campo/Container (§9)** — desenhado e validado com o almoxarifado; aguarda ok final + definição do papel do Yago. Mata a planilha semanal da WestRock.
+9. **Módulo "Viagem" (§4.1)** — desenho de referência registrado; **não construir** antes da jornada contínua (provável redundância).
 
 ---
 
