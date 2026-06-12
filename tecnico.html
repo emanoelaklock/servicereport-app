@@ -259,6 +259,10 @@ try{if(localStorage.getItem('sr_dark')==='1')document.documentElement.classList.
   /* ===== Serviço executado: caixa maior ===== */
   .ta-servico{min-height:170px!important}
 
+  .nt-tecs{display:flex;flex-wrap:wrap;gap:8px 16px;padding:6px 0}
+  .nt-tecs label{display:flex;align-items:center;gap:6px;font-size:14px;color:var(--tx);cursor:pointer}
+  .nt-tecs input{width:16px;height:16px;accent-color:var(--ac)}
+
   .seg-tipo svg{width:15px;height:15px;stroke:currentColor;fill:none;stroke-width:2;stroke-linecap:round;stroke-linejoin:round;vertical-align:-2px;margin-right:5px}
 
   /* ===== Linha dupla de campos (lado a lado) ===== */
@@ -767,6 +771,7 @@ try{if(localStorage.getItem('sr_dark')==='1')document.documentElement.classList.
       <label style="margin-top:12px">Orientação ao técnico</label>
       <textarea id="nt-orientacao" rows="3" placeholder="O que precisa ser feito no campo…" style="width:100%;box-sizing:border-box;padding:9px 11px;border:1px solid var(--bd);border-radius:8px;font:inherit;font-size:14px;resize:vertical"></textarea>
       <label style="margin-top:12px">Responsável(is)</label>
+      <div class="nt-tecs" id="nt-tecs"></div>
     </div>
     <div class="tm-f">
       <button class="btn" id="nt-cancelar">Cancelar</button>
