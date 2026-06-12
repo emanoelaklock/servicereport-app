@@ -854,7 +854,7 @@
 
   function novoTrecho(base) {
     const t = {
-      id: D().uuid(), origem: '', destino: '', destino_local_id: null, destino_cliente_id: null,
+      id: D().uuid(), origem: '', destino: '', destino_local_id: null, destino_cliente_id: null, tarefa_id: null,
       data: jorHoje(), saida_em: null, chegada_em: null,
       saida_lat: null, saida_lng: null, saida_precisao: null,
       chegada_lat: null, chegada_lng: null, chegada_precisao: null,
@@ -883,10 +883,9 @@
       dlCur.trechos.push(novoTrecho(dlCur.trechos[dlCur.trechos.length - 1] || null))
       renderTrechos(); renderDlAlmocos()
     }
-    // Ref. Tarefa (tarefas em aberto dos clientes do destino)
-    document.getElementById('dl-reftarefa').onclick = abrirDlTarefas
-    document.getElementById('dltar-x').onclick = () => { document.getElementById('modal-dl-tarefa').classList.remove('open'); renderRefTarefa() }
-    document.getElementById('dltar-ok').onclick = () => { document.getElementById('modal-dl-tarefa').classList.remove('open'); renderRefTarefa() }
+    // Ref. Tarefa do trecho (tarefas em aberto do cliente do destino)
+    document.getElementById('dltar-x').onclick = fecharDlModal('modal-dl-tarefa')
+    document.getElementById('dltar-ok').onclick = fecharDlModal('modal-dl-tarefa')
     // modais do trecho: destino / veículo / direção
     document.getElementById('dldest-x').onclick = fecharDlModal('modal-dl-dest')
     document.getElementById('dldest-ok').onclick = concluirDlDest
@@ -921,7 +920,6 @@
   }
   async function abrirDeslocEditor() {
     dlModalTrecho = null
-    renderRefTarefa()
     carregarLocaisTodos().then(() => renderTrechos())   // nomes dos Locais nos cards
     renderTrechos(); renderDlAlmocos()
     carregarAlmocosViagem().then(renderDlAlmocos)   // estado "já almoçou" (dedup visual)
@@ -941,41 +939,34 @@
       t.chegada_em = new Date(new Date(t.chegada_em).getTime() + 86400000).toISOString()
     }
   }
-  // ── Ref. Tarefa: tarefas EM ABERTO dos clientes do destino da viagem ──
+  // ── Ref. Tarefa do TRECHO: tarefas EM ABERTO do cliente do destino dele ──
   const TAREFA_ABERTA = ['aguardando_execucao', 'em_execucao', 'devolvida']
   const tarefaLbl = (t) => `Nº ${osNo(t.numero)} · ${cliNomeDe(t.cliente_id, '—')}`
-  function renderRefTarefa() {
-    const v = document.getElementById('dl-reftarefa-v'); if (!v || !dlCur) return
-    const sel = (dlCur.tarefas || []).map(id => (tarefas || []).find(t => t.id === id)).filter(Boolean)
-    if (sel.length) { v.textContent = sel.map(tarefaLbl).join(' · '); v.classList.remove('pend') }
-    else { v.textContent = 'Vincular tarefa em aberto (opcional)'; v.classList.add('pend') }
-  }
-  function abrirDlTarefas() {
+  const tarefaDe = (id) => (tarefas || []).find(t => t.id === id) || null
+  function abrirDlTarefas(i) {
     if (!dlCur) return
+    dlModalTrecho = i
+    const t = dlCur.trechos[i]; if (!t) return
     const lista = document.getElementById('dltar-lista')
-    const clientesDest = [...new Set(dlCur.trechos.map(t => t.destino_cliente_id).filter(Boolean))]
-    const abertas = (tarefas || []).filter(t => TAREFA_ABERTA.includes(t.status)
-      && (!clientesDest.length || clientesDest.includes(t.cliente_id) || (dlCur.tarefas || []).includes(t.id)))
-    const render = () => {
-      const selSet = new Set(dlCur.tarefas || [])
-      lista.innerHTML = abertas.map(t => `<button type="button" class="opt-row${selSet.has(t.id) ? ' on' : ''}" data-tar="${esc(t.id)}">
-          <span class="oic"><svg viewBox="0 0 24 24"><path d="M9 6h11M9 12h11M9 18h11M4 6h.01M4 12h.01M4 18h.01"/></svg></span>
-          <span class="ot"><span class="on1">${esc(tarefaLbl(t))}</span><span class="on2">${esc((T_STATUS[t.status] || {}).t || t.status)}${t.orientacao ? ' · ' + esc(String(t.orientacao).slice(0, 60)) : ''}</span></span>
+    const abertas = (tarefas || []).filter(x => TAREFA_ABERTA.includes(x.status)
+      && (!t.destino_cliente_id || x.cliente_id === t.destino_cliente_id || x.id === t.tarefa_id))
+    const SVG_LISTA = '<svg viewBox="0 0 24 24"><path d="M9 6h11M9 12h11M9 18h11M4 6h.01M4 12h.01M4 18h.01"/></svg>'
+    lista.innerHTML = (t.tarefa_id ? `<button type="button" class="opt-row" data-tar="">
+        <span class="oic"><svg viewBox="0 0 24 24"><path d="M18 6 6 18M6 6l12 12"/></svg></span>
+        <span class="ot"><span class="on1">Sem tarefa</span><span class="on2">Remover o vínculo deste trecho</span></span>
+      </button>` : '')
+      + (abertas.map(x => `<button type="button" class="opt-row${t.tarefa_id === x.id ? ' on' : ''}" data-tar="${esc(x.id)}">
+          <span class="oic">${SVG_LISTA}</span>
+          <span class="ot"><span class="on1">${esc(tarefaLbl(x))}</span><span class="on2">${esc((T_STATUS[x.status] || {}).t || x.status)}${x.orientacao ? ' · ' + esc(String(x.orientacao).slice(0, 60)) : ''}</span></span>
         </button>`).join('')
-        || `<div class="prod-empty">${clientesDest.length ? 'Nenhuma tarefa em aberto para os clientes do destino.' : 'Defina o destino dos trechos (cliente) — ou não há tarefas em aberto.'}</div>`
-      const foot = document.getElementById('dltar-foot')
-      if (foot) foot.textContent = selSet.size ? `${selSet.size} vinculada${selSet.size > 1 ? 's' : ''}` : 'Nenhuma vinculada'
-      lista.querySelectorAll('[data-tar]').forEach(b => {
-        b.onclick = () => {
-          const id = b.dataset.tar
-          const set = new Set(dlCur.tarefas || [])
-          set.has(id) ? set.delete(id) : set.add(id)
-          dlCur.tarefas = [...set]
-          render()
-        }
-      })
-    }
-    render()
+        || `<div class="prod-empty">${t.destino_cliente_id ? 'Nenhuma tarefa em aberto para o cliente deste destino.' : 'Escolha primeiro o Destino do trecho (cliente da parada).'}</div>`)
+    lista.querySelectorAll('[data-tar]').forEach(b => {
+      b.onclick = () => {
+        t.tarefa_id = b.dataset.tar || null
+        document.getElementById('modal-dl-tarefa').classList.remove('open')
+        renderTrechos()
+      }
+    })
     document.getElementById('modal-dl-tarefa').classList.add('open')
   }
 
@@ -1133,6 +1124,10 @@
         <input type="date" data-ldata="${i}" value="${esc(t.data || '')}">
         <div style="height:9px"></div>
         ${linha(SVG_PIN, 'Destino (para onde vai)', dest, 'mdest')}
+        ${(() => { const tr = t.tarefa_id ? tarefaDe(t.tarefa_id) : null; return `<button type="button" class="dlrow" data-mtar="${i}">
+          <span class="ic"><svg viewBox="0 0 24 24"><path d="M9 6h11M9 12h11M9 18h11M4 6h.01M4 12h.01M4 18h.01"/></svg></span>
+          <span class="tx"><span class="k">Ref. Tarefa (opcional)</span><span class="v${t.tarefa_id ? '' : ' pend'}">${tr ? esc(tarefaLbl(tr)) : (t.tarefa_id ? 'Tarefa vinculada' : 'Vincular tarefa em aberto do cliente')}</span></span>
+          <span class="chev">›</span></button>` })()}
         <label class="flab">A bordo neste trecho</label>
         <div class="tec-cards">${cards}</div>
         <button type="button" class="tec-add-btn" data-bd="${i}">+ Adicionar técnico</button>
@@ -1178,6 +1173,7 @@
       }
     })
     box.querySelectorAll('[data-mdest]').forEach(el => { el.onclick = () => abrirDlDest(+el.dataset.mdest) })
+    box.querySelectorAll('[data-mtar]').forEach(el => { el.onclick = () => abrirDlTarefas(+el.dataset.mtar) })
     box.querySelectorAll('[data-mveic]').forEach(el => { el.onclick = () => abrirDlVeic(+el.dataset.mveic) })
     box.querySelectorAll('[data-mdir]').forEach(el => { el.onclick = () => abrirDlDir(+el.dataset.mdir) })
     box.querySelectorAll('[data-mdirveic]').forEach(el => { el.onclick = () => abrirDlVeic(+el.dataset.mdirveic) })   // sem veículo definido → leva pro veículo
@@ -1218,6 +1214,8 @@
       t.destino_local_id = null
       t.destino_cliente_id = clienteId || null
       t.destino = valor
+      // tarefa vinculada de OUTRO cliente não vale mais para este destino
+      if (t.tarefa_id) { const x = tarefaDe(t.tarefa_id); if (!x || x.cliente_id !== t.destino_cliente_id) t.tarefa_id = null }
       document.getElementById('modal-dl-dest').classList.remove('open')
       renderTrechos()
     }
@@ -1257,6 +1255,7 @@
         t.destino_local_id = b.dataset.loc
         t.destino_cliente_id = (l && l.cliente_id) || null   // o cliente vem do Local
         t.destino = l ? ([l.cidade, l.uf].filter(Boolean).join('/') || l.nome) : null
+        if (t.tarefa_id) { const x = tarefaDe(t.tarefa_id); if (!x || x.cliente_id !== t.destino_cliente_id) t.tarefa_id = null }
         document.getElementById('modal-dl-dest').classList.remove('open')
         renderTrechos()
       }
@@ -1444,6 +1443,8 @@
     }
     // cliente "principal" do registro = o do primeiro trecho com cliente (derivado)
     dlCur.cliente_id = (dlCur.trechos.find(t => t.destino_cliente_id) || {}).destino_cliente_id || null
+    // tarefas da viagem = união das tarefas dos trechos (derivado)
+    dlCur.tarefas = [...new Set(dlCur.trechos.map(t => t.tarefa_id).filter(Boolean))]
     // almoço por pessoa derivado dos horários do dia × quem estava a bordo no dia
     // (quem já tem almoço de OUTRO artefato no dia fica de fora — o servidor deduplica de novo)
     dlCur.almocos = []
