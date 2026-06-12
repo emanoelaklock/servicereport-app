@@ -314,7 +314,9 @@ const TarefaApp = (() => {
     matsPorTarefa = {}
     const { data: vc } = await sb().from('vw_conciliacao_tarefa').select('tarefa_id,situacao,revisado,descricao,codigo_produto')
     for (const r of vc || []) {
-      if (r.situacao && r.situacao !== 'ok' && !r.revisado) divPorTarefa[r.tarefa_id] = (divPorTarefa[r.tarefa_id] || 0) + 1
+      // divergência só conta pós-execução (antes, material em campo é normal); fora da proposta sempre
+      const pe = POS_EXEC.includes(((tarefas || []).find(x => x.id === r.tarefa_id) || {}).status)
+      if (r.situacao && r.situacao !== 'ok' && !r.revisado && (pe || r.situacao === 'sem_orcada')) divPorTarefa[r.tarefa_id] = (divPorTarefa[r.tarefa_id] || 0) + 1
       const txt = [r.descricao, r.codigo_produto].filter(Boolean).join(' ')
       if (txt) matsPorTarefa[r.tarefa_id] = (matsPorTarefa[r.tarefa_id] || '') + ' ' + txt
     }
@@ -628,6 +630,7 @@ const TarefaApp = (() => {
 
   function renderLinhas() {
     const tb = document.getElementById('cc-tbody')
+    const posExec = tarefaPosExec(cur && cur.id)
     if (!linhas.length) {
       tb.innerHTML = '<tr><td colspan="10" class="cc-empty">Sem produtos nesta tarefa. Adicione abaixo.</td></tr>'
     } else {
@@ -656,10 +659,14 @@ const TarefaApp = (() => {
           : `<td>${box(money(preco), 'money')}</td>`
         const sub = util * preco
         const cSub = `<td>${box(money(sub), 'money' + (sub === 0 ? ' zero' : ''))}</td>`
-        const badgeTxt = (l.situacao === 'devolver' && dev > 0) ? `Devolver ${qtd(dev)}` : sit.t
+        // pendência (badge + Revisar) só pós-execução; antes, material levado está "Em campo"
+        const pend = l.situacao !== 'ok' && (posExec || l.situacao === 'sem_orcada')
+        const badgeTxt = !pend
+          ? (l.situacao === 'ok' ? sit.t : 'Em campo')
+          : ((l.situacao === 'devolver' && dev > 0) ? `Devolver ${qtd(dev)}` : sit.t)
         const rev = !!l.revisado
-        const cSit = l.situacao === 'ok'
-          ? `<td class="c"><span class="sit ${sit.cls}">${esc(badgeTxt)}</span></td>`
+        const cSit = !pend
+          ? `<td class="c"><span class="sit ${l.situacao === 'ok' ? sit.cls : ''}">${esc(badgeTxt)}</span></td>`
           : `<td class="c"><div class="cc-sit">
                <span class="sit ${sit.cls}">${esc(badgeTxt)}</span>
                <button class="cc-rev${rev ? ' on' : ''}" data-i="${i}">${rev ? '✓ Revisado' : 'Revisar'}</button>
@@ -715,6 +722,7 @@ const TarefaApp = (() => {
   function renderStats() {
     const box = document.getElementById('cc-stats')
     if (!linhas.length) { box.innerHTML = ''; return }
+    const posExec = tarefaPosExec(cur && cur.id)
     let custoOrcado = 0, custoUtil = 0, devValor = 0, devItens = 0, div = 0, aRevisar = 0
     for (const l of linhas) {
       const p = Number(l.preco_unitario) || 0
@@ -722,7 +730,7 @@ const TarefaApp = (() => {
       custoUtil   += (Number(l.qtd_utilizada) || 0) * p
       const d = Number(l.qtd_devolvida) || 0
       if (d > 0) { devItens++; devValor += d * p }
-      if (l.situacao !== 'ok') { div++; if (!l.revisado) aRevisar++ }
+      if (l.situacao !== 'ok' && (posExec || l.situacao === 'sem_orcada')) { div++; if (!l.revisado) aRevisar++ }
     }
     const delta = custoUtil - custoOrcado
     const dcls = delta > 0 ? 'up' : (delta < 0 ? 'down' : 'flat')
@@ -1147,16 +1155,23 @@ const TarefaApp = (() => {
     `<div class="lbl">${esc(lbl)}${mini ? ` <span class="mini">${esc(mini)}</span>` : ''}</div>` +
     `<div class="st">${esc(st)}</div></div>`
 
+  // Conciliação só vira PENDÊNCIA depois da execução: antes disso, Levada > Utilizada
+  // é o estado normal (material em campo, ninguém usou nada ainda).
+  // "Fora da proposta" alerta sempre (levou/usou algo que não estava no orçamento).
+  const POS_EXEC = ['concluida', 'concluida_pendencia', 'aprovada_faturamento', 'faturada']
+  const tarefaPosExec = (id) => POS_EXEC.includes(((tarefas || []).find(x => x.id === id) || {}).status)
+
   // Estado consolidado da tarefa aberta (usado pela faixa Situação e pelas abas).
   function estadoTarefa() {
     const t = tarefas.find(x => x.id === (cur && cur.id)) || {}
     const dadosOk = !!(cur && cur.id) && (tecPorTarefa[cur.id] || []).length > 0 && !!t.data_agendada
     const rats = (cur && cur.rats) || []
     const ratEmAnd = rats.some(r => r.status === 'em_andamento')
+    const posExec = POS_EXEC.includes(t.status)
     let devItens = 0, aRevisar = 0, foraN = 0, prodAtencao = 0
     for (const l of (linhas || [])) {
-      const dev = (Number(l.qtd_devolvida) || 0) > 0
-      const rev = !!(l.situacao && l.situacao !== 'ok' && !l.revisado)
+      const dev = posExec && (Number(l.qtd_devolvida) || 0) > 0
+      const rev = !!(l.situacao && l.situacao !== 'ok' && !l.revisado && (posExec || l.situacao === 'sem_orcada'))
       if (dev) devItens++
       if (rev) aRevisar++
       if (l.situacao === 'sem_orcada') foraN++
