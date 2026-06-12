@@ -13,7 +13,13 @@ const DeslocApp = (() => {
   const toLocalInput = (iso) => { if (!iso) return ''; const d = new Date(iso); const p = n => String(n).padStart(2, '0'); return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}T${p(d.getHours())}:${p(d.getMinutes())}` }
   const inputToISO = (v) => v ? new Date(v).toISOString() : null
   const veicLbl = (id) => veic[id] || '—'
-  const localLbl = (cidade, uf, legado) => [cidade, uf].filter(Boolean).join('/') || legado || '—'
+  // lugares em Title Case (cadastros do Omie vêm em CAIXA ALTA); UF maiúscula
+  const tcase = (s) => String(s || '').toLowerCase().replace(/(^|[\s\-'])\p{L}/gu, m => m.toUpperCase())
+  const fmtLugar = (v) => {
+    const m = String(v || '').match(/^(.+)\/([A-Za-z]{2})$/)
+    return m ? `${tcase(m[1].trim())}/${m[2].toUpperCase()}` : (v || '')
+  }
+  const localLbl = (cidade, uf, legado) => fmtLugar([cidade, uf].filter(Boolean).join('/') || legado || '') || '—'
   const mapPin = (lat, lng) => (lat != null && lng != null) ? ` <a href="https://www.google.com/maps?q=${lat},${lng}" target="_blank" rel="noopener" title="Ver no mapa" style="text-decoration:none">📍</a>` : ''
   function rotaInfo(d) {
     if (d.saida_lat == null || d.chegada_lat == null) return ''
@@ -64,7 +70,7 @@ const DeslocApp = (() => {
   }
   // trechos do modelo novo (espelho_legado é cópia de registro antigo — fica de fora)
   const trechosDe = (d) => ((d.deslocamento_trechos || []).filter(t => !t.espelho_legado)).sort((a, b) => a.ordem - b.ordem)
-  const destinoLbl = (t) => t.cliente_locais ? `${t.cliente_locais.nome}${t.cliente_locais.cidade ? ' · ' + [t.cliente_locais.cidade, t.cliente_locais.uf].filter(Boolean).join('/') : ''}` : (t.destino || '—')
+  const destinoLbl = (t) => t.cliente_locais ? `${t.cliente_locais.nome}${t.cliente_locais.cidade ? ' · ' + fmtLugar([t.cliente_locais.cidade, t.cliente_locais.uf].filter(Boolean).join('/')) : ''}` : (fmtLugar(t.destino) || '—')
   const dia2 = (s) => s ? s.split('-').reverse().slice(0, 2).join('/') : '—'
 
   function render() {
@@ -140,7 +146,7 @@ const DeslocApp = (() => {
         const semVeic = [...new Set(ts.filter(t => !t.veiculo_id && t.nota_transporte).map(t => t.nota_transporte))]
         const datas = ts.map(t => t.data).filter(Boolean).sort()
         const periodo = datas.length ? `${dia2(datas[0])}${datas[datas.length - 1] !== datas[0] ? ' → ' + dia2(datas[datas.length - 1]) : ''}` : ''
-        const detalhe = ts.map(t => `<div class="dim" style="font-size:11px">${t.ordem}. ${esc(t.origem || '—')} → ${esc(destinoLbl(t))}${t.data ? ' · ' + dia2(t.data) : ''}</div>`).join('')
+        const detalhe = ts.map(t => `<div class="dim" style="font-size:11px">${t.ordem}. ${esc(fmtLugar(t.origem) || '—')} → ${esc(destinoLbl(t))}${t.data ? ' · ' + dia2(t.data) : ''}</div>`).join('')
         const saida = (ts.find(t => t.saida_em) || {}).saida_em
         const emViagem = ts.some(t => t.saida_em) && !ts.every(t => t.chegada_em)
         const fechada = ts.every(t => t.chegada_em)
@@ -150,7 +156,7 @@ const DeslocApp = (() => {
         return `<tr>
           <td><div class="vtipo">Viagem · ${ts.length} trecho${ts.length > 1 ? 's' : ''}</div>${periodo ? `<div class="vper">${esc(periodo)}</div>` : ''}<div style="margin-top:5px">${st}</div></td>
           <td>${esc(cliNomes[d.cliente_id] || '—')}</td>
-          <td>${esc(prim.origem || '—')} → ${esc(destinoLbl(ult))}${detalhe}</td>
+          <td>${esc(fmtLugar(prim.origem) || '—')} → ${esc(destinoLbl(ult))}${detalhe}</td>
           <td>${veics.length ? veics.map(esc).join('<br>') : (semVeic.length ? `<span class="dim">${esc(semVeic.join(', '))}</span>` : '—')}</td>
           <td>${chips}</td>
           <td>${saida ? dt(saida) : '<span class="dim">não iniciada</span>'}</td>
