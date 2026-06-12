@@ -60,7 +60,20 @@
   .vper{font-size:11px;color:var(--tx3);font-weight:600;margin-top:3px;font-variant-numeric:tabular-nums}
   /* a bordo em chips com avatar (iniciais) */
   .abchip{display:inline-flex;align-items:center;gap:6px;background:#F3F5F9;border:1px solid var(--bd);border-radius:999px;padding:3px 10px 3px 4px;font-size:11.5px;font-weight:600;color:var(--tx2);margin:2px 4px 2px 0;white-space:nowrap}
-  .abchip i{width:20px;height:20px;border-radius:50%;background:#D9E5F5;color:#3a5f8f;display:grid;place-items:center;font-style:normal;font-size:9px;font-weight:800}
+  .abchip i{width:20px;height:20px;border-radius:50%;background:#D9E5F5;color:#3a5f8f;display:grid;place-items:center;font-style:normal;font-size:9px;font-weight:800;overflow:hidden;flex:none}
+  .abchip i img{width:100%;height:100%;object-fit:cover}
+  /* cards de técnico COM FOTO (mesmo componente das RATs/Tarefas) */
+  .vm-tecs{display:grid;grid-template-columns:repeat(auto-fill,minmax(210px,1fr));gap:8px}
+  .vm-tec{display:flex;align-items:center;gap:9px;border:1.5px solid var(--bd);border-radius:11px;padding:8px 10px;background:#fff;cursor:pointer;font:inherit;text-align:left}
+  .vm-tec.on{border-color:#179A47;background:#E6F6EC}
+  .vm-tec .av{width:32px;height:32px;border-radius:50%;background:#D9E5F5;color:#3a5f8f;display:grid;place-items:center;font-weight:800;font-size:11px;overflow:hidden;flex:none}
+  .vm-tec .av img{width:100%;height:100%;object-fit:cover}
+  .vm-tec .ti{flex:1;min-width:0}
+  .vm-tec .nm{display:block;font-size:12.5px;font-weight:700;color:var(--tx);line-height:1.2;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .vm-tec .rl{display:block;font-size:10.5px;color:var(--tx3);font-weight:600;margin-top:1px}
+  .vm-tec .ck{margin-left:auto;width:18px;height:18px;border-radius:6px;border:1.6px solid #C6CCDA;flex:none}
+  .vm-tec.on .ck{background:#179A47;border-color:#179A47;position:relative}
+  .vm-tec.on .ck::after{content:"✓";color:#fff;font-size:11px;position:absolute;inset:0;display:grid;place-items:center}
   /* editar viagem (modelo novo: trechos) */
   .vm-box{background:#fff;border-radius:14px;width:100%;max-width:680px;box-shadow:0 24px 64px rgba(20,30,55,.3);overflow:hidden}
   .vm-h{display:flex;align-items:center;gap:10px;padding:14px 18px;background:#F4861F;color:#fff;font-weight:700;font-size:15px}
@@ -70,11 +83,6 @@
   .vm-leg .vh{display:flex;align-items:center;gap:8px;font-size:12px;font-weight:800;color:#b85e0a;margin-bottom:11px;text-transform:uppercase;letter-spacing:.4px}
   .vm-leg .vh .n{width:21px;height:21px;border-radius:50%;background:#F4861F;color:#fff;display:grid;place-items:center;font-size:10.5px;flex:none}
   .vm-leg .vh .vdel{margin-left:auto;border:none;background:none;color:#B42318;font-size:15px;cursor:pointer}
-  /* técnicos a bordo: chips clicáveis (sem checkbox cru) */
-  .tchips{display:flex;flex-wrap:wrap;gap:6px}
-  .tchip{display:inline-flex;align-items:center;gap:6px;border:1.5px solid var(--bd);background:#fff;border-radius:999px;padding:5px 12px;font:inherit;font-size:12.5px;font-weight:600;color:var(--tx2);cursor:pointer}
-  .tchip.on{border-color:#179A47;background:#E6F6EC;color:#0B7A43;font-weight:700}
-  .tchip.on::before{content:"✓";font-size:11px;font-weight:800}
   .vm-turno{display:flex;gap:8px;align-items:center;margin-bottom:6px}
   .vm-turno select{flex:2}
   .vm-turno input[type="time"]{flex:1;min-width:0}

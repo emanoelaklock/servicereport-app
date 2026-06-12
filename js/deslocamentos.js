@@ -128,8 +128,7 @@ const DeslocApp = (() => {
     if (!lst.length) { tb.innerHTML = '<tr><td colspan="8" class="d-empty">Nenhum deslocamento para o filtro.</td></tr>'; return }
     const abChip = (tid) => {
       const n = (tecNomes[tid] || '—').trim()
-      const ini = n.split(/\s+/).slice(0, 2).map(p => p[0] || '').join('').toUpperCase()
-      return `<span class="abchip"><i>${esc(ini)}</i>${esc(n.split(/\s+/).slice(0, 2).join(' '))}</span>`
+      return `<span class="abchip"><i>${avHtml(tid)}</i>${esc(n.split(/\s+/).slice(0, 2).join(' '))}</span>`
     }
     tb.innerHTML = lst.map(d => {
       const chips = (d.deslocamento_tecnicos || []).map(x => abChip(x.tecnico_id)).join('') || '—'
@@ -236,6 +235,14 @@ const DeslocApp = (() => {
     await carregar()
   }
 
+  // avatar com FOTO do Portal (mesmo componente das RATs/Tarefas); iniciais como fallback
+  const avHtml = (tid) => {
+    const u = tecArr.find(x => x.id === tid) || {}
+    const foto = (typeof avatarUrl === 'function') ? avatarUrl(u.foto_url) : ''
+    if (foto) return `<img src="${esc(foto)}" alt="">`
+    return esc((u.nome || tecNomes[tid] || '—').trim().split(/\s+/).slice(0, 2).map(p => p[0] || '').join('').toUpperCase())
+  }
+
   // ───────────────────── Editar VIAGEM (modelo novo: trechos) ─────────────────────
   let vmCur = null, vmLocais = []
   const vmUuid = () => (crypto.randomUUID ? crypto.randomUUID() : `${Date.now()}-${Math.random().toString(16).slice(2)}`)
@@ -311,8 +318,11 @@ const DeslocApp = (() => {
           </select></div>
           <div><label>Sem veículo: como foi?</label><input type="text" data-vmnota="${i}" value="${esc(t.nota_transporte || '')}" placeholder="carona, avião, alugado…"${t.veiculo_id ? ' disabled' : ''}></div>
         </div>
-        <div style="margin-top:10px"><label>Técnicos a bordo</label><div class="tchips">
-          ${tecArr.map(u => `<button type="button" class="tchip${aboard.has(u.id) ? ' on' : ''}" data-vmtec="${i}:${esc(u.id)}">${esc(u.nome || '')}</button>`).join('')}
+        <div style="margin-top:10px"><label>Técnicos a bordo</label><div class="vm-tecs">
+          ${tecArr.map(u => `<button type="button" class="vm-tec${aboard.has(u.id) ? ' on' : ''}" data-vmtec="${i}:${esc(u.id)}">
+            <span class="av">${avHtml(u.id)}</span>
+            <span class="ti"><span class="nm">${esc(u.nome || '')}</span><span class="rl">${esc(u.cargo ? `${u.cargo} · Técnico` : 'Técnico')}</span></span>
+            <span class="ck"></span></button>`).join('')}
         </div></div>
         <div style="margin-top:10px"><label>Direção — quem dirigiu (revezamento; horários vazios = trecho todo)</label>
           ${turnos}
