@@ -259,14 +259,24 @@ try{if(localStorage.getItem('sr_dark')==='1')document.documentElement.classList.
   .pbg-ok{background:#DEF3E6;color:#0F7A33}
   .pbg-info{background:#E7F1FC;color:#175fb0}
 
-  /* ===== Técnicos responsáveis (botão no form + modal) ===== */
-  .tec-sel-btn{width:100%;display:flex;align-items:center;justify-content:space-between;gap:10px;border:1px solid var(--bd);border-radius:11px;background:var(--sur);padding:12px 13px;font:inherit;font-size:14px;font-weight:600;color:var(--tx);cursor:pointer;text-align:left}
-  .tec-sel-btn .tec-sel-txt{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:var(--tx)}
-  .tec-sel-btn .tec-sel-n{font-size:10.5px;font-weight:800;background:#E7F1FC;color:#175fb0;border-radius:999px;padding:3px 9px;flex:none}
+  /* ===== Técnicos responsáveis: cards (padrão admin) + modal ===== */
+  .tec-cards{display:flex;flex-direction:column;gap:8px;margin-bottom:10px}
+  .tec-card{display:flex;align-items:center;gap:11px;background:var(--sur);border:1px solid var(--bd);border-radius:13px;padding:10px 12px}
+  .tec-card .tc-x{margin-left:auto;background:none;border:none;color:var(--tx3);font-size:19px;cursor:pointer;padding:4px 6px}
+  .tec-vazio{font-size:12.5px;color:var(--tx3);padding:4px 2px}
+  .tec-card .av,.tec-row .av{width:38px;height:38px;border-radius:50%;background:#1B7FC4;color:#fff;display:grid;place-items:center;font-weight:800;font-size:13px;overflow:hidden;flex:none}
+  .tec-card .av img,.tec-row .av img{width:100%;height:100%;object-fit:cover}
+  .tec-card .ti,.tec-row .ti{display:flex;flex-direction:column;min-width:0}
+  .tec-card .nm,.tec-row .nm{font-size:14.5px;font-weight:700;color:var(--tx);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .tec-card .rl,.tec-row .rl{font-size:11.5px;color:var(--tx3);font-weight:600}
+  .tec-add-btn{width:100%;border:1.6px dashed #9DC3E2;background:#F2F8FD;color:#175fb0;border-radius:12px;padding:13px;font:inherit;font-size:14px;font-weight:800;cursor:pointer}
+  html.dark .tec-add-btn{background:#16243a;border-color:#23406b;color:#9fc1ff}
   #tec-busca{width:100%;padding:11px 12px;border:1px solid var(--bd);border-radius:10px;font:inherit;font-size:16px;background:var(--sur);color:var(--tx)}
-  .tec-lista{margin-top:8px}
-  .tec-lista .tec-row{display:flex;align-items:center;gap:12px;padding:14px 4px;border-bottom:1px solid var(--bd);font-size:15px;font-weight:600;color:var(--tx);cursor:pointer}
-  .tec-lista .tec-row input{width:20px;height:20px;accent-color:#1B7FC4;flex:none}
+  .tec-lista{margin-top:8px;display:flex;flex-direction:column;gap:8px}
+  .tec-lista .tec-row{display:flex;align-items:center;gap:11px;background:var(--sur);border:1px solid var(--bd);border-radius:13px;padding:10px 12px;cursor:pointer}
+  .tec-lista .tec-row input{display:none}
+  .tec-lista .tec-row .pl{margin-left:auto;width:32px;height:32px;border-radius:10px;background:#E7F1FC;color:#175fb0;display:grid;place-items:center;font-weight:800;font-size:19px;flex:none}
+  html.dark .tec-lista .tec-row .pl{background:#16243a;color:#9fc1ff}
 
   /* ===== Progresso da RAT ===== */
   .prog{background:var(--sur);border:1px solid var(--bd);border-radius:14px;padding:11px 13px;margin-top:10px}
@@ -841,6 +851,7 @@ try{if(localStorage.getItem('sr_dark')==='1')document.documentElement.classList.
     <div class="tm-b tskin" style="flex:1;overflow:auto;min-height:0">
       <input id="tec-busca" placeholder="Buscar técnico…" autocomplete="off">
       <div id="tec-modal-lista" class="tec-lista"></div>
+      <div class="prod-empty" id="tec-modal-vazio" style="display:none">Todos os técnicos já estão na RAT.</div>
     </div>
     <div class="tm-f" style="justify-content:space-between;align-items:center">
       <span id="tec-resumo-foot" style="font-weight:700;font-size:13.5px">—</span>

@@ -1224,15 +1224,21 @@
       const ops = (ref.tecnicos || []).map(t => { const n = tcase(t.nome); return `<option value="${esc(n)}"${n === tcase(tecnico.nome) ? ' selected' : ''}>${esc(n)}</option>` }).join('')
       wrap.innerHTML = `${label}<select data-campo="${esc(c.id)}" data-tipo="tecnico"><option value="">Selecione…</option>${ops}</select>`
     } else if (c.tipo === 'tecnicos') {
-      // muitos técnicos → seleção em modal fullscreen; o técnico logado já vem marcado
+      // cards dos selecionados (padrão do painel admin) + "+ Adicionar Técnico" → modal
       tecCampoId = c.id
-      const checks = (ref.tecnicos || []).map(t => { const n = tcase(t.nome); const eu = n === tcase(tecnico.nome); return `<label class="tec-row"><input type="checkbox" data-multi="${esc(c.id)}" value="${esc(n)}"${eu ? ' checked' : ''}><span>${esc(n)}</span></label>` }).join('')
-      wrap.innerHTML = `${label}<button type="button" class="tec-sel-btn" data-tecbtn="${esc(c.id)}"><span class="tec-sel-txt">Selecionar técnicos…</span><span class="tec-sel-n" style="display:none"></span></button>`
+      const checks = (ref.tecnicos || []).map(t => {
+        const n = tcase(t.nome); const eu = n === tcase(tecnico.nome)
+        const rl = t.cargo ? `${t.cargo} · Técnico` : 'Técnico'
+        const foto = (typeof avatarUrl === 'function') ? avatarUrl(t.foto_url) : null
+        const av = foto ? `<img src="${esc(foto)}" alt="">` : esc(iniciaisDe(n))
+        return `<label class="tec-row" data-nome="${esc(n)}"><input type="checkbox" data-multi="${esc(c.id)}" value="${esc(n)}"${eu ? ' checked' : ''}><span class="av">${av}</span><span class="ti"><span class="nm">${esc(n)}</span><span class="rl">${esc(rl)}</span></span><span class="pl">+</span></label>`
+      }).join('')
+      wrap.innerHTML = `${label}<div class="tec-cards" data-teccards="${esc(c.id)}"></div><button type="button" class="tec-add-btn" data-tecbtn="${esc(c.id)}">+ Adicionar Técnico</button>`
       setTimeout(() => {
         const lista = document.getElementById('tec-modal-lista')
         if (lista) {
           lista.innerHTML = checks || '<div class="prod-empty">Nenhum técnico cadastrado.</div>'
-          lista.onchange = () => { atualizarResumoTecnicos(); agendarAutosave() }
+          lista.onchange = () => { atualizarResumoTecnicos(); filtrarTecnicos(); agendarAutosave() }
         }
         const b = wrap.querySelector('[data-tecbtn]')
         if (b) b.onclick = () => abrirModalTecnicos(c.id)
@@ -1374,8 +1380,28 @@
     txt.textContent = `${ok}/${total} · ${pct}%`
   }
 
-  // ── Técnicos responsáveis: seleção em modal fullscreen ──
+  // ── Técnicos responsáveis: cards (padrão admin) + modal de adição ──
   let tecCampoId = null
+  const iniciaisDe = (n) => String(n || '').trim().split(/\s+/).slice(0, 2).map(p => p[0] || '').join('').toUpperCase()
+  function renderTecCards() {
+    if (!tecCampoId) return
+    const box = document.querySelector(`[data-teccards="${CSS.escape(tecCampoId)}"]`); if (!box) return
+    const sel = Array.from(document.querySelectorAll(`[data-multi="${CSS.escape(tecCampoId)}"]:checked`)).map(x => x.value)
+    box.innerHTML = sel.map(n => {
+      const t = (ref.tecnicos || []).find(x => tcase(x.nome) === n) || {}
+      const rl = t.cargo ? `${t.cargo} · Técnico` : 'Técnico'
+      const foto = (typeof avatarUrl === 'function') ? avatarUrl(t.foto_url) : null
+      const av = foto ? `<img src="${esc(foto)}" alt="">` : esc(iniciaisDe(n))
+      return `<div class="tec-card"><span class="av">${av}</span><span class="ti"><span class="nm">${esc(n)}</span><span class="rl">${esc(rl)}</span></span><button type="button" class="tc-x" data-rem="${esc(n)}" title="Remover">×</button></div>`
+    }).join('') || '<div class="tec-vazio">Nenhum técnico selecionado.</div>'
+    box.querySelectorAll('[data-rem]').forEach(b => {
+      b.onclick = () => {
+        const chk = document.querySelector(`[data-multi="${CSS.escape(tecCampoId)}"][value="${CSS.escape(b.dataset.rem)}"]`)
+        if (chk) chk.checked = false
+        atualizarResumoTecnicos(); filtrarTecnicos(); agendarAutosave()
+      }
+    })
+  }
   function abrirModalTecnicos(campoId) {
     if (!cur) return
     if (campoId) tecCampoId = campoId
@@ -1391,23 +1417,26 @@
   }
   function filtrarTecnicos() {
     const q = normStr(document.getElementById('tec-busca').value || '')
+    let visiveis = 0
     document.querySelectorAll('#tec-modal-lista .tec-row').forEach(r => {
-      r.style.display = !q || normStr(r.textContent).includes(q) ? '' : 'none'
+      const chk = r.querySelector('input')
+      const mostra = !(chk && chk.checked) && (!q || normStr(r.textContent).includes(q))
+      r.style.display = mostra ? '' : 'none'
+      if (mostra) visiveis++
     })
+    const vz = document.getElementById('tec-modal-vazio')
+    if (vz) vz.style.display = visiveis ? 'none' : ''
   }
   function atualizarResumoTecnicos() {
     if (!tecCampoId) return
     const sel = Array.from(document.querySelectorAll(`[data-multi="${CSS.escape(tecCampoId)}"]:checked`)).map(x => x.value)
-    const btn = document.querySelector(`[data-tecbtn="${CSS.escape(tecCampoId)}"]`)
-    if (btn) {
-      btn.querySelector('.tec-sel-txt').textContent = sel.length ? sel.join(', ') : 'Selecionar técnicos…'
-      const nEl = btn.querySelector('.tec-sel-n')
-      nEl.textContent = sel.length || ''
-      nEl.style.display = sel.length ? '' : 'none'
-      if (sel.length) { const w = btn.closest('[data-field]'); if (w) w.classList.remove('campo-erro') }
+    renderTecCards()
+    if (sel.length) {
+      const btn = document.querySelector(`[data-tecbtn="${CSS.escape(tecCampoId)}"]`)
+      if (btn) { const w = btn.closest('[data-field]'); if (w) w.classList.remove('campo-erro') }
     }
     const foot = document.getElementById('tec-resumo-foot')
-    if (foot) foot.textContent = sel.length ? `${sel.length} selecionado${sel.length > 1 ? 's' : ''}` : 'Nenhum selecionado'
+    if (foot) foot.textContent = sel.length ? `${sel.length} na RAT` : 'Nenhum selecionado'
     atualizarProgresso()
   }
 
