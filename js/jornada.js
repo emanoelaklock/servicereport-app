@@ -30,7 +30,8 @@ const JornadaApp = (() => {
     ;(tec.data || []).forEach(t => { tecNomes[t.id] = t.nome })
     document.getElementById('j-data').value = hoje()
     document.getElementById('j-tec').onchange = carregar
-    document.getElementById('j-data').onchange = carregar
+    document.getElementById('j-data').onchange = () => { carregar(); carregarHorasDia() }
+    carregarHorasDia()
     // Pernoites: select de técnico (com "todos") + período = mês corrente
     document.getElementById('p-tec').innerHTML = '<option value="">Todos os técnicos</option>' +
       (tec.data || []).map(t => `<option value="${esc(t.id)}">${esc(t.nome || '(sem nome)')}</option>`).join('')
@@ -42,6 +43,69 @@ const JornadaApp = (() => {
     else document.getElementById('j-timeline').innerHTML = '<div class="j-empty">Nenhum técnico ativo.</div>'
   }
 
+  // ───────────────────── Horas do dia por técnico (§8: tempo é da pessoa) ─────────────────────
+  // Σ da UNIÃO dos intervalos de participação (RATs + trechos a bordo) − almoço único da pessoa.
+  const tMin = (t) => { if (!t) return null; const [h, m] = String(t).split(':').map(Number); return h * 60 + (m || 0) }
+  function uniaoMin(spans) {   // [[ini,fim]] em minutos → união (sobreposição não conta duas vezes)
+    const v = spans.filter(s => s[0] != null && s[1] != null && s[1] > s[0]).sort((a, b) => a[0] - b[0])
+    const out = []
+    for (const s of v) {
+      const u = out[out.length - 1]
+      if (u && s[0] <= u[1]) u[1] = Math.max(u[1], s[1])
+      else out.push([s[0], s[1]])
+    }
+    return out
+  }
+  async function carregarHorasDia() {
+    const dia = document.getElementById('j-data').value
+    if (!dia) return
+    const [parts, alms, confs] = await Promise.all([
+      sb().from('vw_participacoes_dia').select('*').eq('dia', dia),
+      sb().from('almocos').select('tecnico_id,inicio,fim,origem,artefato_tipo').eq('dia', dia),
+      sb().from('almoco_conflitos').select('tecnico_id,inicio,fim,artefato_tipo,motivo').eq('dia', dia),
+    ])
+    renderHorasDia(parts.data || [], alms.data || [], confs.data || [])
+  }
+  function renderHorasDia(parts, alms, confs) {
+    const ab = document.getElementById('hd-alertas')
+    ab.innerHTML = confs.length ? `<div class="hd-alert"><div><div class="t">${confs.length} conflito(s) de almoço resolvido(s) automaticamente</div>
+      <div class="d">${confs.map(c => `<b>${esc(tecNomes[c.tecnico_id] || '—')}</b>: ${esc(c.motivo || 'almoço duplicado descartado')} — nenhuma ação necessária.`).join('<br>')}</div></div></div>` : ''
+    const tb = document.getElementById('hd-tbody')
+    const porTec = {}
+    for (const p of parts) (porTec[p.tecnico_id] = porTec[p.tecnico_id] || []).push(p)
+    const tids = Object.keys(porTec).sort((a, b) => (tecNomes[a] || '').localeCompare(tecNomes[b] || ''))
+    if (!tids.length) { tb.innerHTML = '<tr><td colspan="4" class="j-empty">Nenhuma participação neste dia.</td></tr>'; return }
+    const corRat = {}; let nc = 0   // uma cor por artefato (RATs ciclam; deslocamento é laranja)
+    tb.innerHTML = tids.map(tid => {
+      const ps = porTec[tid].slice().sort((a, b) => String(a.inicio || '') < String(b.inicio || '') ? -1 : 1)
+      const chips = ps.map(p => {
+        const faixa = `${String(p.inicio || '—').slice(0, 5)}–${String(p.fim || '…').slice(0, 5)}`
+        if (p.artefato_tipo === 'deslocamento') return `<span class="hd-seg hd-desl"><i></i>Deslocamento · ${faixa}</span>`
+        if (!(p.artefato_id in corRat)) corRat[p.artefato_id] = 'hd-rat' + (nc++ % 3)
+        const ref = p.referencia ? `RAT ${esc(p.referencia)}${p.rat_seq != null ? '/' + String(p.rat_seq).padStart(2, '0') : ''}` : 'RAT'
+        return `<span class="hd-seg ${corRat[p.artefato_id]}"><i></i>${ref} · ${faixa}${p.ajustado ? ' <span class="hd-aj">AJUSTADO</span>' : ''}</span>`
+      }).join('')
+      const alm = alms.find(a => a.tecnico_id === tid)
+      const origemLbl = alm && (alm.origem === 'ponto' ? 'ponto' : (alm.artefato_tipo === 'deslocamento' ? 'Deslocamento' : alm.artefato_tipo === 'rat' ? 'RAT' : 'manual'))
+      const lunch = alm
+        ? `<span class="hd-lunch${origemLbl === 'manual' ? ' man' : ''}">${String(alm.inicio).slice(0, 5)}–${String(alm.fim).slice(0, 5)} · ${origemLbl}</span>`
+        : '<span class="hd-lunch none">sem registro</span>'
+      const uni = uniaoMin(ps.map(p => [tMin(p.inicio), tMin(p.fim)]))
+      let tot = uni.reduce((s, u) => s + (u[1] - u[0]), 0)
+      if (alm) {
+        const ai = tMin(alm.inicio), af = tMin(alm.fim)
+        for (const u of uni) tot -= Math.max(0, Math.min(u[1], af) - Math.max(u[0], ai))
+      }
+      const ini2 = (tecNomes[tid] || '—').trim().split(/\s+/).slice(0, 2).map(x => x[0] || '').join('').toUpperCase()
+      return `<tr>
+        <td><span class="hd-tec"><span class="av">${esc(ini2)}</span><span class="nm">${esc(tecNomes[tid] || '—')}</span></span></td>
+        <td>${chips}</td>
+        <td>${lunch}</td>
+        <td style="text-align:right"><span class="hd-hrs">${String(Math.floor(tot / 60)).padStart(2, '0')}h${String(tot % 60).padStart(2, '0')}</span></td>
+      </tr>`
+    }).join('')
+  }
+
   // ───────────────────── Pernoites (período) ─────────────────────
   const diaLocal = (iso) => { const x = new Date(iso); return new Date(x.getFullYear(), x.getMonth(), x.getDate()) }
   const calNoites = (aIso, bIso) => Math.max(0, Math.round((diaLocal(bIso) - diaLocal(aIso)) / 86400000))
@@ -51,39 +115,69 @@ const JornadaApp = (() => {
     const de = document.getElementById('p-de').value, ate = document.getElementById('p-ate').value
     const tecFiltro = document.getElementById('p-tec').value
     if (!de || !ate) return toast('Informe o período.', 'err')
-    // pega trajetos cuja saída cai no período (inclui o dia "até" inteiro)
-    let q = sb().from('deslocamentos')
-      .select('id,sentido,saida_em,chegada_em,origem_cidade,origem_uf,destino_cidade,destino_uf,origem,destino,deslocamento_tecnicos(tecnico_id)')
-      .gte('saida_em', de + 'T00:00:00').lte('saida_em', ate + 'T23:59:59')
-      .order('saida_em', { ascending: true })
-    const { data, error } = await q
-    if (error) { toast('Erro: ' + error.message, 'err'); return }
-    // agrupa por técnico a bordo
-    const porTec = {}
-    for (const d of (data || [])) {
+    // legado (1 registro = 1 perna) + modelo novo (viagem com trechos), no mesmo período
+    const [leg, novo] = await Promise.all([
+      sb().from('deslocamentos')
+        .select('id,sentido,saida_em,chegada_em,deslocamento_tecnicos(tecnico_id)')
+        .gte('saida_em', de + 'T00:00:00').lte('saida_em', ate + 'T23:59:59')
+        .order('saida_em', { ascending: true }),
+      sb().from('deslocamento_trechos')
+        .select('deslocamento_id,ordem,data,saida_em,chegada_em,espelho_legado,trecho_tecnicos(tecnico_id)')
+        .eq('espelho_legado', false)
+        .gte('data', de).lte('data', ate).order('ordem', { ascending: true }),
+    ])
+    if (leg.error) { toast('Erro: ' + leg.error.message, 'err'); return }
+    const porTec = {}   // tid → { viagens: [] }
+    const linhaDe = (tid) => (porTec[tid] = porTec[tid] || { viagens: [] })
+    // ── legado: começa ao sair, fecha numa "volta" (precisa ter retorno)
+    const porTecLeg = {}
+    for (const d of (leg.data || [])) {
       for (const x of (d.deslocamento_tecnicos || [])) {
         if (tecFiltro && x.tecnico_id !== tecFiltro) continue
-        ;(porTec[x.tecnico_id] = porTec[x.tecnico_id] || []).push(d)
+        ;(porTecLeg[x.tecnico_id] = porTecLeg[x.tecnico_id] || []).push(d)
       }
     }
-    // monta viagens: começa ao sair, fecha numa "volta" (precisa ter retorno)
-    const linhas = []
-    for (const [tid, trajs] of Object.entries(porTec)) {
+    for (const [tid, trajs] of Object.entries(porTecLeg)) {
       trajs.sort((a, b) => (a.saida_em || '').localeCompare(b.saida_em || ''))
-      const viagens = []; let inicio = null
+      let inicio = null
       for (const t of trajs) {
         if (!inicio) inicio = t.saida_em
         if (t.sentido === 'volta') {
           const fim = t.chegada_em || t.saida_em
-          viagens.push({ inicio, fim, noites: calNoites(inicio, fim), aberta: false })
+          linhaDe(tid).viagens.push({ inicio, fim, noites: calNoites(inicio, fim), aberta: false })
           inicio = null
         }
       }
-      if (inicio) viagens.push({ inicio, fim: null, noites: 0, aberta: true })   // saiu e não voltou ainda
-      const fechadas = viagens.filter(v => !v.aberta)
-      const noites = fechadas.reduce((s, v) => s + v.noites, 0)
-      linhas.push({ tid, viagens, fechadas: fechadas.length, abertas: viagens.length - fechadas.length, noites })
+      if (inicio) linhaDe(tid).viagens.push({ inicio, fim: null, noites: 0, aberta: true })
     }
+    // ── modelo novo: noites POR PESSOA derivadas dos gaps entre trechos de dias diferentes
+    //    (está "fora" quem segue a bordo de algum trecho anterior E de algum posterior)
+    const porViagem = {}
+    for (const t of (novo.data || [])) (porViagem[t.deslocamento_id] = porViagem[t.deslocamento_id] || []).push(t)
+    for (const ts of Object.values(porViagem)) {
+      ts.sort((a, b) => a.ordem - b.ordem)
+      const aberta = !ts.every(t => t.chegada_em)
+      const ini = ts[0].saida_em || (ts[0].data ? ts[0].data + 'T12:00:00' : null)
+      const fim = aberta ? null : (ts[ts.length - 1].chegada_em || null)
+      const noitesTec = {}
+      for (let i = 0; i + 1 < ts.length; i++) {
+        const a = ts[i], b = ts[i + 1]
+        if (!a.data || !b.data || b.data <= a.data) continue
+        const n = Math.round((new Date(b.data) - new Date(a.data)) / 86400000)
+        const antes = new Set(); ts.slice(0, i + 1).forEach(t => (t.trecho_tecnicos || []).forEach(x => antes.add(x.tecnico_id)))
+        const depois = new Set(); ts.slice(i + 1).forEach(t => (t.trecho_tecnicos || []).forEach(x => depois.add(x.tecnico_id)))
+        for (const tid of antes) if (depois.has(tid)) noitesTec[tid] = (noitesTec[tid] || 0) + n
+      }
+      const todos = new Set(); ts.forEach(t => (t.trecho_tecnicos || []).forEach(x => todos.add(x.tecnico_id)))
+      for (const tid of todos) {
+        if (tecFiltro && tid !== tecFiltro) continue
+        linhaDe(tid).viagens.push({ inicio: ini, fim, noites: aberta ? 0 : (noitesTec[tid] || 0), aberta })
+      }
+    }
+    const linhas = Object.entries(porTec).map(([tid, l]) => {
+      const fechadas = l.viagens.filter(v => !v.aberta)
+      return { tid, viagens: l.viagens, fechadas: fechadas.length, abertas: l.viagens.length - fechadas.length, noites: fechadas.reduce((s, v) => s + v.noites, 0) }
+    })
     linhas.sort((a, b) => b.noites - a.noites || (tecNomes[a.tid] || '').localeCompare(tecNomes[b.tid] || ''))
     renderPernoites(linhas)
   }

@@ -50,28 +50,46 @@ const DeslocApp = (() => {
 
   async function carregar() {
     const { data, error } = await sb().from('deslocamentos')
-      .select('id,sentido,cliente_id,origem,destino,origem_cidade,origem_uf,destino_cidade,destino_uf,motivo,saida_em,chegada_em,veiculo_id,saida_lat,saida_lng,chegada_lat,chegada_lng,deslocamento_tecnicos(tecnico_id)')
-      .order('saida_em', { ascending: false }).limit(300)
+      .select('id,sentido,cliente_id,origem,destino,origem_cidade,origem_uf,destino_cidade,destino_uf,motivo,saida_em,chegada_em,veiculo_id,saida_lat,saida_lng,chegada_lat,chegada_lng,criado_em,deslocamento_tecnicos(tecnico_id),deslocamento_trechos(id,ordem,origem,destino,destino_local_id,data,saida_em,chegada_em,veiculo_id,espelho_legado,cliente_locais(nome,cidade,uf))')
+      .order('criado_em', { ascending: false }).limit(300)
     if (error) { toast('Erro: ' + error.message, 'err'); return }
     rows = data || []
     render()
   }
+  // trechos do modelo novo (espelho_legado é cópia de registro antigo — fica de fora)
+  const trechosDe = (d) => ((d.deslocamento_trechos || []).filter(t => !t.espelho_legado)).sort((a, b) => a.ordem - b.ordem)
+  const destinoLbl = (t) => t.cliente_locais ? `${t.cliente_locais.nome}${t.cliente_locais.cidade ? ' · ' + [t.cliente_locais.cidade, t.cliente_locais.uf].filter(Boolean).join('/') : ''}` : (t.destino || '—')
+  const dia2 = (s) => s ? s.split('-').reverse().slice(0, 2).join('/') : '—'
 
   function render() {
-    // "Quem está fora": por técnico, o trajeto mais recente (rows já vem desc por saída).
-    const ultimo = {}   // tecnico_id -> primeiro (mais recente) trajeto encontrado
-    for (const d of rows) for (const x of (d.deslocamento_tecnicos || [])) {
-      if (!ultimo[x.tecnico_id]) ultimo[x.tecnico_id] = d
+    // "Quem está fora": viagens em andamento (trecho com saída sem chegada / roteiro aberto)
+    // + legado: técnico cujo trajeto mais recente é Ida sem Volta.
+    const foraMap = {}   // tecnico_id -> { d, desde }
+    for (const d of rows) {
+      const ts = trechosDe(d)
+      if (!ts.length) continue
+      const emAndamento = ts.some(t => t.saida_em) && !ts.every(t => t.chegada_em)
+      if (!emAndamento) continue
+      const desde = (ts.find(t => t.saida_em) || {}).saida_em
+      for (const x of (d.deslocamento_tecnicos || [])) if (!foraMap[x.tecnico_id]) foraMap[x.tecnico_id] = { d, desde }
     }
-    const fora = Object.entries(ultimo).filter(([, d]) => d.sentido === 'ida')
+    const ultimo = {}
+    for (const d of rows) {
+      if (trechosDe(d).length) continue   // modelo novo já tratado acima
+      for (const x of (d.deslocamento_tecnicos || [])) if (!ultimo[x.tecnico_id]) ultimo[x.tecnico_id] = d
+    }
+    for (const [tid, d] of Object.entries(ultimo)) {
+      if (d.sentido === 'ida' && !foraMap[tid]) foraMap[tid] = { d, desde: d.saida_em }
+    }
+    const fora = Object.entries(foraMap)
     const foraBox = document.getElementById('d-fora')
     if (fora.length) {
-      const noites = (iso) => { const ms = Date.now() - new Date(iso).getTime(); return Math.max(0, Math.floor(ms / 86400000)) }
+      const noites = (iso) => { if (!iso) return 0; const ms = Date.now() - new Date(iso).getTime(); return Math.max(0, Math.floor(ms / 86400000)) }
       foraBox.style.display = ''
-      foraBox.innerHTML = `<h3>⚠ Em viagem (${fora.length}) — Ida sem Volta registrada</h3>` +
-        fora.sort((a, b) => new Date(b[1].saida_em) - new Date(a[1].saida_em)).map(([tid, d]) => {
-          const n = noites(d.saida_em)
-          return `<div class="row"><span class="who">${esc(tecNomes[tid] || '—')}</span><span class="sub">${esc(cliNomes[d.cliente_id] || d.destino || '—')} · saiu ${dt(d.saida_em)}${n ? ` · ${n} noite${n > 1 ? 's' : ''}` : ''}</span></div>`
+      foraBox.innerHTML = `<h3>⚠ Em viagem (${fora.length})</h3>` +
+        fora.sort((a, b) => new Date(b[1].desde || 0) - new Date(a[1].desde || 0)).map(([tid, f]) => {
+          const n = noites(f.desde)
+          return `<div class="row"><span class="who">${esc(tecNomes[tid] || '—')}</span><span class="sub">${esc(cliNomes[f.d.cliente_id] || f.d.destino || '—')} · saiu ${dt(f.desde)}${n ? ` · ${n} noite${n > 1 ? 's' : ''}` : ''}</span></div>`
         }).join('')
     } else foraBox.style.display = 'none'
 
@@ -85,14 +103,40 @@ const DeslocApp = (() => {
     if (fTec) lst = lst.filter(d => (d.deslocamento_tecnicos || []).some(x => x.tecnico_id === fTec))
     if (fCli) lst = lst.filter(d => d.cliente_id === fCli)
     if (fSent) lst = lst.filter(d => d.sentido === fSent)
-    if (fDe) lst = lst.filter(d => (d.saida_em || '').slice(0, 10) >= fDe)
-    if (fAte) lst = lst.filter(d => { const x = (d.saida_em || '').slice(0, 10); return x && x <= fAte })
+    const diaRef = (d) => {
+      if (d.saida_em) return d.saida_em.slice(0, 10)
+      const ts = trechosDe(d)
+      return ((ts.find(t => t.saida_em) || {}).saida_em || '').slice(0, 10) || ((ts[0] || {}).data || '')
+    }
+    if (fDe) lst = lst.filter(d => diaRef(d) >= fDe)
+    if (fAte) lst = lst.filter(d => { const x = diaRef(d); return x && x <= fAte })
 
-    document.getElementById('d-count').textContent = `${lst.length} de ${rows.length} trajeto(s)`
+    document.getElementById('d-count').textContent = `${lst.length} de ${rows.length} registro(s)`
     const tb = document.getElementById('d-tbody')
-    if (!lst.length) { tb.innerHTML = '<tr><td colspan="8" class="d-empty">Nenhum trajeto para o filtro.</td></tr>'; return }
+    if (!lst.length) { tb.innerHTML = '<tr><td colspan="8" class="d-empty">Nenhum deslocamento para o filtro.</td></tr>'; return }
     tb.innerHTML = lst.map(d => {
       const nomes = (d.deslocamento_tecnicos || []).map(x => tecNomes[x.tecnico_id]).filter(Boolean).join(', ')
+      const ts = trechosDe(d)
+      if (ts.length) {
+        // modelo novo: viagem com trechos — origem → destino final, datas e veículos usados
+        const prim = ts[0], ult = ts[ts.length - 1]
+        const veics = [...new Set(ts.map(t => t.veiculo_id).filter(Boolean))].map(veicLbl)
+        const datas = ts.map(t => t.data).filter(Boolean).sort()
+        const periodo = datas.length ? `${dia2(datas[0])}${datas[datas.length - 1] !== datas[0] ? ' → ' + dia2(datas[datas.length - 1]) : ''}` : ''
+        const detalhe = ts.map(t => `<div class="dim" style="font-size:11px">${t.ordem}. ${esc(t.origem || '—')} → ${esc(destinoLbl(t))}${t.data ? ' · ' + dia2(t.data) : ''}</div>`).join('')
+        const saida = (ts.find(t => t.saida_em) || {}).saida_em
+        const chegada = ts.every(t => t.chegada_em) ? ult.chegada_em : null
+        return `<tr>
+          <td><span class="d-sent outro">Viagem · ${ts.length} trecho${ts.length > 1 ? 's' : ''}</span>${periodo ? `<div class="dim" style="font-size:11px;margin-top:3px">${esc(periodo)}</div>` : ''}</td>
+          <td>${esc(cliNomes[d.cliente_id] || '—')}</td>
+          <td>${esc(prim.origem || '—')} → ${esc(destinoLbl(ult))}${detalhe}</td>
+          <td>${veics.length ? veics.map(esc).join('<br>') : '—'}</td>
+          <td>${esc(nomes || '—')}</td>
+          <td>${dt(saida)}</td>
+          <td>${chegada ? dt(chegada) : '<span class="p-open">em andamento</span>'}</td>
+          <td><span class="d-act"><button class="del" data-del="${esc(d.id)}">Excluir</button></span></td>
+        </tr>`
+      }
       return `<tr>
         <td><span class="d-sent ${esc(d.sentido)}">${esc(SENT[d.sentido] || d.sentido)}</span></td>
         <td>${esc(cliNomes[d.cliente_id] || '—')}</td>

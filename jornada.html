@@ -49,6 +49,25 @@
   .p-noites{font-weight:800;font-variant-numeric:tabular-nums}
   .p-trip{font-size:12px;color:var(--tx3);padding:2px 0}
   .p-open{color:#B7791F;font-weight:600}
+  /* Horas do dia por técnico (tempo é da pessoa) */
+  .hd-alert{display:flex;gap:11px;align-items:flex-start;background:#FEF3DA;border:1px solid #F2E2B6;border-radius:13px;padding:12px 15px;margin-bottom:14px}
+  .hd-alert .t{font-size:13px;font-weight:700;color:#92670A}
+  .hd-alert .d{font-size:12px;color:#7a6420;margin-top:2px;line-height:1.45}
+  .hd-tec{display:flex;align-items:center;gap:10px}
+  .hd-tec .av{width:30px;height:30px;border-radius:50%;background:#D9E5F5;color:#3a5f8f;display:grid;place-items:center;font-weight:700;font-size:11px;overflow:hidden;flex:none}
+  .hd-tec .av img{width:100%;height:100%;object-fit:cover}
+  .hd-tec .nm{font-weight:700;letter-spacing:-.2px}
+  .hd-seg{display:inline-flex;align-items:center;gap:6px;font-size:11.5px;font-weight:700;padding:5px 10px;border-radius:999px;margin:2px 4px 2px 0;font-variant-numeric:tabular-nums;white-space:nowrap}
+  .hd-seg i{width:6px;height:6px;border-radius:50%}
+  .hd-rat0{background:#E7F1FC;color:#1565C0}.hd-rat0 i{background:#1E8AE0}
+  .hd-rat1{background:#F1E9F8;color:#6c2f96}.hd-rat1 i{background:#8E45B5}
+  .hd-rat2{background:#E6F6EC;color:#0B7A43}.hd-rat2 i{background:#28A94C}
+  .hd-desl{background:#FDEFE0;color:#b85e0a}.hd-desl i{background:#F4861F}
+  .hd-aj{font-size:8.5px;font-weight:800;background:#fff;border-radius:99px;padding:1px 5px;letter-spacing:.4px}
+  .hd-lunch{display:inline-flex;align-items:center;gap:6px;font-size:11.5px;font-weight:700;padding:5px 10px;border-radius:999px;background:#E6F6EC;color:#0B7A43;font-variant-numeric:tabular-nums;white-space:nowrap}
+  .hd-lunch.man{background:#FEF3DA;color:#92670A}
+  .hd-lunch.none{background:var(--sur2);color:var(--tx3)}
+  .hd-hrs{font-size:15px;font-weight:800;font-variant-numeric:tabular-nums;letter-spacing:-.3px}
 </style>
 </head>
 <body class="tec-admin">
@@ -63,6 +82,14 @@
         <select id="j-tec"></select>
         <input type="date" id="j-data">
         <span class="dim" id="j-resumo" style="font-size:12px"></span>
+      </div>
+      <div class="j-card">
+        <h3>Horas do dia por técnico — participações em RATs e Deslocamentos − o almoço único da pessoa</h3>
+        <div id="hd-alertas"></div>
+        <div style="overflow-x:auto"><table class="p-tbl">
+          <thead><tr><th>Técnico</th><th>Participações do dia</th><th>Almoço</th><th style="text-align:right">Horas</th></tr></thead>
+          <tbody id="hd-tbody"></tbody>
+        </table></div>
       </div>
       <div class="j-kpis" id="j-kpis"></div>
       <div class="j-card"><h3>Horas de trabalho por cliente (faturável por hora · arredondado p/ cima 30 min)</h3><div id="j-clientes"></div></div>
