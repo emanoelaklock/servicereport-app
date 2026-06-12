@@ -163,7 +163,6 @@
     document.getElementById('prod-avulso-btn').onclick = () => { document.getElementById('prod-avulso-form').style.display = ''; document.getElementById('pav-nome').focus() }
     document.getElementById('pav-cancelar').onclick = () => { document.getElementById('prod-avulso-form').style.display = 'none' }
     document.getElementById('pav-add').onclick = adicionarAvulso
-    const dta = document.getElementById('dl-tec-add'); if (dta) dta.onclick = abrirModalTecDl
     const dtx = document.getElementById('dltec-x'); if (dtx) dtx.onclick = fecharModalTecDl
     const dto = document.getElementById('dltec-ok'); if (dto) dto.onclick = fecharModalTecDl
     const dtb = document.getElementById('dltec-busca'); if (dtb) dtb.oninput = renderDlTecLista
@@ -770,10 +769,13 @@
     toast('Dia encerrado.', 'ok')
   }
 
-  // ───────────────────── Deslocamento (pernoite) ─────────────────────
-  const DL_SENT = { ida: 'Ida', volta: 'Volta', outro: 'Outro' }
-  let dlSent = 'ida'
-  let dlSaidaPos = null
+  // ───────────────────── Deslocamento (pernoite): viagem com TRECHOS ─────────────────────
+  // Tempo é da pessoa (§8): a participação na viagem deriva dos trechos (a bordo por trecho).
+  // Trecho novo herda veículo, direção e passageiros do anterior. GPS é pontual e automático
+  // ao marcar saída/chegada (sem botão). Sem km/odômetro/rastreamento contínuo.
+  const DL_SENT = { ida: 'Ida', volta: 'Volta', outro: 'Outro' }   // só p/ registros legados
+  let dlCur = null            // viagem em edição (cópia de trabalho)
+  let dlTurnoEdit = null      // índice do trecho com o editor de revezamento aberto
   const nowLocal = () => { const d = new Date(), p = n => String(n).padStart(2, '0'); return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}T${p(d.getHours())}:${p(d.getMinutes())}` }
   function getPos() {
     return new Promise(res => {
@@ -817,104 +819,340 @@
     }
     return null
   }
+  const hhmmDe = (iso) => { if (!iso) return ''; const d = new Date(iso); return `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}` }
+  const diaLabel = (s) => { try { const [y, m, dd] = String(s).split('-').map(Number); return new Date(y, m - 1, dd).toLocaleDateString('pt-BR', { weekday: 'short', day: '2-digit', month: '2-digit' }) } catch (e) { return s } }
+  // distância haversine em metros (validação de proximidade do local)
+  function distM(lat1, lng1, lat2, lng2) {
+    const R = 6371000, rad = Math.PI / 180
+    const a = Math.sin((lat2 - lat1) * rad / 2) ** 2 + Math.cos(lat1 * rad) * Math.cos(lat2 * rad) * Math.sin((lng2 - lng1) * rad / 2) ** 2
+    return Math.round(2 * R * Math.asin(Math.sqrt(a)))
+  }
+  // Locais do cliente (cadastro do portal): destinos de trecho. Cache por cliente.
+  const locaisCache = {}
+  async function carregarLocaisCliente(cid) {
+    if (!cid) return []
+    if (locaisCache[cid]) return locaisCache[cid]
+    if (!navigator.onLine) return []
+    try {
+      const { data } = await getSupabase().from('cliente_locais')
+        .select('id,nome,cidade,uf,lat,lng').eq('cliente_id', cid).eq('ativo', true).order('nome')
+      locaisCache[cid] = data || []
+    } catch (e) { return [] }
+    return locaisCache[cid] || []
+  }
+  const localDe = (cid, lid) => (locaisCache[cid] || []).find(l => l.id === lid) || null
+  const avDe = (tid) => {
+    const u = (ref.tecnicos || []).find(x => x.id === tid) || {}
+    const n = tcase(u.nome || '—')
+    const foto = (typeof avatarUrl === 'function') ? avatarUrl(u.foto_url) : null
+    return `<span class="av" title="${esc(n)}">${foto ? `<img src="${esc(foto)}" alt="">` : esc(iniciaisDe(n))}</span>`
+  }
+  const nomeTec = (tid) => tcase(((ref.tecnicos || []).find(x => x.id === tid) || {}).nome || '—')
+
+  function novoTrecho(base) {
+    const t = {
+      id: D().uuid(), origem: '', destino: '', destino_local_id: null,
+      data: jorHoje(), saida_em: null, chegada_em: null,
+      saida_lat: null, saida_lng: null, saida_precisao: null,
+      chegada_lat: null, chegada_lng: null, chegada_precisao: null,
+      veiculo_id: null, sem_veiculo: false, nota_transporte: null,
+      motoristas: [], tecnicos: [tecnico.id],
+    }
+    if (base) {   // trecho novo herda veículo, direção e passageiros do anterior
+      t.veiculo_id = base.veiculo_id; t.sem_veiculo = base.sem_veiculo; t.nota_transporte = base.nota_transporte
+      t.tecnicos = [...(base.tecnicos || [])]
+      const ult = (base.motoristas || [])[(base.motoristas || []).length - 1]
+      t.motoristas = ult ? [{ tecnico_id: ult.tecnico_id, hora_de: null, hora_ate: null }] : []
+      const loc = dlCur && localDe(dlCur.cliente_id, base.destino_local_id)
+      t.origem = loc ? loc.nome : (base.destino || '')
+    }
+    return t
+  }
+
   function bindDesloc() {
-    document.getElementById('desloc-novo').onclick = abrirDesloc
+    document.getElementById('desloc-novo').onclick = abrirDeslocNova
     document.getElementById('dl-x').onclick = fecharDesloc
     document.getElementById('dl-cancelar').onclick = fecharDesloc
     document.getElementById('dl-salvar').onclick = salvarDesloc
-    document.querySelectorAll('#dl-sentido .seg-tipo').forEach(b => b.onclick = () => {
-      dlSent = b.dataset.sent
-      document.querySelectorAll('#dl-sentido .seg-tipo').forEach(x => x.classList.toggle('on', x === b))
-      deslocAplicarSentido()
-    })
-    document.getElementById('dl-gps-saida').onclick = async () => {
-      const btn = document.getElementById('dl-gps-saida'), old = btn.textContent
-      btn.disabled = true; btn.textContent = 'Capturando GPS…'
-      const pos = await getPos()
-      btn.disabled = false; btn.textContent = old
-      const st = document.getElementById('dl-gps-status')
-      if (!pos) { st.textContent = 'Não foi possível obter o GPS (permita a localização no aparelho).'; return }
-      dlSaidaPos = pos
-      if (!document.getElementById('dl-saida').value) document.getElementById('dl-saida').value = nowLocal()
-      st.textContent = `Saída marcada (±${pos.acc} m). Buscando cidade…`
-      const g = await geoReverse(pos.lat, pos.lng)
-      if (g && (g.cidade || g.uf)) {
-        const ci = document.getElementById('dl-origem-cidade'), uf = document.getElementById('dl-origem-uf')
-        if (!ci.value && g.cidade) ci.value = g.cidade
-        if (!uf.value && g.uf) uf.value = g.uf
-        st.textContent = `Saída marcada (±${pos.acc} m) · ${[g.cidade, g.uf].filter(Boolean).join('/')}`
-      } else st.textContent = `Saída marcada (±${pos.acc} m).`
+    document.getElementById('dl-addleg').onclick = () => {
+      if (!dlCur) return
+      dlCur.trechos.push(novoTrecho(dlCur.trechos[dlCur.trechos.length - 1] || null))
+      renderTrechos(); renderDlAlmocos()
     }
   }
-  // Define cidade/UF de um lado (origem|destino) se ainda estiver vazio.
-  function dlSetLocal(lado, cidade, uf) {
-    const ci = document.getElementById('dl-' + lado + '-cidade'), u = document.getElementById('dl-' + lado + '-uf')
-    if (ci && !ci.value && cidade) ci.value = cidade
-    if (u && !u.value && uf) u.value = (uf || '').toUpperCase()
+
+  async function abrirDeslocNova() {
+    dlCur = { id: D().uuid(), cliente_id: null, motivo: null, criado_por: tecnico.id, modelo: 'trechos', trechos: [], almocos: [], almocoHorarios: {} }
+    // nasce com 2 trechos (ida e volta) — o caso comum de hoje, zero mudança
+    const ida = novoTrecho(null)
+    ida.origem = [ref.base.cidade, ref.base.uf].filter(Boolean).join('/') || 'Base'
+    dlCur.trechos.push(ida)
+    const volta = novoTrecho(ida)
+    volta.destino = ida.origem
+    volta.origem = ''
+    dlCur.trechos.push(volta)
+    await abrirDeslocEditor()
   }
-  // Volta é sempre para a base (Traders): destino padrão = matriz.
-  function deslocAplicarSentido() {
-    if (dlSent === 'volta') dlSetLocal('destino', ref.base.cidade, ref.base.uf)
+  async function abrirDeslocExistente(id) {
+    const d = (await D().listarDeslocamentos()).find(x => x.id === id)
+    if (!d || !Array.isArray(d.trechos)) return
+    dlCur = JSON.parse(JSON.stringify(d))
+    dlCur.almocoHorarios = dlCur.almocoHorarios || {}
+    await abrirDeslocEditor()
   }
-  // Pré-preenche a partir do último trajeto do técnico:
-  //  • último é IDA (ainda fora) → origem = destino dessa ida (onde ele está agora).
-  //    Ex.: foi p/ Três Barras e não voltou → próxima saída parte de Três Barras.
-  //  • último é Volta (voltou à base) ou sem histórico → origem em branco p/ o GPS
-  //    (não assumimos a base).
-  // A empresa do último trajeto é herdada (útil na volta).
-  function deslocHerdaEmpresa(lst) {
-    const meus = (lst || []).filter(d => (d.tecnicos || []).includes(tecnico.id) || d.criado_por === tecnico.id)
-    const ult = meus[0]   // listarDeslocamentos já vem desc por saída
-    if (!ult) return
-    if (ult.sentido === 'ida' && (ult.destino_cidade || ult.destino_uf)) dlSetLocal('origem', ult.destino_cidade, ult.destino_uf)
-    if (ult.cliente_id) {
-      const cliEl = document.getElementById('dl-cli'), buscaEl = document.getElementById('dl-cli-busca')
-      const c = ref.clientes.find(x => x.id === ult.cliente_id)
-      if (cliEl && !cliEl.value && c) { cliEl.value = c.id; buscaEl.value = c.nome }
-    }
-  }
-  async function abrirDesloc() {
-    // (re)popula com os cadastros já carregados em ref — bindDesloc roda antes do carregarRef.
-    // Ao escolher a empresa, puxa cidade/UF: na ida vai p/ o DESTINO (cliente);
-    // na volta vai p/ a ORIGEM (de onde está voltando).
-    attachAutocomplete(document.getElementById('dl-cli-busca'), document.getElementById('dl-cli'), document.getElementById('dl-cli-list'), ref.clientes, c => ({ id: c.id, label: c.nome }), (cli) => {
-      const g = cli && cidadeUfDeEndereco(cli.endereco); if (!g) return
-      dlSetLocal(dlSent === 'volta' ? 'origem' : 'destino', g.cidade, g.uf)
+  async function abrirDeslocEditor() {
+    dlTurnoEdit = null
+    attachAutocomplete(document.getElementById('dl-cli-busca'), document.getElementById('dl-cli'), document.getElementById('dl-cli-list'), ref.clientes, c => ({ id: c.id, label: c.nome }), async (cli) => {
+      dlCur.cliente_id = cli ? cli.id : null
+      if (cli) await carregarLocaisCliente(cli.id)
+      renderTrechos()
     })
-    document.getElementById('dl-veiculo').innerHTML = '<option value="">— selecione —</option>' + ref.veiculos.map(v => `<option value="${esc(v.id)}">${esc((v.modelo || '') + ' (' + (v.placa || '') + ')')}</option>`).join('')
-    dlTecSel = new Set([tecnico.id])
-    renderDlTecCards()
-    dlSent = 'ida'; dlSaidaPos = null
-    document.querySelectorAll('#dl-sentido .seg-tipo').forEach(x => x.classList.toggle('on', x.dataset.sent === 'ida'))
-    ;['dl-cli', 'dl-cli-busca', 'dl-origem-cidade', 'dl-origem-uf', 'dl-destino-cidade', 'dl-destino-uf', 'dl-saida', 'dl-chegada', 'dl-motivo'].forEach(id => { const e = document.getElementById(id); if (e) e.value = '' })
-    document.getElementById('dl-veiculo').value = ''
-    document.getElementById('dl-gps-status').textContent = ''
-    deslocHerdaEmpresa(await D().listarDeslocamentos())
+    document.getElementById('dl-cli').value = dlCur.cliente_id || ''
+    document.getElementById('dl-cli-busca').value = dlCur.cliente_id ? cliNomeDe(dlCur.cliente_id, '') : ''
+    const mv = document.getElementById('dl-motivo')
+    mv.value = dlCur.motivo || ''
+    mv.oninput = () => { dlCur.motivo = mv.value.trim() || null }
+    if (dlCur.cliente_id) await carregarLocaisCliente(dlCur.cliente_id)
+    renderTrechos(); renderDlAlmocos()
+    carregarAlmocosViagem().then(renderDlAlmocos)   // estado "já almoçou" (dedup visual)
     document.getElementById('modal-desloc').classList.add('open')
   }
-  function fecharDesloc() { document.getElementById('modal-desloc').classList.remove('open') }
-  const dlISO = (v) => v ? new Date(v).toISOString() : null
+  function fecharDesloc() { document.getElementById('modal-desloc').classList.remove('open'); dlCur = null; dlTurnoEdit = null }
+
+  // GPS pontual automático ao marcar saída/chegada do trecho (sem botão dedicado)
+  async function marcarTrecho(i, qual) {
+    const t = dlCur && dlCur.trechos[i]; if (!t) return
+    t[qual + '_em'] = new Date().toISOString()
+    if (qual === 'saida' && !t.data) t.data = jorHoje()
+    renderTrechos()   // mostra a hora já; o GPS chega em seguida
+    const pos = await getPos()
+    if (pos) { t[qual + '_lat'] = pos.lat; t[qual + '_lng'] = pos.lng; t[qual + '_precisao'] = pos.acc }
+    renderTrechos()
+    // horário marcado não se perde: salva a viagem local mesmo sem o Salvar final
+    dlCur.tecnicos = [...new Set(dlCur.trechos.flatMap(x => x.tecnicos || []))]
+    dlCur.saida_em = dlCur.trechos[0].saida_em || null
+    await D().salvarDeslocamento(dlCur)
+    if (window.SyncEngine) SyncEngine.syncAll()
+  }
+
+  function noitesPorPessoa() {
+    const noites = {}
+    const ts = (dlCur && dlCur.trechos) || []
+    for (let i = 0; i + 1 < ts.length; i++) {
+      const a = ts[i], b = ts[i + 1]
+      if (!a.data || !b.data || b.data <= a.data) continue
+      const n = Math.round((new Date(b.data) - new Date(a.data)) / 86400000)
+      const antes = new Set(); ts.slice(0, i + 1).forEach(t => (t.tecnicos || []).forEach(x => antes.add(x)))
+      const depois = new Set(); ts.slice(i + 1).forEach(t => (t.tecnicos || []).forEach(x => depois.add(x)))
+      for (const tid of antes) if (depois.has(tid)) noites[tid] = (noites[tid] || 0) + n
+    }
+    return noites
+  }
+
+  function renderTrechos() {
+    const box = document.getElementById('dl-trechos'); if (!box || !dlCur) return
+    const locais = locaisCache[dlCur.cliente_id] || []
+    const SVG_CAR = '<svg viewBox="0 0 24 24"><path d="M3 17h2m14 0h2M5 17a2 2 0 1 0 4 0 2 2 0 0 0-4 0Zm10 0a2 2 0 1 0 4 0 2 2 0 0 0-4 0Z"/><path d="M5 17V8a1 1 0 0 1 1-1h8l4 4v6"/></svg>'
+    const SVG_VOL = '<svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="2.5"/><path d="M12 3v6.5M4.2 16.5l6-3M19.8 16.5l-6-3"/></svg>'
+    const SVG_PIN = '<svg viewBox="0 0 24 24"><path d="M12 21s-7-5.1-7-11a7 7 0 0 1 14 0c0 5.9-7 11-7 11Z"/><circle cx="12" cy="10" r="2.5"/></svg>'
+    const SVG_BED = '<svg viewBox="0 0 24 24"><path d="M3 18v-7a2 2 0 0 1 2-2h9a5 5 0 0 1 5 5v4M3 18h16M3 18v2m16-2v2M7 11V9"/><circle cx="7.5" cy="11.5" r="1.6"/></svg>'
+    const partes = []
+    dlCur.trechos.forEach((t, i) => {
+      const loc = localDe(dlCur.cliente_id, t.destino_local_id)
+      const veicSel = t.veiculo_id || (t.sem_veiculo ? 'none' : (t.nota_transporte ? 'outro' : ''))
+      const destinoTxt = !t.destino_local_id
+      const turnos = (t.motoristas || []).map((m, mi) =>
+        `<div class="turn">${avDe(m.tecnico_id)}<span class="nm">${esc(nomeTec(m.tecnico_id))}</span><span class="rg">${(m.hora_de || m.hora_ate) ? `${esc(m.hora_de || '…')} – ${esc(m.hora_ate || '…')}` : 'trecho todo'}</span><button type="button" class="tx" data-deldrv="${i}:${mi}" title="Remover turno">×</button></div>`).join('')
+      const editor = dlTurnoEdit === i ? `<div class="turn-edit">
+          <select data-turnotec="${i}">${(t.tecnicos || []).map(tid => `<option value="${esc(tid)}">${esc(nomeTec(tid))}</option>`).join('')}</select>
+          ${(t.motoristas || []).length ? `<input type="time" data-turnohora="${i}" title="Hora da troca">` : ''}
+          <button type="button" data-turnook="${i}">OK</button></div>` : ''
+      const drivers = (t.veiculo_id) ? `<div class="drivers">
+          <div class="lbl">${SVG_VOL}Direção (revezamento)</div>
+          ${turnos || '<div class="dim" style="font-size:11px;margin-bottom:4px">Veículo da empresa exige quem dirige.</div>'}
+          ${editor || `<button type="button" class="addturn" data-addturn="${i}">${(t.motoristas || []).length ? '+ Revezamento (quem assumiu e a hora)' : '+ Definir motorista'}</button>`}
+        </div>` : ''
+      const gpsLin = (() => {
+        if (t.chegada_lat != null && loc && loc.lat != null && loc.lng != null) {
+          return `<div class="lgps">${SVG_PIN}GPS confirmado · chegada a ${distM(t.chegada_lat, t.chegada_lng, loc.lat, loc.lng)} m de ${esc(loc.nome)}</div>`
+        }
+        if (t.chegada_em && t.chegada_lat == null) return `<div class="lgps off">${SVG_PIN}chegada sem GPS</div>`
+        if (t.saida_em && t.saida_lat == null && !t.chegada_em) return `<div class="lgps off">${SVG_PIN}saída sem GPS</div>`
+        if (t.saida_lat != null && !t.chegada_em) return `<div class="lgps">${SVG_PIN}GPS da saída marcado (±${esc(String(t.saida_precisao || '?'))} m)</div>`
+        return ''
+      })()
+      const tbx = (qual, lbl) => t[qual + '_em']
+        ? `<div class="tbx"><div class="k">${lbl}</div><div class="v">${hhmmDe(t[qual + '_em'])}</div></div>`
+        : `<div class="tbx"><div class="k">${lbl}</div><div class="v" style="color:var(--tx3);font-size:12px;font-weight:600">aguardando</div><button type="button" data-marca="${i}:${qual}">Marcar agora</button></div>`
+      partes.push(`<div class="leg">
+        <div class="lh"><span class="ln">${i + 1}</span><span class="route">${esc(t.origem || '—')} → <span class="to">${esc(loc ? loc.nome : (t.destino || '—'))}</span></span>${dlCur.trechos.length > 1 ? `<button type="button" class="tc-del" data-delleg="${i}" title="Remover trecho">×</button>` : ''}</div>
+        <div class="lrow"><input type="text" class="grow" data-lorigem="${i}" value="${esc(t.origem || '')}" placeholder="Origem"><input type="date" data-ldata="${i}" value="${esc(t.data || '')}" style="width:138px;flex:none"></div>
+        <div class="lrow"><select class="grow" data-ldest="${i}">
+          <option value="">— destino —</option>
+          ${locais.map(l => `<option value="${esc(l.id)}"${t.destino_local_id === l.id ? ' selected' : ''}>${esc(l.nome)}${l.cidade ? ' · ' + esc([l.cidade, l.uf].filter(Boolean).join('/')) : ''}</option>`).join('')}
+          <option value="txt"${destinoTxt && t.destino ? ' selected' : ''}>Outro (escrever)…</option>
+        </select></div>
+        ${destinoTxt ? `<div class="lrow"><input type="text" class="grow" data-ldesttxt="${i}" value="${esc(t.destino || '')}" placeholder="Destino (texto livre)"></div>` : ''}
+        <div class="lrow"><select class="grow" data-lveic="${i}">
+          <option value="">— veículo —</option>
+          ${(ref.veiculos || []).map(v => `<option value="${esc(v.id)}"${t.veiculo_id === v.id ? ' selected' : ''}>${esc((v.modelo || '') + ' (' + (v.placa || '') + ')')}</option>`).join('')}
+          <option value="none"${veicSel === 'none' ? ' selected' : ''}>Sem veículo · carona</option>
+          <option value="outro"${veicSel === 'outro' ? ' selected' : ''}>Alugado / outro</option>
+        </select></div>
+        ${(veicSel === 'none' || veicSel === 'outro') ? `<div class="lrow"><input type="text" class="grow" data-lnota="${i}" value="${esc(t.nota_transporte || '')}" placeholder="Como foi? (carona, avião, alugado…)"></div>` : ''}
+        ${drivers}
+        <div class="bd-row"><span class="lbl">A bordo</span>${(t.tecnicos || []).map(avDe).join('')}<button type="button" class="bd-add" data-bd="${i}" title="Técnicos a bordo">+</button></div>
+        <div class="ltimers">${tbx('saida', 'Saída')}${tbx('chegada', 'Chegada')}</div>
+        ${gpsLin}
+      </div>`)
+      // pernoite sugerido entre trechos de dias diferentes (derivado, ninguém digita)
+      const prox = dlCur.trechos[i + 1]
+      if (prox && t.data && prox.data && prox.data > t.data) {
+        const n = Math.round((new Date(prox.data) - new Date(t.data)) / 86400000)
+        const cid = (loc && loc.cidade) ? [loc.cidade, loc.uf].filter(Boolean).join('/') : (t.destino || '—')
+        partes.push(`<div class="between"><span class="pn-chip">${SVG_BED}<span>Pernoite · ${esc(cid)} — ${n} noite${n > 1 ? 's' : ''} <i style="font-weight:600">(derivado)</i></span></span></div>`)
+      }
+    })
+    box.innerHTML = partes.join('')
+    // noites por pessoa (derivado da participação nos trechos)
+    const noites = noitesPorPessoa()
+    const nb = document.getElementById('dl-noites')
+    if (nb) nb.innerHTML = Object.keys(noites).length
+      ? `<div class="dl-noites">Noites por pessoa (derivado): ${Object.entries(noites).map(([tid, n]) => `${esc(nomeTec(tid))} ${n}`).join(' · ')}</div>` : ''
+    // bindings
+    const T = dlCur.trechos
+    box.querySelectorAll('[data-lorigem]').forEach(el => { el.oninput = () => { T[+el.dataset.lorigem].origem = el.value } })
+    box.querySelectorAll('[data-ldesttxt]').forEach(el => { el.oninput = () => { T[+el.dataset.ldesttxt].destino = el.value } })
+    box.querySelectorAll('[data-lnota]').forEach(el => { el.oninput = () => { T[+el.dataset.lnota].nota_transporte = el.value.trim() || null } })
+    box.querySelectorAll('[data-ldata]').forEach(el => { el.onchange = () => { T[+el.dataset.ldata].data = el.value || null; renderTrechos(); renderDlAlmocos() } })
+    box.querySelectorAll('[data-ldest]').forEach(el => {
+      el.onchange = () => {
+        const t = T[+el.dataset.ldest]
+        if (el.value && el.value !== 'txt') { t.destino_local_id = el.value; const l = localDe(dlCur.cliente_id, el.value); t.destino = l ? [l.cidade, l.uf].filter(Boolean).join('/') || l.nome : null }
+        else { t.destino_local_id = null; if (el.value !== 'txt') t.destino = '' }
+        renderTrechos()
+      }
+    })
+    box.querySelectorAll('[data-lveic]').forEach(el => {
+      el.onchange = () => {
+        const t = T[+el.dataset.lveic]
+        if (el.value === 'none') { t.veiculo_id = null; t.sem_veiculo = true; t.nota_transporte = t.nota_transporte || 'carona'; t.motoristas = [] }
+        else if (el.value === 'outro') { t.veiculo_id = null; t.sem_veiculo = false; t.nota_transporte = t.nota_transporte || 'alugado'; t.motoristas = [] }
+        else { t.veiculo_id = el.value || null; t.sem_veiculo = false; if (el.value) t.nota_transporte = null }
+        renderTrechos()
+      }
+    })
+    box.querySelectorAll('[data-marca]').forEach(el => { el.onclick = () => { const [i, q] = el.dataset.marca.split(':'); marcarTrecho(+i, q) } })
+    box.querySelectorAll('[data-bd]').forEach(el => { el.onclick = () => abrirModalTecDl(+el.dataset.bd) })
+    box.querySelectorAll('[data-delleg]').forEach(el => { el.onclick = () => { T.splice(+el.dataset.delleg, 1); renderTrechos(); renderDlAlmocos() } })
+    box.querySelectorAll('[data-addturn]').forEach(el => { el.onclick = () => { dlTurnoEdit = +el.dataset.addturn; renderTrechos() } })
+    box.querySelectorAll('[data-deldrv]').forEach(el => {
+      el.onclick = () => {
+        const [i, mi] = el.dataset.deldrv.split(':').map(Number)
+        T[i].motoristas.splice(mi, 1)
+        const ult = T[i].motoristas[T[i].motoristas.length - 1]
+        if (ult) ult.hora_ate = null   // o último turno volta a ir "até a chegada"
+        renderTrechos()
+      }
+    })
+    box.querySelectorAll('[data-turnook]').forEach(el => {
+      el.onclick = () => {
+        const i = +el.dataset.turnook
+        const t = T[i]
+        const tid = (box.querySelector(`[data-turnotec="${i}"]`) || {}).value
+        if (!tid) return
+        const horaEl = box.querySelector(`[data-turnohora="${i}"]`)
+        const hora = horaEl ? horaEl.value : ''
+        if (t.motoristas.length) {
+          if (!hora) return toast('Informe a hora da troca.', 'err')
+          t.motoristas[t.motoristas.length - 1].hora_ate = hora   // turnos contíguos
+          t.motoristas.push({ tecnico_id: tid, hora_de: hora, hora_ate: null })
+        } else {
+          t.motoristas.push({ tecnico_id: tid, hora_de: null, hora_ate: null })   // trecho todo
+        }
+        dlTurnoEdit = null
+        renderTrechos()
+      }
+    })
+    const pill = document.getElementById('dl-pill')
+    if (pill) pill.style.display = T.some(t => t.saida_em && !t.chegada_em) ? '' : 'none'
+  }
+
+  // ── Almoço na estrada: POR PESSOA por dia de viagem (mesma dedup da RAT) ──
+  let dlAlmocos = {}   // dia → registros do servidor (cache p/ offline)
+  async function carregarAlmocosViagem() {
+    if (!navigator.onLine || !dlCur) return
+    const dias = [...new Set(dlCur.trechos.map(t => t.data).filter(Boolean))]
+    const ids = [...new Set(dlCur.trechos.flatMap(t => t.tecnicos || []))]
+    if (!dias.length || !ids.length) return
+    try {
+      const { data } = await getSupabase().from('almocos')
+        .select('tecnico_id,dia,inicio,fim,origem,artefato_tipo,artefato_id')
+        .in('dia', dias).in('tecnico_id', ids)
+      dlAlmocos = {}
+      for (const r of (data || [])) (dlAlmocos[r.dia] = dlAlmocos[r.dia] || []).push(r)
+    } catch (e) { /* offline/erro: mantém cache */ }
+  }
+  function renderDlAlmocos() {
+    const box = document.getElementById('dl-almocos'); if (!box || !dlCur) return
+    const dias = [...new Set(dlCur.trechos.map(t => t.data).filter(Boolean))].sort()
+    if (!dias.length) { box.innerHTML = '<p class="dim" style="font-size:12px">Defina as datas dos trechos.</p>'; return }
+    const hhmm = (t) => String(t || '').slice(0, 5)
+    box.innerHTML = dias.map(dia => {
+      const h = (dlCur.almocoHorarios || {})[dia] || {}
+      const aboard = [...new Set(dlCur.trechos.filter(t => t.data === dia).flatMap(t => t.tecnicos || []))]
+      const cards = aboard.map(tid => {
+        const reg = (dlAlmocos[dia] || []).find(r => r.tecnico_id === tid && !(r.artefato_tipo === 'deslocamento' && r.artefato_id === dlCur.id))
+        let chip
+        if (reg) {
+          const onde = reg.origem === 'ponto' ? 'ponto' : (reg.artefato_tipo === 'rat' ? 'RAT' : 'outro deslocamento')
+          chip = `<span class="pst p-skip">já registrado · ${esc(onde)} ${esc(hhmm(reg.inicio))}–${esc(hhmm(reg.fim))}</span>`
+        } else if (h.inicio && h.fim) {
+          chip = `<span class="pst p-ok">✓ ${esc(h.inicio)}–${esc(h.fim)}</span>`
+        } else {
+          chip = '<span class="pst p-wait">sem almoço informado</span>'
+        }
+        return `<div class="pcard">${avDe(tid)}<span class="nm">${esc(nomeTec(tid))}</span>${chip}</div>`
+      }).join('')
+      return `<div class="dl-dia"><div class="dh">Almoço · ${esc(diaLabel(dia))}</div>
+        <div class="tpair"><div><label>Início</label><input type="time" data-almini="${esc(dia)}" value="${esc(h.inicio || '')}"></div>
+        <div><label>Término</label><input type="time" data-almfim="${esc(dia)}" value="${esc(h.fim || '')}"></div></div>${cards}</div>`
+    }).join('')
+    const setH = (dia, k, v) => {
+      dlCur.almocoHorarios = dlCur.almocoHorarios || {}
+      dlCur.almocoHorarios[dia] = dlCur.almocoHorarios[dia] || {}
+      dlCur.almocoHorarios[dia][k] = v || null
+    }
+    box.querySelectorAll('[data-almini]').forEach(el => { el.onchange = () => { setH(el.dataset.almini, 'inicio', el.value); renderDlAlmocos() } })
+    box.querySelectorAll('[data-almfim]').forEach(el => { el.onchange = () => { setH(el.dataset.almfim, 'fim', el.value); renderDlAlmocos() } })
+  }
 
   async function salvarDesloc() {
-    const tecs = [...dlTecSel]
-    const saida = dlISO(document.getElementById('dl-saida').value)
-    if (!saida) return toast('Informe a data/hora de saída.', 'err')
-    if (!tecs.length) return toast('Marque ao menos um técnico a bordo.', 'err')
-    const oCid = document.getElementById('dl-origem-cidade').value.trim(), oUf = document.getElementById('dl-origem-uf').value.trim().toUpperCase()
-    const dCid = document.getElementById('dl-destino-cidade').value.trim(), dUf = document.getElementById('dl-destino-uf').value.trim().toUpperCase()
-    const compoe = (c, u) => [c, u].filter(Boolean).join('/') || null
-    await D().salvarDeslocamento({
-      sentido: dlSent, veiculo_id: document.getElementById('dl-veiculo').value || null,
-      cliente_id: document.getElementById('dl-cli').value || null,
-      origem_cidade: oCid || null, origem_uf: oUf || null, destino_cidade: dCid || null, destino_uf: dUf || null,
-      origem: compoe(oCid, oUf), destino: compoe(dCid, dUf),
-      saida_em: saida, chegada_em: dlISO(document.getElementById('dl-chegada').value),
-      motivo: document.getElementById('dl-motivo').value.trim() || null,
-      saida_lat: dlSaidaPos ? dlSaidaPos.lat : null, saida_lng: dlSaidaPos ? dlSaidaPos.lng : null, saida_precisao: dlSaidaPos ? dlSaidaPos.acc : null,
-      tecnicos: tecs, criado_por: tecnico.id,
-    })
+    if (!dlCur) return
+    if (!dlCur.trechos.length) return toast('Adicione ao menos um trecho.', 'err')
+    if (!(dlCur.trechos[0].tecnicos || []).length) return toast('Marque quem está a bordo.', 'err')
+    for (let i = 0; i < dlCur.trechos.length; i++) {
+      const t = dlCur.trechos[i]
+      if (t.veiculo_id && !(t.motoristas || []).length) return toast(`Defina a direção do trecho ${i + 1} (veículo da empresa).`, 'err')
+    }
+    dlCur.cliente_id = document.getElementById('dl-cli').value || dlCur.cliente_id || null
+    // almoço por pessoa derivado dos horários do dia × quem estava a bordo no dia
+    // (quem já tem almoço de OUTRO artefato no dia fica de fora — o servidor deduplica de novo)
+    dlCur.almocos = []
+    for (const [dia, h] of Object.entries(dlCur.almocoHorarios || {})) {
+      if (!h || !h.inicio || !h.fim) continue
+      const aboard = [...new Set(dlCur.trechos.filter(t => t.data === dia).flatMap(t => t.tecnicos || []))]
+      for (const tid of aboard) {
+        const outro = (dlAlmocos[dia] || []).find(r => r.tecnico_id === tid && !(r.artefato_tipo === 'deslocamento' && r.artefato_id === dlCur.id))
+        if (!outro) dlCur.almocos.push({ tecnico_id: tid, dia, inicio: h.inicio, fim: h.fim })
+      }
+    }
+    // derivados p/ a lista local e a leitura "estou a bordo" (união dos trechos)
+    dlCur.tecnicos = [...new Set(dlCur.trechos.flatMap(t => t.tecnicos || []))]
+    dlCur.saida_em = dlCur.trechos[0].saida_em || null   // só p/ ordenação local
+    await D().salvarDeslocamento(dlCur)
     fecharDesloc()
-    toast('Trajeto registrado.', 'ok')
+    toast('Deslocamento salvo.', 'ok')
     await renderDesloc()
     if (window.SyncEngine) SyncEngine.syncAll()
   }
@@ -923,14 +1161,33 @@
     const box = document.getElementById('desloc-lista')
     if (window.SyncEngine) SyncEngine.pullChanges()   // reconcilia c/ servidor (edições/exclusões); re-renderiza via onSyncChanged
     const lst = await D().listarDeslocamentos()   // offline-first (este aparelho)
-    if (!lst.length) { box.innerHTML = '<div class="prod-empty" style="padding:24px 0;text-align:center;color:var(--t-muted)">Nenhum trajeto ainda. Toque em <b>+ Novo trajeto</b>.</div>'; return }
+    if (!lst.length) { box.innerHTML = '<div class="prod-empty" style="padding:24px 0;text-align:center;color:var(--t-muted)">Nenhuma viagem ainda. Toque em <b>+ Nova viagem</b>.</div>'; return }
     const veicLbl = (id) => { const v = ref.veiculos.find(x => x.id === id); return v ? `${v.modelo || ''} (${v.placa || ''})` : '—' }
     const dt = (iso) => iso ? new Date(iso).toLocaleString('pt-BR', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' }) : '—'
     const SK = { ida: 'info', volta: 'done', outro: 'aguard' }
     box.innerHTML = lst.map(d => {
+      const fila = d.sync_status !== 'confirmado' ? '<span class="badge b-warn">na fila ↑</span>' : ''
+      if (Array.isArray(d.trechos)) {
+        // modelo novo: viagem com trechos
+        const ts = d.trechos
+        const nomes = [...new Set(ts.flatMap(t => t.tecnicos || []))].map(nomeTec).filter(Boolean).join(', ')
+        const emViagem = ts.some(t => t.saida_em && !t.chegada_em)
+        const fechada = ts.length && ts.every(t => t.chegada_em)
+        const badge = emViagem ? '<span class="badge b-warn">Em viagem</span>' : (fechada ? '<span class="badge b-done">Concluída</span>' : '<span class="badge b-info">Planejada</span>')
+        const datas = ts.map(t => t.data).filter(Boolean).sort()
+        const per = datas.length ? `${diaLabel(datas[0])}${datas.length > 1 && datas[datas.length - 1] !== datas[0] ? ' → ' + diaLabel(datas[datas.length - 1]) : ''}` : '—'
+        const ultimo = ts[ts.length - 1] || {}
+        const loc = localDe(d.cliente_id, (ts[0] || {}).destino_local_id)
+        const rota = `${esc((ts[0] || {}).origem || '—')} → ${esc(loc ? loc.nome : ((ts[0] || {}).destino || (ultimo.destino || '—')))}`
+        return `<div class="listcard${fechada ? ' lc-done' : ''}" data-viagem="${esc(d.id)}" style="cursor:pointer"><span class="edge e-${emViagem ? 'warn' : fechada ? 'done' : 'info'}"></span>
+          <div class="t"><span class="cli">${esc(cliNomeDe(d.cliente_id, '—'))}</span><span style="display:flex;gap:6px;align-items:center">${fila}${badge}</span></div>
+          <div class="meta">${rota} · ${ts.length} trecho${ts.length > 1 ? 's' : ''} · ${esc(per)}</div>
+          <div class="meta">A bordo: ${esc(nomes || '—')}</div>
+        </div>`
+      }
+      // registro legado (1 perna): leitura + marcar chegada, como antes
       const nomes = (d.tecnicos || []).map(id => tcase((ref.tecnicos.find(t => t.id === id) || {}).nome)).filter(Boolean).join(', ')
       const sk = SK[d.sentido] || 'aguard'
-      const fila = d.sync_status !== 'confirmado' ? '<span class="badge b-warn">na fila ↑</span>' : ''
       return `<div class="listcard lc-${sk === 'info' ? 'info' : sk === 'done' ? 'done' : ''}"><span class="edge e-${sk}"></span>
         <div class="t"><span class="cli">${esc(cliNomeDe(d.cliente_id, '—'))}</span><span style="display:flex;gap:6px;align-items:center">${fila}<span class="badge b-${sk}">${esc(DL_SENT[d.sentido] || d.sentido)}</span></span></div>
         <div class="meta">${esc(d.origem || '—')} → ${esc(d.destino || '—')} · ${esc(veicLbl(d.veiculo_id))}</div>
@@ -940,6 +1197,7 @@
       </div>`
     }).join('')
     box.querySelectorAll('[data-chegada]').forEach(b => b.onclick = (e) => { e.stopPropagation(); marcarChegada(b.dataset.chegada) })
+    box.querySelectorAll('[data-viagem]').forEach(c => { c.onclick = () => abrirDeslocExistente(c.dataset.viagem) })
   }
 
   async function marcarChegada(id) {
@@ -1513,37 +1771,45 @@
     atualizarProgresso()
   }
 
-  // ── Técnicos a bordo (trajeto/pernoite): mesmos cards da RAT, estado próprio (ids) ──
+  // ── Técnicos a bordo: cards com foto (padrão RAT), POR TRECHO da viagem ──
   let dlTecSel = new Set()
-  function renderDlTecCards() {
-    const box = document.getElementById('dl-tec-cards'); if (!box) return
-    box.innerHTML = [...dlTecSel].map(id => {
-      const t = (ref.tecnicos || []).find(x => x.id === id) || {}
+  let dlTecTrecho = null   // índice do trecho sendo editado
+  function renderDlTecLista() {
+    const lista = document.getElementById('dltec-lista'); if (!lista) return
+    const q = normStr((document.getElementById('dltec-busca') || {}).value || '')
+    const card = (t, modo) => {
       const n = tcase(t.nome || '—')
       const rl = t.cargo ? `${t.cargo} · Técnico` : 'Técnico'
       const foto = (typeof avatarUrl === 'function') ? avatarUrl(t.foto_url) : null
       const av = foto ? `<img src="${esc(foto)}" alt="">` : esc(iniciaisDe(n))
-      return `<div class="tec-card"><span class="av">${av}</span><span class="ti"><span class="nm">${esc(n)}</span><span class="rl">${esc(rl)}</span></span><button type="button" class="tc-x" data-rem="${esc(id)}" title="Remover">×</button></div>`
-    }).join('') || '<div class="tec-vazio">Nenhum técnico a bordo.</div>'
-    box.querySelectorAll('[data-rem]').forEach(b => { b.onclick = () => { dlTecSel.delete(b.dataset.rem); renderDlTecCards(); renderDlTecLista() } })
-  }
-  function renderDlTecLista() {
-    const lista = document.getElementById('dltec-lista'); if (!lista) return
-    const q = normStr((document.getElementById('dltec-busca') || {}).value || '')
+      return `<div class="tec-row" data-${modo}="${esc(t.id)}"><span class="av">${av}</span><span class="ti"><span class="nm">${esc(n)}</span><span class="rl">${esc(rl)}</span></span><span class="pl">${modo === 'add' ? '+' : '×'}</span></div>`
+    }
+    const aBordo = (ref.tecnicos || []).filter(t => dlTecSel.has(t.id))
     const disp = (ref.tecnicos || []).filter(t => !dlTecSel.has(t.id) && (!q || normStr(t.nome || '').includes(q)))
-    lista.innerHTML = disp.map(t => {
-      const n = tcase(t.nome)
-      const rl = t.cargo ? `${t.cargo} · Técnico` : 'Técnico'
-      const foto = (typeof avatarUrl === 'function') ? avatarUrl(t.foto_url) : null
-      const av = foto ? `<img src="${esc(foto)}" alt="">` : esc(iniciaisDe(n))
-      return `<div class="tec-row" data-add="${esc(t.id)}"><span class="av">${av}</span><span class="ti"><span class="nm">${esc(n)}</span><span class="rl">${esc(rl)}</span></span><span class="pl">+</span></div>`
-    }).join('')
-    const vz = document.getElementById('dltec-vazio'); if (vz) vz.style.display = disp.length ? 'none' : ''
+    lista.innerHTML = aBordo.map(t => card(t, 'rem')).join('') + disp.map(t => card(t, 'add')).join('')
+    const vz = document.getElementById('dltec-vazio'); if (vz) vz.style.display = (aBordo.length + disp.length) ? 'none' : ''
     const foot = document.getElementById('dltec-foot'); if (foot) foot.textContent = `${dlTecSel.size} a bordo`
-    lista.querySelectorAll('[data-add]').forEach(r => { r.onclick = () => { dlTecSel.add(r.dataset.add); renderDlTecCards(); renderDlTecLista() } })
+    lista.querySelectorAll('[data-add]').forEach(r => { r.onclick = () => { dlTecSel.add(r.dataset.add); renderDlTecLista() } })
+    lista.querySelectorAll('[data-rem]').forEach(r => { r.onclick = () => { dlTecSel.delete(r.dataset.rem); renderDlTecLista() } })
   }
-  function abrirModalTecDl() { const b = document.getElementById('dltec-busca'); if (b) b.value = ''; renderDlTecLista(); document.getElementById('modal-tec-dl').classList.add('open') }
-  function fecharModalTecDl() { document.getElementById('modal-tec-dl').classList.remove('open') }
+  function abrirModalTecDl(i) {
+    dlTecTrecho = (typeof i === 'number') ? i : null
+    dlTecSel = new Set((dlCur && dlTecTrecho != null && dlCur.trechos[dlTecTrecho] && dlCur.trechos[dlTecTrecho].tecnicos) || [])
+    const b = document.getElementById('dltec-busca'); if (b) b.value = ''
+    renderDlTecLista()
+    document.getElementById('modal-tec-dl').classList.add('open')
+  }
+  function fecharModalTecDl() {
+    document.getElementById('modal-tec-dl').classList.remove('open')
+    if (dlCur && dlTecTrecho != null && dlCur.trechos[dlTecTrecho]) {
+      const t = dlCur.trechos[dlTecTrecho]
+      t.tecnicos = [...dlTecSel]
+      // motorista que saiu do carro sai da direção
+      t.motoristas = (t.motoristas || []).filter(m => dlTecSel.has(m.tecnico_id))
+      renderTrechos(); renderDlAlmocos()
+    }
+    dlTecTrecho = null
+  }
 
   // Card de contexto no topo da RAT (funde a faixa azul + Cliente & Serviço)
   function preencherCtx({ no, cliente, tipo, clienteEditavel }) {

@@ -314,6 +314,62 @@ try{if(localStorage.getItem('sr_dark')==='1')document.documentElement.classList.
   .pst.p-wait{background:var(--sur2);color:var(--tx3)}
   .alm-hint{font-size:11.5px;color:var(--tx3);font-weight:500;line-height:1.45;margin:8px 2px 0}
 
+  /* ===== Deslocamento (pernoite): viagem com trechos — laranja do DS ===== */
+  .dl-ctx{background:var(--sur);border:1px solid var(--bd);border-left:4px solid #F4861F;border-radius:15px;padding:12px 14px;margin-bottom:6px}
+  .dl-ctx .k{font-size:10px;font-weight:800;letter-spacing:.6px;text-transform:uppercase;color:#b85e0a}
+  .dl-sec{font-size:10.5px;font-weight:700;letter-spacing:1.2px;text-transform:uppercase;color:var(--tx3);margin:16px 2px 9px}
+  .dl-pill{font-size:10.5px;font-weight:700;background:rgba(255,255,255,.22);padding:5px 10px;border-radius:999px;color:#fff;margin-left:auto;margin-right:8px}
+  .leg{background:var(--sur);border:1px solid var(--bd);border-left:4px solid #F4861F;border-radius:16px;padding:13px;margin-bottom:8px}
+  .leg .lh{display:flex;align-items:center;gap:9px;margin-bottom:9px}
+  .leg .ln{width:24px;height:24px;border-radius:50%;background:#F4861F;color:#fff;display:grid;place-items:center;font-size:11.5px;font-weight:800;flex:none}
+  .leg .route{font-size:13px;font-weight:700;flex:1;line-height:1.3;min-width:0;color:var(--tx)}
+  .leg .route .to{color:#b85e0a}
+  .leg .tc-del{margin-left:auto;background:none;border:none;color:var(--tx3);font-size:17px;cursor:pointer;padding:2px 6px;flex:none}
+  .leg .lrow{display:flex;gap:8px;margin-bottom:7px}
+  .leg .lrow>*{min-width:0}
+  .leg .lrow .grow{flex:1}
+  .leg input,.leg select{width:100%;padding:9px 11px;border:1px solid var(--bd);border-radius:10px;font:inherit;font-size:13.5px;background:var(--sur);color:var(--tx)}
+  .leg input[type="date"]{-webkit-appearance:none;appearance:none;min-height:40px}
+  .drivers{background:var(--sur2);border:1px solid var(--bd);border-radius:11px;padding:8px 11px;margin-bottom:7px}
+  .drivers .lbl{display:flex;align-items:center;gap:6px;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:var(--tx3);margin-bottom:7px}
+  .drivers .lbl svg{width:13px;height:13px;stroke:currentColor;fill:none;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
+  .turn{display:flex;align-items:center;gap:8px;margin-bottom:6px}
+  .turn .av,.bd-row .av{width:26px;height:26px;border-radius:50%;background:#1B7FC4;color:#fff;display:grid;place-items:center;font-weight:800;font-size:9px;overflow:hidden;flex:none}
+  .turn .av img,.bd-row .av img{width:100%;height:100%;object-fit:cover}
+  .turn .nm{font-size:12px;font-weight:700;flex:1;min-width:0;color:var(--tx)}
+  .turn .rg{font-size:11px;font-weight:700;color:#1565C0;font-variant-numeric:tabular-nums}
+  .turn .tx{background:none;border:none;color:var(--tx3);font-size:15px;padding:0 4px;cursor:pointer}
+  .addturn{font-size:11px;font-weight:700;color:#1565C0;margin-top:3px;display:inline-block;background:none;border:none;cursor:pointer;font-family:inherit;padding:2px}
+  .turn-edit{display:flex;gap:6px;align-items:center;margin-top:6px}
+  .turn-edit select{flex:1;padding:7px 9px;font-size:12.5px}
+  .turn-edit input[type="time"]{width:92px;padding:7px 8px;font-size:12.5px;-webkit-appearance:none;appearance:none}
+  .turn-edit button{border:none;border-radius:9px;background:#1B7FC4;color:#fff;font:inherit;font-size:11.5px;font-weight:800;padding:8px 10px;cursor:pointer}
+  .bd-row{display:flex;align-items:center;gap:5px;margin-bottom:9px;flex-wrap:wrap}
+  .bd-row .lbl{font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:var(--tx3);margin-right:3px}
+  .bd-row .av{border:1.5px solid var(--sur);box-shadow:0 1px 3px rgba(0,0,0,.15)}
+  .bd-row .bd-add{width:26px;height:26px;border-radius:50%;border:1.5px dashed #9DC3E2;background:#F2F8FD;color:#175fb0;font-weight:800;cursor:pointer;font-size:14px;line-height:1;flex:none}
+  html.dark .bd-row .bd-add{background:#16243a;border-color:#23406b;color:#9fc1ff}
+  .ltimers{display:flex;gap:9px}
+  .ltimers .tbx{flex:1;background:var(--sur2);border:1px solid var(--bd);border-radius:12px;padding:9px 12px}
+  .ltimers .tbx .k{font-size:9.5px;font-weight:700;color:var(--tx3);text-transform:uppercase;letter-spacing:.5px}
+  .ltimers .tbx .v{font-size:15px;font-weight:800;margin-top:2px;font-variant-numeric:tabular-nums;color:var(--tx)}
+  .ltimers .tbx button{margin-top:5px;border:none;border-radius:9px;background:#1B7FC4;color:#fff;font:inherit;font-size:11.5px;font-weight:800;padding:7px 9px;cursor:pointer;width:100%}
+  .lgps{display:flex;align-items:center;gap:6px;margin-top:7px;font-size:10.5px;font-weight:700;color:#0B7A43}
+  .lgps.off{color:var(--tx3)}
+  .lgps svg{width:12px;height:12px;stroke:currentColor;fill:none;stroke-width:2;stroke-linecap:round;stroke-linejoin:round;flex:none}
+  .between{display:flex;align-items:center;gap:9px;margin:2px 0 10px 11px;padding-left:14px;border-left:2px dashed #E2C9AC}
+  .pn-chip{display:inline-flex;align-items:flex-start;gap:7px;font-size:11px;font-weight:700;background:#FDEFE0;color:#b85e0a;padding:7px 12px;border-radius:14px;line-height:1.4}
+  .pn-chip svg{width:15px;height:15px;stroke:currentColor;fill:none;stroke-width:2;stroke-linecap:round;stroke-linejoin:round;flex:none;margin-top:1px}
+  html.dark .pn-chip{background:#3a2a14;color:#f0b070}
+  .dl-addleg{width:100%;border:1.5px dashed #C6CCDA;border-radius:15px;padding:12px;text-align:center;font-size:13px;font-weight:700;color:#1565C0;background:var(--sur);cursor:pointer;font-family:inherit;margin-top:2px}
+  .dl-noites{font-size:11.5px;color:var(--tx3);font-weight:600;margin:8px 2px 0}
+  .dl-dia{background:var(--sur);border:1px solid var(--bd);border-radius:14px;padding:11px 13px;margin-bottom:8px}
+  .dl-dia .dh{font-size:11.5px;font-weight:800;color:var(--tx2);margin-bottom:8px}
+  .dl-dia .tpair{display:flex;gap:8px;margin-bottom:8px}
+  .dl-dia .tpair>div{flex:1}
+  .dl-dia .tpair label{display:block;font-size:10.5px;font-weight:700;color:var(--tx3);text-transform:uppercase;letter-spacing:.5px;margin-bottom:4px}
+  .dl-dia input[type="time"]{width:100%;padding:8px 10px;border:1px solid var(--bd);border-radius:10px;font:inherit;font-size:13.5px;background:var(--sur);color:var(--tx);-webkit-appearance:none;appearance:none}
+
   /* ===== Progresso da RAT ===== */
   .prog{background:var(--sur);border:1px solid var(--bd);border-radius:14px;padding:11px 13px;margin-top:10px}
   .prog .ph{display:flex;justify-content:space-between;font-size:11px;font-weight:700;color:var(--tx3)}
@@ -462,9 +518,9 @@ try{if(localStorage.getItem('sr_dark')==='1')document.documentElement.classList.
       <div id="view-desloc" class="tskin" style="display:none">
         <div style="display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:8px">
           <h2 style="font-size:17px;font-weight:700;margin:0">Deslocamento</h2>
-          <button class="btn btn-primary btn-auto" id="desloc-novo">+ Novo trajeto</button>
+          <button class="btn btn-primary btn-auto" id="desloc-novo">+ Nova viagem</button>
         </div>
-        <div class="info" style="margin-bottom:12px">Cada trajeto é uma perna (ida ou volta), com o veículo e os técnicos a bordo. Ida e volta são registros separados.</div>
+        <div class="info" style="margin-bottom:12px">Viagem com pernoite: roteiro em trechos (nasce com ida e volta; adicione mais se precisar). Veículo, direção e quem está a bordo são por trecho.</div>
         <div id="desloc-lista"></div>
       </div>
 
@@ -836,47 +892,31 @@ try{if(localStorage.getItem('sr_dark')==='1')document.documentElement.classList.
   </div>
 </div>
 
-<!-- Deslocamento: novo trajeto -->
+<!-- Deslocamento (pernoite): viagem com trechos dinâmicos (ref. mockup-deslocamento-tempo) -->
 <div class="tm-back tm-fs" id="modal-desloc">
   <div class="tm-box" style="display:flex;flex-direction:column">
-    <div class="tm-h"><span>Deslocamento — novo trajeto</span><button class="tm-x" id="dl-x">✕</button></div>
-    <div class="tm-b" style="flex:1;overflow:auto;min-height:0">
-      <label>Sentido</label>
-      <div class="seg-tipos" id="dl-sentido">
-        <button type="button" class="seg-tipo on" data-sent="ida"><svg viewBox="0 0 24 24"><path d="M5 12h14m-6-6 6 6-6 6"/></svg>Ida</button>
-        <button type="button" class="seg-tipo" data-sent="volta"><svg viewBox="0 0 24 24"><path d="M19 12H5m6-6-6 6 6 6"/></svg>Volta</button>
+    <div class="tm-h tmh tmh-orange"><span class="tmh-ic"><svg viewBox="0 0 24 24"><path d="M3 17h2m14 0h2M5 17a2 2 0 1 0 4 0 2 2 0 0 0-4 0Zm10 0a2 2 0 1 0 4 0 2 2 0 0 0-4 0Z"/><path d="M5 17V8a1 1 0 0 1 1-1h8l4 4v6"/></svg></span><span class="tmh-t">Deslocamento</span><span class="dl-pill" id="dl-pill" style="display:none">Em viagem</span><button class="tm-x" id="dl-x">✕</button></div>
+    <div class="tm-b tskin" style="flex:1;overflow:auto;min-height:0">
+      <div class="dl-ctx">
+        <div class="k">Viagem / Pernoite</div>
+        <div class="ac" style="margin-top:6px">
+          <input type="text" id="dl-cli-busca" placeholder="Buscar empresa…" autocomplete="off">
+          <input type="hidden" id="dl-cli">
+          <div class="ac-list" id="dl-cli-list"></div>
+        </div>
+        <input type="text" id="dl-motivo" placeholder="Motivo (opcional) — ex.: instalação na obra" style="margin-top:8px;width:100%">
       </div>
-      <label style="margin-top:12px">Empresa (cliente) — vai para o destino na ida, para a origem na volta</label>
-      <div class="ac">
-        <input type="text" id="dl-cli-busca" placeholder="Buscar empresa…" autocomplete="off">
-        <input type="hidden" id="dl-cli">
-        <div class="ac-list" id="dl-cli-list"></div>
-      </div>
-      <label style="margin-top:12px">Veículo</label>
-      <select id="dl-veiculo"><option value="">— selecione —</option></select>
-      <label style="margin-top:12px">Técnicos a bordo</label>
-      <div class="tec-cards" id="dl-tec-cards"></div>
-      <button type="button" class="tec-add-btn" id="dl-tec-add">+ Adicionar Técnico</button>
-      <div style="display:flex;gap:10px;margin-top:12px">
-        <div style="flex:2"><label>Cidade (origem)</label><input type="text" id="dl-origem-cidade" placeholder="preenche pelo GPS da saída"></div>
-        <div style="width:64px"><label>UF</label><input type="text" id="dl-origem-uf" maxlength="2" placeholder="UF" style="text-transform:uppercase"></div>
-      </div>
-      <div style="display:flex;gap:10px;margin-top:12px">
-        <div style="flex:2"><label>Cidade (destino)</label><input type="text" id="dl-destino-cidade" placeholder="preenche na chegada / pela empresa"></div>
-        <div style="width:64px"><label>UF</label><input type="text" id="dl-destino-uf" maxlength="2" placeholder="UF" style="text-transform:uppercase"></div>
-      </div>
-      <div style="display:flex;gap:10px;margin-top:12px">
-        <div style="flex:1"><label>Saída</label><input type="datetime-local" id="dl-saida"></div>
-        <div style="flex:1"><label>Chegada</label><input type="datetime-local" id="dl-chegada"></div>
-      </div>
-      <button class="btn" id="dl-gps-saida" type="button" style="margin-top:8px;width:100%;justify-content:center"><svg viewBox="0 0 24 24"><path d="M20 10c0 6-8 12-8 12S4 16 4 10a8 8 0 0 1 16 0Z"/><circle cx="12" cy="10" r="3"/></svg>Marcar saída agora (GPS)</button>
-      <div class="dim" id="dl-gps-status" style="font-size:12px;margin-top:6px"></div>
-      <label style="margin-top:12px">Motivo (opcional)</label>
-      <input type="text" id="dl-motivo" placeholder="Ex.: instalação / manutenção na obra">
+      <div class="dl-sec">Roteiro · trechos</div>
+      <div id="dl-trechos"></div>
+      <button type="button" class="dl-addleg" id="dl-addleg">+ Adicionar trecho</button>
+      <div id="dl-noites"></div>
+      <div class="dl-sec">Almoço na estrada</div>
+      <div id="dl-almocos"></div>
+      <div class="alm-hint">Trecho novo herda veículo, direção e passageiros do anterior. Veículo da empresa exige direção — "+ Revezamento" registra quem assumiu e a hora (a multa cai no horário de quem dirigia). GPS é marcado sozinho na saída/chegada; sem sinal, salva "sem GPS".</div>
     </div>
     <div class="tm-f">
       <button class="btn" id="dl-cancelar">Cancelar</button>
-      <button class="btn btn-p" id="dl-salvar">Salvar trajeto</button>
+      <button class="btn btn-orange" id="dl-salvar">Salvar deslocamento</button>
     </div>
   </div>
 </div>
