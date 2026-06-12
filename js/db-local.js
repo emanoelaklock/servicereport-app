@@ -465,7 +465,7 @@
   async function deslocamentosPendentes() {
     const dd = await db()
     const all = await reqP(dd.transaction(ST_DESLOC).objectStore(ST_DESLOC).getAll())
-    return all.filter(x => x.sync_status !== STATUS.CONFIRMADO)
+    return all.filter(x => x.sync_status !== STATUS.CONFIRMADO && !x.tombstoned)   // tombstoned: não reenviar
   }
   async function marcarDeslocamentoStatus(id, novo) {
     return tx([ST_DESLOC], 'readwrite', (t) => {
@@ -523,9 +523,18 @@
     return true
   }
   // Remove uma linha local porque foi excluída no servidor (só se confirmada).
+  // Pendente NÃO é apagada sozinha (§12) — ganha a marca `tombstoned`: a UI avisa
+  // ("removido pelo escritório") e o sync para de reenviar, senão o registro
+  // ressuscita no servidor a cada sync e o admin nunca consegue excluir.
   async function removerDoServidor(store, chave) {
     const atual = await obterPorChave(store, chave)
-    if (atual && atual.sync_status && atual.sync_status !== STATUS.CONFIRMADO) return false // pendente: não apaga
+    if (atual && atual.sync_status && atual.sync_status !== STATUS.CONFIRMADO) {
+      if (!atual.tombstoned) {
+        atual.tombstoned = true
+        await tx([store], 'readwrite', (t) => { t.objectStore(store).put(atual) })
+      }
+      return false
+    }
     await tx([store], 'readwrite', (t) => { t.objectStore(store).delete(chave) })
     return !!atual
   }

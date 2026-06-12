@@ -1302,39 +1302,50 @@
     const veicLbl = (id) => { const v = ref.veiculos.find(x => x.id === id); return v ? `${v.modelo || ''} (${v.placa || ''})` : '—' }
     const dt = (iso) => iso ? new Date(iso).toLocaleString('pt-BR', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' }) : '—'
     const SK = { ida: 'info', volta: 'done', outro: 'aguard' }
+    const btnDescartar = (id) => `<button class="btn btn-auto" data-descartar="${esc(id)}" style="margin-top:8px;font-size:13px;padding:9px 13px;color:#E5403A;border-color:#E5403A"><svg viewBox="0 0 24 24"><path d="M4 7h16M9 7V5a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2m3 0v12a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2V7"/></svg> Descartar do aparelho</button>`
     box.innerHTML = lst.map(d => {
-      const fila = d.sync_status !== 'confirmado' ? '<span class="badge b-warn">na fila ↑</span>' : ''
+      const tomb = !!d.tombstoned
+      const fila = tomb ? '<span class="badge b-pend">Removido pelo escritório</span>'
+        : (d.sync_status !== 'confirmado' ? '<span class="badge b-warn">na fila ↑</span>' : '')
       if (Array.isArray(d.trechos)) {
         // modelo novo: viagem com trechos
         const ts = d.trechos
         const nomes = [...new Set(ts.flatMap(t => t.tecnicos || []))].map(nomeTec).filter(Boolean).join(', ')
         const emViagem = ts.some(t => t.saida_em && !t.chegada_em)
         const fechada = ts.length && ts.every(t => t.chegada_em)
-        const badge = emViagem ? '<span class="badge b-warn">Em viagem</span>' : (fechada ? '<span class="badge b-done">Concluída</span>' : '<span class="badge b-info">Planejada</span>')
+        const badge = tomb ? '' : (emViagem ? '<span class="badge b-warn">Em viagem</span>' : (fechada ? '<span class="badge b-done">Concluída</span>' : '<span class="badge b-info">Planejada</span>'))
         const datas = ts.map(t => t.data).filter(Boolean).sort()
         const per = datas.length ? `${diaLabel(datas[0])}${datas.length > 1 && datas[datas.length - 1] !== datas[0] ? ' → ' + diaLabel(datas[datas.length - 1]) : ''}` : '—'
         const ultimo = ts[ts.length - 1] || {}
         const loc = localDe(d.cliente_id, (ts[0] || {}).destino_local_id)
         const rota = `${esc((ts[0] || {}).origem || '—')} → ${esc(loc ? loc.nome : ((ts[0] || {}).destino || (ultimo.destino || '—')))}`
-        return `<div class="listcard${fechada ? ' lc-done' : ''}" data-viagem="${esc(d.id)}" style="cursor:pointer"><span class="edge e-${emViagem ? 'warn' : fechada ? 'done' : 'info'}"></span>
+        return `<div class="listcard${fechada ? ' lc-done' : ''}"${tomb ? '' : ` data-viagem="${esc(d.id)}" style="cursor:pointer"`}><span class="edge e-${tomb ? 'pend' : emViagem ? 'warn' : fechada ? 'done' : 'info'}"></span>
           <div class="t"><span class="cli">${esc(cliNomeDe(d.cliente_id, '—'))}</span><span style="display:flex;gap:6px;align-items:center">${fila}${badge}</span></div>
           <div class="meta">${rota} · ${ts.length} trecho${ts.length > 1 ? 's' : ''} · ${esc(per)}</div>
           <div class="meta">A bordo: ${esc(nomes || '—')}</div>
+          ${tomb ? `<div class="meta" style="color:#C0362C">O escritório excluiu esta viagem — ela não será mais enviada. Se quiser, descarte a cópia local.</div>${btnDescartar(d.id)}` : ''}
         </div>`
       }
       // registro legado (1 perna): leitura + marcar chegada, como antes
       const nomes = (d.tecnicos || []).map(id => tcase((ref.tecnicos.find(t => t.id === id) || {}).nome)).filter(Boolean).join(', ')
       const sk = SK[d.sentido] || 'aguard'
-      return `<div class="listcard lc-${sk === 'info' ? 'info' : sk === 'done' ? 'done' : ''}"><span class="edge e-${sk}"></span>
+      return `<div class="listcard lc-${sk === 'info' ? 'info' : sk === 'done' ? 'done' : ''}"><span class="edge e-${tomb ? 'pend' : sk}"></span>
         <div class="t"><span class="cli">${esc(cliNomeDe(d.cliente_id, '—'))}</span><span style="display:flex;gap:6px;align-items:center">${fila}<span class="badge b-${sk}">${esc(DL_SENT[d.sentido] || d.sentido)}</span></span></div>
         <div class="meta">${esc(d.origem || '—')} → ${esc(d.destino || '—')} · ${esc(veicLbl(d.veiculo_id))}</div>
         <div class="meta">Saída <b>${dt(d.saida_em)}</b>${d.saida_lat ? ' · GPS' : ''}${d.chegada_em ? ` · Chegada <b>${dt(d.chegada_em)}</b>${d.chegada_lat ? ' · GPS' : ''}` : ''}</div>
         <div class="meta">A bordo: ${esc(nomes || '—')}</div>
-        ${!d.chegada_em ? `<button class="btn btn-ok btn-auto" data-chegada="${esc(d.id)}" style="margin-top:8px;font-size:13px;padding:9px 13px"><svg viewBox="0 0 24 24"><path d="M20 10c0 6-8 12-8 12S4 16 4 10a8 8 0 0 1 16 0Z"/><circle cx="12" cy="10" r="3"/></svg> Marcar chegada agora</button>` : ''}
+        ${tomb ? `<div class="meta" style="color:#C0362C">O escritório excluiu este trajeto — ele não será mais enviado.</div>${btnDescartar(d.id)}` : ''}
+        ${!tomb && !d.chegada_em ? `<button class="btn btn-ok btn-auto" data-chegada="${esc(d.id)}" style="margin-top:8px;font-size:13px;padding:9px 13px"><svg viewBox="0 0 24 24"><path d="M20 10c0 6-8 12-8 12S4 16 4 10a8 8 0 0 1 16 0Z"/><circle cx="12" cy="10" r="3"/></svg> Marcar chegada agora</button>` : ''}
       </div>`
     }).join('')
     box.querySelectorAll('[data-chegada]').forEach(b => b.onclick = (e) => { e.stopPropagation(); marcarChegada(b.dataset.chegada) })
     box.querySelectorAll('[data-viagem]').forEach(c => { c.onclick = () => abrirDeslocExistente(c.dataset.viagem) })
+    box.querySelectorAll('[data-descartar]').forEach(b => b.onclick = async (e) => {
+      e.stopPropagation()
+      if (!confirm('Descartar esta cópia do aparelho? O registro já foi excluído pelo escritório.')) return
+      await D().removerDeslocamento(b.dataset.descartar)
+      renderDesloc()
+    })
   }
 
   async function marcarChegada(id) {
