@@ -79,7 +79,7 @@ const DeslocApp = (() => {
 
   async function carregar() {
     const { data, error } = await sb().from('deslocamentos')
-      .select('id,sentido,cliente_id,origem,destino,origem_cidade,origem_uf,destino_cidade,destino_uf,motivo,saida_em,chegada_em,veiculo_id,saida_lat,saida_lng,chegada_lat,chegada_lng,criado_em,deslocamento_tecnicos(tecnico_id),deslocamento_trechos(id,ordem,origem,destino,destino_local_id,destino_cliente_id,data,saida_em,chegada_em,saida_lat,saida_lng,saida_precisao,chegada_lat,chegada_lng,chegada_precisao,veiculo_id,nota_transporte,espelho_legado,cliente_locais(nome,cidade,uf),trecho_tecnicos(tecnico_id),trecho_direcao(id,tecnico_id,hora_de,hora_ate)),deslocamento_almocos(tecnico_id,dia,inicio,fim)')
+      .select('id,sentido,cliente_id,origem,destino,origem_cidade,origem_uf,destino_cidade,destino_uf,motivo,saida_em,chegada_em,veiculo_id,saida_lat,saida_lng,chegada_lat,chegada_lng,criado_em,deslocamento_tecnicos(tecnico_id),deslocamento_trechos(id,ordem,origem,destino,destino_local_id,destino_cliente_id,data,saida_em,chegada_em,saida_lat,saida_lng,saida_precisao,chegada_lat,chegada_lng,chegada_precisao,veiculo_id,nota_transporte,espelho_legado,cliente_locais(nome,cidade,uf),trecho_tecnicos(tecnico_id),trecho_direcao(id,tecnico_id,hora_de,hora_ate)),deslocamento_almocos(tecnico_id,dia,inicio,fim),deslocamento_tarefas(tarefa_id,tarefas(numero,status,cliente_id))')
       .order('criado_em', { ascending: false }).limit(300)
     if (error) { toast('Erro: ' + error.message, 'err'); return }
     rows = data || []
@@ -214,7 +214,7 @@ const DeslocApp = (() => {
           ? clisVisita.map(id => `<div${id === d.cliente_id ? ' style="font-weight:700"' : ''}>${esc(cliNomes[id] || '—')}</div>`).join('')
           : esc(cliNomes[d.cliente_id] || '—')
         return `<tr>
-          <td><div class="vtipo">Viagem · ${ts.length} trecho${ts.length > 1 ? 's' : ''}</div>${periodo ? `<div class="vper">${esc(periodo)}</div>` : ''}${(() => { const tv = tempoViagemMin(ts, d.deslocamento_almocos); return tv.temTempo ? `<div class="vper">Tempo: <b>${fmtHm(tv.total)}</b>${tv.aberto ? '…' : ''}${tv.almoco ? ' (− almoço)' : ''}</div>` : '' })()}<div style="margin-top:5px">${st}</div></td>
+          <td><div class="vtipo">Viagem · ${ts.length} trecho${ts.length > 1 ? 's' : ''}</div>${periodo ? `<div class="vper">${esc(periodo)}</div>` : ''}${(() => { const tv = tempoViagemMin(ts, d.deslocamento_almocos); return tv.temTempo ? `<div class="vper">Tempo: <b>${fmtHm(tv.total)}</b>${tv.aberto ? '…' : ''}${tv.almoco ? ' (− almoço)' : ''}</div>` : '' })()}${(() => { const refs = (d.deslocamento_tarefas || []).map(x => x.tarefas ? `Tarefa Nº ${String(x.tarefas.numero).padStart(5, '0')}` : null).filter(Boolean); return refs.length ? `<div class="vper">Ref.: ${esc(refs.join(' · '))}</div>` : '' })()}<div style="margin-top:5px">${st}</div></td>
           <td>${cliCell}</td>
           <td>${esc(fmtLugar(prim.origem) || '—')} → ${esc(destinoLbl(ult))}${detalhe}</td>
           <td>${veics.length ? veics.map(esc).join('<br>') : (semVeic.length ? `<span class="dim">${esc(semVeic.join(', '))}</span>` : '—')}</td>
@@ -311,6 +311,32 @@ const DeslocApp = (() => {
 
   // ───────────────────── Editar VIAGEM (modelo novo: trechos) ─────────────────────
   let vmCur = null, vmLocais = [], vmAlmocos = []
+  // Ref. Tarefas: tarefas EM ABERTO dos clientes do destino
+  const TAREFA_ABERTA = ['aguardando_execucao', 'em_execucao', 'devolvida']
+  let vmTarAbertas = [], vmTarEmbed = {}
+  async function vmCarregarTarefas() {
+    if (vmTarAbertas.length) return
+    const { data } = await sb().from('tarefas').select('id,numero,status,cliente_id')
+      .in('status', TAREFA_ABERTA).order('numero', { ascending: false }).limit(300)
+    vmTarAbertas = data || []
+  }
+  function renderVmTarefas() {
+    const box = document.getElementById('vm-tarefas'); if (!box || !vmCur) return
+    const info = (id) => vmTarAbertas.find(t => t.id === id) || vmTarEmbed[id] || null
+    const chips = (vmCur.tarefas || []).map(id => {
+      const t = info(id)
+      return `<span class="abchip" style="padding:5px 8px 5px 12px">Tarefa Nº ${t ? esc(String(t.numero).padStart(5, '0')) : '—'}${t && cliNomes[t.cliente_id] ? ' · ' + esc(cliNomes[t.cliente_id]) : ''}&nbsp;<button type="button" data-tardel="${esc(id)}" style="border:none;background:none;color:#B42318;cursor:pointer;font-weight:800;font-size:13px">×</button></span>`
+    }).join('')
+    const clientesDest = [...new Set(vmCur.trechos.map(t => t.destino_cliente_id).filter(Boolean))]
+    const ops = vmTarAbertas.filter(t => !(vmCur.tarefas || []).includes(t.id) && (!clientesDest.length || clientesDest.includes(t.cliente_id)))
+    box.innerHTML = `<div style="display:flex;flex-wrap:wrap;gap:4px;margin-bottom:6px">${chips || '<span class="vper">Nenhuma tarefa vinculada.</span>'}</div>
+      <select id="vm-tar-add"><option value="">+ Vincular tarefa em aberto…</option>
+        ${ops.map(t => `<option value="${esc(t.id)}">Nº ${esc(String(t.numero).padStart(5, '0'))} · ${esc(cliNomes[t.cliente_id] || '—')}</option>`).join('')}
+      </select>`
+    box.querySelectorAll('[data-tardel]').forEach(b => { b.onclick = () => { vmCur.tarefas = (vmCur.tarefas || []).filter(x => x !== b.dataset.tardel); renderVmTarefas() } })
+    const add = document.getElementById('vm-tar-add')
+    if (add) add.onchange = () => { if (add.value) { vmCur.tarefas = [...(vmCur.tarefas || []), add.value]; renderVmTarefas() } }
+  }
   let vmAlmHor = {}   // dia → {inicio, fim} (editável pelo admin; grava em deslocamento_almocos)
   const horaMais = (hhmm, min) => { const [h, m] = String(hhmm).split(':').map(Number); if (isNaN(h)) return ''; const t = (h * 60 + (m || 0) + min) % 1440; return `${String(Math.floor(t / 60)).padStart(2, '0')}:${String(t % 60).padStart(2, '0')}` }
   const vmAlmRows = () => Object.entries(vmAlmHor).filter(([, h]) => h && h.inicio && h.fim)
@@ -436,9 +462,11 @@ const DeslocApp = (() => {
     for (const r of vmAlmocos) {
       if (r.dia && r.inicio && r.fim && !vmAlmHor[r.dia]) vmAlmHor[r.dia] = { inicio: String(r.inicio).slice(0, 5), fim: String(r.fim).slice(0, 5) }
     }
+    vmCur.tarefas = (d.deslocamento_tarefas || []).map(x => x.tarefa_id)
+    vmTarEmbed = {}
+    for (const x of (d.deslocamento_tarefas || [])) if (x.tarefas) vmTarEmbed[x.tarefa_id] = { id: x.tarefa_id, ...x.tarefas }
     document.getElementById('vm-id').value = d.id
-    document.getElementById('vm-motivo').value = vmCur.motivo || ''
-    await vmCarregarLocais()
+    await Promise.all([vmCarregarLocais(), vmCarregarTarefas()])
     renderVmTrechos()
     document.getElementById('vm-back').classList.add('open')
   }
@@ -582,6 +610,7 @@ const DeslocApp = (() => {
       }
     })
     box.querySelectorAll('[data-vmdelleg]').forEach(el => { el.onclick = () => { T.splice(+el.dataset.vmdelleg, 1); renderVmTrechos() } })
+    renderVmTarefas()   // o filtro de tarefas segue os clientes do destino
     // resumo: todos os clientes visitados na viagem
     const resumoEl = document.getElementById('vm-clis')
     if (resumoEl) {
@@ -597,10 +626,9 @@ const DeslocApp = (() => {
       const t = vmCur.trechos[i]
       if (t.veiculo_id && !(t.motoristas || []).length) return toast(`Trecho ${i + 1}: veículo da empresa exige a direção preenchida.`, 'err')
     }
-    vmCur.motivo = (document.getElementById('vm-motivo').value || '').trim() || null
     // cliente "principal" do registro = o do primeiro trecho com cliente (derivado)
     vmCur.cliente_id = (vmCur.trechos.find(t => t.destino_cliente_id) || {}).destino_cliente_id || null
-    const up = await sb().from('deslocamentos').update({ cliente_id: vmCur.cliente_id, motivo: vmCur.motivo }).eq('id', vmCur.id)
+    const up = await sb().from('deslocamentos').update({ cliente_id: vmCur.cliente_id }).eq('id', vmCur.id)
     if (up.error) return toast('Erro ao salvar: ' + up.error.message, 'err')
     // substituição completa dos trechos (cascade limpa a-bordo/direção) — preserva GPS capturado
     const del = await sb().from('deslocamento_trechos').delete().eq('deslocamento_id', vmCur.id)
@@ -629,6 +657,12 @@ const DeslocApp = (() => {
     await sb().from('deslocamento_tecnicos').delete().eq('deslocamento_id', vmCur.id)
     const uni = [...new Set(vmCur.trechos.flatMap(t => t.tecnicos || []))]
     if (uni.length) await sb().from('deslocamento_tecnicos').insert(uni.map(tid => ({ deslocamento_id: vmCur.id, tecnico_id: tid })))
+    // tarefas referenciadas (em aberto, dos clientes do destino)
+    await sb().from('deslocamento_tarefas').delete().eq('deslocamento_id', vmCur.id)
+    if ((vmCur.tarefas || []).length) {
+      const r = await sb().from('deslocamento_tarefas').insert(vmCur.tarefas.map(tid => ({ deslocamento_id: vmCur.id, tarefa_id: tid })))
+      if (r.error) toast('Viagem salva, mas falhou o vínculo de tarefas: ' + r.error.message, 'err')
+    }
     // almoço na estrada (editado pelo admin): um par por dia × técnicos a bordo no dia
     // (o trigger materializa em `almocos` com a dedup de um por pessoa/dia)
     await sb().from('deslocamento_almocos').delete().eq('deslocamento_id', vmCur.id)

@@ -883,6 +883,10 @@
       dlCur.trechos.push(novoTrecho(dlCur.trechos[dlCur.trechos.length - 1] || null))
       renderTrechos(); renderDlAlmocos()
     }
+    // Ref. Tarefa (tarefas em aberto dos clientes do destino)
+    document.getElementById('dl-reftarefa').onclick = abrirDlTarefas
+    document.getElementById('dltar-x').onclick = () => { document.getElementById('modal-dl-tarefa').classList.remove('open'); renderRefTarefa() }
+    document.getElementById('dltar-ok').onclick = () => { document.getElementById('modal-dl-tarefa').classList.remove('open'); renderRefTarefa() }
     // modais do trecho: destino / veículo / direção
     document.getElementById('dldest-x').onclick = fecharDlModal('modal-dl-dest')
     document.getElementById('dldest-ok').onclick = concluirDlDest
@@ -896,7 +900,7 @@
   const fecharDlModal = (id) => () => { document.getElementById(id).classList.remove('open'); renderTrechos(); renderDlAlmocos() }
 
   async function abrirDeslocNova() {
-    dlCur = { id: D().uuid(), cliente_id: null, motivo: null, criado_por: tecnico.id, modelo: 'trechos', trechos: [], almocos: [], almocoHorarios: {} }
+    dlCur = { id: D().uuid(), cliente_id: null, criado_por: tecnico.id, modelo: 'trechos', trechos: [], tarefas: [], almocos: [], almocoHorarios: {} }
     // nasce com 2 trechos (ida e volta) — o caso comum de hoje, zero mudança
     const ida = novoTrecho(null)
     ida.origem = [ref.base.cidade, ref.base.uf].filter(Boolean).join('/') || 'Base'
@@ -912,13 +916,12 @@
     if (!d || !Array.isArray(d.trechos)) return
     dlCur = JSON.parse(JSON.stringify(d))
     dlCur.almocoHorarios = dlCur.almocoHorarios || {}
+    dlCur.tarefas = dlCur.tarefas || []
     await abrirDeslocEditor()
   }
   async function abrirDeslocEditor() {
     dlModalTrecho = null
-    const mv = document.getElementById('dl-motivo')
-    mv.value = dlCur.motivo || ''
-    mv.oninput = () => { dlCur.motivo = mv.value.trim() || null }
+    renderRefTarefa()
     carregarLocaisTodos().then(() => renderTrechos())   // nomes dos Locais nos cards
     renderTrechos(); renderDlAlmocos()
     carregarAlmocosViagem().then(renderDlAlmocos)   // estado "já almoçou" (dedup visual)
@@ -938,6 +941,44 @@
       t.chegada_em = new Date(new Date(t.chegada_em).getTime() + 86400000).toISOString()
     }
   }
+  // ── Ref. Tarefa: tarefas EM ABERTO dos clientes do destino da viagem ──
+  const TAREFA_ABERTA = ['aguardando_execucao', 'em_execucao', 'devolvida']
+  const tarefaLbl = (t) => `Nº ${osNo(t.numero)} · ${cliNomeDe(t.cliente_id, '—')}`
+  function renderRefTarefa() {
+    const v = document.getElementById('dl-reftarefa-v'); if (!v || !dlCur) return
+    const sel = (dlCur.tarefas || []).map(id => (tarefas || []).find(t => t.id === id)).filter(Boolean)
+    if (sel.length) { v.textContent = sel.map(tarefaLbl).join(' · '); v.classList.remove('pend') }
+    else { v.textContent = 'Vincular tarefa em aberto (opcional)'; v.classList.add('pend') }
+  }
+  function abrirDlTarefas() {
+    if (!dlCur) return
+    const lista = document.getElementById('dltar-lista')
+    const clientesDest = [...new Set(dlCur.trechos.map(t => t.destino_cliente_id).filter(Boolean))]
+    const abertas = (tarefas || []).filter(t => TAREFA_ABERTA.includes(t.status)
+      && (!clientesDest.length || clientesDest.includes(t.cliente_id) || (dlCur.tarefas || []).includes(t.id)))
+    const render = () => {
+      const selSet = new Set(dlCur.tarefas || [])
+      lista.innerHTML = abertas.map(t => `<button type="button" class="opt-row${selSet.has(t.id) ? ' on' : ''}" data-tar="${esc(t.id)}">
+          <span class="oic"><svg viewBox="0 0 24 24"><path d="M9 6h11M9 12h11M9 18h11M4 6h.01M4 12h.01M4 18h.01"/></svg></span>
+          <span class="ot"><span class="on1">${esc(tarefaLbl(t))}</span><span class="on2">${esc((T_STATUS[t.status] || {}).t || t.status)}${t.orientacao ? ' · ' + esc(String(t.orientacao).slice(0, 60)) : ''}</span></span>
+        </button>`).join('')
+        || `<div class="prod-empty">${clientesDest.length ? 'Nenhuma tarefa em aberto para os clientes do destino.' : 'Defina o destino dos trechos (cliente) — ou não há tarefas em aberto.'}</div>`
+      const foot = document.getElementById('dltar-foot')
+      if (foot) foot.textContent = selSet.size ? `${selSet.size} vinculada${selSet.size > 1 ? 's' : ''}` : 'Nenhuma vinculada'
+      lista.querySelectorAll('[data-tar]').forEach(b => {
+        b.onclick = () => {
+          const id = b.dataset.tar
+          const set = new Set(dlCur.tarefas || [])
+          set.has(id) ? set.delete(id) : set.add(id)
+          dlCur.tarefas = [...set]
+          render()
+        }
+      })
+    }
+    render()
+    document.getElementById('modal-dl-tarefa').classList.add('open')
+  }
+
   // GPS pontual automático ao marcar saída/chegada do trecho (sem botão dedicado)
   async function marcarTrecho(i, qual) {
     const t = dlCur && dlCur.trechos[i]; if (!t) return
@@ -1455,6 +1496,7 @@
           <div class="t"><span class="cli">${esc(clisVisita.join(' · ') || cliNomeDe(d.cliente_id, '—'))}</span><span style="display:flex;gap:6px;align-items:center">${fila}${badge}</span></div>
           <div class="meta">${rota} · ${ts.length} trecho${ts.length > 1 ? 's' : ''} · ${esc(per)}${(() => { const tv = tempoViagemMin(ts, d.almocoHorarios); return tv.temTempo ? ` · <b>${fmtHm(tv.total)}</b>${tv.aberto ? '…' : ''}${tv.almoco ? ' (− almoço)' : ''}` : '' })()}</div>
           <div class="meta">A bordo: ${esc(nomes || '—')}</div>
+          ${(d.tarefas || []).length ? `<div class="meta">Ref.: ${esc((d.tarefas).map(id => { const t = (tarefas || []).find(x => x.id === id); return t ? 'Tarefa Nº ' + osNo(t.numero) : null }).filter(Boolean).join(' · ') || d.tarefas.length + ' tarefa(s)')}</div>` : ''}
           ${tomb ? `<div class="meta" style="color:#C0362C">O escritório excluiu esta viagem — ela não será mais enviada. Se quiser, descarte a cópia local.</div>${btnDescartar(d.id)}` : ''}
         </div>`
       }

@@ -292,6 +292,13 @@
       const r = await sb.from('deslocamento_tecnicos').upsert(uni.map(tid => ({ deslocamento_id: d.id, tecnico_id: tid })), { onConflict: 'deslocamento_id,tecnico_id' })
       if (r.error) throw r.error
     }
+    // tarefas referenciadas (em aberto, dos clientes do destino)
+    const delTar = await sb.from('deslocamento_tarefas').delete().eq('deslocamento_id', d.id)
+    if (delTar.error) throw delTar.error
+    if ((d.tarefas || []).length) {
+      const r = await sb.from('deslocamento_tarefas').insert(d.tarefas.map(tid => ({ deslocamento_id: d.id, tarefa_id: tid })))
+      if (r.error) throw r.error
+    }
     // almoço na estrada por pessoa/dia → o servidor materializa em `almocos` (com dedup)
     const delA = await sb.from('deslocamento_almocos').delete().eq('deslocamento_id', d.id)
     if (delA.error) throw delA.error

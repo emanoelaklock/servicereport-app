@@ -938,8 +938,12 @@ try{if(localStorage.getItem('sr_dark')==='1')document.documentElement.classList.
     <div class="tm-b tskin" style="flex:1;overflow:auto;min-height:0">
       <div class="dl-ctx">
         <div class="k">Viagem / Pernoite</div>
-        <input type="text" id="dl-motivo" placeholder="Motivo (opcional) — ex.: instalação na obra" style="margin-top:8px;width:100%">
-        <p class="dim" style="font-size:11.5px;margin:6px 0 0">O cliente de cada parada é escolhido no <b>Destino</b> do trecho.</p>
+        <button type="button" class="dlrow" id="dl-reftarefa" style="margin-top:9px;margin-bottom:0">
+          <span class="ic"><svg viewBox="0 0 24 24"><path d="M9 6h11M9 12h11M9 18h11M4 6h.01M4 12h.01M4 18h.01"/></svg></span>
+          <span class="tx"><span class="k">Ref. Tarefa</span><span class="v pend" id="dl-reftarefa-v">Vincular tarefa em aberto (opcional)</span></span>
+          <span class="chev">›</span>
+        </button>
+        <p class="dim" style="font-size:11.5px;margin:7px 0 0">O cliente de cada parada é escolhido no <b>Destino</b> do trecho. A lista de tarefas filtra pelos clientes do destino.</p>
       </div>
       <div class="dl-sec">Roteiro · trechos</div>
       <div id="dl-trechos"></div>
@@ -969,6 +973,21 @@ try{if(localStorage.getItem('sr_dark')==='1')document.documentElement.classList.
     <div class="tm-f" style="justify-content:space-between;align-items:center">
       <span id="dltec-foot" style="font-weight:700;font-size:13.5px">—</span>
       <button class="btn btn-p" id="dltec-ok">Concluir</button>
+    </div>
+  </div>
+</div>
+
+<!-- Modal: Ref. Tarefa — tarefas em aberto dos clientes do destino -->
+<div class="tm-back tm-fs" id="modal-dl-tarefa">
+  <div class="tm-box" style="display:flex;flex-direction:column">
+    <div class="tm-h tmh tmh-orange"><span class="tmh-ic"><svg viewBox="0 0 24 24"><path d="M9 6h11M9 12h11M9 18h11M4 6h.01M4 12h.01M4 18h.01"/></svg></span><span class="tmh-t">Ref. Tarefa</span><button class="tm-x" id="dltar-x">✕</button></div>
+    <div class="tm-b tskin" style="flex:1;overflow:auto;min-height:0">
+      <div class="opt-lista" id="dltar-lista" style="margin-top:0"></div>
+      <p class="dim" style="font-size:12px;margin-top:10px">Tarefas em aberto dos clientes do destino da viagem. Toque para marcar/desmarcar — dá pra vincular mais de uma.</p>
+    </div>
+    <div class="tm-f" style="justify-content:space-between;align-items:center">
+      <span id="dltar-foot" style="font-weight:700;font-size:13.5px">—</span>
+      <button class="btn btn-orange" id="dltar-ok">Concluir</button>
     </div>
   </div>
 </div>
