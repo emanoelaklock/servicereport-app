@@ -297,36 +297,42 @@ const DeslocApp = (() => {
         </div>`).join('')
       return `<div class="vm-leg">
         <div class="vh"><span class="n">${i + 1}</span>Trecho ${i + 1}${vmCur.trechos.length > 1 ? `<button type="button" class="vdel" data-vmdelleg="${i}" title="Remover trecho">×</button>` : ''}</div>
-        <div class="dm-row">
-          <div><label>Origem</label><input type="text" data-vmorig="${i}" value="${esc(t.origem || '')}"></div>
-          <div style="max-width:150px"><label>Data</label><input type="date" data-vmdata="${i}" value="${esc(t.data || '')}"></div>
+        <div class="vm-cols">
+        <div>
+          <div class="dm-row">
+            <div><label>Origem</label><input type="text" data-vmorig="${i}" value="${esc(t.origem || '')}"></div>
+            <div style="max-width:150px"><label>Data</label><input type="date" data-vmdata="${i}" value="${esc(t.data || '')}"></div>
+          </div>
+          <div style="margin-top:10px"><label>Destino</label><select data-vmloc="${i}">
+              ${vmLocais.map(l => `<option value="${esc(l.id)}"${t.destino_local_id === l.id ? ' selected' : ''}>${esc(l.nome)}${l.cidade ? ' · ' + esc([l.cidade, l.uf].filter(Boolean).join('/')) : ''}</option>`).join('')}
+              <option value=""${!t.destino_local_id ? ' selected' : ''}>Outro lugar (digitar)…</option>
+            </select>
+            ${!t.destino_local_id ? `<input type="text" data-vmdest="${i}" value="${esc(t.destino || '')}" placeholder="Digite o destino (ex.: Campinas/SP)" style="margin-top:6px">` : ''}
+          </div>
+          <div class="dm-row" style="margin-top:10px">
+            <div><label>Saída</label><input type="datetime-local" data-vmsaida="${i}" value="${esc(toLocalInput(t.saida_em))}"></div>
+            <div><label>Chegada</label><input type="datetime-local" data-vmcheg="${i}" value="${esc(toLocalInput(t.chegada_em))}"></div>
+          </div>
+          <div class="dm-row" style="margin-top:10px">
+            <div><label>Veículo</label><select data-vmveic="${i}">
+              <option value="">— sem veículo da empresa —</option>
+              ${veicArr.map(v => `<option value="${esc(v.id)}"${t.veiculo_id === v.id ? ' selected' : ''}>${esc((v.modelo || '') + ' (' + (v.placa || '') + ')')}</option>`).join('')}
+            </select></div>
+            <div><label>Sem veículo: como foi?</label><input type="text" data-vmnota="${i}" value="${esc(t.nota_transporte || '')}" placeholder="carona, avião, alugado…"${t.veiculo_id ? ' disabled' : ''}></div>
+          </div>
         </div>
-        <div style="margin-top:10px"><label>Destino</label><select data-vmloc="${i}">
-            ${vmLocais.map(l => `<option value="${esc(l.id)}"${t.destino_local_id === l.id ? ' selected' : ''}>${esc(l.nome)}${l.cidade ? ' · ' + esc([l.cidade, l.uf].filter(Boolean).join('/')) : ''}</option>`).join('')}
-            <option value=""${!t.destino_local_id ? ' selected' : ''}>Outro lugar (digitar)…</option>
-          </select>
-          ${!t.destino_local_id ? `<input type="text" data-vmdest="${i}" value="${esc(t.destino || '')}" placeholder="Digite o destino (ex.: Campinas/SP)" style="margin-top:6px">` : ''}
+        <div>
+          <div><label>Técnicos a bordo</label><div class="vm-tecs">
+            ${tecArr.map(u => `<button type="button" class="vm-tec${aboard.has(u.id) ? ' on' : ''}" data-vmtec="${i}:${esc(u.id)}">
+              <span class="av">${avHtml(u.id)}</span>
+              <span class="ti"><span class="nm">${esc(u.nome || '')}</span><span class="rl">${esc(u.cargo ? `${u.cargo} · Técnico` : 'Técnico')}</span></span>
+              <span class="ck"></span></button>`).join('')}
+          </div></div>
+          <div style="margin-top:12px"><label>Direção — quem dirigiu (revezamento; horários vazios = trecho todo)</label>
+            ${turnos}
+            <button type="button" class="vm-addmini" data-vmdrvadd="${i}">+ Turno de direção</button>
+          </div>
         </div>
-        <div class="dm-row" style="margin-top:10px">
-          <div><label>Saída</label><input type="datetime-local" data-vmsaida="${i}" value="${esc(toLocalInput(t.saida_em))}"></div>
-          <div><label>Chegada</label><input type="datetime-local" data-vmcheg="${i}" value="${esc(toLocalInput(t.chegada_em))}"></div>
-        </div>
-        <div class="dm-row" style="margin-top:10px">
-          <div><label>Veículo</label><select data-vmveic="${i}">
-            <option value="">— sem veículo da empresa —</option>
-            ${veicArr.map(v => `<option value="${esc(v.id)}"${t.veiculo_id === v.id ? ' selected' : ''}>${esc((v.modelo || '') + ' (' + (v.placa || '') + ')')}</option>`).join('')}
-          </select></div>
-          <div><label>Sem veículo: como foi?</label><input type="text" data-vmnota="${i}" value="${esc(t.nota_transporte || '')}" placeholder="carona, avião, alugado…"${t.veiculo_id ? ' disabled' : ''}></div>
-        </div>
-        <div style="margin-top:10px"><label>Técnicos a bordo</label><div class="vm-tecs">
-          ${tecArr.map(u => `<button type="button" class="vm-tec${aboard.has(u.id) ? ' on' : ''}" data-vmtec="${i}:${esc(u.id)}">
-            <span class="av">${avHtml(u.id)}</span>
-            <span class="ti"><span class="nm">${esc(u.nome || '')}</span><span class="rl">${esc(u.cargo ? `${u.cargo} · Técnico` : 'Técnico')}</span></span>
-            <span class="ck"></span></button>`).join('')}
-        </div></div>
-        <div style="margin-top:10px"><label>Direção — quem dirigiu (revezamento; horários vazios = trecho todo)</label>
-          ${turnos}
-          <button type="button" class="vm-addmini" data-vmdrvadd="${i}">+ Turno de direção</button>
         </div>
       </div>`
     }).join('')
