@@ -200,11 +200,38 @@ try{if(localStorage.getItem('sr_dark')==='1')document.documentElement.classList.
   .atd-timer .stop{background:#DE2C2C}
   .atd-timer .redo{background:var(--sur);color:var(--tx2);border:1px solid var(--bd)}
 
+  /* ===== Modais com identidade de cor ===== */
+  .tmh{color:#fff;border-bottom:none!important;gap:10px}
+  .tmh .tmh-t{flex:1;font-weight:800;color:#fff}
+  .tmh .tmh-ic{width:30px;height:30px;border-radius:9px;background:rgba(255,255,255,.2);display:grid;place-items:center;flex:none}
+  .tmh .tmh-ic svg{width:17px;height:17px;stroke:#fff;fill:none;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
+  .tmh .tm-x{color:#fff;background:rgba(255,255,255,.16);border-radius:9px}
+  .tmh-teal{background:#12A5A5}
+  .tmh-purple{background:var(--purple,#73328E)}
+  .tmh-orange{background:var(--orange,#F27423)}
+  .tmh-yellow{background:var(--yellow,#FDB31F)}
+  .tmh-blue{background:#1B7FC4}
+  /* Concluir do rodapé na cor do modal (tm-f fica fora do escopo .tskin) */
+  .tm-f .btn-teal,.tm-f .btn-purple,.tm-f .btn-orange,.tm-f .btn-yellow,.tm-f .btn-p{color:#fff;border:none}
+  .tm-f .btn-teal{background:#12A5A5}
+  .tm-f .btn-purple{background:var(--purple,#73328E)}
+  .tm-f .btn-orange{background:var(--orange,#F27423)}
+  .tm-f .btn-yellow{background:var(--yellow,#FDB31F)}
+  .tm-f .btn-p{background:#1B7FC4}
+  /* perguntas com mais presença */
+  .tm-b .fg>label{font-size:14.5px;font-weight:700;color:var(--tx)}
+  /* Fotos: Câmera/Galeria como tiles roxos */
+  #modal-fotos .photo{flex-direction:column;gap:8px;padding:20px 14px;border:1.6px solid #D9C4EA;background:#F6EFFA;color:#73328E;font-weight:800;border-radius:14px}
+  #modal-fotos .photo svg{width:26px;height:26px;stroke:#73328E;stroke-width:1.8}
+  html.dark #modal-fotos .photo{background:#241a2e;border-color:#4a3360;color:#cfa7e8}
+
   /* ===== Pergunta Sim/Não (segmented) ===== */
   .segq{display:flex;gap:10px}
-  .segq button{flex:1;padding:13px;border:1.6px solid var(--bd);border-radius:12px;background:var(--sur);font:inherit;font-size:15px;font-weight:700;color:var(--tx2);cursor:pointer}
-  .segq button.on{border-color:#1B7FC4;background:#E7F1FC;color:#175fb0}
-  html.dark .segq button.on{background:#16243a;color:#9fc1ff}
+  .segq button{flex:1;padding:16px 13px;border:1.6px solid var(--bd);border-radius:13px;background:var(--sur);font:inherit;font-size:16px;font-weight:800;color:var(--tx2);cursor:pointer}
+  .segq button.on{border-color:#1B7FC4;background:#1B7FC4;color:#fff}
+  #modal-prod .segq button.on{border-color:#12A5A5;background:#12A5A5;color:#fff}
+  #modal-desloc-rat .segq button.on{border-color:var(--orange,#F27423);background:var(--orange,#F27423);color:#fff}
+  #modal-pausa .segq button.on{border-color:var(--yellow,#FDB31F);background:var(--yellow,#FDB31F);color:#fff}
 
   /* ===== Produtos da RAT: linhas com stepper ===== */
   .prod-row2{display:flex;align-items:center;gap:10px;padding:12px 0;border-bottom:1px solid var(--bd)}
@@ -639,7 +666,7 @@ try{if(localStorage.getItem('sr_dark')==='1')document.documentElement.classList.
 <!-- Modal: Nova tarefa (técnico) -->
 <div class="tm-back tm-fs" id="modal-fotos">
   <div class="tm-box" style="display:flex;flex-direction:column">
-    <div class="tm-h"><span>Fotos / Evidências</span><button class="tm-x" id="fotos-x">✕</button></div>
+    <div class="tm-h tmh tmh-purple"><span class="tmh-ic"><svg viewBox="0 0 24 24"><path d="M3 7h4l2-2h6l2 2h4v12H3z"/><circle cx="12" cy="13" r="3.2"/></svg></span><span class="tmh-t">Fotos / Evidências</span><button class="tm-x" id="fotos-x">✕</button></div>
     <div class="tm-b tskin" style="flex:1;overflow:auto;min-height:0">
       <input type="file" accept="image/*" capture="environment" multiple id="foto-input" style="display:none">
       <input type="file" accept="image/*" multiple id="foto-input-gal" style="display:none">
@@ -656,7 +683,7 @@ try{if(localStorage.getItem('sr_dark')==='1')document.documentElement.classList.
 
 <div class="tm-back tm-fs" id="modal-prod">
   <div class="tm-box" style="display:flex;flex-direction:column">
-    <div class="tm-h"><span>Produtos da RAT</span><button class="tm-x" id="prod-x">✕</button></div>
+    <div class="tm-h tmh tmh-teal"><span class="tmh-ic"><svg viewBox="0 0 24 24"><path d="M21 16V8l-9-5-9 5v8l9 5 9-5Z"/><path d="m3.3 7 8.7 5 8.7-5M12 22V12"/></svg></span><span class="tmh-t">Produtos da RAT</span><button class="tm-x" id="prod-x">✕</button></div>
     <div class="tm-b tskin" style="flex:1;overflow:auto;min-height:0">
       <div class="fg">
         <label>Foi utilizado produto neste atendimento? <span style="color:var(--re,#DE2C2C)">*</span></label>
@@ -805,7 +832,7 @@ try{if(localStorage.getItem('sr_dark')==='1')document.documentElement.classList.
 <!-- Modal: Técnicos responsáveis (seleção com busca) -->
 <div class="tm-back tm-fs" id="modal-tec">
   <div class="tm-box" style="display:flex;flex-direction:column">
-    <div class="tm-h"><span>Técnicos responsáveis</span><button class="tm-x" id="tec-x">✕</button></div>
+    <div class="tm-h tmh tmh-blue"><span class="tmh-ic"><svg viewBox="0 0 24 24"><path d="M16 21v-2a4 4 0 0 0-8 0v2M12 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8Z"/></svg></span><span class="tmh-t">Técnicos responsáveis</span><button class="tm-x" id="tec-x">✕</button></div>
     <div class="tm-b tskin" style="flex:1;overflow:auto;min-height:0">
       <input id="tec-busca" placeholder="Buscar técnico…" autocomplete="off">
       <div id="tec-modal-lista" class="tec-lista"></div>
@@ -820,7 +847,7 @@ try{if(localStorage.getItem('sr_dark')==='1')document.documentElement.classList.
 <!-- Modal: Deslocamento do dia (perguntas da RAT — pernoite é à parte, na home) -->
 <div class="tm-back tm-fs" id="modal-desloc-rat">
   <div class="tm-box" style="display:flex;flex-direction:column">
-    <div class="tm-h"><span>Deslocamento</span><button class="tm-x" id="dr-x">✕</button></div>
+    <div class="tm-h tmh tmh-orange"><span class="tmh-ic"><svg viewBox="0 0 24 24"><path d="M3 17h2m14 0h2M5 17a2 2 0 1 0 4 0 2 2 0 0 0-4 0Zm10 0a2 2 0 1 0 4 0 2 2 0 0 0-4 0Z"/><path d="M5 17V8a1 1 0 0 1 1-1h8l4 4v6"/></svg></span><span class="tmh-t">Deslocamento</span><button class="tm-x" id="dr-x">✕</button></div>
     <div class="tm-b tskin" style="flex:1;overflow:auto;min-height:0"><div id="desloc-campos"></div></div>
     <div class="tm-f" style="justify-content:flex-end"><button class="btn btn-orange" id="dr-ok">Concluir</button></div>
   </div>
@@ -829,7 +856,7 @@ try{if(localStorage.getItem('sr_dark')==='1')document.documentElement.classList.
 <!-- Modal: Pausa/Almoço (perguntas do questionário) -->
 <div class="tm-back tm-fs" id="modal-pausa">
   <div class="tm-box" style="display:flex;flex-direction:column">
-    <div class="tm-h"><span>Pausa/Almoço</span><button class="tm-x" id="pa-x">✕</button></div>
+    <div class="tm-h tmh tmh-yellow"><span class="tmh-ic"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg></span><span class="tmh-t">Pausa/Almoço</span><button class="tm-x" id="pa-x">✕</button></div>
     <div class="tm-b tskin" style="flex:1;overflow:auto;min-height:0"><div id="pausa-campos"></div></div>
     <div class="tm-f" style="justify-content:flex-end"><button class="btn btn-yellow" id="pa-ok">Concluir</button></div>
   </div>
