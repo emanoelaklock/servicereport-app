@@ -1029,7 +1029,12 @@
         <div style="height:9px"></div>
         ${linha(SVG_PIN, 'Destino (para onde vai)', dest, 'mdest')}
         ${linha(SVG_CAR, 'Veículo', vei, 'mveic')}
-        ${t.veiculo_id ? linha(SVG_VOL, 'Direção — quem dirigiu (dá pra revezar)', dir, 'mdir') : ''}
+        ${t.veiculo_id
+          ? linha(SVG_VOL, 'Motorista — direção (dá pra revezar)', dir, 'mdir')
+          : `<button type="button" class="dlrow" data-mdirveic="${i}">
+              <span class="ic">${SVG_VOL}</span>
+              <span class="tx"><span class="k">Motorista — direção (dá pra revezar)</span><span class="v${t.nota_transporte ? '' : ' pend'}">${t.nota_transporte ? 'Sem veículo da empresa — dispensado' : 'Escolha o veículo da empresa primeiro'}</span></span>
+              <span class="chev">›</span></button>`}
         <label class="flab">A bordo neste trecho</label>
         <div class="tec-cards">${cards}</div>
         <button type="button" class="tec-add-btn" data-bd="${i}">+ Adicionar técnico</button>
@@ -1059,6 +1064,7 @@
     box.querySelectorAll('[data-mdest]').forEach(el => { el.onclick = () => abrirDlDest(+el.dataset.mdest) })
     box.querySelectorAll('[data-mveic]').forEach(el => { el.onclick = () => abrirDlVeic(+el.dataset.mveic) })
     box.querySelectorAll('[data-mdir]').forEach(el => { el.onclick = () => abrirDlDir(+el.dataset.mdir) })
+    box.querySelectorAll('[data-mdirveic]').forEach(el => { el.onclick = () => abrirDlVeic(+el.dataset.mdirveic) })   // sem veículo definido → leva pro veículo
     box.querySelectorAll('[data-marca]').forEach(el => { el.onclick = () => { const [i, q] = el.dataset.marca.split(':'); marcarTrecho(+i, q) } })
     box.querySelectorAll('[data-bd]').forEach(el => { el.onclick = () => abrirModalTecDl(+el.dataset.bd) })
     box.querySelectorAll('[data-bdrem]').forEach(el => {
