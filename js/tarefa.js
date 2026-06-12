@@ -940,24 +940,72 @@ const TarefaApp = (() => {
         <td style="text-align:right;padding:5px 6px;border-bottom:1px solid #eee">${q(l.qtd_utilizada)}</td>
         <td style="text-align:right;padding:5px 6px;border-bottom:1px solid #eee">${q(Math.max(0, Number(l.qtd_devolvida) || 0))}</td>
       </tr>`).join('')
+    // ── capa rica: dossiê da tarefa (dados, equipe, resumo, RATs, produtos, equipamentos, anexos) ──
+    const MOD_LBL = { por_hora: 'Por hora', projeto_fechado: 'Projeto fechado / orçamento', contrato: 'Contrato (locação/manutenção)', nao_faturavel: 'Não-faturável' }
+    const thS = 'text-align:left;padding:5px 6px;border-bottom:2px solid #ddd'
+    const thR = 'text-align:right;padding:5px 6px;border-bottom:2px solid #ddd'
+    const tdS = 'padding:5px 6px;border-bottom:1px solid #eee'
+    const responsaveis = [...respSel].map(id => tecNomes[id] || (ref.tecnicos.find(x => x.id === id) || {}).nome).filter(Boolean).join(', ')
+    const rats = cur.rats || []
+    const totalMin = rats.reduce((s, r) => s + (Number(RatView.tempoRat(r)) || 0), 0)
+    const aDevolver = (linhas || []).reduce((s, l) => s + Math.max(0, Number(l.qtd_devolvida) || 0), 0)
+    const foraProposta = (linhas || []).filter(l => !(Number(l.qtd_orcada) || 0) && ((Number(l.qtd_utilizada) || 0) > 0 || (Number(l.qtd_levada) || 0) > 0)).length
+    const ratsHtml = rats.map(r => `<tr>
+        <td style="${tdS}">${osNo(cur.numero)}${r.rat_seq != null ? '/' + String(r.rat_seq).padStart(2, '0') : ''}</td>
+        <td style="${tdS}">${fdt(r.data_tarefa)}</td>
+        <td style="${tdS}">${esc(r.tecnico_nome || '—')}</td>
+        <td style="${tdS}">${esc(ratSit(r.status))}</td>
+        <td style="${tdS};text-align:right">${RatView.fmtMin(RatView.tempoRat(r))}</td>
+      </tr>`).join('')
+    const equipIds = (cur.equip || []).map(x => x.equipamento_id || x)
+    const equipHtml = equipIds.map(id => {
+      const e = (ref.equip || []).find(x => x.id === id)
+      return e ? `<tr><td style="${tdS}">${esc(e.tipo || '—')}</td><td style="${tdS}">${esc(e.modelo || '—')}</td><td style="${tdS}">${esc(e.part_number || '—')}</td><td style="${tdS}">${esc(e.serial || '—')}</td></tr>` : ''
+    }).join('')
+    const anexosHtml = (cur.anexos || []).map(a => esc(a.nome)).join(' · ')
+    const fatTxt = t.faturado
+      ? `Faturada${t.numero_nota ? ' · Nota ' + esc(t.numero_nota) : ''}${t.data_faturamento ? ' · ' + dmy(t.data_faturamento) : ''}`
+      : 'Não faturada'
     const capa = `
       <div class="rd-head"><div class="rd-cli">${esc(cur.cliente_nome || '—')}</div>
         <div class="rd-sub">Tarefa Nº ${osNo(cur.numero)} · ${esc(statusLabel(cur.status))}</div></div>
       <div class="rd-sec"><div class="rd-sec-t">Dados da Tarefa</div><div class="rd-grid">
         <div class="rd-f"><label>Tipo de tarefa</label><div class="v">${esc(tipoNome)}</div></div>
         <div class="rd-f"><label>Data agendada</label><div class="v">${dmy(t.data_agendada)}</div></div>
-        ${t.pedido_compra ? `<div class="rd-f"><label>PC</label><div class="v">${esc(t.pedido_compra)}</div></div>` : ''}
-        ${t.orientacao ? `<div class="rd-f" style="grid-column:1/-1"><label>Orientação</label><div class="v">${esc(t.orientacao)}</div></div>` : ''}
+        <div class="rd-f"><label>Origem</label><div class="v">${t.orcamento_id ? 'Orçamento aprovado' : 'Criada direto (sem orçamento)'}</div></div>
+        ${t.pedido_compra ? `<div class="rd-f"><label>Pedido de Compra (PC)</label><div class="v">${esc(t.pedido_compra)}</div></div>` : ''}
+        ${(t.modalidade || '') ? `<div class="rd-f"><label>Modalidade de faturamento</label><div class="v">${esc(MOD_LBL[t.modalidade] || t.modalidade)}</div></div>` : ''}
+        <div class="rd-f"><label>Faturamento</label><div class="v">${fatTxt}</div></div>
+        ${responsaveis ? `<div class="rd-f" style="grid-column:1/-1"><label>Responsáveis</label><div class="v">${esc(responsaveis)}</div></div>` : ''}
+        ${t.orientacao ? `<div class="rd-f" style="grid-column:1/-1"><label>Orientação ao técnico</label><div class="v">${esc(t.orientacao)}</div></div>` : ''}
+        ${t.observacoes ? `<div class="rd-f" style="grid-column:1/-1"><label>Observações internas</label><div class="v">${esc(t.observacoes)}</div></div>` : ''}
+        ${t.pendencias ? `<div class="rd-f" style="grid-column:1/-1"><label>Pendências</label><div class="v">${esc(t.pendencias)}</div></div>` : ''}
+        ${t.conciliacao_obs ? `<div class="rd-f" style="grid-column:1/-1"><label>Observações da conciliação</label><div class="v">${esc(t.conciliacao_obs)}</div></div>` : ''}
       </div></div>
+      <div class="rd-sec"><div class="rd-sec-t">Resumo operacional</div><div class="rd-grid">
+        <div class="rd-f"><label>RATs registradas</label><div class="v">${rats.length}</div></div>
+        <div class="rd-f"><label>Horas registradas (RATs)</label><div class="v">${RatView.fmtMin(totalMin)}</div></div>
+        <div class="rd-f"><label>A devolver ao estoque</label><div class="v">${aDevolver ? aDevolver.toLocaleString('pt-BR', { maximumFractionDigits: 3 }) : '—'}</div></div>
+        <div class="rd-f"><label>Itens fora da proposta</label><div class="v">${foraProposta}</div></div>
+      </div></div>
+      ${ratsHtml ? `<div class="rd-sec"><div class="rd-sec-t">RATs (resumo)</div>
+        <table style="width:100%;border-collapse:collapse;font-size:12px;margin-top:4px">
+          <thead><tr><th style="${thS}">RAT</th><th style="${thS}">Data</th><th style="${thS}">Técnico</th><th style="${thS}">Situação</th><th style="${thR}">Tempo</th></tr></thead>
+          <tbody>${ratsHtml}</tbody></table></div>` : ''}
       ${linhasHtml ? `<div class="rd-sec"><div class="rd-sec-t">Produtos (conciliação)</div>
         <table style="width:100%;border-collapse:collapse;font-size:12px;margin-top:4px">
           <thead><tr>
-            <th style="text-align:left;padding:5px 6px;border-bottom:2px solid #ddd">Produto</th>
-            <th style="text-align:right;padding:5px 6px;border-bottom:2px solid #ddd">Orçada</th>
-            <th style="text-align:right;padding:5px 6px;border-bottom:2px solid #ddd">Levada</th>
-            <th style="text-align:right;padding:5px 6px;border-bottom:2px solid #ddd">Utilizada</th>
-            <th style="text-align:right;padding:5px 6px;border-bottom:2px solid #ddd">Devolvida</th>
-          </tr></thead><tbody>${linhasHtml}</tbody></table></div>` : ''}`
+            <th style="${thS}">Produto</th>
+            <th style="${thR}">Orçada</th>
+            <th style="${thR}">Levada</th>
+            <th style="${thR}">Utilizada</th>
+            <th style="${thR}">Devolvida</th>
+          </tr></thead><tbody>${linhasHtml}</tbody></table></div>` : ''}
+      ${equipHtml ? `<div class="rd-sec"><div class="rd-sec-t">Equipamentos</div>
+        <table style="width:100%;border-collapse:collapse;font-size:12px;margin-top:4px">
+          <thead><tr><th style="${thS}">Tipo</th><th style="${thS}">Modelo</th><th style="${thS}">Part number</th><th style="${thS}">Serial</th></tr></thead>
+          <tbody>${equipHtml}</tbody></table></div>` : ''}
+      ${anexosHtml ? `<div class="rd-sec"><div class="rd-sec-t">Anexos</div><div class="rd-f"><div class="v">${anexosHtml}</div></div></div>` : ''}`
     const dets = []
     for (const r of (cur.rats || [])) dets.push(await RatView.loadDetalhe(r))
     RatView.gerarPdf(dets, `Tarefa ${osNo(cur.numero)}`, capa, modo)
