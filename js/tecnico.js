@@ -1190,7 +1190,24 @@
     if (c.tipo === 'texto') {
       wrap.innerHTML = `${label}<input type="text" data-campo="${esc(c.id)}" data-tipo="texto"/>`
     } else if (c.tipo === 'texto_longo') {
-      wrap.innerHTML = `${label}<textarea class="ta-longo" data-campo="${esc(c.id)}" data-tipo="texto_longo" placeholder="…"></textarea>`
+      const ehServico = c.id === 'servico_executado'
+      const ph = ehServico ? 'Descreva o serviço executado, atividades realizadas e resultados obtidos' : '…'
+      wrap.innerHTML = `${label}<textarea class="ta-longo${ehServico ? ' ta-servico' : ''}" data-campo="${esc(c.id)}" data-tipo="texto_longo" placeholder="${esc(ph)}"></textarea>`
+      if (ehServico) setTimeout(() => {
+        const ta = wrap.querySelector('textarea'); if (!ta) return
+        // bullets automáticos: "- " ao focar vazio e a cada Enter
+        ta.addEventListener('focus', () => {
+          if (!ta.value.trim()) { ta.value = '- '; ta.dispatchEvent(new Event('input', { bubbles: true })) }
+        })
+        ta.addEventListener('keydown', (e) => {
+          if (e.key !== 'Enter') return
+          e.preventDefault()
+          const s = ta.selectionStart, f = ta.selectionEnd, v = ta.value
+          ta.value = v.slice(0, s) + '\n- ' + v.slice(f)
+          ta.selectionStart = ta.selectionEnd = s + 3
+          ta.dispatchEvent(new Event('input', { bubbles: true }))
+        })
+      }, 0)
     } else if (c.tipo === 'data') {
       const hoje = new Date().toISOString().slice(0, 10)
       wrap.innerHTML = `${label}<input type="date" value="${hoje}" data-campo="${esc(c.id)}" data-tipo="data"/>`
