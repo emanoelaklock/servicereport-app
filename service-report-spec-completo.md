@@ -1,6 +1,8 @@
 # Service Report + Módulo Comercial — Especificação Consolidada
 
 > Documento vivo. Reúne tudo que foi desenhado até aqui. Serve de referência única para a construção (Claude Code) e para revisão do time. Ao lembrar de algo novo, acrescenta-se aqui — não precisa segurar nada de cabeça.
+>
+> **Última atualização: 12/06/2026** (incorpora o trabalho de 09–11/06: re-skin do admin, reorganização da RAT do técnico, timers reabríveis, IA "Melhorar escrita", pernoite, paleta oficial).
 
 ---
 
@@ -9,6 +11,8 @@
 Plataforma interna da **Traders Service (TSRV)** para substituir gradualmente o Auvo e integrar com o Omie. Vive no portal **"Traders Apps"** (Supabase, projeto `iwufrqmzcvaiyzynodkg`), como mais um módulo ao lado do AxisInventory.
 
 **Stack:** HTML/CSS/JS puro + Supabase + Vercel. Design system "Bold" (navy `#1B2A4A`). Backend único compartilhado.
+
+**Paleta oficial (implementada em 09/06):** azul · verde (`--green #179A47`) · roxo · vermelho · laranja · amarelo, com tints translúcidos para fundos. Rótulos em **sentence case** (sem CAIXA ALTA). Ícones **SVG de linha** (sem emojis) em todas as superfícies — admin e app do técnico.
 
 **O funil completo, de ponta a ponta:**
 
@@ -69,11 +73,15 @@ Levantamento técnico em campo, para o comercial depois precificar.
 
 Artefato **próprio** do técnico (não é um campo dentro da RAT — esse é o bloco de deslocamento/tempo). Registra **viagens com pernoite**. **Continua valendo** (decisão confirmada).
 
-> ⚠️ **Recuperar a definição completa** (campos, regras) do `especificacao-consolidada.md` (§15) — ela foi decidida em sessão anterior e ficou de fora desta consolidação. Não reinventar: trazer o que já existe no doc antigo.
+**Implementado (11/06):** acessível em **Home > Deslocamento** no app do técnico. Blocos de **Ida** e **Volta** (com ícones SVG) e **técnicos a bordo** selecionados em cards (mesmo padrão visual da RAT).
+
+> Não confundir com o **deslocamento do dia**, que mora dentro da RAT (botão "Deslocamento" no grid de registros — pergunta Sim/Não + horários de ida/retorno). Pernoite é viagem; deslocamento do dia é o trajeto da visita.
 
 ---
 
 ## 5. Orçamento
+
+> **Onde vive (decisão de 09/06):** o orçamento migrou para um app próprio, **"Gestão Comercial" (`comercial-app`)** — o menu Orçamentos saiu da sidebar do Service Report. Mesmo backend Supabase; as regras abaixo continuam valendo.
 
 - **Quem cria:** **comercial**. Pode ser **transformado de um pré-orçamento** ou **criado novo** (`pre_orcamento_id` opcional).
 - **Serviço:** **descrição livre (texto longo)** + **valor final** digitado na hora. **Sem quantidade, valor unitário ou valor total** (isso é só de materiais).
@@ -128,7 +136,7 @@ O PDF cru anterior (só tabelas) **não** é o alvo.
 | Status | O que acontece |
 |--------|----------------|
 | **Aguardando aprovação** | Estado inicial (ao salvar). Continua **editável/revisável**; pode gerar PDF e enviar ao cliente. |
-| **Aprovado** | Gera a **OS/Tarefa** e **congela o orçado** (material e quantidades viram base imutável). |
+| **Aprovado** | Gera a **OS/Tarefa** e **congela o orçado** (material e quantidades viram base imutável). Implementado via edge function `aprovar-orcamento`; **só gera Tarefa se o orçamento tiver serviço** (orçamento só-materiais não vira OS). **Reabrir** um aprovado desfaz: a edge function `reabrir-orcamento` remove a Tarefa gerada. |
 | **Não aprovado** | Sistema **avisa**; uma pessoa decide **excluir (arquivar) ou manter**. |
 | **Arquivado** | Soft delete — some das listas ativas, mantém histórico. |
 | **Sem retorno há 90 dias** | (orçamento ainda "Aguardando aprovação") Sistema **avisa** (nada automático); pessoa decide excluir (arquivar) ou manter. |
@@ -152,6 +160,8 @@ A **OS interna = a Tarefa**. É o nível "trabalho"; tem 1 ou várias RATs (uma 
 **Status inicial por quem cria:**
 - **Admin cria** → *Aguardando execução* (ou com data agendada).
 - **Técnico cria em campo** → já entra *Em execução*.
+
+**Auto-promoção (implementada 10/06):** a Tarefa entra em **Em execução** automaticamente ao ganhar a **primeira RAT** — trigger no banco no insert da RAT + transição no cliente (cobre o caso offline).
 
 ### Status da OS — dois eixos
 
@@ -224,6 +234,24 @@ Cada RAT = uma visita/dia dentro de uma Tarefa. Offline-first.
 - **Concluir** (`Concluído` / `Concluído com pendência`) **exige todos os campos obrigatórios preenchidos** — vale para as duas opções. Sem isso, não conclui.
 - **Ao concluir:** gera **PDF** + dispara **e-mail para adm@tsrv.com.br**.
 - Campos do formulário são **configuráveis** (modelos por tipo de serviço).
+- **Numeração exibida** com separador `/`: ex. `#04744/01` (tarefa/sequência da RAT).
+
+### 8.1 Formulário da RAT no app do técnico — layout atual (10–11/06)
+
+Referência visual: `docs/mockups/mockup-nova-rat-topo.html`. Reorganização completa do formulário:
+
+- **Topo:** card de **contexto** (cliente/tarefa) + **grid 2×2 de registros** em cards coloridos (estilo dos tiles da home): **Deslocamento** · **Pausa/Almoço** · **Produtos** · **Fotos**. Cada card abre um **modal** com identidade de cor (header colorido, botão **Concluir** na cor do card) e mostra badge de estado (**Pendente** / valor preenchido com ✓).
+- **Deslocamento (do dia):** pergunta Sim/Não + horários de **ida/retorno**. (Pernoite é à parte — §4.1.)
+- **Pausa/Almoço:** num modal só — "Houve almoço?" e pausa com motivo/horários, ambos com botões **Sim/Não**.
+- **Produtos:** pergunta Sim/Não + **steppers** de quantidade; catálogo de produtos mora aqui (autocomplete paginado — o catálogo tem ~1.715 itens, acima do teto de 1.000/req do Supabase). No fechamento, **Utilizada = teto da soma** das RATs na conciliação.
+- **Botões Sim/Não semânticos:** Sim verde, Não vermelho, preenchidos ao selecionar.
+- **Pares lado a lado** (grid `1fr 1fr`): Data + Veículo · Hora início + término. Veículo é seletor inline com opção **"Sem veículo"**. Botão de GPS manual foi removido.
+- **Técnicos responsáveis:** modal **fullscreen** (escala para 15–20 técnicos), cards no padrão do admin + botão "+ Adicionar técnico".
+- **Timers reabríveis (10/06):** todos os pares de horário (atendimento, almoço, pausa, ida, retorno) usam o mesmo sistema de timer — inicia/encerra e **pode reabrir** um par já fechado.
+- **Serviço executado / Pendências / Observações:** caixas maiores, placeholder orientativo e **bullets `-` automáticos** ao digitar.
+- **Indicador de progresso para concluir:** mostra o que falta (campos obrigatórios + produtos + foto) antes de liberar o Concluir.
+- **Anti-RAT-órfã:** rascunho recém-aberto **sem trabalho real é descartado** ao sair (não fica lixo local).
+- **Sem ditado por voz** (removido — travava o app no iOS/PWA).
 
 ### Duas "pendências" distintas (não confundir)
 
@@ -249,6 +277,8 @@ Coração do sistema. Conciliação **interna** (não depende do Omie).
 | **Situação** | Calculada | Sinaliza divergências. |
 
 **Visibilidade do técnico:** vê *orçada* e *levada* (leitura), edita só *utilizada*. **Não vê preço** (ver §10).
+
+**Terminologia no app do técnico (11/06):** nos textos visíveis, "Levado"/"Comigo" virou **"Disponível"** (o conceito/coluna interna continua *levada*).
 
 ### Duas conciliações (não uma)
 - **Orçado × Utilizado** → custo/faturamento (usou mais/menos do que foi vendido).
@@ -332,26 +362,52 @@ O **técnico nunca escolhe a modalidade** — ela é **derivada** (do contrato/o
 - **Soft delete:** orçamentos "excluídos" são arquivados (some das listas ativas, mantém histórico).
 - **Numeração sequencial pelo servidor** (RAT, e número da Tarefa).
 - **Link opcional** como padrão recorrente: `pre_orcamento_id`, `orcamento_id`, `produto_id` — preenchido = ligado; vazio = origem alternativa/avulso.
+- **"Melhorar escrita" (IA):** botão ✨ ao lado de textareas que reescreve o texto livre em português profissional (edge function `melhorar-texto`, Claude Haiku; chave só no servidor). Helper compartilhado em `js/utils.js`, **desktop-only**: vive nas telas do back-office (Tarefa, RAT em edição) e na descrição do serviço do orçamento (comercial-app). **Decisão (10/06): NÃO fica no app do técnico** — foi testado lá e removido; o texto bruto do campo é melhorado no escritório.
+- **Identidade do usuário vem do Portal:** papel sincronizado de `portal_acessos` (não de `usuarios.role`), foto/avatar de `usuarios.foto` (base64 gravada pelo Portal), cargo em texto livre. **Gestão de usuários saiu do Service Report** (centralizada no Portal).
 
 ---
 
 ## 13. Estado atual da construção
 
-**Já feito:**
-- Slice-1 do Service Report migrado no projeto (clientes, produtos, tipos_servico, formulario_modelos, tarefas, relatorio_fotos, materiais, sync_eventos, sync_log + view de conciliação + RLS por papel + bucket de anexos).
-- App de campo (PWA, IndexedDB, formulário dinâmico de RAT, sync idempotente), painel/relatórios/configurações, login/auth.
-- Integração Omie **Fase 1** (leitura de clientes/produtos via Edge Function `omie-sync`).
-- **Papel `comercial`** liberado (banco + tela de Usuários + roteamento). *(commit e4f8efd)*
-- **Preço de venda do Omie** em `produtos.preco_venda` + sync (1714 produtos com preço). *(commit e4f8efd)*
+*Atualizado em 12/06/2026.*
 
-**Pendente (próximos passos):**
-1. **CONFIRMAR/Fazer a reestruturação dois níveis** (renomear `tarefas`→`rats`; criar `tarefas` pai; `rats.tarefa_id`). **Pré-requisito do módulo comercial** (o "aprovado gera Tarefa" e a conciliação dependem disso). Validar no ar antes de empilhar.
-2. **Módulo comercial:** pré-orçamento (campo, offline), orçamento, status, exclusão/arquivo. PDF **no servidor**; e-mail via **Resend** (verificar domínio tsrv.com.br).
-3. **Material/conciliação** com as 5 colunas + permissões por papel + preço oculto no nível de dados.
-4. **Faturamento:** revisão do admin, escrita da OS no Omie ("a Faturar") com idempotência, retorno do status faturado.
-5. **PDF + e-mail ao finalizar** (serviço compartilhado).
-6. **App do técnico (UI):** home em hub de 4 áreas + telas "OS para hoje" e "Agenda" (ver §7 e mockups). Sync com estado; sem R$; sem prioridade/marcador de pendência.
-7. Regras: 1 RAT por (OS, dia); 1 almoço por (técnico, dia); status em dois eixos; concluir exige campos obrigatórios.
+### Concluído
+
+**Base / banco**
+- **Reestruturação dois níveis FEITA:** `tarefas` (pai, a OS) + `rats` (filhas, `rats.tarefa_id`). Numeração pelo servidor; exibição `#04744/01`.
+- Slice-1 completo: clientes, produtos, tipos_servico, formulario_modelos, tarefas, rats, relatorio_fotos, materiais, sync_eventos, sync_log, view de conciliação, RLS por papel, bucket de anexos.
+- **Trigger:** Tarefa entra em *Em execução* ao receber a primeira RAT (§7).
+- Papel `comercial` liberado; papel sincronizado com o Portal (`portal_acessos`); gestão de usuários **removida do SR** (centralizada no Portal); foto/cargo vindos do Portal.
+- **Preço de venda do Omie** em `produtos.preco_venda` (sync paginado; ~1.715 produtos).
+
+**Edge functions no ar:** `omie-sync` (leitura Omie F1) · `aprovar-orcamento` (aprovado → gera Tarefa, só se houver serviço) · `reabrir-orcamento` (desfaz a aprovação removendo a Tarefa) · `documentos` (PDF + e-mail do pré-orçamento via Resend → comercial@tsrv) · `melhorar-texto` (IA, Claude Haiku) · `manage-users` · `notify-push` · `orcamento-importar-fotos`.
+
+**Módulo comercial**
+- Pré-orçamento de campo (offline) e orçamento funcionando, com status/arquivamento.
+- **Orçamentos migraram para o app "Gestão Comercial" (`comercial-app`)** — menu removido da sidebar do SR. Editor com botões na paleta da marca, descrição auto-crescente/redimensionável, "Proposta Nº" em destaque.
+
+**Back-office (admin)**
+- **Re-skin completo** no design system: sidebar clara color-codeada, painel com KPIs translúcidos, listas em `.listpanel` (Tarefas, Orçamentos, Deslocamentos), Jornada com KPIs color-codeados, Configurações com abas/badges na paleta, sentence case em toda parte, paleta oficial de 6 cores.
+- **Tela de detalhe da Tarefa (§7) implementada:** cabeçalho rico, faixa "Situação da tarefa" (6 cards), abas com ✓/contador, Resumo operacional, Linha do tempo (trilha `sync_eventos`).
+- Responsáveis em **chips** (avatar + nome + papel real + ×) com "+ Adicionar".
+- Relatório da RAT (`rat.html`) e **PDF da RAT** na paleta do design system.
+- **"Melhorar escrita" (IA)** nas textareas do desktop (ver §12).
+
+**App do técnico (PWA)**
+- Home em hub + OS para hoje + Agenda + Pré-orçamento + **Deslocamento/pernoite** (§4.1) — implementados.
+- **Formulário da RAT reorganizado** (§8.1): card de contexto + grid 2×2 de registros, modais coloridos, Sim/Não semânticos, técnicos em modal fullscreen, indicador de progresso para concluir, **timers reabríveis** (atendimento/almoço/pausa/ida/retorno).
+- Pacote UX: autosave, catálogo offline, banners de sync, fotos, dark mode, correções iOS (inputs date/time), anti-RAT-órfã. Ditado por voz **removido** (travava iOS/PWA).
+- Emojis → **ícones SVG**; terminologia "Disponível" (§9); **sem R$** nas telas do técnico.
+- Service worker na casa da **v300**; produção no Vercel (`servicereport-app.vercel.app`).
+
+### Pendente (próximos passos)
+
+1. **Faturamento — escrita no Omie:** criar a OS **"a Faturar"** ao aprovar a Tarefa (idempotente) + retorno do status *Faturada* (webhook ou checagem periódica). Hoje "A faturar" existe só como **filtro local** na lista de tarefas — a integração de escrita não foi construída.
+2. **E-mail da RAT concluída** → adm@tsrv.com.br (o serviço `documentos` hoje cobre o pré-orçamento; estender para a RAT).
+3. **Modalidade de faturamento por contrato/obra** (§10.1): o filtro "pendente de classificação" já existe (`tarefas.modalidade` vazia); falta o cadastro/derivação da modalidade no contrato.
+4. **Modo "dia contínuo"** (WestRock-FBTB): linha do tempo contínua, handoff, arredondamento de 5 min — desenhado (§10.1), não construído.
+5. **Câmbio US$/PTAX** no material do orçamento — futuro desenhado (§5), é só plugar.
+6. **Rastreio de bobina/lote** — evolução futura do estoque (§9).
 
 ---
 
