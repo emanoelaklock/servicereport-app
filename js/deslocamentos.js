@@ -301,6 +301,22 @@ const DeslocApp = (() => {
   const horaMais = (hhmm, min) => { const [h, m] = String(hhmm).split(':').map(Number); if (isNaN(h)) return ''; const t = (h * 60 + (m || 0) + min) % 1440; return `${String(Math.floor(t / 60)).padStart(2, '0')}:${String(t % 60).padStart(2, '0')}` }
   const vmAlmRows = () => Object.entries(vmAlmHor).filter(([, h]) => h && h.inicio && h.fim)
     .map(([dia, h]) => ({ dia, inicio: h.inicio, fim: h.fim }))
+  // tempo de UM trecho, descontando o almoço do dia que cai dentro dele
+  function tempoTrechoMin(t, hor) {
+    if (!t || !t.saida_em) return null
+    const a = new Date(t.saida_em).getTime()
+    const aberto = !t.chegada_em
+    const b = aberto ? Date.now() : new Date(t.chegada_em).getTime()
+    if (b <= a) return { total: 0, almoco: 0, aberto }
+    const dia = t.data || String(t.saida_em).slice(0, 10)
+    const h = (hor || {})[dia]
+    let alm = 0
+    if (h && h.inicio && h.fim) {
+      const ai = new Date(`${dia}T${h.inicio}:00`).getTime(), af = new Date(`${dia}T${h.fim}:00`).getTime()
+      alm = Math.max(0, Math.min(b, af) - Math.max(a, ai)) / 60000
+    }
+    return { total: Math.max(0, Math.round((b - a) / 60000 - alm)), almoco: Math.round(alm), aberto }
+  }
   // A DATA do trecho é a única fonte de data: saída/chegada são só HORA, ancoradas nela.
   const hhIso = (iso) => { if (!iso) return ''; const d = new Date(iso); return `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}` }
   const isoNoDia = (dia, hhmm, fallbackIso) => {
@@ -343,7 +359,7 @@ const DeslocApp = (() => {
         vmAlmHor[dia] = vmAlmHor[dia] || {}
         vmAlmHor[dia].inicio = el.value || null
         if (el.value && (!vmAlmHor[dia].fim || vmAlmHor[dia].fim <= el.value)) vmAlmHor[dia].fim = horaMais(el.value, 60)
-        renderVmAlmoco(); renderVmTotal()
+        renderVmTrechos()   // cards por trecho descontam o almoço
       }
     })
     box.querySelectorAll('[data-vmafim]').forEach(el => {
@@ -354,10 +370,10 @@ const DeslocApp = (() => {
           toast('O término do almoço não pode ser antes do início.', 'err')
           vmAlmHor[dia].fim = horaMais(vmAlmHor[dia].inicio, 60)
         } else vmAlmHor[dia].fim = el.value || null
-        renderVmAlmoco(); renderVmTotal()
+        renderVmTrechos()
       }
     })
-    box.querySelectorAll('[data-vmalimpa]').forEach(el => { el.onclick = () => { delete vmAlmHor[el.dataset.vmalimpa]; renderVmAlmoco(); renderVmTotal() } })
+    box.querySelectorAll('[data-vmalimpa]').forEach(el => { el.onclick = () => { delete vmAlmHor[el.dataset.vmalimpa]; renderVmTrechos() } })
   }
   const vmUuid = () => (crypto.randomUUID ? crypto.randomUUID() : `${Date.now()}-${Math.random().toString(16).slice(2)}`)
   function vmNovoTrecho() {
@@ -432,6 +448,7 @@ const DeslocApp = (() => {
             <div><label>Saída (hora)</label><input type="time" data-vmsaida="${i}" value="${esc(hhIso(t.saida_em))}"></div>
             <div><label>Chegada (hora)</label><input type="time" data-vmcheg="${i}" value="${esc(hhIso(t.chegada_em))}"></div>
           </div>
+          ${(() => { const tt = tempoTrechoMin(t, vmAlmHor); return tt ? `<div class="vm-legtot"><span>Tempo do trecho${tt.aberto ? ' · em andamento' : ''}${tt.almoco ? ` <i>(− ${fmtHm(tt.almoco)} almoço)</i>` : ''}</span><b>${fmtHm(tt.total)}</b></div>` : '' })()}
           <div class="dm-row" style="margin-top:10px">
             <div><label>Veículo</label><select data-vmveic="${i}">
               <option value="">— sem veículo da empresa —</option>
@@ -481,7 +498,7 @@ const DeslocApp = (() => {
         const t = T[+el.dataset.vmsaida]
         t.saida_em = isoNoDia(t.data, el.value, t.saida_em)
         ajustaMadrugada(t)
-        renderVmTotal()
+        renderVmTrechos()   // card do trecho + total
       }
     })
     box.querySelectorAll('[data-vmcheg]').forEach(el => {
@@ -489,7 +506,7 @@ const DeslocApp = (() => {
         const t = T[+el.dataset.vmcheg]
         t.chegada_em = isoNoDia(t.data, el.value, t.chegada_em)
         ajustaMadrugada(t)
-        renderVmTotal()
+        renderVmTrechos()
       }
     })
     box.querySelectorAll('[data-vmveic]').forEach(el => {

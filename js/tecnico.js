@@ -990,6 +990,22 @@
     return { total: Math.max(0, Math.round(bruto - almoco)), bruto: Math.round(bruto), almoco: Math.round(almoco), aberto, temTempo }
   }
   const fmtHm = (m) => `${Math.floor(m / 60)}h${String(Math.round(m % 60)).padStart(2, '0')}`
+  // tempo de UM trecho, descontando o almoço do dia que cai dentro dele
+  function tempoTrechoMin(t, hor) {
+    if (!t || !t.saida_em) return null
+    const a = new Date(t.saida_em).getTime()
+    const aberto = !t.chegada_em
+    const b = aberto ? Date.now() : new Date(t.chegada_em).getTime()
+    if (b <= a) return { total: 0, almoco: 0, aberto }
+    const dia = t.data || String(t.saida_em).slice(0, 10)
+    const h = (hor || {})[dia]
+    let alm = 0
+    if (h && h.inicio && h.fim) {
+      const ai = new Date(`${dia}T${h.inicio}:00`).getTime(), af = new Date(`${dia}T${h.fim}:00`).getTime()
+      alm = Math.max(0, Math.min(b, af) - Math.max(a, ai)) / 60000
+    }
+    return { total: Math.max(0, Math.round((b - a) / 60000 - alm)), almoco: Math.round(alm), aberto }
+  }
   function renderDlTotal() {
     const box = document.getElementById('dl-total'); if (!box || !dlCur) return
     const { total, bruto, almoco, aberto, temTempo } = tempoViagemMin(dlCur.trechos, dlCur.almocoHorarios)
@@ -1094,6 +1110,7 @@
         <div style="height:3px"></div>
         <div class="ltimers">${tbx('saida', 'Saída')}${tbx('chegada', 'Chegada')}</div>
         ${gpsLin}
+        ${(() => { const tt = tempoTrechoMin(t, dlCur.almocoHorarios); return tt ? `<div class="leg-tot"><span>Tempo do trecho${tt.aberto ? ' · em andamento' : ''}${tt.almoco ? ` <i>(− ${fmtHm(tt.almoco)} almoço)</i>` : ''}</span><b>${fmtHm(tt.total)}</b></div>` : '' })()}
       </div>`)
       // pernoite sugerido entre trechos de dias diferentes (derivado, ninguém digita)
       const prox = dlCur.trechos[i + 1]
@@ -1357,7 +1374,7 @@
         // término sugerido: 1h depois (editável); também corrige término anterior ao início
         const h = (dlCur.almocoHorarios || {})[dia] || {}
         if (el.value && (!h.fim || h.fim <= el.value)) setH(dia, 'fim', horaMais(el.value, 60))
-        renderDlAlmocos()
+        renderDlAlmocos(); renderTrechos()   // cards por trecho descontam o almoço
       }
     })
     box.querySelectorAll('[data-almfim]').forEach(el => {
@@ -1370,7 +1387,7 @@
         } else {
           setH(dia, 'fim', el.value)
         }
-        renderDlAlmocos()
+        renderDlAlmocos(); renderTrechos()
       }
     })
     renderDlTotal()
