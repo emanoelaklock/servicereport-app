@@ -262,6 +262,8 @@ try{if(localStorage.getItem('sr_dark')==='1')document.documentElement.classList.
   /* ===== Serviço executado: caixa maior ===== */
   .ta-servico{min-height:170px!important}
 
+  .seg-tipo svg{width:15px;height:15px;stroke:currentColor;fill:none;stroke-width:2;stroke-linecap:round;stroke-linejoin:round;vertical-align:-2px;margin-right:5px}
+
   /* ===== Linha dupla de campos (lado a lado) ===== */
   .fg-row{display:grid;grid-template-columns:1fr 1fr;gap:10px;align-items:start}
   .fg-row>.campo{min-width:0;width:auto;overflow:hidden}
@@ -281,7 +283,7 @@ try{if(localStorage.getItem('sr_dark')==='1')document.documentElement.classList.
   .tec-card .rl,.tec-row .rl{font-size:11.5px;color:var(--tx3);font-weight:600}
   .tec-add-btn{width:100%;border:1.6px dashed #9DC3E2;background:#F2F8FD;color:#175fb0;border-radius:12px;padding:13px;font:inherit;font-size:14px;font-weight:800;cursor:pointer}
   html.dark .tec-add-btn{background:#16243a;border-color:#23406b;color:#9fc1ff}
-  #tec-busca{width:100%;padding:11px 12px;border:1px solid var(--bd);border-radius:10px;font:inherit;font-size:16px;background:var(--sur);color:var(--tx)}
+  #tec-busca,#dltec-busca{width:100%;padding:11px 12px;border:1px solid var(--bd);border-radius:10px;font:inherit;font-size:16px;background:var(--sur);color:var(--tx)}
   .tec-lista{margin-top:8px;display:flex;flex-direction:column;gap:8px}
   .tec-lista .tec-row{display:flex;align-items:center;gap:11px;background:var(--sur);border:1px solid var(--bd);border-radius:13px;padding:10px 12px;cursor:pointer}
   .tec-lista .tec-row input{display:none}
@@ -817,8 +819,8 @@ try{if(localStorage.getItem('sr_dark')==='1')document.documentElement.classList.
     <div class="tm-b" style="flex:1;overflow:auto;min-height:0">
       <label>Sentido</label>
       <div class="seg-tipos" id="dl-sentido">
-        <button type="button" class="seg-tipo on" data-sent="ida">➡️ Ida</button>
-        <button type="button" class="seg-tipo" data-sent="volta">⬅️ Volta</button>
+        <button type="button" class="seg-tipo on" data-sent="ida"><svg viewBox="0 0 24 24"><path d="M5 12h14m-6-6 6 6-6 6"/></svg>Ida</button>
+        <button type="button" class="seg-tipo" data-sent="volta"><svg viewBox="0 0 24 24"><path d="M19 12H5m6-6-6 6 6 6"/></svg>Volta</button>
       </div>
       <label style="margin-top:12px">Empresa (cliente) — vai para o destino na ida, para a origem na volta</label>
       <div class="ac">
@@ -829,7 +831,8 @@ try{if(localStorage.getItem('sr_dark')==='1')document.documentElement.classList.
       <label style="margin-top:12px">Veículo</label>
       <select id="dl-veiculo"><option value="">— selecione —</option></select>
       <label style="margin-top:12px">Técnicos a bordo</label>
-      <div class="dl-tecs" id="dl-tecs"></div>
+      <div class="tec-cards" id="dl-tec-cards"></div>
+      <button type="button" class="tec-add-btn" id="dl-tec-add">+ Adicionar Técnico</button>
       <div style="display:flex;gap:10px;margin-top:12px">
         <div style="flex:2"><label>Cidade (origem)</label><input type="text" id="dl-origem-cidade" placeholder="preenche pelo GPS da saída"></div>
         <div style="width:64px"><label>UF</label><input type="text" id="dl-origem-uf" maxlength="2" placeholder="UF" style="text-transform:uppercase"></div>
@@ -850,6 +853,22 @@ try{if(localStorage.getItem('sr_dark')==='1')document.documentElement.classList.
     <div class="tm-f">
       <button class="btn" id="dl-cancelar">Cancelar</button>
       <button class="btn btn-p" id="dl-salvar">Salvar trajeto</button>
+    </div>
+  </div>
+</div>
+
+<!-- Modal: Técnicos a bordo do trajeto (pernoite) -->
+<div class="tm-back tm-fs" id="modal-tec-dl">
+  <div class="tm-box" style="display:flex;flex-direction:column">
+    <div class="tm-h tmh tmh-blue"><span class="tmh-ic"><svg viewBox="0 0 24 24"><path d="M16 21v-2a4 4 0 0 0-8 0v2M12 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8Z"/></svg></span><span class="tmh-t">Técnicos a bordo</span><button class="tm-x" id="dltec-x">✕</button></div>
+    <div class="tm-b tskin" style="flex:1;overflow:auto;min-height:0">
+      <input id="dltec-busca" placeholder="Buscar técnico…" autocomplete="off">
+      <div id="dltec-lista" class="tec-lista"></div>
+      <div class="prod-empty" id="dltec-vazio" style="display:none">Todos os técnicos já estão a bordo.</div>
+    </div>
+    <div class="tm-f" style="justify-content:space-between;align-items:center">
+      <span id="dltec-foot" style="font-weight:700;font-size:13.5px">—</span>
+      <button class="btn btn-p" id="dltec-ok">Concluir</button>
     </div>
   </div>
 </div>

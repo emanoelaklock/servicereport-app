@@ -163,6 +163,10 @@
     document.getElementById('prod-avulso-btn').onclick = () => { document.getElementById('prod-avulso-form').style.display = ''; document.getElementById('pav-nome').focus() }
     document.getElementById('pav-cancelar').onclick = () => { document.getElementById('prod-avulso-form').style.display = 'none' }
     document.getElementById('pav-add').onclick = adicionarAvulso
+    const dta = document.getElementById('dl-tec-add'); if (dta) dta.onclick = abrirModalTecDl
+    const dtx = document.getElementById('dltec-x'); if (dtx) dtx.onclick = fecharModalTecDl
+    const dto = document.getElementById('dltec-ok'); if (dto) dto.onclick = fecharModalTecDl
+    const dtb = document.getElementById('dltec-busca'); if (dtb) dtb.oninput = renderDlTecLista
     document.getElementById('tec-x').onclick = fecharModalTecnicos
     document.getElementById('tec-ok').onclick = fecharModalTecnicos
     document.getElementById('tec-busca').oninput = filtrarTecnicos
@@ -878,21 +882,21 @@
       dlSetLocal(dlSent === 'volta' ? 'origem' : 'destino', g.cidade, g.uf)
     })
     document.getElementById('dl-veiculo').innerHTML = '<option value="">— selecione —</option>' + ref.veiculos.map(v => `<option value="${esc(v.id)}">${esc((v.modelo || '') + ' (' + (v.placa || '') + ')')}</option>`).join('')
-    document.getElementById('dl-tecs').innerHTML = ref.tecnicos.map(t => `<label><input type="checkbox" value="${esc(t.id)}"${t.id === tecnico.id ? ' checked' : ''}> ${esc(tcase(t.nome))}</label>`).join('')
+    dlTecSel = new Set([tecnico.id])
+    renderDlTecCards()
     dlSent = 'ida'; dlSaidaPos = null
     document.querySelectorAll('#dl-sentido .seg-tipo').forEach(x => x.classList.toggle('on', x.dataset.sent === 'ida'))
     ;['dl-cli', 'dl-cli-busca', 'dl-origem-cidade', 'dl-origem-uf', 'dl-destino-cidade', 'dl-destino-uf', 'dl-saida', 'dl-chegada', 'dl-motivo'].forEach(id => { const e = document.getElementById(id); if (e) e.value = '' })
     document.getElementById('dl-veiculo').value = ''
     document.getElementById('dl-gps-status').textContent = ''
     deslocHerdaEmpresa(await D().listarDeslocamentos())
-    document.querySelectorAll('#dl-tecs input').forEach(c => { c.checked = (c.value === tecnico.id) })
     document.getElementById('modal-desloc').classList.add('open')
   }
   function fecharDesloc() { document.getElementById('modal-desloc').classList.remove('open') }
   const dlISO = (v) => v ? new Date(v).toISOString() : null
 
   async function salvarDesloc() {
-    const tecs = [...document.querySelectorAll('#dl-tecs input:checked')].map(c => c.value)
+    const tecs = [...dlTecSel]
     const saida = dlISO(document.getElementById('dl-saida').value)
     if (!saida) return toast('Informe a data/hora de saída.', 'err')
     if (!tecs.length) return toast('Marque ao menos um técnico a bordo.', 'err')
@@ -1472,6 +1476,38 @@
     if (foot) foot.textContent = sel.length ? `${sel.length} na RAT` : 'Nenhum selecionado'
     atualizarProgresso()
   }
+
+  // ── Técnicos a bordo (trajeto/pernoite): mesmos cards da RAT, estado próprio (ids) ──
+  let dlTecSel = new Set()
+  function renderDlTecCards() {
+    const box = document.getElementById('dl-tec-cards'); if (!box) return
+    box.innerHTML = [...dlTecSel].map(id => {
+      const t = (ref.tecnicos || []).find(x => x.id === id) || {}
+      const n = tcase(t.nome || '—')
+      const rl = t.cargo ? `${t.cargo} · Técnico` : 'Técnico'
+      const foto = (typeof avatarUrl === 'function') ? avatarUrl(t.foto_url) : null
+      const av = foto ? `<img src="${esc(foto)}" alt="">` : esc(iniciaisDe(n))
+      return `<div class="tec-card"><span class="av">${av}</span><span class="ti"><span class="nm">${esc(n)}</span><span class="rl">${esc(rl)}</span></span><button type="button" class="tc-x" data-rem="${esc(id)}" title="Remover">×</button></div>`
+    }).join('') || '<div class="tec-vazio">Nenhum técnico a bordo.</div>'
+    box.querySelectorAll('[data-rem]').forEach(b => { b.onclick = () => { dlTecSel.delete(b.dataset.rem); renderDlTecCards(); renderDlTecLista() } })
+  }
+  function renderDlTecLista() {
+    const lista = document.getElementById('dltec-lista'); if (!lista) return
+    const q = normStr((document.getElementById('dltec-busca') || {}).value || '')
+    const disp = (ref.tecnicos || []).filter(t => !dlTecSel.has(t.id) && (!q || normStr(t.nome || '').includes(q)))
+    lista.innerHTML = disp.map(t => {
+      const n = tcase(t.nome)
+      const rl = t.cargo ? `${t.cargo} · Técnico` : 'Técnico'
+      const foto = (typeof avatarUrl === 'function') ? avatarUrl(t.foto_url) : null
+      const av = foto ? `<img src="${esc(foto)}" alt="">` : esc(iniciaisDe(n))
+      return `<div class="tec-row" data-add="${esc(t.id)}"><span class="av">${av}</span><span class="ti"><span class="nm">${esc(n)}</span><span class="rl">${esc(rl)}</span></span><span class="pl">+</span></div>`
+    }).join('')
+    const vz = document.getElementById('dltec-vazio'); if (vz) vz.style.display = disp.length ? 'none' : ''
+    const foot = document.getElementById('dltec-foot'); if (foot) foot.textContent = `${dlTecSel.size} a bordo`
+    lista.querySelectorAll('[data-add]').forEach(r => { r.onclick = () => { dlTecSel.add(r.dataset.add); renderDlTecCards(); renderDlTecLista() } })
+  }
+  function abrirModalTecDl() { const b = document.getElementById('dltec-busca'); if (b) b.value = ''; renderDlTecLista(); document.getElementById('modal-tec-dl').classList.add('open') }
+  function fecharModalTecDl() { document.getElementById('modal-tec-dl').classList.remove('open') }
 
   // Card de contexto no topo da RAT (funde a faixa azul + Cliente & Serviço)
   function preencherCtx({ no, cliente, tipo, clienteEditavel }) {
