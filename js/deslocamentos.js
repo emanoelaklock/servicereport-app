@@ -56,7 +56,6 @@ const DeslocApp = (() => {
     document.getElementById('vm-salvar').onclick = salvarViagem
     document.getElementById('vm-excluir').onclick = () => { const id = document.getElementById('vm-id').value; fecharViagem(); excluir(id) }
     document.getElementById('vm-addleg').onclick = () => { if (!vmCur) return; vmCur.trechos.push(vmNovoTrecho()); renderVmTrechos() }
-    document.getElementById('vm-cli').onchange = async (e) => { if (!vmCur) return; vmCur.cliente_id = e.target.value || null; await vmCarregarLocais(); renderVmTrechos() }
     // o campo edita a viagem no celular → a lista se atualiza sozinha
     // (ao voltar o foco, a cada 2 min e em tempo real; pausa enquanto o editor está aberto)
     let recarregaT = null
@@ -413,9 +412,9 @@ const DeslocApp = (() => {
     }
   }
   async function vmCarregarLocais() {
-    vmLocais = []
-    if (!vmCur || !vmCur.cliente_id) return
-    const { data } = await sb().from('cliente_locais').select('id,nome,cidade,uf').eq('cliente_id', vmCur.cliente_id).eq('ativo', true).order('nome')
+    // todos os Locais (cada um diz de qual cliente é) — o cliente é POR TRECHO
+    if (vmLocais.length) return
+    const { data } = await sb().from('cliente_locais').select('id,cliente_id,nome,cidade,uf').eq('ativo', true).order('nome')
     vmLocais = data || []
   }
   async function editarViagem(d) {
@@ -438,8 +437,6 @@ const DeslocApp = (() => {
       if (r.dia && r.inicio && r.fim && !vmAlmHor[r.dia]) vmAlmHor[r.dia] = { inicio: String(r.inicio).slice(0, 5), fim: String(r.fim).slice(0, 5) }
     }
     document.getElementById('vm-id').value = d.id
-    document.getElementById('vm-cli').innerHTML = '<option value="">— sem cliente —</option>' +
-      cliArr.map(c => `<option value="${esc(c.id)}"${c.id === vmCur.cliente_id ? ' selected' : ''}>${esc(c.nome || '')}</option>`).join('')
     document.getElementById('vm-motivo').value = vmCur.motivo || ''
     await vmCarregarLocais()
     renderVmTrechos()
@@ -466,7 +463,7 @@ const DeslocApp = (() => {
             <div style="max-width:150px"><label>Data</label><input type="date" data-vmdata="${i}" value="${esc(t.data || '')}"></div>
           </div>
           <div style="margin-top:10px"><label>Destino (cliente, local ou texto)</label><select data-vmloc="${i}">
-              ${vmLocais.length ? `<optgroup label="Locais da empresa da viagem">${vmLocais.map(l => `<option value="${esc(l.id)}"${t.destino_local_id === l.id ? ' selected' : ''}>${esc(l.nome)}${l.cidade ? ' · ' + esc([l.cidade, l.uf].filter(Boolean).join('/')) : ''}</option>`).join('')}</optgroup>` : ''}
+              ${vmLocais.length ? `<optgroup label="Locais de clientes">${vmLocais.map(l => `<option value="${esc(l.id)}"${t.destino_local_id === l.id ? ' selected' : ''}>${esc(cliNomes[l.cliente_id] || '')}${cliNomes[l.cliente_id] ? ' — ' : ''}${esc(l.nome)}${l.cidade ? ' · ' + esc([l.cidade, l.uf].filter(Boolean).join('/')) : ''}</option>`).join('')}</optgroup>` : ''}
               <optgroup label="Clientes">${cliArr.map(c => `<option value="c:${esc(c.id)}"${!t.destino_local_id && t.destino_cliente_id === c.id ? ' selected' : ''}>${esc(c.nome)}${cidadeDeCli(c) ? ' · ' + esc(cidadeDeCli(c)) : ''}</option>`).join('')}</optgroup>
               <option value=""${!t.destino_local_id && !t.destino_cliente_id ? ' selected' : ''}>Outro lugar (digitar)…</option>
             </select>
@@ -523,10 +520,10 @@ const DeslocApp = (() => {
           t.destino_cliente_id = c ? c.id : null
           t.destino = (c && cidadeDeCli(c)) || (c && c.nome) || ''
         } else if (el.value) {
-          // destino = Local da empresa da viagem
+          // destino = Local de cliente (o cliente vem do Local)
           const l = vmLocais.find(x => x.id === el.value)
           t.destino_local_id = el.value
-          t.destino_cliente_id = vmCur.cliente_id || null
+          t.destino_cliente_id = (l && l.cliente_id) || null
           if (l) t.destino = [l.cidade, l.uf].filter(Boolean).join('/') || l.nome
         } else {
           t.destino_local_id = null
@@ -601,7 +598,9 @@ const DeslocApp = (() => {
       if (t.veiculo_id && !(t.motoristas || []).length) return toast(`Trecho ${i + 1}: veículo da empresa exige a direção preenchida.`, 'err')
     }
     vmCur.motivo = (document.getElementById('vm-motivo').value || '').trim() || null
-    const up = await sb().from('deslocamentos').update({ cliente_id: vmCur.cliente_id || null, motivo: vmCur.motivo }).eq('id', vmCur.id)
+    // cliente "principal" do registro = o do primeiro trecho com cliente (derivado)
+    vmCur.cliente_id = (vmCur.trechos.find(t => t.destino_cliente_id) || {}).destino_cliente_id || null
+    const up = await sb().from('deslocamentos').update({ cliente_id: vmCur.cliente_id, motivo: vmCur.motivo }).eq('id', vmCur.id)
     if (up.error) return toast('Erro ao salvar: ' + up.error.message, 'err')
     // substituição completa dos trechos (cascade limpa a-bordo/direção) — preserva GPS capturado
     const del = await sb().from('deslocamento_trechos').delete().eq('deslocamento_id', vmCur.id)

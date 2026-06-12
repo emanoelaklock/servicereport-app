@@ -831,20 +831,19 @@
     const a = Math.sin((lat2 - lat1) * rad / 2) ** 2 + Math.cos(lat1 * rad) * Math.cos(lat2 * rad) * Math.sin((lng2 - lng1) * rad / 2) ** 2
     return Math.round(2 * R * Math.asin(Math.sqrt(a)))
   }
-  // Locais do cliente (cadastro do portal): destinos de trecho. Cache por cliente.
-  const locaisCache = {}
-  async function carregarLocaisCliente(cid) {
-    if (!cid) return []
-    if (locaisCache[cid]) return locaisCache[cid]
-    if (!navigator.onLine) return []
+  // Locais de clientes (cadastro do portal): destinos de trecho. Cada local sabe
+  // de QUAL cliente é — não existe "empresa da viagem"; o cliente é por trecho.
+  let locaisTodos = null
+  async function carregarLocaisTodos() {
+    if (locaisTodos || !navigator.onLine) return locaisTodos || []
     try {
       const { data } = await getSupabase().from('cliente_locais')
-        .select('id,nome,cidade,uf,lat,lng').eq('cliente_id', cid).eq('ativo', true).order('nome')
-      locaisCache[cid] = data || []
-    } catch (e) { return [] }
-    return locaisCache[cid] || []
+        .select('id,cliente_id,nome,cidade,uf,lat,lng').eq('ativo', true).order('nome')
+      locaisTodos = data || []
+    } catch (e) { return locaisTodos || [] }
+    return locaisTodos
   }
-  const localDe = (cid, lid) => (locaisCache[cid] || []).find(l => l.id === lid) || null
+  const localDe = (lid) => (locaisTodos || []).find(l => l.id === lid) || null
   const avDe = (tid) => {
     const u = (ref.tecnicos || []).find(x => x.id === tid) || {}
     const n = tcase(u.nome || '—')
@@ -868,7 +867,7 @@
       if (base.data) t.data = base.data
       const ult = (base.motoristas || [])[(base.motoristas || []).length - 1]
       t.motoristas = ult ? [{ tecnico_id: ult.tecnico_id, hora_de: null, hora_ate: null }] : []
-      const loc = dlCur && localDe(dlCur.cliente_id, base.destino_local_id)
+      const loc = localDe(base.destino_local_id)
       t.origem = loc ? loc.nome : (base.destino || '')
     }
     return t
@@ -917,17 +916,10 @@
   }
   async function abrirDeslocEditor() {
     dlModalTrecho = null
-    attachAutocomplete(document.getElementById('dl-cli-busca'), document.getElementById('dl-cli'), document.getElementById('dl-cli-list'), ref.clientes, c => ({ id: c.id, label: c.nome }), async (cli) => {
-      dlCur.cliente_id = cli ? cli.id : null
-      if (cli) await carregarLocaisCliente(cli.id)
-      renderTrechos()
-    })
-    document.getElementById('dl-cli').value = dlCur.cliente_id || ''
-    document.getElementById('dl-cli-busca').value = dlCur.cliente_id ? cliNomeDe(dlCur.cliente_id, '') : ''
     const mv = document.getElementById('dl-motivo')
     mv.value = dlCur.motivo || ''
     mv.oninput = () => { dlCur.motivo = mv.value.trim() || null }
-    if (dlCur.cliente_id) await carregarLocaisCliente(dlCur.cliente_id)
+    carregarLocaisTodos().then(() => renderTrechos())   // nomes dos Locais nos cards
     renderTrechos(); renderDlAlmocos()
     carregarAlmocosViagem().then(renderDlAlmocos)   // estado "já almoçou" (dedup visual)
     document.getElementById('modal-desloc').classList.add('open')
@@ -1035,7 +1027,7 @@
   // resumo do destino/veículo/direção exibido na linha-botão do trecho
   // (cliente do destino é explícito: "BENTELER — Porto Real · Porto Real/RJ")
   const destinoLbl = (t) => {
-    const l = localDe(dlCur && dlCur.cliente_id, t.destino_local_id)
+    const l = localDe(t.destino_local_id)
     if (l) { const cli = cliNomeDe(t.destino_cliente_id, ''); return cli ? `${cli} · ${l.nome}` : l.nome }
     if (t.destino_cliente_id) { const cli = cliNomeDe(t.destino_cliente_id, ''); return cli ? `${cli}${t.destino ? ' · ' + t.destino : ''}` : (t.destino || '') }
     return t.destino || ''
@@ -1053,16 +1045,14 @@
 
   function renderTrechos() {
     const box = document.getElementById('dl-trechos'); if (!box || !dlCur) return
-    const locais = locaisCache[dlCur.cliente_id] || []
     const partes = []
     dlCur.trechos.forEach((t, i) => {
-      const loc = localDe(dlCur.cliente_id, t.destino_local_id)
-      // sugestões de origem: base, destino do trecho anterior e locais do cliente
+      const loc = localDe(t.destino_local_id)
+      // sugestões de origem: base e destino do trecho anterior
       const sugs = []
       const baseLbl = [ref.base.cidade, ref.base.uf].filter(Boolean).join('/') || 'Base'
       sugs.push(baseLbl)
       if (i > 0) { const ant = destinoLbl(dlCur.trechos[i - 1]); if (ant) sugs.push(ant) }
-      locais.forEach(l => sugs.push(l.nome))
       const sugUnicas = [...new Set(sugs)].filter(s => s && s !== t.origem).slice(0, 4)
       const sugChips = sugUnicas.length ? `<div class="sug-chips">${sugUnicas.map(s => `<button type="button" data-suorig="${i}" data-v="${esc(s)}">${esc(s)}</button>`).join('')}</div>` : ''
       // linhas-botão (modal fullscreen, padrão dos registros da RAT)
@@ -1197,28 +1187,21 @@
           <span class="oic">${SVG_CASA}</span>
           <span class="ot"><span class="on1">Base (Traders)</span><span class="on2">${esc(baseLbl)}</span></span>
         </button>` : ''
-    // Empresa da viagem (sede — cidade do cadastro)
-    const cli = (ref.clientes || []).find(c => c.id === dlCur.cliente_id)
-    const cliCidade = cidadeDe(cli)
-    const cliRow = (cli && (!q || normStr(cli.nome).includes(q)))
-      ? `<button type="button" class="opt-row${!t.destino_local_id && t.destino && t.destino === (cliCidade || cli.nome) ? ' on' : ''}" data-clidest="${esc(cli.id)}">
-          <span class="oic">${SVG_PREDIO}</span>
-          <span class="ot"><span class="on1">${esc(cli.nome)}</span><span class="on2">Empresa da viagem${cliCidade ? ' · ' + esc(cliCidade) : ''}</span></span>
-        </button>` : ''
-    // Locais cadastrados da empresa da viagem
-    const locais = (locaisCache[dlCur.cliente_id] || []).filter(l => !q || normStr(`${l.nome} ${l.cidade || ''}`).includes(q))
-    const locaisRows = locais.map(l => `<button type="button" class="opt-row${t.destino_local_id === l.id ? ' on' : ''}" data-loc="${esc(l.id)}">
+    // Locais cadastrados (cada local diz de qual cliente é)
+    const locaisRows = (locaisTodos || [])
+      .filter(l => !q || normStr(`${l.nome} ${l.cidade || ''} ${cliNomeDe(l.cliente_id, '')}`).includes(q))
+      .map(l => `<button type="button" class="opt-row${t.destino_local_id === l.id ? ' on' : ''}" data-loc="${esc(l.id)}">
         <span class="oic">${SVG_PIN}</span>
-        <span class="ot"><span class="on1">${esc(l.nome)}</span>${l.cidade ? `<span class="on2">${esc([l.cidade, l.uf].filter(Boolean).join('/'))}${l.lat != null ? ' · valida chegada por GPS' : ''}</span>` : ''}</span>
+        <span class="ot"><span class="on1">${esc(cliNomeDe(l.cliente_id, ''))}${cliNomeDe(l.cliente_id, '') ? ' — ' : ''}${esc(l.nome)}</span>${l.cidade ? `<span class="on2">${esc([l.cidade, l.uf].filter(Boolean).join('/'))}${l.lat != null ? ' · valida chegada por GPS' : ''}</span>` : ''}</span>
       </button>`).join('')
-    // Buscou? Acha também as DEMAIS empresas (trecho pode ir a outro cliente)
-    const outras = q ? (ref.clientes || [])
-      .filter(c => c.id !== dlCur.cliente_id && normStr(c.nome || '').includes(q)).slice(0, 8)
-      .map(c => `<button type="button" class="opt-row" data-clidest="${esc(c.id)}">
+    // Empresas (clientes): destino = a sede (cidade do cadastro)
+    const empresas = (ref.clientes || [])
+      .filter(c => !q || normStr(c.nome || '').includes(q)).slice(0, q ? 8 : 5)
+      .map(c => `<button type="button" class="opt-row${!t.destino_local_id && t.destino_cliente_id === c.id ? ' on' : ''}" data-clidest="${esc(c.id)}">
           <span class="oic">${SVG_PREDIO}</span>
-          <span class="ot"><span class="on1">${esc(c.nome)}</span><span class="on2">Outra empresa${cidadeDe(c) ? ' · ' + esc(cidadeDe(c)) : ''}</span></span>
-        </button>`).join('') : ''
-    lista.innerHTML = (baseRow + cliRow + locaisRows + outras)
+          <span class="ot"><span class="on1">${esc(c.nome)}</span><span class="on2">Cliente${cidadeDe(c) ? ' · ' + esc(cidadeDe(c)) : ''}</span></span>
+        </button>`).join('')
+    lista.innerHTML = (baseRow + locaisRows + empresas)
       || `<div class="prod-empty">Nada encontrado para a busca — digite o destino abaixo.</div>`
     lista.querySelectorAll('[data-basedest]').forEach(b => { b.onclick = () => escolheTexto(baseLbl, null) })
     lista.querySelectorAll('[data-clidest]').forEach(b => {
@@ -1229,9 +1212,9 @@
     })
     lista.querySelectorAll('[data-loc]').forEach(b => {
       b.onclick = () => {
-        const l = localDe(dlCur.cliente_id, b.dataset.loc)
+        const l = localDe(b.dataset.loc)
         t.destino_local_id = b.dataset.loc
-        t.destino_cliente_id = dlCur.cliente_id || null   // o local pertence à empresa da viagem
+        t.destino_cliente_id = (l && l.cliente_id) || null   // o cliente vem do Local
         t.destino = l ? ([l.cidade, l.uf].filter(Boolean).join('/') || l.nome) : null
         document.getElementById('modal-dl-dest').classList.remove('open')
         renderTrechos()
@@ -1418,7 +1401,8 @@
         return
       }
     }
-    dlCur.cliente_id = document.getElementById('dl-cli').value || dlCur.cliente_id || null
+    // cliente "principal" do registro = o do primeiro trecho com cliente (derivado)
+    dlCur.cliente_id = (dlCur.trechos.find(t => t.destino_cliente_id) || {}).destino_cliente_id || null
     // almoço por pessoa derivado dos horários do dia × quem estava a bordo no dia
     // (quem já tem almoço de OUTRO artefato no dia fica de fora — o servidor deduplica de novo)
     dlCur.almocos = []
@@ -1463,7 +1447,7 @@
         const datas = ts.map(t => t.data).filter(Boolean).sort()
         const per = datas.length ? `${diaLabel(datas[0])}${datas.length > 1 && datas[datas.length - 1] !== datas[0] ? ' → ' + diaLabel(datas[datas.length - 1]) : ''}` : '—'
         const ultimo = ts[ts.length - 1] || {}
-        const loc = localDe(d.cliente_id, (ts[0] || {}).destino_local_id)
+        const loc = localDe((ts[0] || {}).destino_local_id)
         const rota = `${esc((ts[0] || {}).origem || '—')} → ${esc(loc ? loc.nome : ((ts[0] || {}).destino || (ultimo.destino || '—')))}`
         const clisVisita = [...new Set([...ts.map(t => t.destino_cliente_id).filter(Boolean), ...(d.cliente_id ? [d.cliente_id] : [])])]
           .map(id => cliNomeDe(id, '')).filter(Boolean)

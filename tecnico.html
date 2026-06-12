@@ -938,12 +938,8 @@ try{if(localStorage.getItem('sr_dark')==='1')document.documentElement.classList.
     <div class="tm-b tskin" style="flex:1;overflow:auto;min-height:0">
       <div class="dl-ctx">
         <div class="k">Viagem / Pernoite</div>
-        <div class="ac" style="margin-top:6px">
-          <input type="text" id="dl-cli-busca" placeholder="Buscar empresa…" autocomplete="off">
-          <input type="hidden" id="dl-cli">
-          <div class="ac-list" id="dl-cli-list"></div>
-        </div>
         <input type="text" id="dl-motivo" placeholder="Motivo (opcional) — ex.: instalação na obra" style="margin-top:8px;width:100%">
+        <p class="dim" style="font-size:11.5px;margin:6px 0 0">O cliente de cada parada é escolhido no <b>Destino</b> do trecho.</p>
       </div>
       <div class="dl-sec">Roteiro · trechos</div>
       <div id="dl-trechos"></div>
@@ -982,7 +978,7 @@ try{if(localStorage.getItem('sr_dark')==='1')document.documentElement.classList.
   <div class="tm-box" style="display:flex;flex-direction:column">
     <div class="tm-h tmh tmh-orange"><span class="tmh-ic"><svg viewBox="0 0 24 24"><path d="M12 21s-7-5.1-7-11a7 7 0 0 1 14 0c0 5.9-7 11-7 11Z"/><circle cx="12" cy="10" r="2.5"/></svg></span><span class="tmh-t">Destino do trecho</span><button class="tm-x" id="dldest-x">✕</button></div>
     <div class="tm-b tskin" style="flex:1;overflow:auto;min-height:0">
-      <input id="dldest-busca" placeholder="Buscar local…" autocomplete="off" style="width:100%;padding:11px 12px;border:1px solid var(--bd);border-radius:10px;font:inherit;font-size:16px;background:var(--sur);color:var(--tx)">
+      <input id="dldest-busca" placeholder="Buscar empresa ou local…" autocomplete="off" style="width:100%;padding:11px 12px;border:1px solid var(--bd);border-radius:10px;font:inherit;font-size:16px;background:var(--sur);color:var(--tx)">
       <div class="opt-lista" id="dldest-lista"></div>
       <div class="opt-sep">Ou outro lugar</div>
       <input type="text" id="dldest-outro" placeholder="Digite o destino (ex.: Curitiba/PR)" style="width:100%;padding:12px;border:1px solid var(--bd);border-radius:11px;font:inherit;font-size:15px;background:var(--sur);color:var(--tx)">
