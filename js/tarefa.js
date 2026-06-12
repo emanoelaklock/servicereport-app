@@ -977,10 +977,10 @@ const TarefaApp = (() => {
         ${(t.modalidade || '') ? `<div class="rd-f"><label>Modalidade de faturamento</label><div class="v">${esc(MOD_LBL[t.modalidade] || t.modalidade)}</div></div>` : ''}
         <div class="rd-f"><label>Faturamento</label><div class="v">${fatTxt}</div></div>
         ${responsaveis ? `<div class="rd-f" style="grid-column:1/-1"><label>Responsáveis</label><div class="v">${esc(responsaveis)}</div></div>` : ''}
-        ${t.orientacao ? `<div class="rd-f" style="grid-column:1/-1"><label>Orientação ao técnico</label><div class="v">${esc(t.orientacao)}</div></div>` : ''}
-        ${t.observacoes ? `<div class="rd-f" style="grid-column:1/-1"><label>Observações internas</label><div class="v">${esc(t.observacoes)}</div></div>` : ''}
-        ${t.pendencias ? `<div class="rd-f" style="grid-column:1/-1"><label>Pendências</label><div class="v">${esc(t.pendencias)}</div></div>` : ''}
-        ${t.conciliacao_obs ? `<div class="rd-f" style="grid-column:1/-1"><label>Observações da conciliação</label><div class="v">${esc(t.conciliacao_obs)}</div></div>` : ''}
+        ${t.orientacao ? `<div class="rd-f" style="grid-column:1/-1"><label>Orientação ao técnico</label><div class="v" style="white-space:pre-wrap">${esc(t.orientacao)}</div></div>` : ''}
+        ${t.observacoes ? `<div class="rd-f" style="grid-column:1/-1"><label>Observações internas</label><div class="v" style="white-space:pre-wrap">${esc(t.observacoes)}</div></div>` : ''}
+        ${t.pendencias ? `<div class="rd-f" style="grid-column:1/-1"><label>Pendências</label><div class="v" style="white-space:pre-wrap">${esc(t.pendencias)}</div></div>` : ''}
+        ${t.conciliacao_obs ? `<div class="rd-f" style="grid-column:1/-1"><label>Observações da conciliação</label><div class="v" style="white-space:pre-wrap">${esc(t.conciliacao_obs)}</div></div>` : ''}
       </div></div>
       <div class="rd-sec"><div class="rd-sec-t">Resumo operacional</div><div class="rd-grid">
         <div class="rd-f"><label>RATs registradas</label><div class="v">${rats.length}</div></div>
