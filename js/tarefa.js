@@ -757,8 +757,8 @@ const TarefaApp = (() => {
         preco_unitario: 0, qtd_orcada: 0, qtd_levada: v, origem: 'avulso',
       })).error
     }
-    if (err) return toast('Erro ao salvar Levada: ' + err.message, 'err')
-    toast('Levada atualizada.', 'ok')
+    if (err) return toast('Erro ao salvar Disponibilizada: ' + err.message, 'err')
+    toast('Disponibilizada atualizada.', 'ok')
     await carregarLinhas()
   }
 
@@ -820,11 +820,11 @@ const TarefaApp = (() => {
       qtd_orcada: 0, qtd_levada: 0, origem: 'avulso',
     })
     if (ins.error) {
-      if (ins.error.code === '23505') return toast('Esse produto já está na lista — edite a Levada na linha.', 'err')
+      if (ins.error.code === '23505') return toast('Esse produto já está na lista — edite a Disponibilizada na linha.', 'err')
       return toast('Erro: ' + ins.error.message, 'err')
     }
     limparAdd()
-    toast('Produto adicionado — informe a Levada na linha.', 'ok')
+    toast('Produto adicionado — informe a Disponibilizada na linha.', 'ok')
     await carregarLinhas()
   }
 
@@ -1005,7 +1005,7 @@ const TarefaApp = (() => {
           <thead><tr>
             <th style="${thS}">Produto</th>
             <th style="${thR}">Orçada</th>
-            <th style="${thR}">Levada</th>
+            <th style="${thR}">Disponibilizada</th>
             <th style="${thR}">Utilizada</th>
             <th style="${thR}">Devolvida</th>
           </tr></thead><tbody>${linhasHtml}</tbody></table></div>` : ''}

@@ -534,7 +534,7 @@
     cur._tarefaMsg = r.sem_servico
       ? 'Aprovado — orçamento sem serviço (somente produtos); nenhuma Tarefa (OS) foi gerada.'
       : r.resynced
-        ? `Aprovado — Tarefa (OS) Nº ${r.tarefa_numero} atualizada com as alterações (Levada e itens avulsos preservados).`
+        ? `Aprovado — Tarefa (OS) Nº ${r.tarefa_numero} atualizada com as alterações (Disponibilizada e itens avulsos preservados).`
         : r.tarefa_numero
           ? `Aprovado — Tarefa (OS) Nº ${r.tarefa_numero} gerada. Gerencie em Execução → Tarefas (atribua um técnico e agende).`
           : 'Aprovado — Tarefa (OS) gerada. Gerencie em Execução → Tarefas.'
