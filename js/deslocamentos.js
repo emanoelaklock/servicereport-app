@@ -75,10 +75,11 @@ const DeslocApp = (() => {
   // tempo de deslocamento = Σ (chegada − saída) dos trechos − almoço dentro do horário dos trechos do dia
   const fmtHm = (m) => `${Math.floor(m / 60)}h${String(Math.round(m % 60)).padStart(2, '0')}`
   function tempoViagemMin(ts, almRows) {
-    let bruto = 0, aberto = false
+    let bruto = 0, aberto = false, temTempo = false
     const porDia = {}
     for (const t of (ts || [])) {
       if (!t.saida_em) continue
+      temTempo = true
       const a = new Date(t.saida_em).getTime()
       const b = t.chegada_em ? new Date(t.chegada_em).getTime() : Date.now()   // aberto conta até agora
       if (!t.chegada_em) aberto = true
@@ -97,7 +98,7 @@ const DeslocApp = (() => {
       const ai = new Date(`${dia}T${hh(h.inicio)}:00`).getTime(), af = new Date(`${dia}T${hh(h.fim)}:00`).getTime()
       for (const [a, b] of porDia[dia]) almoco += Math.max(0, Math.min(b, af) - Math.max(a, ai)) / 60000
     }
-    return { total: Math.max(0, Math.round(bruto - almoco)), bruto: Math.round(bruto), almoco: Math.round(almoco), aberto }
+    return { total: Math.max(0, Math.round(bruto - almoco)), bruto: Math.round(bruto), almoco: Math.round(almoco), aberto, temTempo }
   }
 
   function render() {
@@ -181,7 +182,7 @@ const DeslocApp = (() => {
         const st = emViagem ? '<span class="vst and"><i></i>Em andamento</span>'
           : (fechada ? '<span class="vst con"><i></i>Concluída</span>' : '<span class="vst pla"><i></i>Planejada</span>')
         return `<tr>
-          <td><div class="vtipo">Viagem · ${ts.length} trecho${ts.length > 1 ? 's' : ''}</div>${periodo ? `<div class="vper">${esc(periodo)}</div>` : ''}${(() => { const tv = tempoViagemMin(ts, d.deslocamento_almocos); return tv.bruto ? `<div class="vper">Tempo: <b>${fmtHm(tv.total)}</b>${tv.aberto ? '…' : ''}${tv.almoco ? ' (− almoço)' : ''}</div>` : '' })()}<div style="margin-top:5px">${st}</div></td>
+          <td><div class="vtipo">Viagem · ${ts.length} trecho${ts.length > 1 ? 's' : ''}</div>${periodo ? `<div class="vper">${esc(periodo)}</div>` : ''}${(() => { const tv = tempoViagemMin(ts, d.deslocamento_almocos); return tv.temTempo ? `<div class="vper">Tempo: <b>${fmtHm(tv.total)}</b>${tv.aberto ? '…' : ''}${tv.almoco ? ' (− almoço)' : ''}</div>` : '' })()}<div style="margin-top:5px">${st}</div></td>
           <td>${esc(cliNomes[d.cliente_id] || '—')}</td>
           <td>${esc(fmtLugar(prim.origem) || '—')} → ${esc(destinoLbl(ult))}${detalhe}</td>
           <td>${veics.length ? veics.map(esc).join('<br>') : (semVeic.length ? `<span class="dim">${esc(semVeic.join(', '))}</span>` : '—')}</td>
@@ -278,17 +279,54 @@ const DeslocApp = (() => {
 
   // ───────────────────── Editar VIAGEM (modelo novo: trechos) ─────────────────────
   let vmCur = null, vmLocais = [], vmAlmocos = []
+  let vmAlmHor = {}   // dia → {inicio, fim} (editável pelo admin; grava em deslocamento_almocos)
+  const horaMais = (hhmm, min) => { const [h, m] = String(hhmm).split(':').map(Number); if (isNaN(h)) return ''; const t = (h * 60 + (m || 0) + min) % 1440; return `${String(Math.floor(t / 60)).padStart(2, '0')}:${String(t % 60).padStart(2, '0')}` }
+  const vmAlmRows = () => Object.entries(vmAlmHor).filter(([, h]) => h && h.inicio && h.fim)
+    .map(([dia, h]) => ({ dia, inicio: h.inicio, fim: h.fim }))
   function renderVmTotal() {
     const box = document.getElementById('vm-total'); if (!box || !vmCur) return
-    const { total, bruto, almoco, aberto } = tempoViagemMin(vmCur.trechos, vmAlmocos)
-    // almoço registrado pelo técnico (um par por dia) — visível mesmo sem total
-    const porDia = {}
-    for (const r of vmAlmocos) if (r.dia && !porDia[r.dia]) porDia[r.dia] = r
-    const hh = (t) => String(t || '').slice(0, 5)
-    const almLin = Object.values(porDia).map(r => `${dia2(r.dia)} · ${hh(r.inicio)}–${hh(r.fim)}`).join(' · ')
-    const tot = bruto ? `<div class="vm-totcard"><span class="k">Tempo de deslocamento${aberto ? ' · em andamento' : ''}</span><span class="v">${fmtHm(total)}</span>
+    const { total, bruto, almoco, aberto, temTempo } = tempoViagemMin(vmCur.trechos, vmAlmRows())
+    box.innerHTML = temTempo ? `<div class="vm-totcard"><span class="k">Tempo de deslocamento${aberto ? ' · em andamento' : ''}</span><span class="v">${fmtHm(total)}</span>
       <span class="s">${almoco ? `${fmtHm(bruto)} marcados − ${fmtHm(almoco)} de almoço` : 'sem almoço descontado'}${aberto ? ' · trecho aberto contando até agora' : ''}</span></div>` : ''
-    box.innerHTML = tot + (almLin ? `<div class="vper" style="margin-top:8px">Almoço na estrada (registrado pelo técnico): ${esc(almLin)}${almoco ? '' : ' — fora do horário dos trechos, não descontado'}</div>` : '')
+  }
+  // Card editável: um par de horários de almoço por dia da viagem.
+  // Ao salvar, vale para todos os técnicos a bordo no dia (dedup no servidor).
+  function renderVmAlmoco() {
+    const box = document.getElementById('vm-almoco'); if (!box || !vmCur) return
+    const dias = [...new Set([...vmCur.trechos.map(t => t.data).filter(Boolean), ...Object.keys(vmAlmHor)])].sort()
+    if (!dias.length) { box.innerHTML = ''; return }
+    box.innerHTML = `<div class="vm-alm"><div class="ah">Almoço na estrada</div>
+      ${dias.map(dia => {
+        const h = vmAlmHor[dia] || {}
+        return `<div class="adia"><span class="dlbl">${esc(dia2(dia))}</span>
+          <div><label>Início</label><input type="time" data-vmaini="${esc(dia)}" value="${esc(h.inicio || '')}"></div>
+          <div><label>Término</label><input type="time" data-vmafim="${esc(dia)}" value="${esc(h.fim || '')}"></div>
+          ${(h.inicio || h.fim) ? `<button type="button" class="alimpa" data-vmalimpa="${esc(dia)}" title="Limpar almoço do dia">×</button>` : '<span></span>'}
+        </div>`
+      }).join('')}
+      <div class="anota">Vale para todos os técnicos a bordo no dia (quem já tem almoço em outro artefato não duplica — o sistema mantém o 1º). Desconta do tempo quando cai dentro do horário dos trechos.</div>
+    </div>`
+    box.querySelectorAll('[data-vmaini]').forEach(el => {
+      el.onchange = () => {
+        const dia = el.dataset.vmaini
+        vmAlmHor[dia] = vmAlmHor[dia] || {}
+        vmAlmHor[dia].inicio = el.value || null
+        if (el.value && (!vmAlmHor[dia].fim || vmAlmHor[dia].fim <= el.value)) vmAlmHor[dia].fim = horaMais(el.value, 60)
+        renderVmAlmoco(); renderVmTotal()
+      }
+    })
+    box.querySelectorAll('[data-vmafim]').forEach(el => {
+      el.onchange = () => {
+        const dia = el.dataset.vmafim
+        vmAlmHor[dia] = vmAlmHor[dia] || {}
+        if (el.value && vmAlmHor[dia].inicio && el.value <= vmAlmHor[dia].inicio) {
+          toast('O término do almoço não pode ser antes do início.', 'err')
+          vmAlmHor[dia].fim = horaMais(vmAlmHor[dia].inicio, 60)
+        } else vmAlmHor[dia].fim = el.value || null
+        renderVmAlmoco(); renderVmTotal()
+      }
+    })
+    box.querySelectorAll('[data-vmalimpa]').forEach(el => { el.onclick = () => { delete vmAlmHor[el.dataset.vmalimpa]; renderVmAlmoco(); renderVmTotal() } })
   }
   const vmUuid = () => (crypto.randomUUID ? crypto.randomUUID() : `${Date.now()}-${Math.random().toString(16).slice(2)}`)
   function vmNovoTrecho() {
@@ -321,6 +359,10 @@ const DeslocApp = (() => {
       })),
     }
     vmAlmocos = d.deslocamento_almocos || []
+    vmAlmHor = {}
+    for (const r of vmAlmocos) {
+      if (r.dia && r.inicio && r.fim && !vmAlmHor[r.dia]) vmAlmHor[r.dia] = { inicio: String(r.inicio).slice(0, 5), fim: String(r.fim).slice(0, 5) }
+    }
     document.getElementById('vm-id').value = d.id
     document.getElementById('vm-cli').innerHTML = '<option value="">— sem cliente —</option>' +
       cliArr.map(c => `<option value="${esc(c.id)}"${c.id === vmCur.cliente_id ? ' selected' : ''}>${esc(c.nome || '')}</option>`).join('')
@@ -430,6 +472,7 @@ const DeslocApp = (() => {
       }
     })
     box.querySelectorAll('[data-vmdelleg]').forEach(el => { el.onclick = () => { T.splice(+el.dataset.vmdelleg, 1); renderVmTrechos() } })
+    renderVmAlmoco()
     renderVmTotal()
   }
   async function salvarViagem() {
@@ -467,6 +510,19 @@ const DeslocApp = (() => {
     await sb().from('deslocamento_tecnicos').delete().eq('deslocamento_id', vmCur.id)
     const uni = [...new Set(vmCur.trechos.flatMap(t => t.tecnicos || []))]
     if (uni.length) await sb().from('deslocamento_tecnicos').insert(uni.map(tid => ({ deslocamento_id: vmCur.id, tecnico_id: tid })))
+    // almoço na estrada (editado pelo admin): um par por dia × técnicos a bordo no dia
+    // (o trigger materializa em `almocos` com a dedup de um por pessoa/dia)
+    await sb().from('deslocamento_almocos').delete().eq('deslocamento_id', vmCur.id)
+    const almRows = []
+    for (const { dia, inicio, fim } of vmAlmRows()) {
+      const aboard = [...new Set(vmCur.trechos.filter(t => t.data === dia).flatMap(t => t.tecnicos || []))]
+      const quem = aboard.length ? aboard : uni
+      for (const tid of quem) almRows.push({ deslocamento_id: vmCur.id, tecnico_id: tid, dia, inicio, fim })
+    }
+    if (almRows.length) {
+      const r = await sb().from('deslocamento_almocos').insert(almRows)
+      if (r.error) toast('Viagem salva, mas falhou o almoço: ' + r.error.message, 'err')
+    }
     toast('Viagem atualizada.', 'ok')
     fecharViagem()
     await carregar()
