@@ -822,6 +822,8 @@
     return null
   }
   const hhmmDe = (iso) => { if (!iso) return ''; const d = new Date(iso); return `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}` }
+  // soma minutos a um "HH:MM" (ex.: término sugerido do almoço = início + 1h)
+  const horaMais = (hhmm, min) => { const [h, m] = String(hhmm).split(':').map(Number); if (isNaN(h)) return ''; const t = (h * 60 + (m || 0) + min) % 1440; return `${String(Math.floor(t / 60)).padStart(2, '0')}:${String(t % 60).padStart(2, '0')}` }
   const diaLabel = (s) => { try { const [y, m, dd] = String(s).split('-').map(Number); return new Date(y, m - 1, dd).toLocaleDateString('pt-BR', { weekday: 'short', day: '2-digit', month: '2-digit' }) } catch (e) { return s } }
   // distância haversine em metros (validação de proximidade do local)
   function distM(lat1, lng1, lat2, lng2) {
@@ -1321,8 +1323,29 @@
       dlCur.almocoHorarios[dia] = dlCur.almocoHorarios[dia] || {}
       dlCur.almocoHorarios[dia][k] = v || null
     }
-    box.querySelectorAll('[data-almini]').forEach(el => { el.onchange = () => { setH(el.dataset.almini, 'inicio', el.value); renderDlAlmocos() } })
-    box.querySelectorAll('[data-almfim]').forEach(el => { el.onchange = () => { setH(el.dataset.almfim, 'fim', el.value); renderDlAlmocos() } })
+    box.querySelectorAll('[data-almini]').forEach(el => {
+      el.onchange = () => {
+        const dia = el.dataset.almini
+        setH(dia, 'inicio', el.value)
+        // término sugerido: 1h depois (editável); também corrige término anterior ao início
+        const h = (dlCur.almocoHorarios || {})[dia] || {}
+        if (el.value && (!h.fim || h.fim <= el.value)) setH(dia, 'fim', horaMais(el.value, 60))
+        renderDlAlmocos()
+      }
+    })
+    box.querySelectorAll('[data-almfim]').forEach(el => {
+      el.onchange = () => {
+        const dia = el.dataset.almfim
+        const h = (dlCur.almocoHorarios || {})[dia] || {}
+        if (el.value && h.inicio && el.value <= h.inicio) {
+          toast('O término do almoço não pode ser antes do início.', 'err')
+          setH(dia, 'fim', horaMais(h.inicio, 60))
+        } else {
+          setH(dia, 'fim', el.value)
+        }
+        renderDlAlmocos()
+      }
+    })
     renderDlTotal()
   }
 
@@ -1584,7 +1607,13 @@
       if (!vi) {
         bar.className = 'atd-timer'
         bar.innerHTML = `<div class="tt">${cap(d.lb)} ainda não iniciado</div><button type="button" class="go">${SVGP}Iniciar ${esc(d.lb)}</button>`
-        bar.querySelector('.go').onclick = () => { const el = $c(d.ini); if (!el) return; el.value = hhmm(); disparar(el); if (d.gps) capturarGpsAuto(); renderAll() }
+        bar.querySelector('.go').onclick = () => {
+          const el = $c(d.ini); if (!el) return
+          el.value = hhmm(); disparar(el)
+          // almoço: já sugere o término 1h depois (editável/reabrível)
+          if (d.lb === 'almoço') { const ef = $c(d.fim); if (ef && !ef.value) { ef.value = horaMais(el.value, 60); disparar(ef) } }
+          if (d.gps) capturarGpsAuto(); renderAll()
+        }
       } else if (!vf) {
         bar.className = 'atd-timer run'
         bar.innerHTML = `<div class="tt">${cap(d.lb)} desde <b>${esc(vi)}</b> · <span class="el">${decorrido(vi)}</span></div><button type="button" class="redo" title="Desfazer início">${SVGU}</button><button type="button" class="stop">${SVGS}Encerrar</button>`
@@ -1808,6 +1837,20 @@
     if (ac && nA) {
       ac.insertAdjacentHTML('beforeend', '<div id="almoco-pessoas"></div>')
       ac.oninput = () => renderAlmocoPessoas()   // horários/Sim-Não mudaram → chips por pessoa
+      ac.onchange = (e) => {
+        // término do almoço nunca antes do início — corrige p/ início + 1h
+        const id = e.target && e.target.getAttribute && e.target.getAttribute('data-campo')
+        if (id === 'almoco_inicio' || id === 'almoco_termino') {
+          const vi = valorCampo('almoco_inicio'), vf = valorCampo('almoco_termino')
+          if (vi && vf && vf <= vi) {
+            toast('O término do almoço não pode ser antes do início.', 'err')
+            const el = document.querySelector('[data-campo="almoco_termino"]')
+            if (el) { el.value = horaMais(vi, 60); el.dispatchEvent(new Event('input', { bubbles: true })) }
+            if (typeof timersRender === 'function') timersRender()
+          }
+        }
+        renderAlmocoPessoas()
+      }
     }
     const pb = document.getElementById('form-pausa-btn'); if (pb) pb.style.display = nA ? '' : 'none'
     // 2) deslocamento DO DIA → modal do botão "Deslocamento" (pernoite é à parte, na home)
