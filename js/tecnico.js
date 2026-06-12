@@ -953,11 +953,13 @@
   // Tempo total de deslocamento = Σ (chegada − saída) dos trechos − almoço que
   // caiu DENTRO do horário dos trechos do dia (almoço fora da estrada não desconta).
   function tempoViagemMin(trechos, almocoHorarios) {
-    let bruto = 0
+    let bruto = 0, aberto = false
     const porDia = {}
     for (const t of (trechos || [])) {
-      if (!t.saida_em || !t.chegada_em) continue
-      const a = new Date(t.saida_em).getTime(), b = new Date(t.chegada_em).getTime()
+      if (!t.saida_em) continue
+      const a = new Date(t.saida_em).getTime()
+      const b = t.chegada_em ? new Date(t.chegada_em).getTime() : Date.now()   // aberto conta até agora
+      if (!t.chegada_em) aberto = true
       if (b <= a) continue
       bruto += (b - a) / 60000
       const dia = t.data || String(t.saida_em).slice(0, 10)
@@ -969,15 +971,15 @@
       const ai = new Date(`${dia}T${h.inicio}:00`).getTime(), af = new Date(`${dia}T${h.fim}:00`).getTime()
       for (const [a, b] of porDia[dia]) almoco += Math.max(0, Math.min(b, af) - Math.max(a, ai)) / 60000
     }
-    return { total: Math.max(0, Math.round(bruto - almoco)), bruto: Math.round(bruto), almoco: Math.round(almoco) }
+    return { total: Math.max(0, Math.round(bruto - almoco)), bruto: Math.round(bruto), almoco: Math.round(almoco), aberto }
   }
   const fmtHm = (m) => `${Math.floor(m / 60)}h${String(Math.round(m % 60)).padStart(2, '0')}`
   function renderDlTotal() {
     const box = document.getElementById('dl-total'); if (!box || !dlCur) return
-    const { total, bruto, almoco } = tempoViagemMin(dlCur.trechos, dlCur.almocoHorarios)
+    const { total, bruto, almoco, aberto } = tempoViagemMin(dlCur.trechos, dlCur.almocoHorarios)
     if (!bruto) { box.innerHTML = ''; return }
-    box.innerHTML = `<div class="dl-totcard"><span class="k">Tempo de deslocamento</span><span class="v">${fmtHm(total)}</span>
-      ${almoco ? `<span class="s">${fmtHm(bruto)} marcados − ${fmtHm(almoco)} de almoço</span>` : '<span class="s">sem almoço descontado</span>'}</div>`
+    box.innerHTML = `<div class="dl-totcard"><span class="k">Tempo de deslocamento${aberto ? ' · em andamento' : ''}</span><span class="v">${fmtHm(total)}</span>
+      <span class="s">${almoco ? `${fmtHm(bruto)} marcados − ${fmtHm(almoco)} de almoço` : 'sem almoço descontado'}${aberto ? ' · trecho aberto contando até agora' : ''}</span></div>`
   }
 
   function noitesPorPessoa() {
@@ -1415,7 +1417,7 @@
         const rota = `${esc((ts[0] || {}).origem || '—')} → ${esc(loc ? loc.nome : ((ts[0] || {}).destino || (ultimo.destino || '—')))}`
         return `<div class="listcard${fechada ? ' lc-done' : ''}"${tomb ? '' : ` data-viagem="${esc(d.id)}" style="cursor:pointer"`}><span class="edge e-${tomb ? 'pend' : emViagem ? 'warn' : fechada ? 'done' : 'info'}"></span>
           <div class="t"><span class="cli">${esc(cliNomeDe(d.cliente_id, '—'))}</span><span style="display:flex;gap:6px;align-items:center">${fila}${badge}</span></div>
-          <div class="meta">${rota} · ${ts.length} trecho${ts.length > 1 ? 's' : ''} · ${esc(per)}${(() => { const tv = tempoViagemMin(ts, d.almocoHorarios); return tv.bruto ? ` · <b>${fmtHm(tv.total)}</b>${tv.almoco ? ' (− almoço)' : ''}` : '' })()}</div>
+          <div class="meta">${rota} · ${ts.length} trecho${ts.length > 1 ? 's' : ''} · ${esc(per)}${(() => { const tv = tempoViagemMin(ts, d.almocoHorarios); return tv.bruto ? ` · <b>${fmtHm(tv.total)}</b>${tv.aberto ? '…' : ''}${tv.almoco ? ' (− almoço)' : ''}` : '' })()}</div>
           <div class="meta">A bordo: ${esc(nomes || '—')}</div>
           ${tomb ? `<div class="meta" style="color:#C0362C">O escritório excluiu esta viagem — ela não será mais enviada. Se quiser, descarte a cópia local.</div>${btnDescartar(d.id)}` : ''}
         </div>`

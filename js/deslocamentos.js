@@ -75,11 +75,13 @@ const DeslocApp = (() => {
   // tempo de deslocamento = Σ (chegada − saída) dos trechos − almoço dentro do horário dos trechos do dia
   const fmtHm = (m) => `${Math.floor(m / 60)}h${String(Math.round(m % 60)).padStart(2, '0')}`
   function tempoViagemMin(ts, almRows) {
-    let bruto = 0
+    let bruto = 0, aberto = false
     const porDia = {}
     for (const t of (ts || [])) {
-      if (!t.saida_em || !t.chegada_em) continue
-      const a = new Date(t.saida_em).getTime(), b = new Date(t.chegada_em).getTime()
+      if (!t.saida_em) continue
+      const a = new Date(t.saida_em).getTime()
+      const b = t.chegada_em ? new Date(t.chegada_em).getTime() : Date.now()   // aberto conta até agora
+      if (!t.chegada_em) aberto = true
       if (b <= a) continue
       bruto += (b - a) / 60000
       const dia = t.data || String(t.saida_em).slice(0, 10)
@@ -95,7 +97,7 @@ const DeslocApp = (() => {
       const ai = new Date(`${dia}T${hh(h.inicio)}:00`).getTime(), af = new Date(`${dia}T${hh(h.fim)}:00`).getTime()
       for (const [a, b] of porDia[dia]) almoco += Math.max(0, Math.min(b, af) - Math.max(a, ai)) / 60000
     }
-    return { total: Math.max(0, Math.round(bruto - almoco)), bruto: Math.round(bruto), almoco: Math.round(almoco) }
+    return { total: Math.max(0, Math.round(bruto - almoco)), bruto: Math.round(bruto), almoco: Math.round(almoco), aberto }
   }
 
   function render() {
@@ -179,7 +181,7 @@ const DeslocApp = (() => {
         const st = emViagem ? '<span class="vst and"><i></i>Em andamento</span>'
           : (fechada ? '<span class="vst con"><i></i>Concluída</span>' : '<span class="vst pla"><i></i>Planejada</span>')
         return `<tr>
-          <td><div class="vtipo">Viagem · ${ts.length} trecho${ts.length > 1 ? 's' : ''}</div>${periodo ? `<div class="vper">${esc(periodo)}</div>` : ''}${(() => { const tv = tempoViagemMin(ts, d.deslocamento_almocos); return tv.bruto ? `<div class="vper">Tempo: <b>${fmtHm(tv.total)}</b>${tv.almoco ? ' (− almoço)' : ''}</div>` : '' })()}<div style="margin-top:5px">${st}</div></td>
+          <td><div class="vtipo">Viagem · ${ts.length} trecho${ts.length > 1 ? 's' : ''}</div>${periodo ? `<div class="vper">${esc(periodo)}</div>` : ''}${(() => { const tv = tempoViagemMin(ts, d.deslocamento_almocos); return tv.bruto ? `<div class="vper">Tempo: <b>${fmtHm(tv.total)}</b>${tv.aberto ? '…' : ''}${tv.almoco ? ' (− almoço)' : ''}</div>` : '' })()}<div style="margin-top:5px">${st}</div></td>
           <td>${esc(cliNomes[d.cliente_id] || '—')}</td>
           <td>${esc(fmtLugar(prim.origem) || '—')} → ${esc(destinoLbl(ult))}${detalhe}</td>
           <td>${veics.length ? veics.map(esc).join('<br>') : (semVeic.length ? `<span class="dim">${esc(semVeic.join(', '))}</span>` : '—')}</td>
@@ -278,10 +280,15 @@ const DeslocApp = (() => {
   let vmCur = null, vmLocais = [], vmAlmocos = []
   function renderVmTotal() {
     const box = document.getElementById('vm-total'); if (!box || !vmCur) return
-    const { total, bruto, almoco } = tempoViagemMin(vmCur.trechos, vmAlmocos)
-    if (!bruto) { box.innerHTML = ''; return }
-    box.innerHTML = `<div class="vm-totcard"><span class="k">Tempo de deslocamento</span><span class="v">${fmtHm(total)}</span>
-      ${almoco ? `<span class="s">${fmtHm(bruto)} marcados − ${fmtHm(almoco)} de almoço (registrado pelo técnico na viagem)</span>` : '<span class="s">sem almoço descontado</span>'}</div>`
+    const { total, bruto, almoco, aberto } = tempoViagemMin(vmCur.trechos, vmAlmocos)
+    // almoço registrado pelo técnico (um par por dia) — visível mesmo sem total
+    const porDia = {}
+    for (const r of vmAlmocos) if (r.dia && !porDia[r.dia]) porDia[r.dia] = r
+    const hh = (t) => String(t || '').slice(0, 5)
+    const almLin = Object.values(porDia).map(r => `${dia2(r.dia)} · ${hh(r.inicio)}–${hh(r.fim)}`).join(' · ')
+    const tot = bruto ? `<div class="vm-totcard"><span class="k">Tempo de deslocamento${aberto ? ' · em andamento' : ''}</span><span class="v">${fmtHm(total)}</span>
+      <span class="s">${almoco ? `${fmtHm(bruto)} marcados − ${fmtHm(almoco)} de almoço` : 'sem almoço descontado'}${aberto ? ' · trecho aberto contando até agora' : ''}</span></div>` : ''
+    box.innerHTML = tot + (almLin ? `<div class="vper" style="margin-top:8px">Almoço na estrada (registrado pelo técnico): ${esc(almLin)}${almoco ? '' : ' — fora do horário dos trechos, não descontado'}</div>` : '')
   }
   const vmUuid = () => (crypto.randomUUID ? crypto.randomUUID() : `${Date.now()}-${Math.random().toString(16).slice(2)}`)
   function vmNovoTrecho() {
