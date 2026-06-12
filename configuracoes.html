@@ -345,6 +345,35 @@
   </div>
 </div>
 
+<!-- Modal: Locais do cliente (destinos de trecho do Deslocamento/pernoite) -->
+<div class="mback" id="modal-locais">
+  <div class="modal" style="max-width:640px">
+    <div class="mh"><span class="mt" id="lc-tt">Locais do cliente</span><button class="mx" onclick="ConfigApp.fechar('modal-locais')">✕</button></div>
+    <div class="mb">
+      <input type="hidden" id="lc-cliente-id">
+      <div class="tcard"><div class="twrap"><table>
+        <thead><tr><th>Nome</th><th>Cidade/UF</th><th>Coordenadas</th><th style="width:80px">Ações</th></tr></thead>
+        <tbody id="tbody-locais"><tr><td colspan="4" class="dim" style="text-align:center;padding:14px">Carregando…</td></tr></tbody>
+      </table></div></div>
+      <hr style="border:none;border-top:1px solid var(--bd);margin:14px 0">
+      <div class="fg"><label>Nome do local</label><input type="text" id="lc-nome" placeholder="Ex.: Torre Paredão"></div>
+      <div style="display:flex;gap:8px">
+        <div class="fg" style="flex:2"><label>Cidade</label><input type="text" id="lc-cidade" placeholder="Ex.: Calmon"></div>
+        <div class="fg" style="flex:0 0 80px"><label>UF</label><input type="text" id="lc-uf" maxlength="2" placeholder="SC"></div>
+      </div>
+      <div style="display:flex;gap:8px">
+        <div class="fg" style="flex:1"><label>Latitude (opcional)</label><input type="number" id="lc-lat" step="any" placeholder="-26.59"></div>
+        <div class="fg" style="flex:1"><label>Longitude (opcional)</label><input type="number" id="lc-lng" step="any" placeholder="-50.86"></div>
+      </div>
+      <p class="dim" style="font-size:12px;margin-top:4px">Locais são os destinos dos trechos do Deslocamento no app do técnico (ex.: sites da WestRock). Com latitude/longitude, o app confirma a chegada por GPS ("a X m do local").</p>
+    </div>
+    <div class="mf">
+      <button class="btn" onclick="ConfigApp.fechar('modal-locais')">Fechar</button>
+      <button class="btn btn-p" onclick="ConfigApp.salvarLocal()">+ Adicionar local</button>
+    </div>
+  </div>
+</div>
+
 <div class="tc" id="tc"></div>
 
 <script>

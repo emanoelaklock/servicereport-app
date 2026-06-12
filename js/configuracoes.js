@@ -632,7 +632,7 @@
       const chk = `<td><input type="checkbox" class="row-chk" value="${esc(r.id)}"></td>`
       if (kind === 'cli') {
         // Empresas: Editar + Excluir (sem Status nem Ocultar)
-        const acoes = `<div class="acts" style="opacity:1"><button class="ab ab-c" data-edit="${esc(r.id)}">Editar</button><button class="ab ab-d" data-del="${esc(r.id)}">Excluir</button></div>`
+        const acoes = `<div class="acts" style="opacity:1"><button class="ab ab-c" data-edit="${esc(r.id)}">Editar</button><button class="ab ab-c" data-locais="${esc(r.id)}" data-nome="${esc(r.nome || '')}">Locais</button><button class="ab ab-d" data-del="${esc(r.id)}">Excluir</button></div>`
         return `<tr>${chk}<td>${esc(r.nome || '—')}</td><td>${esc(r.documento || '—')}</td><td>${acoes}</td></tr>`
       }
       let status
@@ -646,8 +646,51 @@
       return `<tr>${chk}<td>${esc(r.codigo || '—')}</td><td>${esc(r.descricao || '—')}</td><td>${esc(r.unidade || '—')}</td><td>${status}</td><td>${acoes}</td></tr>`
     }).join('')
     tb.querySelectorAll('[data-edit]').forEach(b => b.onclick = () => editarCliente(b.dataset.edit))
+    tb.querySelectorAll('[data-locais]').forEach(b => b.onclick = () => abrirLocais(b.dataset.locais, b.dataset.nome))
     tb.querySelectorAll('[data-toggle]').forEach(b => b.onclick = () => toggleOculto(tipo, b.dataset.toggle, b.dataset.oc === '1'))
     tb.querySelectorAll('[data-del]').forEach(b => b.onclick = () => excluirCadastro(tipo, b.dataset.del))
+  }
+
+  // ── Locais do cliente (destinos de trecho do Deslocamento/pernoite) ──
+  async function abrirLocais(clienteId, nome) {
+    document.getElementById('lc-cliente-id').value = clienteId
+    document.getElementById('lc-tt').textContent = `Locais — ${nome || 'cliente'}`
+    ;['lc-nome', 'lc-cidade', 'lc-uf', 'lc-lat', 'lc-lng'].forEach(id => { document.getElementById(id).value = '' })
+    document.getElementById('modal-locais').classList.add('open')
+    await carregarLocais(clienteId)
+  }
+  async function carregarLocais(clienteId) {
+    const tb = document.getElementById('tbody-locais')
+    const { data, error } = await getSupabase().from('cliente_locais')
+      .select('id,nome,cidade,uf,lat,lng').eq('cliente_id', clienteId).eq('ativo', true).order('nome')
+    if (error) { tb.innerHTML = '<tr><td colspan="4" class="dim" style="text-align:center;padding:14px">Erro ao carregar.</td></tr>'; return }
+    if (!(data || []).length) { tb.innerHTML = '<tr><td colspan="4" class="dim" style="text-align:center;padding:14px">Nenhum local cadastrado.</td></tr>'; return }
+    tb.innerHTML = data.map(l => `<tr><td>${esc(l.nome)}</td><td>${esc([l.cidade, l.uf].filter(Boolean).join('/') || '—')}</td>
+      <td>${l.lat != null && l.lng != null ? `${(+l.lat).toFixed(4)}, ${(+l.lng).toFixed(4)}` : '—'}</td>
+      <td><div class="acts" style="opacity:1"><button class="ab ab-d" data-dellocal="${esc(l.id)}">Excluir</button></div></td></tr>`).join('')
+    tb.querySelectorAll('[data-dellocal]').forEach(b => b.onclick = () => excluirLocal(b.dataset.dellocal))
+  }
+  async function salvarLocal() {
+    const clienteId = document.getElementById('lc-cliente-id').value
+    const nome = document.getElementById('lc-nome').value.trim()
+    if (!clienteId || !nome) { toast('Dê um nome ao local.', 'err'); return }
+    const num = (id) => { const v = document.getElementById(id).value.trim(); return v === '' ? null : Number(v) }
+    const { error } = await getSupabase().from('cliente_locais').insert({
+      cliente_id: clienteId, nome,
+      cidade: document.getElementById('lc-cidade').value.trim() || null,
+      uf: document.getElementById('lc-uf').value.trim().toUpperCase() || null,
+      lat: num('lc-lat'), lng: num('lc-lng'),
+    })
+    if (error) { toast('Erro ao salvar o local.', 'err'); return }
+    ;['lc-nome', 'lc-cidade', 'lc-uf', 'lc-lat', 'lc-lng'].forEach(id => { document.getElementById(id).value = '' })
+    toast('Local adicionado.', 'ok')
+    await carregarLocais(clienteId)
+  }
+  async function excluirLocal(id) {
+    // soft delete: o local pode estar referenciado por trechos antigos
+    const { error } = await getSupabase().from('cliente_locais').update({ ativo: false }).eq('id', id)
+    if (error) { toast('Erro ao excluir.', 'err'); return }
+    await carregarLocais(document.getElementById('lc-cliente-id').value)
   }
 
   function idsSelecionados(kind) {
@@ -795,5 +838,5 @@
   const abrir = (id) => document.getElementById(id).classList.add('open')
   const fechar = (id) => document.getElementById(id).classList.remove('open')
 
-  window.ConfigApp = { init, salvarForm, salvarTipo, salvarVeiculo, salvarStatus, editarCliente, salvarCliente, fechar }
+  window.ConfigApp = { init, salvarForm, salvarTipo, salvarVeiculo, salvarStatus, editarCliente, salvarCliente, salvarLocal, fechar }
 })()
