@@ -1895,7 +1895,7 @@
       const rl = t.cargo ? `${t.cargo} · Técnico` : 'Técnico'
       const foto = (typeof avatarUrl === 'function') ? avatarUrl(t.foto_url) : null
       const av = foto ? `<img src="${esc(foto)}" alt="">` : esc(iniciaisDe(n))
-      return `<div class="tec-row" data-${modo}="${esc(t.id)}"><span class="av">${av}</span><span class="ti"><span class="nm">${esc(n)}</span><span class="rl">${esc(rl)}</span></span><span class="pl">${modo === 'add' ? '+' : '×'}</span></div>`
+      return `<div class="tec-row" data-${modo}="${esc(t.id)}"><span class="av">${av}</span><span class="ti"><span class="nm">${esc(n)}</span><span class="rl">${esc(rl)}</span></span><span class="pl ${modo === 'add' ? 'pl-add' : 'pl-rem'}">${modo === 'add' ? '+' : '×'}</span></div>`
     }
     const aBordo = (ref.tecnicos || []).filter(t => dlTecSel.has(t.id))
     const disp = (ref.tecnicos || []).filter(t => !dlTecSel.has(t.id) && (!q || normStr(t.nome || '').includes(q)))
