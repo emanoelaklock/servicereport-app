@@ -108,7 +108,13 @@ const DeslocApp = (() => {
     let lst = rows
     if (fTec) lst = lst.filter(d => (d.deslocamento_tecnicos || []).some(x => x.tecnico_id === fTec))
     if (fCli) lst = lst.filter(d => d.cliente_id === fCli)
-    if (fSent) lst = lst.filter(d => d.sentido === fSent)
+    if (fSent) lst = lst.filter(d => {
+      const ts = trechosDe(d)
+      if (!ts.length) return fSent === 'legado'
+      const emViagem = ts.some(t => t.saida_em) && !ts.every(t => t.chegada_em)
+      const fechada = ts.length && ts.every(t => t.chegada_em)
+      return fSent === (emViagem ? 'andamento' : (fechada ? 'concluida' : 'planejada'))
+    })
     const diaRef = (d) => {
       if (d.saida_em) return d.saida_em.slice(0, 10)
       const ts = trechosDe(d)
@@ -120,35 +126,45 @@ const DeslocApp = (() => {
     document.getElementById('d-count').textContent = `${lst.length} de ${rows.length} registro(s)`
     const tb = document.getElementById('d-tbody')
     if (!lst.length) { tb.innerHTML = '<tr><td colspan="8" class="d-empty">Nenhum deslocamento para o filtro.</td></tr>'; return }
+    const abChip = (tid) => {
+      const n = (tecNomes[tid] || '—').trim()
+      const ini = n.split(/\s+/).slice(0, 2).map(p => p[0] || '').join('').toUpperCase()
+      return `<span class="abchip"><i>${esc(ini)}</i>${esc(n.split(/\s+/).slice(0, 2).join(' '))}</span>`
+    }
     tb.innerHTML = lst.map(d => {
-      const nomes = (d.deslocamento_tecnicos || []).map(x => tecNomes[x.tecnico_id]).filter(Boolean).join(', ')
+      const chips = (d.deslocamento_tecnicos || []).map(x => abChip(x.tecnico_id)).join('') || '—'
       const ts = trechosDe(d)
       if (ts.length) {
         // modelo novo: viagem com trechos — origem → destino final, datas e veículos usados
         const prim = ts[0], ult = ts[ts.length - 1]
         const veics = [...new Set(ts.map(t => t.veiculo_id).filter(Boolean))].map(veicLbl)
+        const semVeic = [...new Set(ts.filter(t => !t.veiculo_id && t.nota_transporte).map(t => t.nota_transporte))]
         const datas = ts.map(t => t.data).filter(Boolean).sort()
         const periodo = datas.length ? `${dia2(datas[0])}${datas[datas.length - 1] !== datas[0] ? ' → ' + dia2(datas[datas.length - 1]) : ''}` : ''
         const detalhe = ts.map(t => `<div class="dim" style="font-size:11px">${t.ordem}. ${esc(t.origem || '—')} → ${esc(destinoLbl(t))}${t.data ? ' · ' + dia2(t.data) : ''}</div>`).join('')
         const saida = (ts.find(t => t.saida_em) || {}).saida_em
-        const chegada = ts.every(t => t.chegada_em) ? ult.chegada_em : null
+        const emViagem = ts.some(t => t.saida_em) && !ts.every(t => t.chegada_em)
+        const fechada = ts.every(t => t.chegada_em)
+        const chegada = fechada ? ult.chegada_em : null
+        const st = emViagem ? '<span class="vst and"><i></i>Em andamento</span>'
+          : (fechada ? '<span class="vst con"><i></i>Concluída</span>' : '<span class="vst pla"><i></i>Planejada</span>')
         return `<tr>
-          <td><span class="d-sent outro">Viagem · ${ts.length} trecho${ts.length > 1 ? 's' : ''}</span>${periodo ? `<div class="dim" style="font-size:11px;margin-top:3px">${esc(periodo)}</div>` : ''}</td>
+          <td><div class="vtipo">Viagem · ${ts.length} trecho${ts.length > 1 ? 's' : ''}</div>${periodo ? `<div class="vper">${esc(periodo)}</div>` : ''}<div style="margin-top:5px">${st}</div></td>
           <td>${esc(cliNomes[d.cliente_id] || '—')}</td>
           <td>${esc(prim.origem || '—')} → ${esc(destinoLbl(ult))}${detalhe}</td>
-          <td>${veics.length ? veics.map(esc).join('<br>') : '—'}</td>
-          <td>${esc(nomes || '—')}</td>
-          <td>${dt(saida)}</td>
-          <td>${chegada ? dt(chegada) : '<span class="p-open">em andamento</span>'}</td>
+          <td>${veics.length ? veics.map(esc).join('<br>') : (semVeic.length ? `<span class="dim">${esc(semVeic.join(', '))}</span>` : '—')}</td>
+          <td>${chips}</td>
+          <td>${saida ? dt(saida) : '<span class="dim">não iniciada</span>'}</td>
+          <td>${chegada ? dt(chegada) : (emViagem ? '<span class="p-open">em viagem</span>' : '<span class="dim">—</span>')}</td>
           <td><span class="d-act"><button data-edit="${esc(d.id)}">Editar</button><button class="del" data-del="${esc(d.id)}">Excluir</button></span></td>
         </tr>`
       }
       return `<tr>
-        <td><span class="d-sent ${esc(d.sentido)}">${esc(SENT[d.sentido] || d.sentido)}</span></td>
+        <td><span class="d-sent ${esc(d.sentido)}">${esc(SENT[d.sentido] || d.sentido)}</span><div class="vper">trajeto antigo</div></td>
         <td>${esc(cliNomes[d.cliente_id] || '—')}</td>
         <td>${esc(localLbl(d.origem_cidade, d.origem_uf, d.origem))} → ${esc(localLbl(d.destino_cidade, d.destino_uf, d.destino))}${rotaInfo(d)}</td>
         <td>${esc(veicLbl(d.veiculo_id))}</td>
-        <td>${esc(nomes || '—')}</td>
+        <td>${chips}</td>
         <td>${dt(d.saida_em)}${mapPin(d.saida_lat, d.saida_lng)}</td>
         <td>${dt(d.chegada_em)}${mapPin(d.chegada_lat, d.chegada_lng)}</td>
         <td><span class="d-act"><button data-edit="${esc(d.id)}">Editar</button><button class="del" data-del="${esc(d.id)}">Excluir</button></span></td>
@@ -265,8 +281,9 @@ const DeslocApp = (() => {
     const box = document.getElementById('vm-trechos'); if (!box || !vmCur) return
     box.innerHTML = vmCur.trechos.map((t, i) => {
       const aboard = new Set(t.tecnicos)
+      const pool = tecArr.filter(u => aboard.has(u.id)).length ? tecArr.filter(u => aboard.has(u.id)) : tecArr
       const turnos = (t.motoristas || []).map((m, mi) => `<div class="vm-turno">
-          <select data-vmdrv="${i}:${mi}">${tecArr.map(u => `<option value="${esc(u.id)}"${m.tecnico_id === u.id ? ' selected' : ''}>${esc(u.nome || '')}</option>`).join('')}</select>
+          <select data-vmdrv="${i}:${mi}">${pool.map(u => `<option value="${esc(u.id)}"${m.tecnico_id === u.id ? ' selected' : ''}>${esc(u.nome || '')}</option>`).join('')}</select>
           <input type="time" data-vmde="${i}:${mi}" value="${esc(m.hora_de || '')}" title="De (vazio = da saída)">
           <input type="time" data-vmate="${i}:${mi}" value="${esc(m.hora_ate || '')}" title="Até (vazio = até a chegada)">
           <button type="button" class="vdel" data-vmdrvdel="${i}:${mi}" title="Remover turno">×</button>
@@ -277,12 +294,11 @@ const DeslocApp = (() => {
           <div><label>Origem</label><input type="text" data-vmorig="${i}" value="${esc(t.origem || '')}"></div>
           <div style="max-width:150px"><label>Data</label><input type="date" data-vmdata="${i}" value="${esc(t.data || '')}"></div>
         </div>
-        <div class="dm-row" style="margin-top:10px">
-          <div><label>Destino (local do cliente)</label><select data-vmloc="${i}">
-            <option value="">— texto livre —</option>
+        <div style="margin-top:10px"><label>Destino</label><select data-vmloc="${i}">
             ${vmLocais.map(l => `<option value="${esc(l.id)}"${t.destino_local_id === l.id ? ' selected' : ''}>${esc(l.nome)}${l.cidade ? ' · ' + esc([l.cidade, l.uf].filter(Boolean).join('/')) : ''}</option>`).join('')}
-          </select></div>
-          <div><label>Destino (texto)</label><input type="text" data-vmdest="${i}" value="${esc(t.destino || '')}"${t.destino_local_id ? ' disabled' : ''}></div>
+            <option value=""${!t.destino_local_id ? ' selected' : ''}>Outro lugar (digitar)…</option>
+          </select>
+          ${!t.destino_local_id ? `<input type="text" data-vmdest="${i}" value="${esc(t.destino || '')}" placeholder="Digite o destino (ex.: Campinas/SP)" style="margin-top:6px">` : ''}
         </div>
         <div class="dm-row" style="margin-top:10px">
           <div><label>Saída</label><input type="datetime-local" data-vmsaida="${i}" value="${esc(toLocalInput(t.saida_em))}"></div>
@@ -295,8 +311,8 @@ const DeslocApp = (() => {
           </select></div>
           <div><label>Sem veículo: como foi?</label><input type="text" data-vmnota="${i}" value="${esc(t.nota_transporte || '')}" placeholder="carona, avião, alugado…"${t.veiculo_id ? ' disabled' : ''}></div>
         </div>
-        <div style="margin-top:10px"><label>Técnicos a bordo</label><div class="dm-tecs">
-          ${tecArr.map(u => `<label><input type="checkbox" data-vmtec="${i}" value="${esc(u.id)}"${aboard.has(u.id) ? ' checked' : ''}> ${esc(u.nome || '')}</label>`).join('')}
+        <div style="margin-top:10px"><label>Técnicos a bordo</label><div class="tchips">
+          ${tecArr.map(u => `<button type="button" class="tchip${aboard.has(u.id) ? ' on' : ''}" data-vmtec="${i}:${esc(u.id)}">${esc(u.nome || '')}</button>`).join('')}
         </div></div>
         <div style="margin-top:10px"><label>Direção — quem dirigiu (revezamento; horários vazios = trecho todo)</label>
           ${turnos}
@@ -329,11 +345,14 @@ const DeslocApp = (() => {
     })
     box.querySelectorAll('[data-vmnota]').forEach(el => { el.oninput = () => { T[+el.dataset.vmnota].nota_transporte = el.value.trim() || null } })
     box.querySelectorAll('[data-vmtec]').forEach(el => {
-      el.onchange = () => {
-        const t = T[+el.dataset.vmtec]
+      el.onclick = () => {
+        const [i, tid] = el.dataset.vmtec.split(':')
+        const t = T[+i]
         const set = new Set(t.tecnicos)
-        if (el.checked) set.add(el.value); else { set.delete(el.value); t.motoristas = (t.motoristas || []).filter(m => m.tecnico_id !== el.value) }
+        if (set.has(tid)) { set.delete(tid); t.motoristas = (t.motoristas || []).filter(m => m.tecnico_id !== tid) }
+        else set.add(tid)
         t.tecnicos = [...set]
+        renderVmTrechos()
       }
     })
     box.querySelectorAll('[data-vmdrv]').forEach(el => { el.onchange = () => { const [i, mi] = el.dataset.vmdrv.split(':').map(Number); T[i].motoristas[mi].tecnico_id = el.value } })
