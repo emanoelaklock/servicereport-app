@@ -1728,7 +1728,7 @@
       // campos com orientação + bullets automáticos
       const TA_DICAS = {
         servico_executado: 'Descreva o serviço executado, atividades realizadas e resultados obtidos',
-        observacoes: 'Pendências, materiais necessários, observações ou retorno programado',
+        observacoes: 'Materiais necessários, observações ou retorno programado',
       }
       const ehServico = !!TA_DICAS[c.id]
       const ph = TA_DICAS[c.id] || '…'
