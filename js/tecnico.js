@@ -1465,8 +1465,10 @@
         const ultimo = ts[ts.length - 1] || {}
         const loc = localDe(d.cliente_id, (ts[0] || {}).destino_local_id)
         const rota = `${esc((ts[0] || {}).origem || '—')} → ${esc(loc ? loc.nome : ((ts[0] || {}).destino || (ultimo.destino || '—')))}`
+        const clisVisita = [...new Set([...ts.map(t => t.destino_cliente_id).filter(Boolean), ...(d.cliente_id ? [d.cliente_id] : [])])]
+          .map(id => cliNomeDe(id, '')).filter(Boolean)
         return `<div class="listcard${fechada ? ' lc-done' : ''}"${tomb ? '' : ` data-viagem="${esc(d.id)}" style="cursor:pointer"`}><span class="edge e-${tomb ? 'pend' : emViagem ? 'warn' : fechada ? 'done' : 'info'}"></span>
-          <div class="t"><span class="cli">${esc(cliNomeDe(d.cliente_id, '—'))}</span><span style="display:flex;gap:6px;align-items:center">${fila}${badge}</span></div>
+          <div class="t"><span class="cli">${esc(clisVisita.join(' · ') || cliNomeDe(d.cliente_id, '—'))}</span><span style="display:flex;gap:6px;align-items:center">${fila}${badge}</span></div>
           <div class="meta">${rota} · ${ts.length} trecho${ts.length > 1 ? 's' : ''} · ${esc(per)}${(() => { const tv = tempoViagemMin(ts, d.almocoHorarios); return tv.temTempo ? ` · <b>${fmtHm(tv.total)}</b>${tv.aberto ? '…' : ''}${tv.almoco ? ' (− almoço)' : ''}` : '' })()}</div>
           <div class="meta">A bordo: ${esc(nomes || '—')}</div>
           ${tomb ? `<div class="meta" style="color:#C0362C">O escritório excluiu esta viagem — ela não será mais enviada. Se quiser, descarte a cópia local.</div>${btnDescartar(d.id)}` : ''}

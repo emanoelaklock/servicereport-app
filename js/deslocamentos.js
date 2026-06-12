@@ -169,7 +169,7 @@ const DeslocApp = (() => {
     const fAte = document.getElementById('d-ate').value
     let lst = rows
     if (fTec) lst = lst.filter(d => (d.deslocamento_tecnicos || []).some(x => x.tecnico_id === fTec))
-    if (fCli) lst = lst.filter(d => d.cliente_id === fCli)
+    if (fCli) lst = lst.filter(d => d.cliente_id === fCli || trechosDe(d).some(t => t.destino_cliente_id === fCli))
     if (fSent) lst = lst.filter(d => {
       const ts = trechosDe(d)
       if (!ts.length) return fSent === 'legado'
@@ -209,9 +209,14 @@ const DeslocApp = (() => {
         const chegada = fechada ? ult.chegada_em : null
         const st = emViagem ? '<span class="vst and"><i></i>Em andamento</span>'
           : (fechada ? '<span class="vst con"><i></i>Concluída</span>' : '<span class="vst pla"><i></i>Planejada</span>')
+        // Cliente/obra = TODOS os clientes visitados (ordem da viagem; principal em negrito)
+        const clisVisita = [...new Set([...ts.map(t => t.destino_cliente_id).filter(Boolean), ...(d.cliente_id ? [d.cliente_id] : [])])]
+        const cliCell = clisVisita.length
+          ? clisVisita.map(id => `<div${id === d.cliente_id ? ' style="font-weight:700"' : ''}>${esc(cliNomes[id] || '—')}</div>`).join('')
+          : esc(cliNomes[d.cliente_id] || '—')
         return `<tr>
           <td><div class="vtipo">Viagem · ${ts.length} trecho${ts.length > 1 ? 's' : ''}</div>${periodo ? `<div class="vper">${esc(periodo)}</div>` : ''}${(() => { const tv = tempoViagemMin(ts, d.deslocamento_almocos); return tv.temTempo ? `<div class="vper">Tempo: <b>${fmtHm(tv.total)}</b>${tv.aberto ? '…' : ''}${tv.almoco ? ' (− almoço)' : ''}</div>` : '' })()}<div style="margin-top:5px">${st}</div></td>
-          <td>${esc(cliNomes[d.cliente_id] || '—')}</td>
+          <td>${cliCell}</td>
           <td>${esc(fmtLugar(prim.origem) || '—')} → ${esc(destinoLbl(ult))}${detalhe}</td>
           <td>${veics.length ? veics.map(esc).join('<br>') : (semVeic.length ? `<span class="dim">${esc(semVeic.join(', '))}</span>` : '—')}</td>
           <td>${chips}</td>
@@ -580,6 +585,12 @@ const DeslocApp = (() => {
       }
     })
     box.querySelectorAll('[data-vmdelleg]').forEach(el => { el.onclick = () => { T.splice(+el.dataset.vmdelleg, 1); renderVmTrechos() } })
+    // resumo: todos os clientes visitados na viagem
+    const resumoEl = document.getElementById('vm-clis')
+    if (resumoEl) {
+      const clis = [...new Set(T.map(t => t.destino_cliente_id).filter(Boolean))].map(id => cliNomes[id] || (cliArr.find(c => c.id === id) || {}).nome).filter(Boolean)
+      resumoEl.textContent = clis.length ? `Clientes da viagem: ${clis.join(' · ')}` : ''
+    }
     renderVmAlmoco()
     renderVmTotal()
   }
