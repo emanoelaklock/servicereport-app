@@ -1093,12 +1093,30 @@
   function renderDlDestLista() {
     const t = dlCur && dlCur.trechos[dlModalTrecho]; if (!t) return
     const q = normStr(document.getElementById('dldest-busca').value || '')
-    const locais = (locaisCache[dlCur.cliente_id] || []).filter(l => !q || normStr(`${l.nome} ${l.cidade || ''}`).includes(q))
     const lista = document.getElementById('dldest-lista')
-    lista.innerHTML = locais.map(l => `<button type="button" class="opt-row${t.destino_local_id === l.id ? ' on' : ''}" data-loc="${esc(l.id)}">
+    // 1ª opção: a própria empresa da viagem (sede — cidade vem do endereço do cadastro)
+    const cli = (ref.clientes || []).find(c => c.id === dlCur.cliente_id)
+    const g = cli && cidadeUfDeEndereco(cli.endereco)
+    const cliCidade = g ? [g.cidade, g.uf].filter(Boolean).join('/') : ''
+    const cliSel = cli && !t.destino_local_id && t.destino && (t.destino === (cliCidade || cli.nome))
+    const cliRow = (cli && (!q || normStr(cli.nome).includes(q)))
+      ? `<button type="button" class="opt-row${cliSel ? ' on' : ''}" data-clidest="1">
+          <span class="oic"><svg viewBox="0 0 24 24"><path d="M3 21h18M5 21V5a1 1 0 0 1 1-1h8a1 1 0 0 1 1 1v16M9 8h2m-2 4h2m-2 4h2M15 10h4a1 1 0 0 1 1 1v10"/></svg></span>
+          <span class="ot"><span class="on1">${esc(cli.nome)}</span><span class="on2">Empresa da viagem${cliCidade ? ' · ' + esc(cliCidade) : ''}</span></span>
+        </button>` : ''
+    const locais = (locaisCache[dlCur.cliente_id] || []).filter(l => !q || normStr(`${l.nome} ${l.cidade || ''}`).includes(q))
+    lista.innerHTML = cliRow + (locais.map(l => `<button type="button" class="opt-row${t.destino_local_id === l.id ? ' on' : ''}" data-loc="${esc(l.id)}">
         <span class="oic">${SVG_PIN}</span>
         <span class="ot"><span class="on1">${esc(l.nome)}</span>${l.cidade ? `<span class="on2">${esc([l.cidade, l.uf].filter(Boolean).join('/'))}${l.lat != null ? ' · valida chegada por GPS' : ''}</span>` : ''}</span>
-      </button>`).join('') || `<div class="prod-empty">${dlCur.cliente_id ? 'Nenhum local cadastrado para esta empresa — digite o destino abaixo.' : 'Escolha a empresa da viagem primeiro, ou digite o destino abaixo.'}</div>`
+      </button>`).join('') || (cliRow ? '' : `<div class="prod-empty">${dlCur.cliente_id ? 'Nenhum local cadastrado para esta empresa — digite o destino abaixo.' : 'Escolha a empresa da viagem primeiro, ou digite o destino abaixo.'}</div>`))
+    lista.querySelectorAll('[data-clidest]').forEach(b => {
+      b.onclick = () => {
+        t.destino_local_id = null
+        t.destino = cliCidade || cli.nome
+        document.getElementById('modal-dl-dest').classList.remove('open')
+        renderTrechos()
+      }
+    })
     lista.querySelectorAll('[data-loc]').forEach(b => {
       b.onclick = () => {
         const l = localDe(dlCur.cliente_id, b.dataset.loc)
