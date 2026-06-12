@@ -855,7 +855,7 @@
 
   function novoTrecho(base) {
     const t = {
-      id: D().uuid(), origem: '', destino: '', destino_local_id: null,
+      id: D().uuid(), origem: '', destino: '', destino_local_id: null, destino_cliente_id: null,
       data: jorHoje(), saida_em: null, chegada_em: null,
       saida_lat: null, saida_lng: null, saida_precisao: null,
       chegada_lat: null, chegada_lng: null, chegada_precisao: null,
@@ -1033,7 +1033,13 @@
   const SVG_PIN = '<svg viewBox="0 0 24 24"><path d="M12 21s-7-5.1-7-11a7 7 0 0 1 14 0c0 5.9-7 11-7 11Z"/><circle cx="12" cy="10" r="2.5"/></svg>'
   const SVG_BED = '<svg viewBox="0 0 24 24"><path d="M3 18v-7a2 2 0 0 1 2-2h9a5 5 0 0 1 5 5v4M3 18h16M3 18v2m16-2v2M7 11V9"/><circle cx="7.5" cy="11.5" r="1.6"/></svg>'
   // resumo do destino/veículo/direção exibido na linha-botão do trecho
-  const destinoLbl = (t) => { const l = localDe(dlCur && dlCur.cliente_id, t.destino_local_id); return l ? l.nome : (t.destino || '') }
+  // (cliente do destino é explícito: "BENTELER — Porto Real · Porto Real/RJ")
+  const destinoLbl = (t) => {
+    const l = localDe(dlCur && dlCur.cliente_id, t.destino_local_id)
+    if (l) { const cli = cliNomeDe(t.destino_cliente_id, ''); return cli ? `${cli} · ${l.nome}` : l.nome }
+    if (t.destino_cliente_id) { const cli = cliNomeDe(t.destino_cliente_id, ''); return cli ? `${cli}${t.destino ? ' · ' + t.destino : ''}` : (t.destino || '') }
+    return t.destino || ''
+  }
   const veiculoLbl = (t) => {
     if (t.veiculo_id) { const v = (ref.veiculos || []).find(x => x.id === t.veiculo_id); return v ? `${v.modelo || ''} · ${v.placa || ''}` : 'Veículo' }
     return t.nota_transporte ? `Sem veículo da empresa · ${t.nota_transporte}` : ''
@@ -1177,8 +1183,9 @@
     const SVG_PREDIO = '<svg viewBox="0 0 24 24"><path d="M3 21h18M5 21V5a1 1 0 0 1 1-1h8a1 1 0 0 1 1 1v16M9 8h2m-2 4h2m-2 4h2M15 10h4a1 1 0 0 1 1 1v10"/></svg>'
     const SVG_CASA = '<svg viewBox="0 0 24 24"><path d="M3 11 12 3l9 8M5 10v10h14V10M9 20v-6h6v6"/></svg>'
     const cidadeDe = (c) => { const g = c && cidadeUfDeEndereco(c.endereco); return g ? [g.cidade, g.uf].filter(Boolean).join('/') : '' }
-    const escolheTexto = (valor) => {
+    const escolheTexto = (valor, clienteId) => {
       t.destino_local_id = null
+      t.destino_cliente_id = clienteId || null
       t.destino = valor
       document.getElementById('modal-dl-dest').classList.remove('open')
       renderTrechos()
@@ -1213,17 +1220,18 @@
         </button>`).join('') : ''
     lista.innerHTML = (baseRow + cliRow + locaisRows + outras)
       || `<div class="prod-empty">Nada encontrado para a busca — digite o destino abaixo.</div>`
-    lista.querySelectorAll('[data-basedest]').forEach(b => { b.onclick = () => escolheTexto(baseLbl) })
+    lista.querySelectorAll('[data-basedest]').forEach(b => { b.onclick = () => escolheTexto(baseLbl, null) })
     lista.querySelectorAll('[data-clidest]').forEach(b => {
       b.onclick = () => {
         const c = (ref.clientes || []).find(x => x.id === b.dataset.clidest)
-        escolheTexto(cidadeDe(c) || (c && c.nome) || '')
+        escolheTexto(cidadeDe(c) || (c && c.nome) || '', c && c.id)
       }
     })
     lista.querySelectorAll('[data-loc]').forEach(b => {
       b.onclick = () => {
         const l = localDe(dlCur.cliente_id, b.dataset.loc)
         t.destino_local_id = b.dataset.loc
+        t.destino_cliente_id = dlCur.cliente_id || null   // o local pertence à empresa da viagem
         t.destino = l ? ([l.cidade, l.uf].filter(Boolean).join('/') || l.nome) : null
         document.getElementById('modal-dl-dest').classList.remove('open')
         renderTrechos()
@@ -1233,7 +1241,7 @@
   function concluirDlDest() {
     const t = dlCur && dlCur.trechos[dlModalTrecho]; if (!t) return
     const outro = document.getElementById('dldest-outro').value.trim()
-    if (outro) { t.destino_local_id = null; t.destino = outro }
+    if (outro) { t.destino_local_id = null; t.destino_cliente_id = null; t.destino = outro }
     document.getElementById('modal-dl-dest').classList.remove('open')
     renderTrechos()
   }

@@ -30,7 +30,7 @@ const DeslocApp = (() => {
   async function init() {
     const [tec, cli, vc] = await Promise.all([
       sb().rpc('sr_usuarios'),   // usuários do SR (papel vindo do Portal); filtra técnicos abaixo
-      sb().from('clientes').select('id,nome,oculto,sync_omie'),
+      sb().from('clientes').select('id,nome,endereco,oculto,sync_omie'),
       sb().from('veiculos').select('id,modelo,placa'),
     ])
     if (tec.data) tec.data = tec.data.filter(u => u.role === 'tecnico_campo' && u.ativo)
@@ -80,7 +80,7 @@ const DeslocApp = (() => {
 
   async function carregar() {
     const { data, error } = await sb().from('deslocamentos')
-      .select('id,sentido,cliente_id,origem,destino,origem_cidade,origem_uf,destino_cidade,destino_uf,motivo,saida_em,chegada_em,veiculo_id,saida_lat,saida_lng,chegada_lat,chegada_lng,criado_em,deslocamento_tecnicos(tecnico_id),deslocamento_trechos(id,ordem,origem,destino,destino_local_id,data,saida_em,chegada_em,saida_lat,saida_lng,saida_precisao,chegada_lat,chegada_lng,chegada_precisao,veiculo_id,nota_transporte,espelho_legado,cliente_locais(nome,cidade,uf),trecho_tecnicos(tecnico_id),trecho_direcao(id,tecnico_id,hora_de,hora_ate)),deslocamento_almocos(tecnico_id,dia,inicio,fim)')
+      .select('id,sentido,cliente_id,origem,destino,origem_cidade,origem_uf,destino_cidade,destino_uf,motivo,saida_em,chegada_em,veiculo_id,saida_lat,saida_lng,chegada_lat,chegada_lng,criado_em,deslocamento_tecnicos(tecnico_id),deslocamento_trechos(id,ordem,origem,destino,destino_local_id,destino_cliente_id,data,saida_em,chegada_em,saida_lat,saida_lng,saida_precisao,chegada_lat,chegada_lng,chegada_precisao,veiculo_id,nota_transporte,espelho_legado,cliente_locais(nome,cidade,uf),trecho_tecnicos(tecnico_id),trecho_direcao(id,tecnico_id,hora_de,hora_ate)),deslocamento_almocos(tecnico_id,dia,inicio,fim)')
       .order('criado_em', { ascending: false }).limit(300)
     if (error) { toast('Erro: ' + error.message, 'err'); return }
     rows = data || []
@@ -88,7 +88,17 @@ const DeslocApp = (() => {
   }
   // trechos do modelo novo (espelho_legado é cópia de registro antigo — fica de fora)
   const trechosDe = (d) => ((d.deslocamento_trechos || []).filter(t => !t.espelho_legado)).sort((a, b) => a.ordem - b.ordem)
-  const destinoLbl = (t) => t.cliente_locais ? `${t.cliente_locais.nome}${t.cliente_locais.cidade ? ' · ' + fmtLugar([t.cliente_locais.cidade, t.cliente_locais.uf].filter(Boolean).join('/')) : ''}` : (fmtLugar(t.destino) || '—')
+  // destino explícito: cliente do trecho na frente ("BENTELER · Porto Real/RJ")
+  const destinoLbl = (t) => {
+    const cli = t.destino_cliente_id ? (cliNomes[t.destino_cliente_id] || '') : ''
+    if (t.cliente_locais) {
+      const cidade = t.cliente_locais.cidade ? fmtLugar([t.cliente_locais.cidade, t.cliente_locais.uf].filter(Boolean).join('/')) : ''
+      return `${cli ? cli + ' · ' : ''}${t.cliente_locais.nome}${cidade ? ' · ' + cidade : ''}`
+    }
+    const txt = fmtLugar(t.destino) || ''
+    if (cli) return `${cli}${txt ? ' · ' + txt : ''}`
+    return txt || '—'
+  }
   const dia2 = (s) => s ? s.split('-').reverse().slice(0, 2).join('/') : '—'
   // tempo de deslocamento = Σ (chegada − saída) dos trechos − almoço dentro do horário dos trechos do dia
   const fmtHm = (m) => `${Math.floor(m / 60)}h${String(Math.round(m % 60)).padStart(2, '0')}`
@@ -376,10 +386,21 @@ const DeslocApp = (() => {
     box.querySelectorAll('[data-vmalimpa]').forEach(el => { el.onclick = () => { delete vmAlmHor[el.dataset.vmalimpa]; renderVmTrechos() } })
   }
   const vmUuid = () => (crypto.randomUUID ? crypto.randomUUID() : `${Date.now()}-${Math.random().toString(16).slice(2)}`)
+  // cidade/UF extraída do endereço do cliente (Title Case)
+  const cidadeDeCli = (c) => {
+    const s = String((c && c.endereco) || '')
+    const par = s.match(/([A-Za-zÀ-ÿ0-9 .'-]+?)\s*\(([A-Za-z]{2})\)/)
+    if (par) return `${tcase(par[1].trim())}/${par[2].toUpperCase()}`
+    for (const tok of s.split(/[·,]/)) {
+      const m = tok.trim().match(/^(.+?)\/([A-Za-z]{2})$/)
+      if (m) return `${tcase(m[1].trim())}/${m[2].toUpperCase()}`
+    }
+    return ''
+  }
   function vmNovoTrecho() {
     const ant = vmCur.trechos[vmCur.trechos.length - 1]
     return {
-      id: vmUuid(), origem: ant ? (ant.destino || '') : '', destino: '', destino_local_id: null,
+      id: vmUuid(), origem: ant ? (ant.destino || '') : '', destino: '', destino_local_id: null, destino_cliente_id: null,
       data: ant ? ant.data : null, saida_em: null, chegada_em: null,
       saida_lat: null, saida_lng: null, saida_precisao: null, chegada_lat: null, chegada_lng: null, chegada_precisao: null,
       veiculo_id: ant ? ant.veiculo_id : null, nota_transporte: ant ? ant.nota_transporte : null,
@@ -397,6 +418,7 @@ const DeslocApp = (() => {
       id: d.id, cliente_id: d.cliente_id || null, motivo: d.motivo || null,
       trechos: trechosDe(d).map(t => ({
         id: t.id, origem: t.origem || '', destino: t.destino || '', destino_local_id: t.destino_local_id || null,
+        destino_cliente_id: t.destino_cliente_id || null,
         data: t.data || null, saida_em: t.saida_em || null, chegada_em: t.chegada_em || null,
         saida_lat: t.saida_lat ?? null, saida_lng: t.saida_lng ?? null, saida_precisao: t.saida_precisao ?? null,
         chegada_lat: t.chegada_lat ?? null, chegada_lng: t.chegada_lng ?? null, chegada_precisao: t.chegada_precisao ?? null,
@@ -438,11 +460,12 @@ const DeslocApp = (() => {
             <div><label>Origem</label><input type="text" data-vmorig="${i}" value="${esc(t.origem || '')}"></div>
             <div style="max-width:150px"><label>Data</label><input type="date" data-vmdata="${i}" value="${esc(t.data || '')}"></div>
           </div>
-          <div style="margin-top:10px"><label>Destino</label><select data-vmloc="${i}">
-              ${vmLocais.map(l => `<option value="${esc(l.id)}"${t.destino_local_id === l.id ? ' selected' : ''}>${esc(l.nome)}${l.cidade ? ' · ' + esc([l.cidade, l.uf].filter(Boolean).join('/')) : ''}</option>`).join('')}
-              <option value=""${!t.destino_local_id ? ' selected' : ''}>Outro lugar (digitar)…</option>
+          <div style="margin-top:10px"><label>Destino (cliente, local ou texto)</label><select data-vmloc="${i}">
+              ${vmLocais.length ? `<optgroup label="Locais da empresa da viagem">${vmLocais.map(l => `<option value="${esc(l.id)}"${t.destino_local_id === l.id ? ' selected' : ''}>${esc(l.nome)}${l.cidade ? ' · ' + esc([l.cidade, l.uf].filter(Boolean).join('/')) : ''}</option>`).join('')}</optgroup>` : ''}
+              <optgroup label="Clientes">${cliArr.map(c => `<option value="c:${esc(c.id)}"${!t.destino_local_id && t.destino_cliente_id === c.id ? ' selected' : ''}>${esc(c.nome)}${cidadeDeCli(c) ? ' · ' + esc(cidadeDeCli(c)) : ''}</option>`).join('')}</optgroup>
+              <option value=""${!t.destino_local_id && !t.destino_cliente_id ? ' selected' : ''}>Outro lugar (digitar)…</option>
             </select>
-            ${!t.destino_local_id ? `<input type="text" data-vmdest="${i}" value="${esc(t.destino || '')}" placeholder="Digite o destino (ex.: Campinas/SP)" style="margin-top:6px">` : ''}
+            ${!t.destino_local_id ? `<input type="text" data-vmdest="${i}" value="${esc(t.destino || '')}" placeholder="Cidade/UF ou descrição do destino" style="margin-top:6px">` : ''}
           </div>
           <div class="dm-row" style="margin-top:10px">
             <div><label>Saída (hora)</label><input type="time" data-vmsaida="${i}" value="${esc(hhIso(t.saida_em))}"></div>
@@ -488,8 +511,22 @@ const DeslocApp = (() => {
     box.querySelectorAll('[data-vmloc]').forEach(el => {
       el.onchange = () => {
         const t = T[+el.dataset.vmloc]
-        t.destino_local_id = el.value || null
-        if (el.value) { const l = vmLocais.find(x => x.id === el.value); if (l) t.destino = [l.cidade, l.uf].filter(Boolean).join('/') || l.nome }
+        if (el.value.startsWith('c:')) {
+          // destino = um CLIENTE (a viagem pode visitar vários)
+          const c = cliArr.find(x => x.id === el.value.slice(2))
+          t.destino_local_id = null
+          t.destino_cliente_id = c ? c.id : null
+          t.destino = (c && cidadeDeCli(c)) || (c && c.nome) || ''
+        } else if (el.value) {
+          // destino = Local da empresa da viagem
+          const l = vmLocais.find(x => x.id === el.value)
+          t.destino_local_id = el.value
+          t.destino_cliente_id = vmCur.cliente_id || null
+          if (l) t.destino = [l.cidade, l.uf].filter(Boolean).join('/') || l.nome
+        } else {
+          t.destino_local_id = null
+          t.destino_cliente_id = null
+        }
         renderVmTrechos()
       }
     })
@@ -561,6 +598,7 @@ const DeslocApp = (() => {
     const trechos = vmCur.trechos.map((t, i) => ({
       id: t.id || vmUuid(), deslocamento_id: vmCur.id, ordem: i + 1,
       origem: t.origem || null, destino: t.destino || null, destino_local_id: t.destino_local_id || null,
+      destino_cliente_id: t.destino_cliente_id || null,
       data: t.data || null, saida_em: t.saida_em || null, chegada_em: t.chegada_em || null,
       saida_lat: t.saida_lat ?? null, saida_lng: t.saida_lng ?? null, saida_precisao: t.saida_precisao ?? null,
       chegada_lat: t.chegada_lat ?? null, chegada_lng: t.chegada_lng ?? null, chegada_precisao: t.chegada_precisao ?? null,
