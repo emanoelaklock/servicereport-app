@@ -57,6 +57,24 @@ const DeslocApp = (() => {
     document.getElementById('vm-excluir').onclick = () => { const id = document.getElementById('vm-id').value; fecharViagem(); excluir(id) }
     document.getElementById('vm-addleg').onclick = () => { if (!vmCur) return; vmCur.trechos.push(vmNovoTrecho()); renderVmTrechos() }
     document.getElementById('vm-cli').onchange = async (e) => { if (!vmCur) return; vmCur.cliente_id = e.target.value || null; await vmCarregarLocais(); renderVmTrechos() }
+    // o campo edita a viagem no celular → a lista se atualiza sozinha
+    // (ao voltar o foco, a cada 2 min e em tempo real; pausa enquanto o editor está aberto)
+    let recarregaT = null
+    const recarrega = () => {
+      if (document.hidden || vmCur) return
+      clearTimeout(recarregaT)
+      recarregaT = setTimeout(() => carregar(), 400)
+    }
+    document.addEventListener('visibilitychange', recarrega)
+    window.addEventListener('focus', recarrega)
+    setInterval(recarrega, 120000)
+    try {
+      sb().channel('adm-desloc')
+        .on('postgres_changes', { event: '*', schema: 'public', table: 'deslocamentos' }, recarrega)
+        .on('postgres_changes', { event: '*', schema: 'public', table: 'deslocamento_trechos' }, recarrega)
+        .on('postgres_changes', { event: '*', schema: 'public', table: 'deslocamento_almocos' }, recarrega)
+        .subscribe()
+    } catch (e) { /* sem realtime, ficam o foco e o intervalo */ }
     await carregar()
   }
 
@@ -371,7 +389,7 @@ const DeslocApp = (() => {
     renderVmTrechos()
     document.getElementById('vm-back').classList.add('open')
   }
-  function fecharViagem() { document.getElementById('vm-back').classList.remove('open'); vmCur = null }
+  function fecharViagem() { document.getElementById('vm-back').classList.remove('open'); vmCur = null; carregar() }
   function renderVmTrechos() {
     const box = document.getElementById('vm-trechos'); if (!box || !vmCur) return
     box.innerHTML = vmCur.trechos.map((t, i) => {
