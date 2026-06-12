@@ -256,7 +256,9 @@ window.RatView = (function () {
 
   // PDF: 1 ou várias RATs no mesmo documento (para envio manual ao cliente).
   // Abre a janela já (gesto do usuário), comprime as imagens e então escreve o doc.
-  async function gerarPdf(dets, titulo, capaHTML) {
+  // modo: 'print' (padrão — abre o diálogo de impressão) | 'download' (baixa o .pdf;
+  //        usa html2pdf por folha A4 já paginada, com fallback pro diálogo de impressão).
+  async function gerarPdf(dets, titulo, capaHTML, modo) {
     const win = window.open('', '_blank')
     if (!win) { try { toast('Permita pop-ups para gerar o PDF.', 'err') } catch (e) {} return }
     try { win.document.write('<!doctype html><meta charset="utf-8"><body style="font-family:Inter,Arial,sans-serif;color:#1B2A4A;padding:28px">Gerando PDF…</body>') } catch (e) {}
@@ -282,13 +284,34 @@ window.RatView = (function () {
   <div id="sheets"></div>
   <script>
     var HEADER=${JSON.stringify(HEADER)},HEADERC=${JSON.stringify(HEADERC)},FOOTER=${JSON.stringify(FOOTER)};
+    var MODO=${JSON.stringify(modo === 'download' ? 'download' : 'print')};
+    var FN=${JSON.stringify(String(titulo || 'documento').replace(/[\\/:*?"<>|]+/g, '-') + '.pdf')};
+    // download de verdade: html2pdf renderiza cada folha A4 já paginada; se o CDN
+    // falhar, cai no diálogo de impressão (dá pra salvar como PDF por lá)
+    function baixarPdf(){
+      document.title='Gerando o arquivo PDF…';
+      var st=document.createElement('style');st.textContent='.sheet{page-break-after:always;break-after:page}';document.head.appendChild(st);
+      var sc=document.createElement('script');
+      sc.src='https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js';
+      sc.onload=function(){
+        html2pdf().set({filename:FN,margin:0,image:{type:'jpeg',quality:0.92},
+          html2canvas:{scale:2,useCORS:true,letterRendering:true},
+          jsPDF:{unit:'mm',format:'a4',orientation:'portrait'},
+          pagebreak:{mode:['css','legacy']}})
+          .from(document.getElementById('sheets')).save()
+          .then(function(){document.title='PDF baixado — pode fechar esta aba';})
+          .catch(function(){window.focus();window.print();});
+      };
+      sc.onerror=function(){window.focus();window.print();};
+      document.head.appendChild(sc);
+    }
     function el(t,c){var e=document.createElement(t);if(c)e.className=c;return e}
     var raw=document.getElementById('raw'),sheets=document.getElementById('sheets'),cur=null,ftrs=[],blocks=[];
     var rds=raw.querySelectorAll('.rd');for(var ri=0;ri<rds.length;ri++){var ch=rds[ri].children;for(var i=0;i<ch.length;i++){blocks.push({h:ch[i].outerHTML,brk:(ri>0&&i===0)});}}
     function newSheet(){var first=ftrs.length===0;var s=el('div','sheet');var hd=el('div','hd');hd.innerHTML=first?HEADER:HEADERC;var bd=el('div','bd');var ft=el('div','ft');ft.innerHTML=FOOTER;s.appendChild(hd);s.appendChild(bd);s.appendChild(ft);sheets.appendChild(s);ftrs.push(ft);cur={bd:bd};}
     function over(){return cur.bd.scrollHeight>cur.bd.clientHeight+1;}
     function addHTML(h){var d=el('div');d.innerHTML=h;var n=d.firstElementChild;if(!n)return;cur.bd.appendChild(n);if(over()&&cur.bd.children.length>1){cur.bd.removeChild(n);newSheet();cur.bd.appendChild(n);}}
-    function build(){newSheet();for(var i=0;i<blocks.length;i++){if(blocks[i].brk)newSheet();addHTML(blocks[i].h);}if(raw.parentNode)raw.parentNode.removeChild(raw);var N=ftrs.length;for(var k=0;k<N;k++){var pg=ftrs[k].querySelector('.pg');if(pg)pg.textContent='Página '+(k+1)+' de '+N;}var imgs=Array.prototype.slice.call(document.images);var left=imgs.filter(function(im){return !im.complete});function go(){window.focus();window.print();}if(!left.length){setTimeout(go,200);return;}var done=0,fired=false;function one(){done++;if(done>=left.length&&!fired){fired=true;setTimeout(go,150);}}left.forEach(function(im){im.addEventListener('load',one);im.addEventListener('error',one);});setTimeout(function(){if(!fired){fired=true;go();}},7000);}
+    function build(){newSheet();for(var i=0;i<blocks.length;i++){if(blocks[i].brk)newSheet();addHTML(blocks[i].h);}if(raw.parentNode)raw.parentNode.removeChild(raw);var N=ftrs.length;for(var k=0;k<N;k++){var pg=ftrs[k].querySelector('.pg');if(pg)pg.textContent='Página '+(k+1)+' de '+N;}var imgs=Array.prototype.slice.call(document.images);var left=imgs.filter(function(im){return !im.complete});function go(){if(MODO==='download'){baixarPdf();}else{window.focus();window.print();}}if(!left.length){setTimeout(go,200);return;}var done=0,fired=false;function one(){done++;if(done>=left.length&&!fired){fired=true;setTimeout(go,150);}}left.forEach(function(im){im.addEventListener('load',one);im.addEventListener('error',one);});setTimeout(function(){if(!fired){fired=true;go();}},7000);}
     if(document.fonts&&document.fonts.ready){document.fonts.ready.then(function(){setTimeout(build,80);});}else{setTimeout(build,400);}
   <\/script>
 </body></html>`

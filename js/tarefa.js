@@ -218,7 +218,8 @@ const TarefaApp = (() => {
     document.querySelectorAll('#cc-tabs .tab').forEach(b => b.onclick = () => mostrarPane(b.dataset.pane))
     // RATs
     document.getElementById('cc-rat-pdf').onclick = pdfUnificado
-    document.getElementById('cc-export').onclick = exportarTarefa
+    document.getElementById('cc-print').onclick = () => exportarTarefa('print')
+    document.getElementById('cc-baixar').onclick = () => exportarTarefa('download')
     document.getElementById('rat-x').onclick = () => fecharModal('modal-rat')
     document.getElementById('rat-fechar').onclick = () => fecharModal('modal-rat')
     document.getElementById('rat-editar').onclick = ratEntrarEdicao
@@ -925,8 +926,9 @@ const TarefaApp = (() => {
     for (const r of rats) dets.push(await RatView.loadDetalhe(r))
     RatView.gerarPdf(dets, `RATs Tarefa ${osNo(cur.numero)}`)
   }
-  // Exporta a Tarefa em PDF: capa (dados + produtos) + todas as RATs.
-  async function exportarTarefa() {
+  // Exporta a Tarefa: capa (dados + produtos) + todas as RATs.
+  // modo 'print' abre o diálogo de impressão; 'download' baixa o .pdf.
+  async function exportarTarefa(modo) {
     if (!cur || !cur.id) return
     const t = tarefas.find(x => x.id === cur.id) || {}
     const tipoNome = (ref.tipos.find(p => p.id === t.tipo_servico_id) || {}).nome || '—'
@@ -958,7 +960,7 @@ const TarefaApp = (() => {
           </tr></thead><tbody>${linhasHtml}</tbody></table></div>` : ''}`
     const dets = []
     for (const r of (cur.rats || [])) dets.push(await RatView.loadDetalhe(r))
-    RatView.gerarPdf(dets, `Tarefa ${osNo(cur.numero)}`, capa)
+    RatView.gerarPdf(dets, `Tarefa ${osNo(cur.numero)}`, capa, modo)
   }
 
   // Nova tarefa a partir da pendência da TAREFA (botão na aba Dados quando concluída c/ pendência).
