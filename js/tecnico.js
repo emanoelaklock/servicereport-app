@@ -242,7 +242,6 @@
     document.getElementById('btn-concluir-pend').onclick = () => concluirTarefa(true)
     document.getElementById('cp-fechar').onclick = () => document.getElementById('modal-conc-pend').classList.remove('open')
     document.getElementById('cp-cancelar').onclick = () => document.getElementById('modal-conc-pend').classList.remove('open')
-    document.getElementById('cp-nova').onchange = (e) => { document.getElementById('cp-nova-wrap').style.display = e.target.checked ? 'block' : 'none' }
     document.getElementById('cp-confirmar').onclick = confirmarConcluirPend
     document.getElementById('nav-preorc').onclick = async () => { mostrar('preorc-lista'); await renderPreorcLista() }
     document.getElementById('nav-jornada').onclick = async () => { mostrar('jornada'); await renderJornada() }
@@ -697,14 +696,10 @@
     await abrirTarefaDet(id)
   }
 
-  // Modal: concluir com pendência + (opcional) criar tarefa de retorno pra resolvê-la.
+  // Modal: concluir com pendência (texto). A tarefa de retorno é decisão do admin no portal.
   function abrirModalConcPend() {
     const t = tarefaAberta; if (!t) return
     document.getElementById('cp-texto').value = (t.pendencias || '').trim()
-    document.getElementById('cp-nova').checked = false
-    document.getElementById('cp-nova-wrap').style.display = 'none'
-    document.getElementById('cp-nova-tipo').innerHTML = '<option value="">— selecione —</option>' +
-      ref.tipos.map(x => `<option value="${esc(x.id)}"${x.id === t.tipo_servico_id ? ' selected' : ''}>${esc(x.nome)}</option>`).join('')
     document.getElementById('modal-conc-pend').classList.add('open')
   }
   async function confirmarConcluirPend() {
@@ -712,18 +707,11 @@
     if (!navigator.onLine) return toast('Sem conexão — conclua quando estiver online.', 'err')
     const texto = document.getElementById('cp-texto').value.trim()
     if (!texto) return toast('Descreva a pendência.', 'err')
-    const criarRetorno = document.getElementById('cp-nova').checked
-    const tipoRetorno = document.getElementById('cp-nova-tipo').value
-    if (criarRetorno && !tipoRetorno) return toast('Escolha o tipo da tarefa de retorno.', 'err')
     const up = await getSupabase().from('tarefas').update({ status: 'concluida_pendencia', pendencias: texto }).eq('id', t.id)
     if (up.error) return toast('Erro ao concluir: ' + up.error.message, 'err')
-    if (criarRetorno) {
-      const { error } = await getSupabase().rpc('criar_tarefa_app', {
-        p_id: crypto.randomUUID(), p_cliente_id: t.cliente_id, p_status: 'aguardando_execucao',
-        p_tipo_servico_id: tipoRetorno, p_orientacao: texto, p_data_agendada: null, p_tecnicos: null,
-      })
-      if (error) toast('Serviço concluído, mas falhou criar a tarefa de retorno: ' + error.message, 'err')
-      else toast('Tarefa de retorno criada (na fila).', 'ok')
+    // Avisa o admin/gestor: como o retorno é gerado no portal, este push é o gatilho pra reagendar.
+    if (navigator.onLine && window.notificarPush) {
+      notificarPush('tarefa_pendencia', { numero: t.numero, cliente: cliNomeDe(t.cliente_id), tarefa_id: t.id, pendencia: texto.slice(0, 160) })
     }
     document.getElementById('modal-conc-pend').classList.remove('open')
     toast('Serviço concluído com pendência.', 'ok')

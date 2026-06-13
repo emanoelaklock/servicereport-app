@@ -1089,6 +1089,17 @@ const TarefaApp = (() => {
       criado_por: user.id,
     }).select('numero').single()
     if (ins.error) return toast('Erro ao criar tarefa: ' + ins.error.message, 'err')
+    // A pendência virou uma tarefa própria → a original deixa de ser "concluída c/ pendência"
+    // e passa a "concluída" (a pendência não pende mais nela). Só quando já estava nesse estado.
+    if (cur && cur.status === 'concluida_pendencia') {
+      const upd = await sb().from('tarefas').update({ status: 'concluida', pendencias: null }).eq('id', cur.id)
+      if (upd.error) toast('Tarefa de retorno criada, mas falhou atualizar a original: ' + upd.error.message, 'err')
+      else {
+        cur.status = 'concluida'; cur.pendencias = null
+        setStatusBadge(cur.status)
+        const ss = document.getElementById('cc-d-status-sel'); if (ss) ss.value = 'concluida'
+      }
+    }
     fecharModal('modal-pend')
     toast(`Tarefa Nº ${osNo(ins.data.numero)} criada. Atribua o técnico na lista.`, 'ok')
     await carregarTarefas()

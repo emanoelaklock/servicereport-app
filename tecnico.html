@@ -980,19 +980,14 @@ try{if(localStorage.getItem('sr_dark')==='1')document.documentElement.classList.
   </div>
 </div>
 
-<!-- Concluir o serviço (Tarefa) com pendência → opção de criar tarefa de retorno -->
+<!-- Concluir o serviço (Tarefa) com pendência. A tarefa de retorno é gerada pelo admin no portal. -->
 <div class="tm-back" id="modal-conc-pend">
   <div class="tm-box">
     <div class="tm-h"><span>Concluir com pendência</span><button class="tm-x" id="cp-fechar">✕</button></div>
     <div class="tm-b">
       <label>Pendência <span class="req">*</span></label>
       <textarea id="cp-texto" rows="4" placeholder="O que ficou pendente / o que falta resolver…" style="width:100%;box-sizing:border-box;padding:9px 11px;border:1px solid var(--bd);border-radius:8px;font:inherit;font-size:14px;resize:vertical"></textarea>
-      <label class="cp-check" style="display:flex;align-items:center;gap:9px;margin-top:14px;font-weight:600;cursor:pointer"><input type="checkbox" id="cp-nova"> Criar tarefa de retorno pra resolver a pendência</label>
-      <div id="cp-nova-wrap" style="display:none">
-        <label style="margin-top:12px">Tipo da tarefa de retorno</label>
-        <select id="cp-nova-tipo"><option value="">— selecione —</option></select>
-        <p class="hintn">A tarefa de retorno nasce sem responsável (vai pra fila), com a pendência na orientação.</p>
-      </div>
+      <p class="hintn">A pendência fica registrada na tarefa; o escritório reagenda (gera a tarefa de retorno) no portal.</p>
     </div>
     <div class="tm-f">
       <button class="btn" id="cp-cancelar">Cancelar</button>

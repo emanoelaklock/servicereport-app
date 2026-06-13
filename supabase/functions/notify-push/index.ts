@@ -1,6 +1,7 @@
 // Edge Function: notify-push — envia Web Push.
 // Destinatários definidos pelo "tipo": tarefa_atribuida (técnicos) | rat_registrada (admin/gestor)
-// | rat_improdutiva (admin/gestor, reagendar). 'rat_concluida' mantido por retrocompat (clientes antigos).
+// | rat_improdutiva (admin/gestor, reagendar) | tarefa_pendencia (admin/gestor, reagendar).
+// 'rat_concluida' mantido por retrocompat (clientes antigos).
 // VAPID lido de public.app_secrets (service role). Implantar via MCP/CLI.
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 import webpush from 'npm:web-push@3.6.7'
@@ -44,6 +45,13 @@ Deno.serve(async (req: Request) => {
       targets = (admins || []).map((a: any) => a.id)
       titulo = 'Visita improdutiva — reagendar'
       msg = body.texto || ([('Tarefa Nº ' + (body.numero || '')).trim(), body.cliente, body.motivo].filter(Boolean).join(' — '))
+      url = 'tarefa.html' + (body.tarefa_id ? ('?t=' + body.tarefa_id) : '')
+    } else if (tipo === 'tarefa_pendencia') {
+      // Tarefa concluída com pendência: o retorno é gerado no portal, então este é o gatilho p/ reagendar.
+      const { data: admins } = await admin.from('usuarios').select('id').in('role', ['admin', 'gestor_axis']).eq('ativo', true)
+      targets = (admins || []).map((a: any) => a.id)
+      titulo = 'Concluída com pendência — reagendar'
+      msg = body.texto || ([('Tarefa Nº ' + (body.numero || '')).trim(), body.cliente, body.pendencia].filter(Boolean).join(' — '))
       url = 'tarefa.html' + (body.tarefa_id ? ('?t=' + body.tarefa_id) : '')
     } else {
       return json({ error: 'tipo invalido' }, 400)
