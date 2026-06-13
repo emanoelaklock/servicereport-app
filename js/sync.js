@@ -225,6 +225,7 @@
       p_id: t.id, p_cliente_id: t.cliente_id, p_status: t.status || 'aguardando_execucao',
       p_tipo_servico_id: t.tipo_servico_id || null, p_orientacao: t.orientacao || null,
       p_data_agendada: t.data_agendada || null, p_tecnicos: t.tecnicos || [],
+      p_local: t.local_servico || null,
     })
     if (error) throw error
     await D().removerTarefaLocal(t.id)

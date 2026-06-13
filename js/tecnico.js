@@ -178,14 +178,8 @@
     document.getElementById('nav-os').onclick = async () => { mostrar('lista'); await renderLista() }
     document.getElementById('nav-tarefas').onclick = async () => { mostrar('tarefas'); await renderTarefas() }
     document.getElementById('btn-tarefas-sync').onclick = async () => { await renderTarefas(true) }
-    document.getElementById('btn-nova-tarefa').onclick = () => {
-      document.getElementById('nt-cliente').value = ''; document.getElementById('nt-cliente-busca').value = ''
-      document.getElementById('nt-tipo').value = ''; document.getElementById('nt-data').value = ''
-      document.getElementById('nt-status').value = 'aguardando_execucao'
-      document.getElementById('nt-orientacao').value = ''
-      montarNtTecnicos()
-      document.getElementById('modal-nt').classList.add('open')
-    }
+    document.getElementById('btn-nova-tarefa').onclick = () => abrirModalNovaTarefa(false)
+    const hnt = document.getElementById('home-nova-tarefa'); if (hnt) hnt.onclick = () => abrirModalNovaTarefa(true)
     document.getElementById('nt-fechar').onclick = () => document.getElementById('modal-nt').classList.remove('open')
     document.getElementById('nt-cancelar').onclick = () => document.getElementById('modal-nt').classList.remove('open')
     document.getElementById('nt-criar').onclick = criarTarefaTecnico
@@ -365,14 +359,13 @@
   }
 
   // ─────────────────────── Tarefas atribuídas (#7) ───────────────────────
-  // RLS já filtra para as tarefas do técnico (via tarefa_tecnicos). Cacheia p/ offline.
-  async function renderTarefas(force) {
-    const box = document.getElementById('lista-tarefas')
-    if (box && !tarefas.length) box.innerHTML = '<p class="dim" style="padding:14px 2px">Carregando…</p>'
+  // Carrega as tarefas do técnico (RLS já filtra por tarefa_tecnicos) e mescla as criadas
+  // offline ainda na fila. Cacheia p/ offline. Popula o global `tarefas` (sem renderizar).
+  async function carregarTarefas(force) {
     try {
       const sb = getSupabase()
       const { data, error } = await sb.from('tarefas')
-        .select('id,numero,status,data_agendada,cliente_id,orientacao,observacoes,tipo_servico_id')
+        .select('id,numero,status,data_agendada,cliente_id,orientacao,observacoes,tipo_servico_id,local_servico,previsao_dias')
         .neq('status', 'faturada')
         .order('data_agendada', { ascending: true, nullsFirst: false })
         .order('numero', { ascending: false })
@@ -392,6 +385,13 @@
     tarefas = extras.concat(tarefas)
     // Ordena por prioridade de status (Em execução → Devolvida → Aguardando → …), depois por data.
     tarefas.sort((a, b) => prioStatus(a.status) - prioStatus(b.status) || (a.data_agendada || '').localeCompare(b.data_agendada || ''))
+    return tarefas
+  }
+
+  async function renderTarefas(force) {
+    const box = document.getElementById('lista-tarefas')
+    if (box && !tarefas.length) box.innerHTML = '<p class="dim" style="padding:14px 2px">Carregando…</p>'
+    await carregarTarefas(force)
     if (!box) return
     if (!tarefas.length) { box.innerHTML = '<p class="dim" style="padding:14px 2px">Nenhuma tarefa atribuída a você.</p>'; return }
     box.innerHTML = tarefas.map(t => {
@@ -409,6 +409,102 @@
     box.querySelectorAll('.listcard').forEach(el => el.onclick = () => abrirTarefaDet(el.dataset.id))
   }
 
+  // ───────────────────── Home — agenda do dia + fila ─────────────────────
+  const tipoNomeDe = (id) => (ref.tipos.find(x => x.id === id) || {}).nome || ''
+  const LC_SK = { info: 'lc-info', done: 'lc-done', warn: 'lc-warn' }
+  const isHoje = (d) => { if (!d) return false; const x = new Date(String(d).length <= 10 ? d + 'T00:00:00' : d); if (isNaN(x)) return false; const h = new Date(); return x.getFullYear() === h.getFullYear() && x.getMonth() === h.getMonth() && x.getDate() === h.getDate() }
+  const ratDoDiaDe = (rs, tid) => rs.find(r => r.tarefa_id === tid && r.sync_status !== D().STATUS.RASCUNHO && r.status === 'em_andamento' && isHoje((r.respostas && r.respostas.data) || r.criado_em))
+  function estadoAgenda(t, temRatHoje) {
+    if (t.status === 'em_execucao') return { sk: 'info', txt: temRatHoje ? 'Atendimento continua' : 'Em execução' }
+    if (t.status === 'devolvida') return { sk: 'pend', txt: 'Devolvida — corrigir' }
+    return { sk: 'aguard', txt: 'Aguardando' }
+  }
+
+  async function renderHome() {
+    await carregarTarefas()
+    updateHomeResumo()
+    const ratsLocais = await D().listarRats()
+    // (1) Minhas tarefas de hoje: agendada hoje OU em execução (atividade contínua)
+    const FECHADAS = ['concluida', 'concluida_pendencia', 'aprovada_faturamento', 'faturada']
+    const hoje = (tarefas || []).filter(t => !FECHADAS.includes(t.status) && (isHoje(t.data_agendada) || t.status === 'em_execucao'))
+    const hojeBox = document.getElementById('home-hoje'), hojeCt = document.getElementById('home-hoje-ct')
+    if (hojeCt) hojeCt.textContent = hoje.length || ''
+    if (hojeBox) {
+      hojeBox.innerHTML = !hoje.length
+        ? '<div class="home-empty">Nada agendado pra hoje. Pegue uma da fila ou crie uma nova.</div>'
+        : hoje.map(t => {
+            const temRatHoje = !!ratDoDiaDe(ratsLocais, t.id)
+            const e = estadoAgenda(t, temRatHoje)
+            const dias = new Set(ratsLocais.filter(r => r.tarefa_id === t.id && r.sync_status !== D().STATUS.RASCUNHO)
+              .map(r => (r.respostas && r.respostas.data) || (r.criado_em || '').slice(0, 10)).filter(Boolean)).size
+            const multi = t.previsao_dias ? `<div class="tkprog num">Dia ${dias + (temRatHoje ? 0 : 1)} · previsto ~${t.previsao_dias}</div>` : ''
+            const sub = [tipoNomeDe(t.tipo_servico_id), t.local_servico].filter(Boolean).join(' · ')
+            return `<div class="listcard ${LC_SK[e.sk] || ''}" data-hoje="${esc(t.id)}"><span class="edge e-${e.sk}"></span>
+              <div class="t"><span class="cli">${esc(cliNomeDe(t.cliente_id))}</span></div>
+              ${sub ? `<div class="meta">${esc(sub)}</div>` : ''}${multi}
+              <div class="tkact"><span class="badge b-${e.sk}">${esc(e.txt)}</span><span class="tkgo">${temRatHoje ? 'RAT de hoje' : 'Iniciar'} <svg viewBox="0 0 24 24"><path d="M9 6l6 6-6 6"/></svg></span></div>
+            </div>`
+          }).join('')
+      hojeBox.querySelectorAll('[data-hoje]').forEach(el => el.onclick = () => { const t = (tarefas || []).find(x => x.id === el.dataset.hoje); if (t) abrirRatDeHoje(t) })
+    }
+    // (2) Fila — tarefas abertas (sem responsável). Só online (consulta o servidor).
+    const filaBox = document.getElementById('home-fila'), filaCt = document.getElementById('home-fila-ct')
+    if (!filaBox) return
+    if (!navigator.onLine) { filaBox.innerHTML = '<div class="home-empty">Sem conexão — a fila aparece quando houver internet.</div>'; if (filaCt) filaCt.textContent = ''; return }
+    try {
+      const { data, error } = await getSupabase().rpc('fila_tarefas')
+      if (error) throw error
+      const fila = data || []
+      if (filaCt) filaCt.textContent = fila.length || ''
+      filaBox.innerHTML = !fila.length
+        ? '<div class="home-empty">Nenhuma tarefa aberta na fila.</div>'
+        : fila.map(t => {
+            const sub = [tipoNomeDe(t.tipo_servico_id), t.local_servico].filter(Boolean).join(' · ')
+            return `<div class="listcard lc-info"><span class="edge e-info"></span>
+              <div class="t"><span class="cli">${esc(cliNomeDe(t.cliente_id))}</span></div>
+              ${sub ? `<div class="meta">${esc(sub)}</div>` : ''}
+              <div class="tkact"><span class="badge b-info">Na fila</span><button class="tkpick" data-pegar="${esc(t.id)}">Pegar</button></div>
+            </div>`
+          }).join('')
+      filaBox.querySelectorAll('[data-pegar]').forEach(b => b.onclick = (e) => { e.stopPropagation(); pegarDaFila(b.dataset.pegar) })
+    } catch (e) { filaBox.innerHTML = '<div class="home-empty">Não foi possível carregar a fila.</div>'; if (filaCt) filaCt.textContent = '' }
+  }
+
+  // Abre a RAT de hoje da tarefa: reabre a do dia se já existe (local), senão cria.
+  async function abrirRatDeHoje(t) {
+    const doDia = ratDoDiaDe(await D().listarRats(), t.id)
+    if (doDia) return abrirExistente(doDia.client_uuid)
+    return iniciarRatDaTarefa(t)
+  }
+
+  // Pega uma tarefa da fila: vira responsável (RPC) e abre a RAT do dia.
+  async function pegarDaFila(tarefaId) {
+    try {
+      const { error } = await getSupabase().rpc('pegar_tarefa', { p_tarefa: tarefaId })
+      if (error) throw error
+    } catch (e) {
+      return toast((e && e.message && /já tem responsável/.test(e.message)) ? 'Outro técnico já pegou essa tarefa.' : 'Não foi possível pegar a tarefa.', 'err')
+    }
+    toast('Tarefa atribuída a você.', 'ok')
+    await carregarTarefas(true)
+    const t = (tarefas || []).find(x => x.id === tarefaId)
+    if (t) await abrirRatDeHoje(t); else await renderHome()
+  }
+
+  // Abre o modal Nova tarefa. emCampo = atalho da home (corretivo na hora): nasce
+  // "Em execução" e já agendada pra hoje, pois o técnico está no local.
+  function abrirModalNovaTarefa(emCampo) {
+    document.getElementById('nt-cliente').value = ''; document.getElementById('nt-cliente-busca').value = ''
+    document.getElementById('nt-tipo').value = ''
+    const loc = document.getElementById('nt-local'); if (loc) loc.value = ''
+    const hojeISO = new Date().toISOString().slice(0, 10)
+    document.getElementById('nt-data').value = emCampo ? hojeISO : ''
+    document.getElementById('nt-status').value = emCampo ? 'em_execucao' : 'aguardando_execucao'
+    document.getElementById('nt-orientacao').value = ''
+    montarNtTecnicos()
+    document.getElementById('modal-nt').classList.add('open')
+  }
+
   async function criarTarefaTecnico() {
     const cliId = document.getElementById('nt-cliente').value
     const tipoId = document.getElementById('nt-tipo').value
@@ -416,11 +512,13 @@
     if (!tipoId) return toast('Selecione o tipo de serviço.', 'err')
     const status = document.getElementById('nt-status').value || 'aguardando_execucao'
     const orientacao = document.getElementById('nt-orientacao').value.trim() || null
+    const localServico = (document.getElementById('nt-local') || {}).value
     const tecs = [...document.querySelectorAll('#nt-tecs input:checked')].map(c => c.value)
     if (!tecs.includes(tecnico.id)) tecs.push(tecnico.id)   // o próprio técnico sempre incluso
     // Offline-first: grava na fila local; o SyncEngine envia (tarefa antes das RATs).
     const t = await D().salvarTarefaLocal({
       id: crypto.randomUUID(), cliente_id: cliId, status, tipo_servico_id: tipoId, orientacao,
+      local_servico: (localServico || '').trim() || null,
       data_agendada: document.getElementById('nt-data').value || null, criado_por: tecnico.id, tecnicos: tecs,
     })
     document.getElementById('modal-nt').classList.remove('open')
@@ -631,7 +729,7 @@
     const t = document.getElementById('ft-title'); if (t) t.textContent = TITLES[secao] || 'Service Report'
     const b = document.getElementById('btn-voltar'); if (b) b.style.display = (secao === 'home') ? 'none' : 'block'
     try { sessionStorage.setItem('sr_tec_screen', SCREEN_PARENT[secao] || secao) } catch (e) { /* sem storage */ }
-    if (secao === 'home') updateHomeResumo()
+    if (secao === 'home') renderHome()
   }
   // Resumo do herói da home (apresentação) — lê dados já em memória/IndexedDB, sem novas chamadas Supabase.
   async function updateHomeResumo() {
@@ -654,7 +752,8 @@
   }
   // Sync trouxe mudanças do servidor (edição/exclusão) → re-renderiza a tela atual.
   window.onSyncChanged = () => {
-    if (screen === 'desloc') renderDesloc()
+    if (screen === 'home') renderHome()
+    else if (screen === 'desloc') renderDesloc()
     else if (screen === 'jornada') renderJornada()
     else if (screen === 'tarefas') renderTarefas()
     else if (screen === 'lista') renderLista()
@@ -662,7 +761,8 @@
   }
   // Terminou um ciclo de envio (tarefas/RATs subiram/sumiram) → atualiza a tela atual.
   window.onSyncDone = () => {
-    if (screen === 'tarefas') renderTarefas()
+    if (screen === 'home') renderHome()
+    else if (screen === 'tarefas') renderTarefas()
     else if (screen === 'lista') renderLista()
   }
   function onVoltar() {

@@ -526,6 +526,19 @@ try{if(localStorage.getItem('sr_dark')==='1')document.documentElement.classList.
           </div>
           <button class="cta" id="btn-sync-home"><svg viewBox="0 0 24 24"><path d="M3 12a9 9 0 1 0 3-6.7L3 8"/><path d="M3 3v5h5"/></svg>Sincronizar</button>
         </div>
+
+        <!-- Agenda do dia -->
+        <div class="sec">Minhas tarefas de hoje <span class="ct num" id="home-hoje-ct"></span></div>
+        <div id="home-hoje"><p class="dim" style="padding:8px 2px">Carregando…</p></div>
+
+        <!-- Fila de tarefas abertas (sem responsável) -->
+        <div class="sec">Fila — tarefas abertas <span class="ct num" id="home-fila-ct"></span></div>
+        <div id="home-fila"></div>
+
+        <button type="button" class="btn btn-ok" id="home-nova-tarefa" style="width:100%;justify-content:center;margin:4px 0 6px">
+          <svg viewBox="0 0 24 24" style="width:18px;height:18px;stroke:currentColor;fill:none;stroke-width:2;stroke-linecap:round;stroke-linejoin:round"><path d="M12 5v14M5 12h14"/></svg>Nova tarefa (em campo)
+        </button>
+
         <div class="sec">Áreas</div>
         <div class="grid">
           <button type="button" class="tile t-green" id="nav-tarefas">
@@ -885,6 +898,8 @@ try{if(localStorage.getItem('sr_dark')==='1')document.documentElement.classList.
       </select>
       <label style="margin-top:12px">Tipo de tarefa</label>
       <select id="nt-tipo"><option value="">— selecione —</option></select>
+      <label style="margin-top:12px">Local (opcional)</label>
+      <input type="text" id="nt-local" placeholder="Ex.: Torre Paredão · Calmon/SC">
       <label style="margin-top:12px">Data agendada</label>
       <input type="date" id="nt-data">
       <label style="margin-top:12px">Orientação ao técnico</label>
