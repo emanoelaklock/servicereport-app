@@ -42,13 +42,15 @@ window.RatView = (function () {
   const minutosDe = (hhmm) => { if (!hhmm) return null; const [h, m] = String(hhmm).split(':').map(Number); return (isNaN(h) || isNaN(m)) ? null : h * 60 + m }
   function calcTempoDe(resp) {
     resp = resp || {}
-    const dur = (ini, fim) => { const a = minutosDe(ini), b = minutosDe(fim); return (a == null || b == null) ? 0 : Math.max(0, b - a) }
+    // horários são só HH:MM (sem data): término < início = virou a meia-noite → +24h
+    const dur = (ini, fim) => { const a = minutosDe(ini), b = minutosDe(fim); if (a == null || b == null) return 0; let d = b - a; if (d < 0) d += 1440; return d }
     let ini, fim
     if (resp.deslocamento === 'Sim') { ini = resp.desloc_inicial_ida; fim = resp.desloc_final_retorno }
     else { ini = resp.hora_inicio; fim = resp.hora_termino }
     const a = minutosDe(ini), b = minutosDe(fim)
     if (a == null || b == null) return null
-    const t = (b - a) - dur(resp.almoco_inicio, resp.almoco_termino) - dur(resp.pausa_inicio, resp.pausa_termino)
+    let bruto = b - a; if (bruto < 0) bruto += 1440
+    const t = bruto - dur(resp.almoco_inicio, resp.almoco_termino) - dur(resp.pausa_inicio, resp.pausa_termino)
     return t < 0 ? 0 : t
   }
   const tempoRat = (r) => { const t = calcTempoDe(r.respostas); return t == null ? r.tempo_trabalhado : t }
@@ -166,7 +168,7 @@ window.RatView = (function () {
       if (resp.almoco === 'Sim' && (resp.almoco_inicio || resp.almoco_termino)) pausas.push({ ini: resp.almoco_inicio, fim: resp.almoco_termino, motivo: 'Almoço' })
       if (resp.pausa === 'Sim' && (resp.pausa_inicio || resp.pausa_termino || resp.pausa_motivo)) pausas.push({ ini: resp.pausa_inicio, fim: resp.pausa_termino, motivo: resp.pausa_motivo || 'Pausa' })
       if (pausas.length) {
-        const durStr = (a, b) => { const x = minutosDe(a), y = minutosDe(b); return (x == null || y == null) ? '—' : fmtMin(Math.max(0, y - x)) }
+        const durStr = (a, b) => { const x = minutosDe(a), y = minutosDe(b); if (x == null || y == null) return '—'; let d = y - x; if (d < 0) d += 1440; return fmtMin(d) }
         h += `<div class="rd-sec"><div class="rd-sec-t">Pausas na tarefa</div>
           <table class="rd-pausas"><thead><tr><th>Início</th><th>Fim</th><th>Tempo</th><th>Justificativa/Motivo</th></tr></thead><tbody>` +
           pausas.map(p => `<tr><td>${esc(p.ini || '—')}</td><td>${esc(p.fim || '—')}</td><td>${durStr(p.ini, p.fim)}</td><td>${esc(p.motivo)}</td></tr>`).join('') +

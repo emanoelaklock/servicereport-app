@@ -2446,13 +2446,15 @@
   // Cálculo puro a partir das respostas (compartilhado com o back-office).
   // Janela: deslocamento Sim → ida→retorno; senão → execução. Desconta almoço e pausa.
   function calcTempoDe(resp) {
-    const dur = (ini, fim) => { const a = minutosDe(ini), b = minutosDe(fim); return (a == null || b == null) ? 0 : Math.max(0, b - a) }
+    // horários são só HH:MM (sem data): término < início = virou a meia-noite → +24h
+    const dur = (ini, fim) => { const a = minutosDe(ini), b = minutosDe(fim); if (a == null || b == null) return 0; let d = b - a; if (d < 0) d += 1440; return d }
     let ini, fim
     if (resp.deslocamento === 'Sim') { ini = resp.desloc_inicial_ida; fim = resp.desloc_final_retorno }
     else { ini = resp.hora_inicio; fim = resp.hora_termino }
     const a = minutosDe(ini), b = minutosDe(fim)
     if (a == null || b == null) return null
-    const t = (b - a) - dur(resp.almoco_inicio, resp.almoco_termino) - dur(resp.pausa_inicio, resp.pausa_termino)
+    let bruto = b - a; if (bruto < 0) bruto += 1440   // atendimento que virou o dia
+    const t = bruto - dur(resp.almoco_inicio, resp.almoco_termino) - dur(resp.pausa_inicio, resp.pausa_termino)
     return t < 0 ? 0 : t
   }
   function calcTempo() {
