@@ -860,12 +860,29 @@ const TarefaApp = (() => {
           <div><b>RAT ${cur && cur.numero != null ? osNo(cur.numero) + (r.rat_seq != null ? '/' + String(r.rat_seq).padStart(2, '0') : '') : ''} · ${fdt(r.data_tarefa, { withTime: true })}</b> · ${esc(r.tecnico_nome || '—')} · ${RatView.fmtMin(RatView.tempoRat(r))}</div>
           <div style="display:flex;align-items:center;gap:10px">
             <span class="ri-sit">${esc(ratSit(r.status))}</span>
+            ${r.status === 'em_andamento' ? `<button class="btn btn-sm btn-g" data-encerrar="${esc(r.id)}">✓ Encerrar</button>` : ''}
             <a class="btn btn-sm" href="rat.html?id=${encodeURIComponent(r.id)}" target="_blank" rel="noopener">Abrir ↗</a>
           </div>
         </div>
         ${RatView.buildReportBody(d, false, { noHeader: true })}
       </div>`
     }).join('')
+    box.querySelectorAll('[data-encerrar]').forEach(b => b.onclick = () => encerrarRat(b.dataset.encerrar))
+  }
+
+  // Encerra (conclui) uma RAT presa "em andamento" — destrava a tarefa quando o técnico
+  // esqueceu de fechar o atendimento. RLS: tarefas_admin_all permite o update.
+  async function encerrarRat(ratId) {
+    const r = (cur.rats || []).find(x => x.id === ratId); if (!r) return
+    if (!confirm('Encerrar esta RAT em andamento e marcá-la como Concluída?\n\nUse "Abrir ↗" para acertar horários/tempo antes, se precisar. Esta ação destrava a tarefa.')) return
+    const upd = { status: 'concluida' }
+    const tm = RatView.tempoRat(r)
+    if (tm != null) upd.tempo_trabalhado = tm
+    const { error } = await sb().from('rats').update(upd).eq('id', ratId)
+    if (error) return toast('Erro ao encerrar: ' + error.message, 'err')
+    r.status = 'concluida'; if (tm != null) r.tempo_trabalhado = tm
+    toast('RAT encerrada (concluída).', 'ok')
+    await carregarRats()   // recarrega RATs + atualiza a faixa Situação/abas
   }
 
   let ratMulti = false, ratList = []

@@ -60,6 +60,7 @@ const RatPage = (() => {
       RatView.gerarPdf([det], `RAT ${det.r.cliente_nome || ''} ${t}`.trim())
     }
     document.getElementById('rp-excluir').onclick = excluir
+    document.getElementById('rp-encerrar').onclick = encerrar
     document.getElementById('rp-nova').onclick = abrirPend
     document.getElementById('pend-x').onclick = fecharPend
     document.getElementById('pend-cancelar').onclick = fecharPend
@@ -76,6 +77,23 @@ const RatPage = (() => {
     show('rp-nova', !editMode)
     show('rp-pdf', !editMode)
     show('rp-excluir', !editMode)
+    // RAT presa "em andamento" (técnico não encerrou): o admin pode concluir e destravar a tarefa
+    show('rp-encerrar', !editMode && det.r.status === 'em_andamento')
+  }
+
+  // Encerra (conclui) uma RAT que ficou "em andamento" — o técnico esqueceu de fechar o
+  // atendimento, então a tarefa não progride. RLS: tarefas_admin_all permite o update.
+  async function encerrar() {
+    const r = det.r
+    if (!confirm('Encerrar esta RAT em andamento e marcá-la como Concluída?\n\nSe precisar acertar os horários/tempo, use "Editar" antes. Esta ação destrava a tarefa.')) return
+    const upd = { status: 'concluida' }
+    const tm = RatView.tempoRat(r)            // recalcula o tempo se já houver início e término
+    if (tm != null) upd.tempo_trabalhado = tm
+    const { error } = await sb().from('rats').update(upd).eq('id', r.id)
+    if (error) return toast('Erro ao encerrar: ' + error.message, 'err')
+    det.r.status = 'concluida'; if (tm != null) det.r.tempo_trabalhado = tm
+    renderHero(); render()
+    toast('RAT encerrada (concluída).', 'ok')
   }
 
   async function salvar() {
