@@ -18,7 +18,7 @@ window.RatView = (function () {
   }
 
   // Colunas necessárias para montar o detalhe de uma RAT (inclui dados fiscais do cliente e da OS).
-  const RAT_SELECT = 'id,cliente_id,cliente_nome,tecnico_nome,data_tarefa,status,sync_status,pendencias,assinatura_url,respostas,tempo_trabalhado,formulario_id,rat_seq,checkin_lat,checkin_lng,checkin_precisao,checkin_em,tipos_servico(nome),cliente:clientes(nome,documento,endereco),tarefa:tarefas(id,numero,cliente_id,tipo_servico_id,orientacao,tipo:tipos_servico(nome))'
+  const RAT_SELECT = 'id,cliente_id,cliente_nome,tecnico_nome,data_tarefa,status,sync_status,pendencias,assinatura_url,respostas,tempo_trabalhado,formulario_id,rat_seq,checkin_lat,checkin_lng,checkin_precisao,checkin_em,atendimento_executado,motivo_improdutiva,motivo_texto,tipos_servico(nome),cliente:clientes(nome,documento,endereco),tarefa:tarefas(id,numero,cliente_id,tipo_servico_id,orientacao,tipo:tipos_servico(nome))'
 
   async function ensureForms() {
     if (Object.keys(forms).length) return
@@ -34,8 +34,22 @@ window.RatView = (function () {
     em_andamento:        { label: 'Em andamento',           cls: 'st-run' },
     concluida:           { label: 'Concluída',              cls: 'st-ok' },
     concluida_pendencia: { label: 'Concluída c/ pendência', cls: 'st-pend' },
+    improdutiva:         { label: 'Visita improdutiva',     cls: 'st-pend' },
   }
   const statusInfo = (s) => STATUS[s] || { label: s || '—', cls: '' }
+  // Motivos da visita improdutiva (mesmas chaves do app do técnico)
+  const MOTIVO_IMPRODUTIVA = {
+    cliente_nao_liberou: 'Cliente não liberou acesso',
+    local_nao_pronto: 'Local não estava pronto',
+    falta_material: 'Falta de peça / material',
+    clima: 'Condições climáticas',
+    equip_cliente_indisponivel: 'Equipamento do cliente indisponível',
+    outro: 'Outro motivo',
+  }
+  const motivoImprodutivaLabel = (r) => {
+    const base = MOTIVO_IMPRODUTIVA[r.motivo_improdutiva] || r.motivo_improdutiva || '—'
+    return (r.motivo_improdutiva === 'outro' && r.motivo_texto) ? `${base}: ${r.motivo_texto}` : base
+  }
 
   // ── Tempo trabalhado (mesma regra do app do técnico): janela desloc Sim →
   //    ida→retorno; senão → execução; desconta almoço e pausa. ──
@@ -122,6 +136,14 @@ window.RatView = (function () {
       ${(r.checkin_lat != null && r.checkin_lng != null) ? `<div class="rd-f"><label>Local (GPS)</label><div class="v"><a href="https://www.google.com/maps?q=${r.checkin_lat},${r.checkin_lng}" target="_blank" rel="noopener">📍 ver no mapa</a>${r.checkin_precisao ? ` <span class="dim">(±${Math.round(r.checkin_precisao)} m)</span>` : ''}</div></div>` : ''}
       ${tf.orientacao ? `<div class="rd-f" style="grid-column:1/-1"><label>Orientação</label><div class="v">${escMulti(tf.orientacao)}</div></div>` : ''}
     </div></div>`
+
+    // Visita improdutiva: destaque do motivo (execução não aconteceu; tarefa segue aguardando).
+    if (r.status === 'improdutiva' || r.atendimento_executado === false) {
+      h += `<div class="rd-sec"><div class="rd-sec-t">Visita improdutiva</div><div class="rd-grid">
+        <div class="rd-f" style="grid-column:1/-1"><label>Motivo de não ter executado</label><div class="v">${esc(motivoImprodutivaLabel(r))}</div></div>
+        <div class="rd-f" style="grid-column:1/-1"><div class="v dim">Deslocamento e tempo de quem foi ficam registrados; a execução foi zerada e a tarefa continua aguardando reagendamento.</div></div>
+      </div></div>`
+    }
 
     // Intervalos (almoço/pausa) saem da grade no modo leitura — viram a tabela "Pausas".
     const EXC_GRID = new Set(['almoco', 'almoco_inicio', 'almoco_termino', 'pausa', 'pausa_inicio', 'pausa_termino', 'pausa_motivo'])

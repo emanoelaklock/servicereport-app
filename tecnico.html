@@ -235,6 +235,17 @@ try{if(localStorage.getItem('sr_dark')==='1')document.documentElement.classList.
   html.dark .segq button.on[data-v="Sim"]{background:#179A47;color:#fff}
   html.dark .segq button.on[data-v="Não"]{background:#DE2C2C;color:#fff}
 
+  /* ===== Motivos da visita improdutiva (radio de linha) ===== */
+  .motivos{display:flex;flex-direction:column;gap:8px}
+  .motopt{display:flex;align-items:center;gap:11px;padding:13px 14px;border:1.6px solid var(--bd);border-radius:12px;cursor:pointer;background:var(--cd,#fff)}
+  .motopt input{position:absolute;opacity:0;pointer-events:none}
+  .motopt .rd{width:20px;height:20px;border-radius:50%;border:2px solid #C3C8D4;flex:none;position:relative}
+  .motopt .mx{font-size:14.5px;font-weight:600;color:var(--tx)}
+  .motopt:has(input:checked){border-color:#DE2C2C;background:#FDF6F5}
+  .motopt:has(input:checked) .rd{border-color:#DE2C2C}
+  .motopt:has(input:checked) .rd::after{content:"";position:absolute;inset:3px;border-radius:50%;background:#DE2C2C}
+  html.dark .motopt:has(input:checked){background:#2a1715;border-color:#4a2522}
+
   /* ===== Produtos da RAT: linhas com stepper ===== */
   .prod-row2{display:flex;align-items:center;gap:10px;padding:12px 0;border-bottom:1px solid var(--bd)}
   .prod-row2 .pr-main{flex:1;min-width:0}
@@ -712,17 +723,46 @@ try{if(localStorage.getItem('sr_dark')==='1')document.documentElement.classList.
         <div class="fcard fc-red">
           <div class="h"><span class="hi"><svg viewBox="0 0 24 24"><path d="M20 6 9 17l-5-5"/></svg></span>Situação</div>
           <div class="fg campo">
-            <label>Situação do atendimento</label>
-            <select id="f-status">
-              <option value="em_andamento">Atendimento continua (em execução)</option>
-              <option value="concluida">Concluída</option>
-              <option value="concluida_pendencia">Concluída com pendência</option>
-            </select>
-            <p class="hintn" id="f-status-hint">Atualiza o status da Tarefa. "Continua" = mais visitas/RATs depois.</p>
+            <label>O atendimento foi executado?</label>
+            <div class="segq" id="f-exec-seg">
+              <button type="button" data-v="Sim">Sim</button>
+              <button type="button" data-v="Não">Não</button>
+            </div>
           </div>
-          <div class="fg campo" id="f-pendencias-wrap" style="display:none">
-            <label>Pendências <span class="req">*</span></label>
-            <textarea id="f-pendencias" rows="6" style="min-height:150px" placeholder="O que ficou pendente / o que falta resolver…"></textarea>
+          <!-- Atendimento executado (Sim) → fluxo normal de conclusão -->
+          <div id="f-exec-sim">
+            <div class="fg campo">
+              <label>Situação do atendimento</label>
+              <select id="f-status">
+                <option value="em_andamento">Atendimento continua (em execução)</option>
+                <option value="concluida">Concluída</option>
+                <option value="concluida_pendencia">Concluída com pendência</option>
+              </select>
+              <p class="hintn" id="f-status-hint">Atualiza o status da Tarefa. "Continua" = mais visitas/RATs depois.</p>
+            </div>
+            <div class="fg campo" id="f-pendencias-wrap" style="display:none">
+              <label>Pendências <span class="req">*</span></label>
+              <textarea id="f-pendencias" rows="6" style="min-height:150px" placeholder="O que ficou pendente / o que falta resolver…"></textarea>
+            </div>
+          </div>
+          <!-- Visita improdutiva (Não) → motivo; tarefa fica aguardando, sem exigir execução -->
+          <div id="f-exec-nao" style="display:none">
+            <div class="fg campo">
+              <label>Por que não foi executado? <span class="req">*</span></label>
+              <div class="motivos" id="f-motivos">
+                <label class="motopt"><input type="radio" name="f-motivo" value="cliente_nao_liberou"><span class="rd"></span><span class="mx">Cliente não liberou acesso</span></label>
+                <label class="motopt"><input type="radio" name="f-motivo" value="local_nao_pronto"><span class="rd"></span><span class="mx">Local não estava pronto</span></label>
+                <label class="motopt"><input type="radio" name="f-motivo" value="falta_material"><span class="rd"></span><span class="mx">Falta de peça / material</span></label>
+                <label class="motopt"><input type="radio" name="f-motivo" value="clima"><span class="rd"></span><span class="mx">Condições climáticas</span></label>
+                <label class="motopt"><input type="radio" name="f-motivo" value="equip_cliente_indisponivel"><span class="rd"></span><span class="mx">Equipamento do cliente indisponível</span></label>
+                <label class="motopt"><input type="radio" name="f-motivo" value="outro"><span class="rd"></span><span class="mx">Outro motivo…</span></label>
+              </div>
+            </div>
+            <div class="fg campo" id="f-motivo-texto-wrap" style="display:none">
+              <label>Qual o motivo? <span class="req">*</span></label>
+              <textarea id="f-motivo-texto" rows="3" placeholder="Descreva o motivo…"></textarea>
+            </div>
+            <p class="hintn">O deslocamento e o tempo de quem foi ficam registrados. A tarefa fica aguardando e o escritório é avisado pra reagendar.</p>
           </div>
         </div>
 

@@ -24,7 +24,7 @@ const TarefaApp = (() => {
   let ratEdit = false        // modo edição do modal de RAT
   let pendRat = null         // RAT base do modal "nova tarefa da pendência"
 
-  const RAT_SIT = { em_andamento: 'Em andamento', concluida: 'Concluída', concluida_pendencia: 'Concluída c/ pendência' }
+  const RAT_SIT = { em_andamento: 'Em andamento', concluida: 'Concluída', concluida_pendencia: 'Concluída c/ pendência', improdutiva: 'Visita improdutiva' }
   const ratSit = (s) => RAT_SIT[s] || s || '—'
   const PANES = ['dados', 'equip', 'anexos', 'rats', 'material', 'fat']
   // Cresce o textarea para caber todo o conteúdo (sem barra de rolagem).

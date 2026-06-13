@@ -31,8 +31,17 @@
     aprovada_faturamento: { t: 'Aprovada p/ faturamento', c: 's-done' },
     faturada: { t: 'Faturada', c: 's-done' },
   }
-  const RAT_SIT_LABEL = { em_andamento: 'Em andamento', concluida: 'Concluída', concluida_pendencia: 'Concluída c/ pendência' }
+  const RAT_SIT_LABEL = { em_andamento: 'Em andamento', concluida: 'Concluída', concluida_pendencia: 'Concluída c/ pendência', improdutiva: 'Visita improdutiva' }
   const ratSit = (s) => RAT_SIT_LABEL[s] || s || '—'
+  // Motivos da visita improdutiva (chave salva → rótulo). 'outro' usa texto livre.
+  const MOTIVO_IMPRODUTIVA = {
+    cliente_nao_liberou: 'Cliente não liberou acesso',
+    local_nao_pronto: 'Local não estava pronto',
+    falta_material: 'Falta de peça / material',
+    clima: 'Condições climáticas',
+    equip_cliente_indisponivel: 'Equipamento do cliente indisponível',
+    outro: 'Outro motivo',
+  }
   // Prioridade de exibição por status da tarefa (menor = aparece primeiro).
   const STATUS_PRIORIDADE = { em_execucao: 1, devolvida: 2, aguardando_execucao: 3, concluida_pendencia: 4, concluida: 5, aprovada_faturamento: 6, faturada: 7 }
   const RAT_PARA_TAREFA = { em_andamento: 'em_execucao', concluida: 'concluida', concluida_pendencia: 'concluida_pendencia' }
@@ -46,8 +55,29 @@
   function togglePendencias() {
     const v = document.getElementById('f-status').value
     document.getElementById('f-pendencias-wrap').style.display = (v === 'concluida_pendencia') ? 'block' : 'none'
-    const b = document.getElementById('btn-salvar')
-    if (b) b.textContent = (v === 'em_andamento') ? 'Salvar e continuar' : 'Salvar e concluir'
+    atualizarBtnSalvar()
+  }
+  // Eixo "O atendimento foi executado?": Não → visita improdutiva (motivo, sem exigir
+  // execução; a tarefa fica aguardando). Mantém o estado em `atendExec` ('Sim'|'Não').
+  let atendExec = 'Sim'
+  function setExec(v) {
+    atendExec = (v === 'Não') ? 'Não' : 'Sim'
+    document.querySelectorAll('#f-exec-seg button').forEach(b => b.classList.toggle('on', b.dataset.v === atendExec))
+    const sim = document.getElementById('f-exec-sim'), nao = document.getElementById('f-exec-nao')
+    if (sim) sim.style.display = (atendExec === 'Não') ? 'none' : 'block'
+    if (nao) nao.style.display = (atendExec === 'Não') ? 'block' : 'none'
+    atualizarBtnSalvar()
+  }
+  function toggleMotivoTexto() {
+    const sel = document.querySelector('#f-motivos input[name="f-motivo"]:checked')
+    const wrap = document.getElementById('f-motivo-texto-wrap')
+    if (wrap) wrap.style.display = (sel && sel.value === 'outro') ? 'block' : 'none'
+  }
+  function atualizarBtnSalvar() {
+    const b = document.getElementById('btn-salvar'); if (!b) return
+    if (atendExec === 'Não') { b.textContent = 'Registrar visita'; return }
+    const v = document.getElementById('f-status').value
+    b.textContent = (v === 'em_andamento') ? 'Salvar e continuar' : 'Salvar e concluir'
   }
   const osNo = (n) => n != null ? String(n).padStart(5, '0') : '—'
   const cliNomeDe = (id, fb) => (ref.clientes.find(c => c.id === id) || {}).nome || fb || '—'
@@ -173,6 +203,8 @@
     if (pcb) pcb.oninput = () => renderCatalogoSug()
     document.getElementById('f-tipo').onchange = onTipoChange
     document.getElementById('f-status').onchange = togglePendencias
+    document.querySelectorAll('#f-exec-seg button').forEach(b => { b.onclick = () => setExec(b.dataset.v) })
+    document.querySelectorAll('#f-motivos input[name="f-motivo"]').forEach(r => { r.onchange = toggleMotivoTexto })
     // Navegação da home
     document.getElementById('btn-voltar').onclick = onVoltar
     document.getElementById('nav-os').onclick = async () => { mostrar('lista'); await renderLista() }
@@ -701,6 +733,11 @@
     document.getElementById('f-status').value = 'em_andamento'
     document.getElementById('f-pendencias').value = ''
     togglePendencias()
+    // RAT nova nasce como atendimento executado (Sim); limpa motivo de improdutiva anterior
+    document.querySelectorAll('#f-motivos input[name="f-motivo"]').forEach(r => { r.checked = false })
+    const mtx = document.getElementById('f-motivo-texto'); if (mtx) mtx.value = ''
+    toggleMotivoTexto()
+    setExec('Sim')
     document.getElementById('campos-container').innerHTML = ''
     mostrar('form')
     // carrega o formulário do tipo da tarefa (ou mostra aviso se a tarefa não tem tipo)
@@ -1622,9 +1659,18 @@
     cb.value = (ref.clientes.find(c => c.id === rat.cliente_id) || {}).nome || rat.cliente_nome || ''
     cb.readOnly = false
     document.getElementById('f-tipo-wrap').style.display = 'none'
-    document.getElementById('f-status').value = RAT_SIT_LABEL[rat.status] ? rat.status : 'em_andamento'
+    const improd = rat.status === 'improdutiva' || rat.atendimento_executado === false
+    document.getElementById('f-status').value = (RAT_SIT_LABEL[rat.status] && !improd) ? rat.status : 'em_andamento'
     document.getElementById('f-pendencias').value = rat.pendencias || ''
     togglePendencias()
+    // Eixo "atendimento executado?" e motivo (visita improdutiva)
+    if (improd && rat.motivo_improdutiva) {
+      const mr = document.querySelector(`#f-motivos input[value="${CSS.escape(rat.motivo_improdutiva)}"]`)
+      if (mr) mr.checked = true
+      document.getElementById('f-motivo-texto').value = rat.motivo_texto || ''
+      toggleMotivoTexto()
+    }
+    setExec(improd ? 'Não' : 'Sim')
     // carrega o formulário que a RAT respondeu (snapshot), independente do tipo
     await carregarFormularioPorId(rat.formulario_id || (tarefaDela && ref.tipos.find(x => x.id === tarefaDela.tipo_servico_id)?.formulario_id) || null)
     // repopula respostas
@@ -2656,6 +2702,8 @@
     if (!cur) return
     const cliId = document.getElementById('f-cliente').value
     if (!cliId) return toast('Selecione o cliente.', 'err')
+    // Visita improdutiva: fui e não executei → registra motivo, sem exigir execução.
+    if (atendExec === 'Não') return salvarImprodutiva(cliId)
     if (!cur.formulario_id) return toast('Esta tarefa não tem formulário configurado.', 'err')
 
     const sit = document.getElementById('f-status').value
@@ -2740,6 +2788,52 @@
     mostrar('lista')
     await renderLista()
     // Tenta sincronizar imediatamente se houver conexão (passo 5).
+    if (window.SyncEngine && navigator.onLine) window.SyncEngine.syncAll()
+  }
+
+  // Visita improdutiva (§ "RAT improdutiva"): registra deslocamento + tempo de quem foi,
+  // execução zerada, motivo. A RAT fecha como 'improdutiva' e a Tarefa fica aguardando
+  // (o trigger 0053 não promove quando atendimento_executado=false). Avisa o admin.
+  async function salvarImprodutiva(cliId) {
+    const motivoEl = document.querySelector('#f-motivos input[name="f-motivo"]:checked')
+    if (!motivoEl) return toast('Escolha o motivo de não ter executado.', 'err')
+    const motivo = motivoEl.value
+    let motivoTexto = null
+    if (motivo === 'outro') {
+      motivoTexto = (document.getElementById('f-motivo-texto').value || '').trim()
+      if (!motivoTexto) { const w = document.getElementById('f-motivo-texto-wrap'); if (w) w.classList.add('campo-erro'); return toast('Descreva o motivo.', 'err') }
+    }
+    // Mantém o que já foi apontado (deslocamento, tempo de quem foi) sem exigir os obrigatórios.
+    const { respostas } = coletarRespostas()
+    const cli = ref.clientes.find(c => c.id === cliId)
+    await D().salvarRat(cur.client_uuid, {
+      tarefa_id: cur.tarefa_id || null,
+      tarefa_numero: cur.tarefa_numero || null,
+      cliente_id: cliId,
+      cliente_nome: cli?.nome || null,
+      formulario_id: cur.formulario_id || null,
+      tecnico_id: tecnico.id,
+      tecnico_nome: tecnico.nome,
+      status: 'improdutiva',
+      atendimento_executado: false,
+      motivo_improdutiva: motivo,
+      motivo_texto: motivoTexto,
+      tempo_trabalhado: calcTempo(),   // tempo de quem foi (execução zerada = sem serviço concluído)
+      data_tarefa: new Date().toISOString(),
+      respostas: Object.keys(respostas).length ? respostas : null,
+      uso_produtos: null,
+      questionario_ok: true,
+      tem_assinatura: false,
+      assinatura_local: null,
+    })
+    await D().definirStatus(cur.client_uuid, D().STATUS.SALVO_LOCAL, 'visita improdutiva')
+    toast('Visita improdutiva registrada.', 'ok')
+    if (navigator.onLine && window.notificarPush) {
+      notificarPush('rat_improdutiva', { numero: cur.tarefa_numero, cliente: cli?.nome, tarefa_id: cur.tarefa_id, motivo: MOTIVO_IMPRODUTIVA[motivo] || motivo })
+    }
+    cur = null; sig = null; usoProd = null
+    mostrar('lista')
+    await renderLista()
     if (window.SyncEngine && navigator.onLine) window.SyncEngine.syncAll()
   }
 

@@ -24,6 +24,7 @@
     'checkin_lat', 'checkin_lng', 'checkin_precisao', 'checkin_em', 'assinatura_url', 'respostas',
     'tem_foto', 'tem_assinatura', 'questionario_ok', 'pendencias',
     'sync_status', 'device_id', 'os_omie', 'observacoes', 'tempo_trabalhado',
+    'atendimento_executado', 'motivo_improdutiva', 'motivo_texto',   // visita improdutiva
   ]
 
   function dataURLparaBlob(dataURL) {
