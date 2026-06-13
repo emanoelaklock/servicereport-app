@@ -237,10 +237,10 @@ try{if(localStorage.getItem('sr_dark')==='1')document.documentElement.classList.
 
   /* ===== Motivos / opções de "por quê" (radio de linha) ===== */
   .motivos{display:flex;flex-direction:column;gap:8px}
-  .motivos .motopt{display:flex;align-items:center;gap:11px;padding:13px 14px;border:1.6px solid var(--bd,#DCE0E8);border-radius:12px;cursor:pointer;background:#fff;text-transform:none;margin:0}
-  .motivos .motopt input{position:absolute;width:1px;height:1px;margin:0;padding:0;opacity:0;pointer-events:none}
-  .motivos .motopt .rd{flex:0 0 20px;width:20px;height:20px;border-radius:50%;border:2px solid #C3C8D4;position:relative;box-sizing:border-box}
-  .motivos .motopt .mx{flex:1 1 auto;min-width:0;font-size:14.5px;font-weight:600;color:var(--tx,#2c3142);line-height:1.35}
+  .motivos .motopt{display:flex;align-items:center;justify-content:flex-start;gap:11px;padding:13px 14px;border:1.6px solid var(--bd,#DCE0E8);border-radius:12px;cursor:pointer;background:#fff;text-align:left;text-transform:none;margin:0}
+  .motivos .motopt input{position:absolute;width:1px;height:1px;margin:0;padding:0;border:0;background:transparent;opacity:0;pointer-events:none;-webkit-appearance:none;appearance:none}
+  .motivos .motopt .rd{flex:0 0 20px;width:20px;height:20px;border-radius:50%;border:2px solid #C3C8D4;background:transparent;position:relative;box-sizing:border-box;padding:0}
+  .motivos .motopt .mx{flex:1 1 auto;min-width:0;text-align:left;font-size:14.5px;font-weight:600;color:var(--tx,#2c3142);line-height:1.35;background:transparent;border:0;padding:0}
   .motivos .motopt:has(input:checked){border-color:#DE2C2C;background:#FDF6F5}
   .motivos .motopt:has(input:checked) .rd{border-color:#DE2C2C}
   .motivos .motopt:has(input:checked) .rd::after{content:"";position:absolute;inset:3px;border-radius:50%;background:#DE2C2C}
