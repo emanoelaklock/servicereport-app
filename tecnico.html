@@ -235,16 +235,16 @@ try{if(localStorage.getItem('sr_dark')==='1')document.documentElement.classList.
   html.dark .segq button.on[data-v="Sim"]{background:#179A47;color:#fff}
   html.dark .segq button.on[data-v="Não"]{background:#DE2C2C;color:#fff}
 
-  /* ===== Motivos da visita improdutiva (radio de linha) ===== */
+  /* ===== Motivos / opções de "por quê" (radio de linha) ===== */
   .motivos{display:flex;flex-direction:column;gap:8px}
-  .motopt{display:flex;align-items:center;gap:11px;padding:13px 14px;border:1.6px solid var(--bd);border-radius:12px;cursor:pointer;background:var(--cd,#fff)}
-  .motopt input{position:absolute;opacity:0;pointer-events:none}
-  .motopt .rd{width:20px;height:20px;border-radius:50%;border:2px solid #C3C8D4;flex:none;position:relative}
-  .motopt .mx{font-size:14.5px;font-weight:600;color:var(--tx)}
-  .motopt:has(input:checked){border-color:#DE2C2C;background:#FDF6F5}
-  .motopt:has(input:checked) .rd{border-color:#DE2C2C}
-  .motopt:has(input:checked) .rd::after{content:"";position:absolute;inset:3px;border-radius:50%;background:#DE2C2C}
-  html.dark .motopt:has(input:checked){background:#2a1715;border-color:#4a2522}
+  .motivos .motopt{display:flex;align-items:center;gap:11px;padding:13px 14px;border:1.6px solid var(--bd,#DCE0E8);border-radius:12px;cursor:pointer;background:#fff;text-transform:none;margin:0}
+  .motivos .motopt input{position:absolute;width:1px;height:1px;margin:0;padding:0;opacity:0;pointer-events:none}
+  .motivos .motopt .rd{flex:0 0 20px;width:20px;height:20px;border-radius:50%;border:2px solid #C3C8D4;position:relative;box-sizing:border-box}
+  .motivos .motopt .mx{flex:1 1 auto;min-width:0;font-size:14.5px;font-weight:600;color:var(--tx,#2c3142);line-height:1.35}
+  .motivos .motopt:has(input:checked){border-color:#DE2C2C;background:#FDF6F5}
+  .motivos .motopt:has(input:checked) .rd{border-color:#DE2C2C}
+  .motivos .motopt:has(input:checked) .rd::after{content:"";position:absolute;inset:3px;border-radius:50%;background:#DE2C2C}
+  html.dark .motivos .motopt:has(input:checked){background:#2a1715;border-color:#4a2522}
 
   /* ===== Produtos da RAT: linhas com stepper ===== */
   .prod-row2{display:flex;align-items:center;gap:10px;padding:12px 0;border-bottom:1px solid var(--bd)}
