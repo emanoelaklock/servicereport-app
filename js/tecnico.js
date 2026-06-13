@@ -2605,6 +2605,17 @@
     if (isNaN(h) || isNaN(m)) return null
     return h * 60 + m
   }
+  const minutosAgora = () => { const d = new Date(); return d.getHours() * 60 + d.getMinutes() }
+  // Hora de Término (execução) não pode ser depois do relógio real (no futuro).
+  // Ignora virada de meia-noite (término < início = madrugada do dia seguinte, já passada).
+  function horaTerminoNoFuturo() {
+    const tEnd = minutosDe(valorCampo('hora_termino')); if (tEnd == null) return false
+    const tIni = minutosDe(valorCampo('hora_inicio'))
+    if (tIni != null && tEnd < tIni) return false
+    return tEnd > minutosAgora()
+  }
+  // Atendimento "aberto" = iniciado e ainda não encerrado (início preenchido, término vazio).
+  const atendimentoAberto = () => !!valorCampo('hora_inicio') && !valorCampo('hora_termino')
   // Cálculo puro a partir das respostas (compartilhado com o back-office).
   // Janela: deslocamento Sim → ida→retorno; senão → execução. Desconta almoço e pausa.
   function calcTempoDe(resp) {
@@ -2710,6 +2721,9 @@
     // Atendimento continua (em execução) → salva parcial, sem exigir os obrigatórios.
     const emExecucao = (sit === 'em_andamento')
 
+    // Hora de Término não pode estar no futuro (vale também ao salvar parcial).
+    if (horaTerminoNoFuturo()) { limparErros(); marcarErros(['hora_termino'], []); return toast('A Hora de Término não pode ser depois do horário atual.', 'err') }
+
     const { respostas, faltando, faltandoIds } = coletarRespostas()
     const vis = (c) => curVisivel[c.id] !== false
     const fotoObrig = cur.campos.some(c => c.tipo === 'foto' && c.obrigatorio && vis(c))
@@ -2803,6 +2817,9 @@
       motivoTexto = (document.getElementById('f-motivo-texto').value || '').trim()
       if (!motivoTexto) { const w = document.getElementById('f-motivo-texto-wrap'); if (w) w.classList.add('campo-erro'); return toast('Descreva o motivo.', 'err') }
     }
+    // Atendimento iniciado precisa ser encerrado antes de registrar a visita (tempo de quem foi).
+    if (atendimentoAberto()) { limparErros(); marcarErros(['hora_termino'], []); return toast('Encerre o atendimento (botão Encerrar) antes de registrar a visita.', 'err') }
+    if (horaTerminoNoFuturo()) { limparErros(); marcarErros(['hora_termino'], []); return toast('A Hora de Término não pode ser depois do horário atual.', 'err') }
     // Mantém o que já foi apontado (deslocamento, tempo de quem foi) sem exigir os obrigatórios.
     const { respostas } = coletarRespostas()
     const cli = ref.clientes.find(c => c.id === cliId)
