@@ -137,11 +137,15 @@ window.RatView = (function () {
       ${tf.orientacao ? `<div class="rd-f" style="grid-column:1/-1"><label>Orientação</label><div class="v">${escMulti(tf.orientacao)}</div></div>` : ''}
     </div></div>`
 
-    // Visita improdutiva: destaque do motivo (execução não aconteceu; tarefa segue aguardando).
+    // Visita improdutiva: destaque do motivo + permanência (execução não aconteceu; tarefa segue aguardando).
     if (r.status === 'improdutiva' || r.atendimento_executado === false) {
+      const pCh = resp.permanencia_chegada, pSa = resp.permanencia_saida
+      const mCh = minutosDe(pCh), mSa = minutosDe(pSa)
+      const pDur = (mCh != null && mSa != null && mSa >= mCh) ? (mSa - mCh) : null
       h += `<div class="rd-sec"><div class="rd-sec-t">Visita improdutiva</div><div class="rd-grid">
         <div class="rd-f" style="grid-column:1/-1"><label>Motivo de não ter executado</label><div class="v">${esc(motivoImprodutivaLabel(r))}</div></div>
-        <div class="rd-f" style="grid-column:1/-1"><div class="v dim">Deslocamento e tempo de quem foi ficam registrados; a execução foi zerada e a tarefa continua aguardando reagendamento.</div></div>
+        ${(pCh && pSa) ? `<div class="rd-f" style="grid-column:1/-1"><label>Tempo no local (permanência)</label><div class="v">${esc(pCh)} – ${esc(pSa)}${pDur != null ? ' · ' + fmtMin(pDur) : ''}</div></div>` : ''}
+        <div class="rd-f" style="grid-column:1/-1"><div class="v dim">Deslocamento e permanência ficam registrados (faturáveis); a execução foi zerada e a tarefa continua aguardando reagendamento.</div></div>
       </div></div>`
     }
 
