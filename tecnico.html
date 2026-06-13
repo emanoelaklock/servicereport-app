@@ -661,10 +661,10 @@ try{if(localStorage.getItem('sr_dark')==='1')document.documentElement.classList.
           </div>
           <div style="margin-top:16px"><button class="btn btn-primary" id="btn-iniciar-rat"><svg viewBox="0 0 24 24"><path d="M7 4.5v15l12-7.5-12-7.5Z"/></svg>Iniciar RAT desta tarefa</button></div>
           <div class="btn-row" id="t-det-concluir" style="display:none">
-            <button class="btn btn-ok" id="btn-concluir">✓ Concluir</button>
-            <button class="btn btn-warn" id="btn-concluir-pend">⚠ Concluir c/ pend.</button>
+            <button class="btn btn-ok" id="btn-concluir">✓ Concluir serviço</button>
+            <button class="btn btn-warn" id="btn-concluir-pend">⚠ Concluir c/ pendência</button>
           </div>
-          <p class="hintn" id="t-det-concluir-hint" style="display:none;margin-top:10px;text-align:center">Para concluir, salve uma RAT desta tarefa com <b>todos os campos obrigatórios</b> preenchidos.</p>
+          <p class="hintn" id="t-det-concluir-hint" style="display:none;margin-top:10px;text-align:center">Para concluir o serviço, encerre ao menos uma RAT desta tarefa com <b>todos os campos obrigatórios</b> preenchidos.</p>
         </div>
       </div>
 
@@ -738,20 +738,15 @@ try{if(localStorage.getItem('sr_dark')==='1')document.documentElement.classList.
               <button type="button" data-v="Não">Não</button>
             </div>
           </div>
-          <!-- Atendimento executado (Sim) → fluxo normal de conclusão -->
+          <!-- Atendimento executado (Sim) → a RAT registra o DIA; concluir o serviço é na Tarefa -->
           <div id="f-exec-sim">
             <div class="fg campo">
               <label>Situação do atendimento</label>
               <select id="f-status">
                 <option value="em_andamento">Atendimento continua (em execução)</option>
-                <option value="concluida">Concluída</option>
-                <option value="concluida_pendencia">Concluída com pendência</option>
+                <option value="registrado">Encerrar a RAT do dia</option>
               </select>
-              <p class="hintn" id="f-status-hint">Atualiza o status da Tarefa. "Continua" = mais visitas/RATs depois.</p>
-            </div>
-            <div class="fg campo" id="f-pendencias-wrap" style="display:none">
-              <label>Pendências <span class="req">*</span></label>
-              <textarea id="f-pendencias" rows="6" style="min-height:150px" placeholder="O que ficou pendente / o que falta resolver…"></textarea>
+              <p class="hintn" id="f-status-hint">Encerrar a RAT fecha o <b>dia</b> (registrado). O serviço se conclui depois, na Tarefa.</p>
             </div>
           </div>
           <!-- Visita improdutiva (Não) → motivo; tarefa fica aguardando, sem exigir execução -->
@@ -968,6 +963,27 @@ try{if(localStorage.getItem('sr_dark')==='1')document.documentElement.classList.
     <div class="tm-f">
       <button class="btn" id="nt-cancelar">Cancelar</button>
       <button class="btn btn-p" id="nt-criar">Criar tarefa</button>
+    </div>
+  </div>
+</div>
+
+<!-- Concluir o serviço (Tarefa) com pendência → opção de criar tarefa de retorno -->
+<div class="tm-back" id="modal-conc-pend">
+  <div class="tm-box">
+    <div class="tm-h"><span>Concluir com pendência</span><button class="tm-x" id="cp-fechar">✕</button></div>
+    <div class="tm-b">
+      <label>Pendência <span class="req">*</span></label>
+      <textarea id="cp-texto" rows="4" placeholder="O que ficou pendente / o que falta resolver…" style="width:100%;box-sizing:border-box;padding:9px 11px;border:1px solid var(--bd);border-radius:8px;font:inherit;font-size:14px;resize:vertical"></textarea>
+      <label class="cp-check" style="display:flex;align-items:center;gap:9px;margin-top:14px;font-weight:600;cursor:pointer"><input type="checkbox" id="cp-nova"> Criar tarefa de retorno pra resolver a pendência</label>
+      <div id="cp-nova-wrap" style="display:none">
+        <label style="margin-top:12px">Tipo da tarefa de retorno</label>
+        <select id="cp-nova-tipo"><option value="">— selecione —</option></select>
+        <p class="hintn">A tarefa de retorno nasce sem responsável (vai pra fila), com a pendência na orientação.</p>
+      </div>
+    </div>
+    <div class="tm-f">
+      <button class="btn" id="cp-cancelar">Cancelar</button>
+      <button class="btn btn-warn" id="cp-confirmar">Concluir c/ pendência</button>
     </div>
   </div>
 </div>

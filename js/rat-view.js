@@ -32,6 +32,7 @@ window.RatView = (function () {
 
   const STATUS = {
     em_andamento:        { label: 'Em andamento',           cls: 'st-run' },
+    registrado:          { label: 'Registrada',             cls: 'st-ok' },
     concluida:           { label: 'Concluída',              cls: 'st-ok' },
     concluida_pendencia: { label: 'Concluída c/ pendência', cls: 'st-pend' },
     improdutiva:         { label: 'Visita improdutiva',     cls: 'st-pend' },

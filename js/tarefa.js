@@ -24,7 +24,7 @@ const TarefaApp = (() => {
   let ratEdit = false        // modo edição do modal de RAT
   let pendRat = null         // RAT base do modal "nova tarefa da pendência"
 
-  const RAT_SIT = { em_andamento: 'Em andamento', concluida: 'Concluída', concluida_pendencia: 'Concluída c/ pendência', improdutiva: 'Visita improdutiva' }
+  const RAT_SIT = { em_andamento: 'Em andamento', registrado: 'Registrada', concluida: 'Concluída', concluida_pendencia: 'Concluída c/ pendência', improdutiva: 'Visita improdutiva' }
   const ratSit = (s) => RAT_SIT[s] || s || '—'
   const PANES = ['dados', 'equip', 'anexos', 'rats', 'material', 'fat']
   // Cresce o textarea para caber todo o conteúdo (sem barra de rolagem).
@@ -883,14 +883,14 @@ const TarefaApp = (() => {
   // esqueceu de fechar o atendimento. RLS: tarefas_admin_all permite o update.
   async function encerrarRat(ratId) {
     const r = (cur.rats || []).find(x => x.id === ratId); if (!r) return
-    if (!confirm('Encerrar esta RAT em andamento e marcá-la como Concluída?\n\nUse "Abrir ↗" para acertar horários/tempo antes, se precisar. Esta ação destrava a tarefa.')) return
-    const upd = { status: 'concluida' }
+    if (!confirm('Encerrar esta RAT em andamento e marcá-la como Registrada (fecha o dia)?\n\nUse "Abrir ↗" para acertar horários/tempo antes, se precisar. Encerrar a RAT não conclui o serviço — isso é feito na Tarefa.')) return
+    const upd = { status: 'registrado' }
     const tm = RatView.tempoRat(r)
     if (tm != null) upd.tempo_trabalhado = tm
     const { error } = await sb().from('rats').update(upd).eq('id', ratId)
     if (error) return toast('Erro ao encerrar: ' + error.message, 'err')
-    r.status = 'concluida'; if (tm != null) r.tempo_trabalhado = tm
-    toast('RAT encerrada (concluída).', 'ok')
+    r.status = 'registrado'; if (tm != null) r.tempo_trabalhado = tm
+    toast('RAT registrada (dia encerrado).', 'ok')
     await carregarRats()   // recarrega RATs + atualiza a faixa Situação/abas
   }
 

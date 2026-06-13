@@ -31,7 +31,7 @@
     aprovada_faturamento: { t: 'Aprovada p/ faturamento', c: 's-done' },
     faturada: { t: 'Faturada', c: 's-done' },
   }
-  const RAT_SIT_LABEL = { em_andamento: 'Em andamento', concluida: 'Concluída', concluida_pendencia: 'Concluída c/ pendência', improdutiva: 'Visita improdutiva' }
+  const RAT_SIT_LABEL = { em_andamento: 'Em andamento', registrado: 'Registrada', concluida: 'Concluída', concluida_pendencia: 'Concluída c/ pendência', improdutiva: 'Visita improdutiva' }
   const ratSit = (s) => RAT_SIT_LABEL[s] || s || '—'
   // Motivos da visita improdutiva (chave salva → rótulo). 'outro' usa texto livre.
   const MOTIVO_IMPRODUTIVA = {
@@ -44,7 +44,7 @@
   }
   // Prioridade de exibição por status da tarefa (menor = aparece primeiro).
   const STATUS_PRIORIDADE = { em_execucao: 1, devolvida: 2, aguardando_execucao: 3, concluida_pendencia: 4, concluida: 5, aprovada_faturamento: 6, faturada: 7 }
-  const RAT_PARA_TAREFA = { em_andamento: 'em_execucao', concluida: 'concluida', concluida_pendencia: 'concluida_pendencia' }
+  const RAT_PARA_TAREFA = { em_andamento: 'em_execucao', registrado: 'em_execucao', concluida: 'concluida', concluida_pendencia: 'concluida_pendencia' }
   const prioStatus = (s) => (STATUS_PRIORIDADE[s] != null ? STATUS_PRIORIDADE[s] : 50)
   // Label/cor do status vindos de Configurações (status_tarefa); cai no T_STATUS fixo.
   const stLabel = (s) => (ref.status && ref.status[s] && ref.status[s].label) || (T_STATUS[s] && T_STATUS[s].t) || s || '—'
@@ -52,11 +52,8 @@
   const stStyle = (s) => `background:${stCor(s)}1A;color:${stCor(s)};border:none`
   // Mapeia status do sistema → variante visual do skin (info/done/warn/pend/aguard).
   const SKIN_STATUS = { em_execucao: 'info', aguardando_execucao: 'aguard', concluida: 'done', concluida_pendencia: 'warn', devolvida: 'pend', aprovada_faturamento: 'done', faturada: 'done' }
-  function togglePendencias() {
-    const v = document.getElementById('f-status').value
-    document.getElementById('f-pendencias-wrap').style.display = (v === 'concluida_pendencia') ? 'block' : 'none'
-    atualizarBtnSalvar()
-  }
+  // A RAT não conclui mais o serviço (isso é da Tarefa); só registra o dia.
+  function togglePendencias() { atualizarBtnSalvar() }
   // Eixo "O atendimento foi executado?": Não → visita improdutiva (motivo, sem exigir
   // execução; a tarefa fica aguardando). Mantém o estado em `atendExec` ('Sim'|'Não').
   let atendExec = 'Sim'
@@ -78,7 +75,7 @@
     const b = document.getElementById('btn-salvar'); if (!b) return
     if (atendExec === 'Não') { b.textContent = 'Registrar visita'; return }
     const v = document.getElementById('f-status').value
-    b.textContent = (v === 'em_andamento') ? 'Salvar e continuar' : 'Salvar e concluir'
+    b.textContent = (v === 'em_andamento') ? 'Salvar e continuar' : 'Encerrar a RAT do dia'
   }
   const osNo = (n) => n != null ? String(n).padStart(5, '0') : '—'
   const cliNomeDe = (id, fb) => (ref.clientes.find(c => c.id === id) || {}).nome || fb || '—'
@@ -220,6 +217,10 @@
     document.getElementById('btn-iniciar-rat').onclick = () => { if (tarefaAberta) iniciarRatDaTarefa(tarefaAberta) }
     document.getElementById('btn-concluir').onclick = () => concluirTarefa(false)
     document.getElementById('btn-concluir-pend').onclick = () => concluirTarefa(true)
+    document.getElementById('cp-fechar').onclick = () => document.getElementById('modal-conc-pend').classList.remove('open')
+    document.getElementById('cp-cancelar').onclick = () => document.getElementById('modal-conc-pend').classList.remove('open')
+    document.getElementById('cp-nova').onchange = (e) => { document.getElementById('cp-nova-wrap').style.display = e.target.checked ? 'block' : 'none' }
+    document.getElementById('cp-confirmar').onclick = confirmarConcluirPend
     document.getElementById('nav-preorc').onclick = async () => { mostrar('preorc-lista'); await renderPreorcLista() }
     document.getElementById('nav-jornada').onclick = async () => { mostrar('jornada'); await renderJornada() }
     document.getElementById('nav-desloc').onclick = async () => { mostrar('desloc'); await renderDesloc() }
@@ -659,19 +660,51 @@
     } catch (e) { sec.style.display = 'none' }
   }
 
+  // Concluir o SERVIÇO (nível Tarefa, deliberado, uma vez) — separado de encerrar a RAT do dia.
   async function concluirTarefa(comPendencia) {
     if (!tarefaAberta) return
-    if (!navigator.onLine) return toast('Sem conexão — conclua pela RAT ou quando estiver online.', 'err')
-    let pend = null
-    if (comPendencia) {
-      pend = (prompt('Descreva a pendência da tarefa:') || '').trim()
-      if (!pend) return toast('Pendência obrigatória.', 'err')
-    }
-    const novo = comPendencia ? 'concluida_pendencia' : 'concluida'
-    const up = await getSupabase().from('tarefas').update({ status: novo, pendencias: pend }).eq('id', tarefaAberta.id)
-    if (up.error) return toast('Erro ao concluir: ' + up.error.message, 'err')
+    if (!navigator.onLine) return toast('Sem conexão — conclua o serviço quando estiver online.', 'err')
+    if (comPendencia) return abrirModalConcPend()
+    if (!confirm('Concluir o serviço desta tarefa?\n\nIsso fecha a Tarefa inteira (não só o dia). Se o trabalho continua, use "RAT de hoje".')) return
     const id = tarefaAberta.id
-    toast(comPendencia ? 'Tarefa concluída com pendência.' : 'Tarefa concluída.', 'ok')
+    const up = await getSupabase().from('tarefas').update({ status: 'concluida', pendencias: null }).eq('id', id)
+    if (up.error) return toast('Erro ao concluir: ' + up.error.message, 'err')
+    toast('Serviço concluído.', 'ok')
+    await renderTarefas()
+    await abrirTarefaDet(id)
+  }
+
+  // Modal: concluir com pendência + (opcional) criar tarefa de retorno pra resolvê-la.
+  function abrirModalConcPend() {
+    const t = tarefaAberta; if (!t) return
+    document.getElementById('cp-texto').value = (t.pendencias || '').trim()
+    document.getElementById('cp-nova').checked = false
+    document.getElementById('cp-nova-wrap').style.display = 'none'
+    document.getElementById('cp-nova-tipo').innerHTML = '<option value="">— selecione —</option>' +
+      ref.tipos.map(x => `<option value="${esc(x.id)}"${x.id === t.tipo_servico_id ? ' selected' : ''}>${esc(x.nome)}</option>`).join('')
+    document.getElementById('modal-conc-pend').classList.add('open')
+  }
+  async function confirmarConcluirPend() {
+    const t = tarefaAberta; if (!t) return
+    if (!navigator.onLine) return toast('Sem conexão — conclua quando estiver online.', 'err')
+    const texto = document.getElementById('cp-texto').value.trim()
+    if (!texto) return toast('Descreva a pendência.', 'err')
+    const criarRetorno = document.getElementById('cp-nova').checked
+    const tipoRetorno = document.getElementById('cp-nova-tipo').value
+    if (criarRetorno && !tipoRetorno) return toast('Escolha o tipo da tarefa de retorno.', 'err')
+    const up = await getSupabase().from('tarefas').update({ status: 'concluida_pendencia', pendencias: texto }).eq('id', t.id)
+    if (up.error) return toast('Erro ao concluir: ' + up.error.message, 'err')
+    if (criarRetorno) {
+      const { error } = await getSupabase().rpc('criar_tarefa_app', {
+        p_id: crypto.randomUUID(), p_cliente_id: t.cliente_id, p_status: 'aguardando_execucao',
+        p_tipo_servico_id: tipoRetorno, p_orientacao: texto, p_data_agendada: null, p_tecnicos: null,
+      })
+      if (error) toast('Serviço concluído, mas falhou criar a tarefa de retorno: ' + error.message, 'err')
+      else toast('Tarefa de retorno criada (na fila).', 'ok')
+    }
+    document.getElementById('modal-conc-pend').classList.remove('open')
+    toast('Serviço concluído com pendência.', 'ok')
+    const id = t.id
     await renderTarefas()
     await abrirTarefaDet(id)
   }
@@ -733,7 +766,6 @@
     document.getElementById('f-tipo').value = tipoId
     document.getElementById('f-tipo-wrap').style.display = 'none'
     document.getElementById('f-status').value = 'em_andamento'
-    document.getElementById('f-pendencias').value = ''
     togglePendencias()
     // RAT nova nasce como atendimento executado (Sim); limpa motivo/permanência anteriores
     document.querySelectorAll('#f-motivos input[name="f-motivo"]').forEach(r => { r.checked = false })
@@ -1664,8 +1696,9 @@
     cb.readOnly = false
     document.getElementById('f-tipo-wrap').style.display = 'none'
     const improd = rat.status === 'improdutiva' || rat.atendimento_executado === false
-    document.getElementById('f-status').value = (RAT_SIT_LABEL[rat.status] && !improd) ? rat.status : 'em_andamento'
-    document.getElementById('f-pendencias').value = rat.pendencias || ''
+    // só os status que o select oferece hoje; histórico (concluida) reabre como 'em_andamento'
+    const reabreStatus = (rat.status === 'em_andamento' || rat.status === 'registrado') ? rat.status : 'em_andamento'
+    document.getElementById('f-status').value = improd ? 'em_andamento' : reabreStatus
     togglePendencias()
     // Eixo "atendimento executado?" e motivo (visita improdutiva)
     if (improd && rat.motivo_improdutiva) {
@@ -2793,15 +2826,11 @@
     if (!emExecucao && assinaturaObrig && !temAssinatura) return toast('Capture a assinatura.', 'err')
     if (temAssinatura) assinatura_local = sig.dataURL()
 
-    const pendencias = document.getElementById('f-pendencias').value.trim()
-    if (sit === 'concluida_pendencia' && !pendencias) {
-      const w = document.getElementById('f-pendencias-wrap'); if (w) { w.classList.add('campo-erro'); w.scrollIntoView({ behavior: 'smooth', block: 'center' }) }
-      return toast('Descreva a pendência.', 'err')
-    }
-
     const cli = ref.clientes.find(c => c.id === cliId)
     if (usoProd) respostas.uso_produtos = usoProd
 
+    // sit = 'em_andamento' (continua) | 'registrado' (encerra o dia). A RAT NUNCA conclui
+    // o serviço — isso é deliberado na Tarefa ("Concluir serviço").
     await D().salvarRat(cur.client_uuid, {
       tarefa_id: cur.tarefa_id || null,
       tarefa_numero: cur.tarefa_numero || null,
@@ -2811,7 +2840,7 @@
       tecnico_id: tecnico.id,
       tecnico_nome: tecnico.nome,
       status: sit,
-      pendencias: sit === 'concluida_pendencia' ? pendencias : null,
+      pendencias: null,
       tempo_trabalhado: calcTempo(),
       data_tarefa: new Date().toISOString(),
       respostas,
@@ -2821,10 +2850,10 @@
       assinatura_local,
     })
     await D().definirStatus(cur.client_uuid, D().STATUS.SALVO_LOCAL, 'salvo pelo técnico')
-    toast('RAT salva no aparelho.', 'ok')
-    // Notifica admin/gestor quando a RAT é concluída (push), se online.
+    toast(emExecucao ? 'RAT salva no aparelho.' : 'RAT do dia registrada.', 'ok')
+    // Avisa admin/gestor quando a RAT do dia é encerrada (registrada), se online.
     if (!emExecucao && navigator.onLine && window.notificarPush) {
-      notificarPush('rat_concluida', { numero: cur.tarefa_numero, cliente: cli?.nome, tarefa_id: cur.tarefa_id })
+      notificarPush('rat_registrada', { numero: cur.tarefa_numero, cliente: cli?.nome, tarefa_id: cur.tarefa_id })
     }
     cur = null; sig = null; usoProd = null
     mostrar('lista')
