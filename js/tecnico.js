@@ -202,6 +202,14 @@
     const pf = document.getElementById('po-foto-input')
     document.getElementById('po-btn-foto').onclick = () => pf.click()
     pf.onchange = () => poAddFotos(pf.files)
+    // A fila (Home) depende de estado do servidor — responsável — que NÃO passa pelo SYNC_MAP de
+    // RATs/deslocamentos; logo mudança feita no portal não dispara onSyncChanged. Enquanto a Home
+    // estiver visível, atualizamos a fila por conta própria: ao reganhar foco, ao reconectar e a
+    // cada 60s. (Propagação via realtime/tombstone em tarefa_tecnicos fica como melhoria futura.)
+    const refreshFilaSeHome = () => { if (screen === 'home' && !document.hidden && navigator.onLine) renderFila() }
+    document.addEventListener('visibilitychange', refreshFilaSeHome)
+    window.addEventListener('online', refreshFilaSeHome)
+    setInterval(refreshFilaSeHome, 60 * 1000)
   }
 
   // ───────────────────── Dados de referência ─────────────────────
@@ -447,7 +455,15 @@
           }).join('')
       hojeBox.querySelectorAll('[data-hoje]').forEach(el => el.onclick = () => { const t = (tarefas || []).find(x => x.id === el.dataset.hoje); if (t) abrirRatDeHoje(t) })
     }
-    // (2) Fila — tarefas abertas (sem responsável). Só online (consulta o servidor).
+    // (2) Fila — em função própria: ela se atualiza sozinha (visibilitychange/online/tick no bind()),
+    //     já que mudança de responsável no portal não passa pelo SYNC_MAP (RATs/deslocamentos).
+    await renderFila()
+  }
+
+  // Fila — tarefas abertas (sem responsável). Só online (consulta o servidor via RPC).
+  // Chamada pelo renderHome e, enquanto a Home estiver à frente, pelos gatilhos do bind()
+  // (foco/reconexão/tick): o app de campo não recebe a mudança de responsável pelo sync.
+  async function renderFila() {
     const filaBox = document.getElementById('home-fila'), filaCt = document.getElementById('home-fila-ct')
     if (!filaBox) return
     if (!navigator.onLine) { filaBox.innerHTML = '<div class="home-empty">Sem conexão — a fila aparece quando houver internet.</div>'; if (filaCt) filaCt.textContent = ''; return }

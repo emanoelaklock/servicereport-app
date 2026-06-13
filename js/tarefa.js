@@ -510,6 +510,13 @@ const TarefaApp = (() => {
       const insT = await sb().from('tarefa_tecnicos').insert(tecNovos.map(tid => ({ tarefa_id: cur.id, tecnico_id: tid })))
       if (insT.error) return toast('Erro ao salvar técnicos: ' + insT.error.message, 'err')
     }
+    // Responsável é N:N (tarefa_tecnicos) e não há trigger que bumpe tarefas.atualizado_em; sem isso
+    // a alteração feita no portal não deixa rastro de "última modificação". Marca a tarefa explícito.
+    // (Propagação ao app de campo via realtime/tombstone em tarefa_tecnicos fica p/ depois.)
+    if (tecRemov.length || tecNovos.length) {
+      const bump = await sb().from('tarefas').update({ atualizado_em: new Date().toISOString() }).eq('id', cur.id)
+      if (bump.error) console.warn('[tarefa] bump atualizado_em falhou:', bump.error.message)
+    }
     tecPorTarefa[cur.id] = tecIds
     // atualiza cache local p/ a lista refletir sem novo fetch
     const t = tarefas.find(x => x.id === cur.id)
