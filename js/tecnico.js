@@ -53,7 +53,30 @@
   // Mapeia status do sistema → variante visual do skin (info/done/warn/pend/aguard).
   const SKIN_STATUS = { em_execucao: 'info', aguardando_execucao: 'aguard', concluida: 'done', concluida_pendencia: 'warn', devolvida: 'pend', aprovada_faturamento: 'done', faturada: 'done' }
   // A RAT não conclui mais o serviço (isso é da Tarefa); só registra o dia.
-  function togglePendencias() { atualizarBtnSalvar() }
+  function togglePendencias() { togglePassagem(); atualizarBtnSalvar() }
+  // Checkpoint de passagem: ao encerrar o dia (registrado), "volta amanhã?"; se Não, o que falta/levar.
+  let voltaAmanha = null
+  function togglePassagem() {
+    const reg = document.getElementById('f-status').value === 'registrado'
+    const box = document.getElementById('f-passagem')
+    if (box) box.style.display = reg ? 'block' : 'none'
+  }
+  function setVoltaAmanha(v) {
+    voltaAmanha = (v === 'Não') ? 'Não' : 'Sim'
+    document.querySelectorAll('#f-volta-seg button').forEach(b => b.classList.toggle('on', b.dataset.v === voltaAmanha))
+    const nao = document.getElementById('f-passagem-nao')
+    if (nao) nao.style.display = (voltaAmanha === 'Não') ? 'block' : 'none'
+    if (voltaAmanha !== 'Não') document.querySelectorAll('#f-passagem-motivo input').forEach(r => { r.checked = false })
+    togglePassagemHandoff()
+  }
+  // Sub-motivo do "Não volto amanhã": 'terminei' (vou concluir na Tarefa, sem handoff) |
+  // 'volto_depois' (continua → o que falta / o que levar OBRIGATÓRIOS). 'Terminei' NÃO conclui aqui.
+  const passMotivoVal = () => { const el = document.querySelector('#f-passagem-motivo input:checked'); return el ? el.value : null }
+  function togglePassagemHandoff() {
+    const m = (voltaAmanha === 'Não') ? passMotivoVal() : null
+    const ho = document.getElementById('f-passagem-handoff'); if (ho) ho.style.display = (m === 'volto_depois') ? 'block' : 'none'
+    const th = document.getElementById('f-passagem-terminei-hint'); if (th) th.style.display = (m === 'terminei') ? 'block' : 'none'
+  }
   // Eixo "O atendimento foi executado?": Não → visita improdutiva (motivo, sem exigir
   // execução; a tarefa fica aguardando). Mantém o estado em `atendExec` ('Sim'|'Não').
   let atendExec = 'Sim'
@@ -202,6 +225,8 @@
     document.getElementById('f-tipo').onchange = onTipoChange
     document.getElementById('f-status').onchange = togglePendencias
     document.querySelectorAll('#f-exec-seg button').forEach(b => { b.onclick = () => setExec(b.dataset.v) })
+    document.querySelectorAll('#f-volta-seg button').forEach(b => { b.onclick = () => setVoltaAmanha(b.dataset.v) })
+    document.querySelectorAll('#f-passagem-motivo input[name="f-pass-motivo"]').forEach(r => { r.onchange = togglePassagemHandoff })
     document.querySelectorAll('#f-motivos input[name="f-motivo"]').forEach(r => { r.onchange = toggleMotivoTexto })
     ;['f-perm-chegada', 'f-perm-saida'].forEach(id => { const el = document.getElementById(id); if (el) el.oninput = updatePermDur })
     // Navegação da home
@@ -771,6 +796,14 @@
     document.querySelectorAll('#f-motivos input[name="f-motivo"]').forEach(r => { r.checked = false })
     const mtx = document.getElementById('f-motivo-texto'); if (mtx) mtx.value = ''
     ;['f-perm-chegada', 'f-perm-saida'].forEach(id => { const el = document.getElementById(id); if (el) el.value = '' })
+    // checkpoint de passagem: limpa "volta amanhã?" e os textos
+    voltaAmanha = null
+    document.querySelectorAll('#f-volta-seg button').forEach(b => b.classList.remove('on'))
+    document.querySelectorAll('#f-passagem-motivo input').forEach(r => { r.checked = false })
+    ;['f-passagem-falta', 'f-passagem-levar'].forEach(id => { const el = document.getElementById(id); if (el) el.value = '' })
+    const pnao = document.getElementById('f-passagem-nao'); if (pnao) pnao.style.display = 'none'
+    const pho = document.getElementById('f-passagem-handoff'); if (pho) pho.style.display = 'none'
+    const pth = document.getElementById('f-passagem-terminei-hint'); if (pth) pth.style.display = 'none'
     toggleMotivoTexto()
     updatePermDur()
     setExec('Sim')
@@ -1700,6 +1733,21 @@
     const reabreStatus = (rat.status === 'em_andamento' || rat.status === 'registrado') ? rat.status : 'em_andamento'
     document.getElementById('f-status').value = improd ? 'em_andamento' : reabreStatus
     togglePendencias()
+    // Checkpoint de passagem salvo (relevante quando a RAT foi registrada)
+    const rs0 = rat.respostas || {}
+    if (!improd && reabreStatus === 'registrado' && rs0.volta_amanha) {
+      setVoltaAmanha(rs0.volta_amanha)
+      if (rs0.volta_amanha === 'Não' && rs0.passagem_motivo) {
+        const mr = document.querySelector(`#f-passagem-motivo input[value="${CSS.escape(rs0.passagem_motivo)}"]`)
+        if (mr) mr.checked = true
+        togglePassagemHandoff()
+      }
+      const ff = document.getElementById('f-passagem-falta'); if (ff) ff.value = rs0.passagem_falta || ''
+      const fl = document.getElementById('f-passagem-levar'); if (fl) fl.value = rs0.passagem_levar || ''
+    } else {
+      voltaAmanha = null
+      document.querySelectorAll('#f-volta-seg button').forEach(b => b.classList.remove('on'))
+    }
     // Eixo "atendimento executado?" e motivo (visita improdutiva)
     if (improd && rat.motivo_improdutiva) {
       const mr = document.querySelector(`#f-motivos input[value="${CSS.escape(rat.motivo_improdutiva)}"]`)
@@ -2826,8 +2874,29 @@
     if (!emExecucao && assinaturaObrig && !temAssinatura) return toast('Capture a assinatura.', 'err')
     if (temAssinatura) assinatura_local = sig.dataURL()
 
+    // Checkpoint de passagem (ao encerrar o dia): "volta amanhã?" obrigatório. Se Não → por quê?
+    // 'volto_depois' exige o handoff (o que falta / o que levar); 'terminei' dispensa (NÃO conclui aqui).
+    if (sit === 'registrado') {
+      if (!voltaAmanha) return toast('Responda se volta amanhã pra continuar.', 'err')
+      if (voltaAmanha === 'Não') {
+        const m = passMotivoVal()
+        if (!m) return toast('Diga por que não volta amanhã.', 'err')
+        if (m === 'volto_depois') {
+          if (!document.getElementById('f-passagem-falta').value.trim()) return toast('Informe o que falta pra terminar.', 'err')
+          if (!document.getElementById('f-passagem-levar').value.trim()) return toast('Informe o que levar na próxima ida.', 'err')
+        }
+      }
+    }
+
     const cli = ref.clientes.find(c => c.id === cliId)
     if (usoProd) respostas.uso_produtos = usoProd
+    if (sit === 'registrado') {
+      const m = (voltaAmanha === 'Não') ? passMotivoVal() : null
+      respostas.volta_amanha = voltaAmanha
+      respostas.passagem_motivo = m
+      respostas.passagem_falta = (m === 'volto_depois') ? (document.getElementById('f-passagem-falta').value.trim() || null) : null
+      respostas.passagem_levar = (m === 'volto_depois') ? (document.getElementById('f-passagem-levar').value.trim() || null) : null
+    }
 
     // sit = 'em_andamento' (continua) | 'registrado' (encerra o dia). A RAT NUNCA conclui
     // o serviço — isso é deliberado na Tarefa ("Concluir serviço").

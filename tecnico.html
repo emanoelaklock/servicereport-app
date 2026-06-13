@@ -748,6 +748,37 @@ try{if(localStorage.getItem('sr_dark')==='1')document.documentElement.classList.
               </select>
               <p class="hintn" id="f-status-hint">Encerrar a RAT fecha o <b>dia</b> (registrado). O serviço se conclui depois, na Tarefa.</p>
             </div>
+            <!-- Checkpoint de passagem: ao encerrar o dia, "volta amanhã?"; se não, o que falta/levar -->
+            <div id="f-passagem" style="display:none">
+              <div class="fg campo">
+                <label>Volta amanhã pra continuar? <span class="req">*</span></label>
+                <div class="segq" id="f-volta-seg">
+                  <button type="button" data-v="Sim">Sim</button>
+                  <button type="button" data-v="Não">Não</button>
+                </div>
+              </div>
+              <div id="f-passagem-nao" style="display:none">
+                <div class="fg campo">
+                  <label>Por quê? <span class="req">*</span></label>
+                  <div class="motivos" id="f-passagem-motivo">
+                    <label class="motopt"><input type="radio" name="f-pass-motivo" value="terminei"><span class="rd"></span><span class="mx">Terminei o serviço — vou concluir na Tarefa</span></label>
+                    <label class="motopt"><input type="radio" name="f-pass-motivo" value="volto_depois"><span class="rd"></span><span class="mx">Vou voltar depois pra terminar</span></label>
+                  </div>
+                </div>
+                <p class="hintn" id="f-passagem-terminei-hint" style="display:none">Isso <b>não conclui</b> o serviço — só dispensa o handoff. Conclua na Tarefa quando estiver pronto.</p>
+                <div id="f-passagem-handoff" style="display:none">
+                  <div class="fg campo">
+                    <label>O que falta <span class="req">*</span></label>
+                    <textarea id="f-passagem-falta" rows="3" placeholder="O que ainda falta pra concluir o serviço…"></textarea>
+                  </div>
+                  <div class="fg campo">
+                    <label>O que levar <span class="req">*</span></label>
+                    <textarea id="f-passagem-levar" rows="3" placeholder="Material / ferramenta / peça pra levar na próxima ida…"></textarea>
+                  </div>
+                  <p class="hintn">Fica registrado pra quem voltar — ou pro escritório reagendar com o que falta.</p>
+                </div>
+              </div>
+            </div>
           </div>
           <!-- Visita improdutiva (Não) → motivo; tarefa fica aguardando, sem exigir execução -->
           <div id="f-exec-nao" style="display:none">

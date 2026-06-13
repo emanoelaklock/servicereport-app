@@ -150,6 +150,14 @@ window.RatView = (function () {
       </div></div>`
     }
 
+    // Passagem (handoff): técnico encerrou o dia e vai voltar depois pra terminar — o que falta / levar.
+    if (resp.volta_amanha === 'Não' && resp.passagem_motivo === 'volto_depois') {
+      h += `<div class="rd-sec"><div class="rd-sec-t">Passagem — volta depois pra terminar</div><div class="rd-grid">
+        ${resp.passagem_falta ? `<div class="rd-f" style="grid-column:1/-1"><label>O que falta</label><div class="v">${escMulti(resp.passagem_falta)}</div></div>` : ''}
+        ${resp.passagem_levar ? `<div class="rd-f" style="grid-column:1/-1"><label>O que levar</label><div class="v">${escMulti(resp.passagem_levar)}</div></div>` : ''}
+      </div></div>`
+    }
+
     // Intervalos (almoço/pausa) saem da grade no modo leitura — viram a tabela "Pausas".
     const EXC_GRID = new Set(['almoco', 'almoco_inicio', 'almoco_termino', 'pausa', 'pausa_inicio', 'pausa_termino', 'pausa_motivo'])
     const grid = []
