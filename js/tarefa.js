@@ -859,7 +859,9 @@ const TarefaApp = (() => {
         <div class="rat-open-h">
           <div><b>RAT ${cur && cur.numero != null ? osNo(cur.numero) + (r.rat_seq != null ? '/' + String(r.rat_seq).padStart(2, '0') : '') : ''} · ${fdt(r.data_tarefa, { withTime: true })}</b> · ${esc(r.tecnico_nome || '—')} · ${RatView.fmtMin(RatView.tempoRat(r))}</div>
           <div style="display:flex;align-items:center;gap:10px">
-            <span class="ri-sit">${esc(ratSit(r.status))}</span>
+            ${ratNaoEncerrada(r)
+              ? `<span class="ri-sit" style="color:#B7791F;font-weight:700" title="O técnico iniciou o atendimento e não encerrou">⚠ Não encerrada · ${esc(diasTxt(diasAberta(r)))}</span>`
+              : `<span class="ri-sit">${esc(ratSit(r.status))}</span>`}
             ${r.status === 'em_andamento' ? `<button class="btn btn-sm btn-g" data-encerrar="${esc(r.id)}">✓ Encerrar</button>` : ''}
             <a class="btn btn-sm" href="rat.html?id=${encodeURIComponent(r.id)}" target="_blank" rel="noopener">Abrir ↗</a>
           </div>
@@ -1178,12 +1180,29 @@ const TarefaApp = (() => {
   const POS_EXEC = ['concluida', 'concluida_pendencia', 'aprovada_faturamento', 'faturada']
   const tarefaPosExec = (id) => POS_EXEC.includes(((tarefas || []).find(x => x.id === id) || {}).status)
 
+  // RAT "em andamento" de HOJE = legitimamente em execução. De um dia anterior =
+  // o técnico esqueceu de encerrar — é "não encerrada" (ação do admin), não um travamento.
+  const hojeMeiaNoite = () => { const d = new Date(); return new Date(d.getFullYear(), d.getMonth(), d.getDate()) }
+  function diaDaRat(r) {
+    const s = (r.respostas && r.respostas.data) || r.data_tarefa || r.criado_em
+    if (!s) return null
+    const d = new Date(String(s).length <= 10 ? s + 'T00:00:00' : s)
+    return isNaN(d) ? null : new Date(d.getFullYear(), d.getMonth(), d.getDate())
+  }
+  const ratNaoEncerrada = (r) => { if (r.status !== 'em_andamento') return false; const dia = diaDaRat(r); return !!dia && dia < hojeMeiaNoite() }
+  const diasAberta = (r) => { const dia = diaDaRat(r); return dia ? Math.round((hojeMeiaNoite() - dia) / 86400000) : 0 }
+  const diasTxt = (n) => `há ${n} ${n === 1 ? 'dia' : 'dias'}`
+
   // Estado consolidado da tarefa aberta (usado pela faixa Situação e pelas abas).
   function estadoTarefa() {
     const t = tarefas.find(x => x.id === (cur && cur.id)) || {}
     const dadosOk = !!(cur && cur.id) && (tecPorTarefa[cur.id] || []).length > 0 && !!t.data_agendada
     const rats = (cur && cur.rats) || []
     const ratEmAnd = rats.some(r => r.status === 'em_andamento')
+    const ratsNaoEnc = rats.filter(ratNaoEncerrada)
+    const ratNaoEncN = ratsNaoEnc.length
+    const ratNaoEncDias = ratsNaoEnc.reduce((m, r) => Math.max(m, diasAberta(r)), 0)
+    const ratEmAndHoje = rats.some(r => r.status === 'em_andamento' && !ratNaoEncerrada(r))
     const posExec = POS_EXEC.includes(t.status)
     let devItens = 0, aRevisar = 0, foraN = 0, prodAtencao = 0
     for (const l of (linhas || [])) {
@@ -1195,7 +1214,7 @@ const TarefaApp = (() => {
       if (dev || rev) prodAtencao++   // LINHAS com atenção (a mesma linha não conta 2x)
     }
     return {
-      t, dadosOk, ratsLen: rats.length, ratEmAnd,
+      t, dadosOk, ratsLen: rats.length, ratEmAnd, ratNaoEncN, ratNaoEncDias, ratEmAndHoje,
       prodLen: (linhas || []).length, devItens, aRevisar, foraN, prodAtencao,
       prodWarn: aRevisar > 0 || devItens > 0,
       fat: !!t.faturado, anx: ((cur && cur.anexos) || []).length, equipLen: ((cur && cur.equip) || []).length,
@@ -1211,7 +1230,13 @@ const TarefaApp = (() => {
     const e = estadoTarefa()
     box.innerHTML = [
       situCard(e.dadosOk ? 's-ok' : 's-warn', SITU_ICO.dados, 'Dados da tarefa', e.dadosOk ? 'Preenchido' : 'Incompleto'),
-      situCard(e.ratsLen ? (e.ratEmAnd ? 's-warn' : 's-ok') : 's-warn', SITU_ICO.rats, 'RATs', e.ratsLen ? (e.ratEmAnd ? 'Em andamento' : 'Concluído') : 'Sem RATs'),
+      e.ratsLen === 0
+        ? situCard('s-warn', SITU_ICO.rats, 'RATs', 'Sem RATs')
+        : e.ratNaoEncN
+          ? situCard('s-pend', SITU_ICO.rats, 'RATs', e.ratNaoEncN > 1 ? `${e.ratNaoEncN} não encerradas` : 'Não encerrada', diasTxt(e.ratNaoEncDias))
+          : e.ratEmAndHoje
+            ? situCard('s-warn', SITU_ICO.rats, 'RATs', 'Em andamento', 'hoje')
+            : situCard('s-ok', SITU_ICO.rats, 'RATs', 'Concluído'),
       situCard(e.prodWarn ? 's-warn' : 's-ok', SITU_ICO.prod, 'Produtos', e.prodWarn ? 'Pendência' : 'OK', e.devItens ? `${e.devItens} a devolver` : ''),
       situCard(e.foraN ? 's-pend' : 's-ok', SITU_ICO.fora, 'Fora da proposta', e.foraN ? `${e.foraN} ${e.foraN > 1 ? 'itens' : 'item'}` : 'OK'),
       situCard(e.fat ? 's-ok' : 's-warn', SITU_ICO.fat, 'Faturamento', e.fat ? 'Faturado' : 'Pendente'),
@@ -1229,7 +1254,7 @@ const TarefaApp = (() => {
     const cnt = (n, red) => `<span class="cnt${red ? ' red' : ''}">${n}</span>`
     const ind = {
       dados: e.dadosOk ? chk : '',
-      rats: e.ratsLen === 0 ? '' : (e.ratEmAnd ? cnt(e.ratsLen) : chk),
+      rats: e.ratsLen === 0 ? '' : (e.ratNaoEncN ? cnt(e.ratNaoEncN, true) : (e.ratEmAnd ? cnt(e.ratsLen) : chk)),
       material: e.prodLen === 0 ? '' : (e.prodWarn ? cnt(e.prodAtencao) : chk),
       fat: e.fat ? chk : '',
       equip: e.equipLen ? chk : '',
@@ -1255,7 +1280,8 @@ const TarefaApp = (() => {
     const totalMin = ((cur && cur.rats) || []).reduce((s, r) => s + (Number(RatView.tempoRat(r)) || 0), 0)
     let next
     if (e.ratsLen === 0) next = 'Aguardando a primeira RAT do técnico.'
-    else if (e.ratEmAnd) next = 'Há RAT em andamento — aguarde a conclusão pelo técnico.'
+    else if (e.ratNaoEncN) next = `RAT em aberto ${diasTxt(e.ratNaoEncDias)} — o técnico não encerrou. Use "✓ Encerrar" na aba RATs para concluir.`
+    else if (e.ratEmAndHoje) next = 'Há RAT em andamento hoje — aguarde a conclusão pelo técnico.'
     else if (e.devItens > 0 || e.foraN > 0) next = 'Conferir devolução de materiais / itens fora da proposta antes de faturar.'
     else if (!e.fat) next = 'Tudo conciliado — liberar faturamento.'
     else next = 'Tarefa faturada — sem ação pendente.'

@@ -31,10 +31,25 @@ const RatPage = (() => {
     render()
   }
 
+  // RAT "em andamento" de um dia anterior = o técnico não encerrou (não é travamento).
+  function diasNaoEncerrada(r) {
+    if (r.status !== 'em_andamento') return 0
+    const s = (r.respostas && r.respostas.data) || r.data_tarefa || r.criado_em
+    if (!s) return 0
+    const d = new Date(String(s).length <= 10 ? s + 'T00:00:00' : s); if (isNaN(d)) return 0
+    const dia = new Date(d.getFullYear(), d.getMonth(), d.getDate())
+    const ho = new Date(); const h0 = new Date(ho.getFullYear(), ho.getMonth(), ho.getDate())
+    return dia < h0 ? Math.round((h0 - dia) / 86400000) : 0
+  }
+
   function renderHero() {
     const r = det.r
     const tarefaNo = r.tarefa && r.tarefa.numero != null ? String(r.tarefa.numero).padStart(5, '0') : null
     const st = RatView.statusInfo(r.status)
+    const diasNE = diasNaoEncerrada(r)
+    const stBadge = diasNE
+      ? `<span class="badge" style="background:#FEF3DA;color:#92670A;font-weight:700" title="O técnico iniciou o atendimento e não encerrou">⚠ Não encerrada · há ${diasNE} ${diasNE === 1 ? 'dia' : 'dias'}</span>`
+      : `<span class="badge ${st.cls}">${esc(st.label)}</span>`
     document.getElementById('rp-hero').innerHTML = `
       <div class="doc-band"><div class="db-brand">TRADERS SERVICE</div><div class="db-doc">Relatório de Atendimento Técnico</div></div>
       <div class="doc-hero">
@@ -44,7 +59,7 @@ const RatPage = (() => {
           <span class="chip"><i>Técnico</i>${esc(r.tecnico_nome || '—')}</span>
           <span class="chip"><i>Data</i>${fdt(r.data_tarefa, { withTime: true })}</span>
           <span class="chip"><i>Tempo trabalhado</i>${RatView.fmtMin(RatView.tempoRat(r))}</span>
-          <span class="badge ${st.cls}">${esc(st.label)}</span>
+          ${stBadge}
         </div>
       </div>`
   }
