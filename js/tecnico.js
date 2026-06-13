@@ -86,7 +86,6 @@
     const sim = document.getElementById('f-exec-sim'), nao = document.getElementById('f-exec-nao')
     if (sim) sim.style.display = (atendExec === 'Não') ? 'none' : 'block'
     if (nao) nao.style.display = (atendExec === 'Não') ? 'block' : 'none'
-    if (atendExec === 'Não') prefillPermanencia()
     atualizarBtnSalvar()
   }
   function toggleMotivoTexto() {
@@ -228,7 +227,6 @@
     document.querySelectorAll('#f-volta-seg button').forEach(b => { b.onclick = () => setVoltaAmanha(b.dataset.v) })
     document.querySelectorAll('#f-passagem-motivo input[name="f-pass-motivo"]').forEach(r => { r.onchange = togglePassagemHandoff })
     document.querySelectorAll('#f-motivos input[name="f-motivo"]').forEach(r => { r.onchange = toggleMotivoTexto })
-    ;['f-perm-chegada', 'f-perm-saida'].forEach(id => { const el = document.getElementById(id); if (el) el.oninput = updatePermDur })
     // Navegação da home
     document.getElementById('btn-voltar').onclick = onVoltar
     document.getElementById('nav-os').onclick = async () => { mostrar('lista'); await renderLista() }
@@ -792,10 +790,9 @@
     document.getElementById('f-tipo-wrap').style.display = 'none'
     document.getElementById('f-status').value = 'em_andamento'
     togglePendencias()
-    // RAT nova nasce como atendimento executado (Sim); limpa motivo/permanência anteriores
+    // RAT nova nasce como atendimento executado (Sim); limpa motivo de improdutiva anterior
     document.querySelectorAll('#f-motivos input[name="f-motivo"]').forEach(r => { r.checked = false })
     const mtx = document.getElementById('f-motivo-texto'); if (mtx) mtx.value = ''
-    ;['f-perm-chegada', 'f-perm-saida'].forEach(id => { const el = document.getElementById(id); if (el) el.value = '' })
     // checkpoint de passagem: limpa "volta amanhã?" e os textos
     voltaAmanha = null
     document.querySelectorAll('#f-volta-seg button').forEach(b => b.classList.remove('on'))
@@ -805,7 +802,6 @@
     const pho = document.getElementById('f-passagem-handoff'); if (pho) pho.style.display = 'none'
     const pth = document.getElementById('f-passagem-terminei-hint'); if (pth) pth.style.display = 'none'
     toggleMotivoTexto()
-    updatePermDur()
     setExec('Sim')
     document.getElementById('campos-container').innerHTML = ''
     mostrar('form')
@@ -1755,11 +1751,6 @@
       document.getElementById('f-motivo-texto').value = rat.motivo_texto || ''
       toggleMotivoTexto()
     }
-    // Permanência salva (antes do setExec p/ o pré-preenchimento não sobrescrever)
-    const resp0 = rat.respostas || {}
-    const pc = document.getElementById('f-perm-chegada'); if (pc) pc.value = (improd && resp0.permanencia_chegada) || ''
-    const ps = document.getElementById('f-perm-saida'); if (ps) ps.value = (improd && resp0.permanencia_saida) || ''
-    updatePermDur()
     setExec(improd ? 'Não' : 'Sim')
     // carrega o formulário que a RAT respondeu (snapshot), independente do tipo
     await carregarFormularioPorId(rat.formulario_id || (tarefaDela && ref.tipos.find(x => x.id === tarefaDela.tipo_servico_id)?.formulario_id) || null)
@@ -2704,27 +2695,8 @@
     if (tIni != null && tEnd < tIni) return false
     return tEnd > minutosAgora()
   }
-  // ── Permanência (tempo no local) da visita improdutiva ──
-  // Campos próprios do bloco improdutiva (não são campos do formulário).
-  const permVal = (id) => { const el = document.getElementById(id); return el ? (el.value || '') : '' }
-  function permDuracao() {
-    const a = minutosDe(permVal('f-perm-chegada')), b = minutosDe(permVal('f-perm-saida'))
-    if (a == null || b == null || b < a) return null
-    return b - a
-  }
-  function updatePermDur() {
-    const el = document.getElementById('f-perm-dur'); if (!el) return
-    const d = permDuracao()
-    el.textContent = d == null ? '—' : fmtMin(d)
-  }
-  // Pré-preenche chegada/saída pelo timer do atendimento (se aberto), sem sobrescrever
-  // o que o técnico já digitou. Sempre editável depois.
-  function prefillPermanencia() {
-    const ch = document.getElementById('f-perm-chegada'), sa = document.getElementById('f-perm-saida')
-    if (ch && !ch.value) ch.value = valorCampo('hora_inicio') || ''
-    if (sa && !sa.value) sa.value = valorCampo('hora_termino') || ''
-    updatePermDur()
-  }
+  // O "tempo no local" da visita improdutiva usa os campos do formulário Hora de Início /
+  // Hora de Término (execução) — não há mais campos próprios de permanência.
   // Cálculo puro a partir das respostas (compartilhado com o back-office).
   // Janela: deslocamento Sim → ida→retorno; senão → execução. Desconta almoço e pausa.
   function calcTempoDe(resp) {
@@ -2943,16 +2915,14 @@
       motivoTexto = (document.getElementById('f-motivo-texto').value || '').trim()
       if (!motivoTexto) { const w = document.getElementById('f-motivo-texto-wrap'); if (w) w.classList.add('campo-erro'); return toast('Descreva o motivo.', 'err') }
     }
-    // Tempo no local (permanência) é obrigatório — cliente paga deslocamento + permanência.
-    const chegada = permVal('f-perm-chegada'), saida = permVal('f-perm-saida')
-    const mCh = minutosDe(chegada), mSa = minutosDe(saida)
-    if (mCh == null || mSa == null) return toast('Informe a chegada e a saída (tempo no local).', 'err')
-    if (mSa < mCh) return toast('A saída não pode ser antes da chegada.', 'err')
-    if (mSa > minutosAgora()) return toast('A saída não pode ser depois do horário atual.', 'err')
-    // Mantém o que já foi apontado (deslocamento) e grava a permanência.
+    // Tempo no local = Hora de Início / Hora de Término (execução) — obrigatório (faturável:
+    // cliente paga deslocamento + permanência). Reusa os campos do formulário, não há bloco próprio.
+    const mIni = minutosDe(valorCampo('hora_inicio')), mFim = minutosDe(valorCampo('hora_termino'))
+    if (mIni == null || mFim == null) { marcarErros(['hora_inicio', 'hora_termino'], []); return toast('Informe Hora de Início e Hora de Término (tempo no local).', 'err') }
+    if (mFim < mIni) { marcarErros(['hora_termino'], []); return toast('A Hora de Término não pode ser antes da de Início.', 'err') }
+    if (horaTerminoNoFuturo()) { marcarErros(['hora_termino'], []); return toast('A Hora de Término não pode ser depois do horário atual.', 'err') }
+    // Mantém o que já foi apontado no formulário (deslocamento, início/término).
     const { respostas } = coletarRespostas()
-    respostas.permanencia_chegada = chegada
-    respostas.permanencia_saida = saida
     const cli = ref.clientes.find(c => c.id === cliId)
     await D().salvarRat(cur.client_uuid, {
       tarefa_id: cur.tarefa_id || null,
@@ -2966,7 +2936,7 @@
       atendimento_executado: false,
       motivo_improdutiva: motivo,
       motivo_texto: motivoTexto,
-      tempo_trabalhado: (mSa - mCh),   // permanência no local (execução zerada = sem serviço concluído)
+      tempo_trabalhado: (mFim - mIni),   // tempo no local pelos campos de execução (sem serviço concluído)
       data_tarefa: new Date().toISOString(),
       respostas: Object.keys(respostas).length ? respostas : null,
       uso_produtos: null,

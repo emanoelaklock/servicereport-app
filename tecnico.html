@@ -246,15 +246,6 @@ try{if(localStorage.getItem('sr_dark')==='1')document.documentElement.classList.
   .motopt:has(input:checked) .rd::after{content:"";position:absolute;inset:3px;border-radius:50%;background:#DE2C2C}
   html.dark .motopt:has(input:checked){background:#2a1715;border-color:#4a2522}
 
-  /* ===== Tempo no local (permanência) na visita improdutiva ===== */
-  .perm-row{display:flex;gap:10px;align-items:flex-end;flex-wrap:wrap}
-  .perm-f{display:flex;flex-direction:column;gap:5px;flex:1;min-width:120px}
-  .perm-f>span{font-size:12px;font-weight:700;color:var(--mut,#6b7280)}
-  .perm-f>input{width:100%}
-  .perm-dur{display:flex;flex-direction:column;gap:5px;align-items:flex-start}
-  .perm-dur>span{font-size:12px;font-weight:700;color:var(--mut,#6b7280)}
-  .perm-dur>b{font-size:16px;font-weight:800;color:var(--tx)}
-
   /* ===== Produtos da RAT: linhas com stepper ===== */
   .prod-row2{display:flex;align-items:center;gap:10px;padding:12px 0;border-bottom:1px solid var(--bd)}
   .prod-row2 .pr-main{flex:1;min-width:0}
@@ -797,16 +788,7 @@ try{if(localStorage.getItem('sr_dark')==='1')document.documentElement.classList.
               <label>Qual o motivo? <span class="req">*</span></label>
               <textarea id="f-motivo-texto" rows="3" placeholder="Descreva o motivo…"></textarea>
             </div>
-            <div class="fg campo">
-              <label>Tempo no local (permanência) <span class="req">*</span></label>
-              <div class="perm-row">
-                <label class="perm-f"><span>Chegada</span><input type="time" id="f-perm-chegada"></label>
-                <label class="perm-f"><span>Saída</span><input type="time" id="f-perm-saida"></label>
-                <div class="perm-dur"><span>Permanência</span><b id="f-perm-dur">—</b></div>
-              </div>
-              <p class="hintn">O cliente é cobrado por deslocamento + permanência, então o tempo no local é obrigatório.</p>
-            </div>
-            <p class="hintn">O deslocamento e o tempo de quem foi ficam registrados. A tarefa fica aguardando e o escritório é avisado pra reagendar.</p>
+            <p class="hintn">Preencha <b>Hora de Início / Hora de Término</b> (execução) com o tempo no local — é o que entra no faturamento (deslocamento + permanência). O deslocamento e o tempo de quem foi ficam registrados; a tarefa fica aguardando e o escritório é avisado pra reagendar.</p>
           </div>
         </div>
 
