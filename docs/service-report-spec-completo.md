@@ -52,9 +52,9 @@ Mapeamento com o que já existe no banco: `tecnico_campo` = técnico; `admin`/`g
 
 **Serviços transversais (construir uma vez, reusar):**
 - **Geração de PDF** — usada em pré-orçamento, orçamento e RAT.
-- **E-mail ao finalizar** — usada só onde faz sentido (ver §12).
+- **E-mail ao finalizar** — usada só onde faz sentido (ver §11).
 - **Bloco de controle de tempo** — deslocamento + início/fim + pausa + almoço + cálculo de tempo trabalhado. **Idêntico** em pré-orçamento e RAT.
-- **Infra offline-first** — captura local (IndexedDB), fila de sincronização, modelo de accountability (ver §12).
+- **Infra offline-first** — captura local (IndexedDB), fila de sincronização, modelo de accountability (ver §10).
 
 ---
 
@@ -77,7 +77,18 @@ Artefato **próprio** do técnico (não é um campo dentro da RAT — esse é o 
 
 > Não confundir com o **deslocamento do dia**, que mora dentro da RAT (botão "Deslocamento" no grid de registros — pergunta Sim/Não + horários de ida/retorno). Pernoite é viagem; deslocamento do dia é o trajeto da visita.
 
-**Evolução futura — módulo "Viagem" (desenho de referência; decidido 12/06: NÃO construir agora).** O módulo atual atende; a versão rica só será reavaliada **depois da jornada contínua (§10.1)** — a jornada já registra saiu/chegou/pernoite como segmentos, então a Viagem provavelmente encolhe para um cadastro fino por cima dela. Decisões já lapidadas (valem quando/se construir): vínculo a **cliente/contrato** (tarefas opcionais, nunca tarefa única); roteiro multi-destino; pernoite como toggle (cidade · hospedagem); **equipe a bordo com participação individual** (§8 — tempo é da pessoa); **transporte multi-select** (`Veículo da empresa` → veículo+motorista · `Avião` · `Alugado/outro`; sem trechos multimodais — caso "carro até o aeroporto + avião + aluguel" = marca os três); eventos com **GPS pontual** (sem rastreamento contínuo, **sem km/odômetro**); eventos geram os **segmentos de deslocamento da jornada** (fonte única de tempo); compatibilidade gerando registros no formato atual; visual laranja no DS. **Fora de qualquer versão:** despesas de viagem (financeiro), anexos/nº de voo, trechos multimodais.
+**Reformulação aprovada (12/06) — trechos dinâmicos** *(referência visual: `docs/mockups/mockup-deslocamento-tempo.html`; construir junto com o pacote tempo-por-técnico, §8)*:
+- **Trechos:** o deslocamento vira lista ordenada de trechos (origem → destino, data, saída/chegada). **Nasce com 2 (ida e volta)** = comportamento atual, zero mudança no caso comum; "+ Adicionar trecho" pros demais. Trecho novo **herda veículo, direção e passageiros** do anterior.
+- **Locais do cliente (cadastro novo):** Cliente → Locais (nome · cidade/UF · lat/long opcional) — caso WestRock-FBTB com sites espalhados (Torre Paredão/Calmon, Rio Negrinho, fazendas). Destino do trecho = local cadastrado ou texto livre.
+- **Veículo por trecho:** lista da empresa · "sem veículo/carona" · alugado; avião = sem veículo + nota curta (`nota_transporte`). **Veículo da empresa exige direção.**
+- **Direção com revezamento:** turnos contíguos dentro do trecho (motorista + de/até; "+ Revezamento" = quem assumiu e a hora) — **multa atribuída por horário** de quem dirigia.
+- **A bordo por trecho** (componente de colaborador **com foto** das RATs/Tarefas); a participação de cada técnico na viagem é **derivada** dos trechos.
+- **Pernoite sugerido e derivado:** entre trechos de dias diferentes, o app sugere "Pernoite · [cidade do local]"; **noites por pessoa derivadas da participação** (ex.: Pablo 3 noites, Arian/Charles 4 — ninguém digita).
+- **GPS pontual automático** ao iniciar/encerrar trecho (sem botão; offline salva "sem GPS"); com lat/long do local, **validação de proximidade** ("chegada a 280 m de Torre Paredão"). Sem rastreamento contínuo, **sem km/odômetro**.
+- **Almoço na estrada por pessoa/dia** com a mesma deduplicação da RAT (§8). Tempo dos trechos = **segmentos de deslocamento da jornada** (§10.1) por participante.
+- **Fora (de propósito):** km · rastreamento contínuo · despesas de viagem · trechos multimodais (nota resolve) · ícones emoji (SVG de linha sempre).
+
+> O **módulo "Viagem" rico** (máquina de estados, tela "em andamento" com próximo destino, portal nativo) segue **estacionado** como referência — reavaliar após a jornada contínua; os trechos acima já absorvem a parte útil dele.
 
 ---
 
@@ -90,7 +101,7 @@ Artefato **próprio** do técnico (não é um campo dentro da RAT — esse é o 
 - **Material do catálogo:** itemizado (descrição, unidade, qtd, valor unit., total). Preço puxa do **Omie**, mas **editável**.
 - **Item avulso:** itemizado, preço digitado na mão.
 - **Ao finalizar:** gera **só o PDF** (sem e-mail automático). O comercial/admin envia ao cliente do jeito dele (e-mail próprio, WhatsApp…).
-- **O técnico não vê preço** — nem do produto, nem do orçamento (ver regra de dados em §12).
+- **O técnico não vê preço** — nem do produto, nem do orçamento (ver regra de dados em §10).
 
 ### Layout do PDF (pré-orçamento e orçamento)
 
@@ -181,6 +192,37 @@ Os dois eixos podem colorir o card. Pausa/almoço são estados **momentâneos** 
 - **1 almoço por dia** — só uma RAT pode estar em "almoço" no dia (o almoço é do dia do técnico, descontado uma única vez do tempo, mesmo rodando várias OS). Pausa não tem esse limite.
 
 → Restrições no banco: RAT única por `(tarefa, dia)`; almoço único por `(técnico, dia)`; sequência da RAT única por `(tarefa, sequência)` — numeração definitiva atribuída pelo servidor (já implementado).
+
+### Home do técnico — agenda do dia + fila
+
+A tela inicial do app é a **agenda do dia**:
+- **Minhas tarefas de hoje** — as que o escritório agendou e marcou o técnico como responsável.
+- **Fila (tarefas abertas)** — quando ele **não tem tarefa atribuída**, vê as tarefas abertas e pode **pegar uma da fila** (vira responsável / abre a RAT do dia).
+Cada item mostra o estado (aguardando · em execução · atendimento continua) e leva direto pra "RAT de hoje".
+
+### Criação de Tarefa em campo (emergencial)
+
+Tanto o escritório quanto o **técnico em campo** podem criar Tarefa (serviço corretivo que surge na hora). No app: cliente (lista cacheada) + título/descrição + local opcional; nasce com `client_uuid`, **origem "Avulso/Sem orçamento"**, e o servidor atribui o número oficial no sync. Funciona offline. Duas criações da "mesma" tarefa por engano viram duas Tarefas → **admin junta depois** (não dá pra deduplicar automático; é raro).
+
+### Tarefa de múltiplos dias (atividade contínua em campo)
+
+Atividade que leva vários dias (ex.: serviço de ~10 dias). Trata-se com o modelo de dois níveis que **já existe** — nenhum conceito novo:
+
+- **Uma Tarefa = o serviço inteiro** (guarda-chuva); **uma RAT por dia trabalhado** (filha), numeradas 04750/1 … 04750/N. Cada RAT diária é o **diário do dia**: trabalho feito, tempo por técnico, material usado, fotos.
+- **O dia fecha, a Tarefa não.** Concluir a RAT do dia fecha **o dia**; a Tarefa permanece "Em execução" até o último dia (dois eixos de status). A Tarefa só é concluída de propósito, no encerramento (com/sem pendência) — o técnico nunca encerra o serviço sem querer ao fechar o atendimento do dia.
+- **Encerrar a RAT ≠ concluir o serviço — níveis diferentes, nunca no mesmo botão.** Encerrar é **da RAT** (rotina diária); concluir é **da Tarefa** (deliberado, uma vez). Separar evita encerrar um serviço de vários dias sem querer.
+- **Encerrar a RAT (na RAT):** o modal **aparece automaticamente** ao encerrar a **última atividade cronológica do dia** — fim da execução, ou fim do deslocamento de volta se houver (não é um passo manual avulso). Fecha a RAT → "registrado ✓"; a Tarefa fica **automaticamente "Atendimento continua"**. Em pernoite não há volta no dia → fecha no fim da execução (a volta é o artefato Deslocamento separado).
+- **Trocar de tarefa no meio do dia (A inacabada → B):** o técnico **pausa a execução de A** (cronômetro dele em A para; a RAT-A fica "Em execução · pausada", **não** encerrada) e **abre/retoma B** (cronômetro em B começa). Pode alternar quantas vezes precisar e manter **várias RATs em andamento no dia** (uma por tarefa). Volta pra A → retoma (novo trecho). Encerra a RAT-A só ao terminar A no dia; se sair sem encerrar, o app **varre no fim do dia** ("RAT 04750/A ainda aberta — encerrar?"). Usa os timers reabríveis que já existem.
+- **Participação como TRECHOS (não par único):** pra o vai-e-volta entre tarefas computar certo (sem dobrar horas), a participação de cada técnico é uma **lista de trechos** (artefato · início · fim) — pausar/trocar fecha um trecho, retomar abre outro. Horas do técnico = Σ trechos − almoço único. É a **jornada contínua (§10.1) surgindo incrementalmente**. *(Ajusta o modelo do pacote §8: participação vira tabela-filha de trechos, não duas colunas inicio/fim.)*
+- **Concluir o serviço (na Tarefa):** ação **deliberada e separada**, no nível da Tarefa (com/sem pendência), feita uma vez quando o trabalho realmente termina (pelo técnico em campo ou pelo admin); dispara o **documento consolidado**. **"Concluída" fica reservada ao serviço** — o dia nunca exibe "concluída". Botões na Tarefa: "RAT de hoje" (primário) e "Concluir serviço" (secundário). Referência visual: `docs/mockups/mockup-tarefa-multidia-app.html`.
+- **Continuidade é da Tarefa, não da RAT.** Não se reabre a RAT do dia anterior: ao voltar (qualquer dia futuro, mesmo sem data definida), abre-se a Tarefa "Atendimento continua" e toca-se **"RAT de hoje"** → nova RAT filha. Cada dia é registro imutável (tempo e material corretos por dia).
+- **"RAT de hoje":** na Tarefa em execução, um botão cria a RAT do dia **pré-preenchida** (cliente, equipe, local herdados do dia anterior); o técnico só registra o que muda. Mantém a regra 1 RAT por `(tarefa, dia)`.
+- **Material e tempo somam no nível da Tarefa** (conciliação e horas por técnico já são agregadas) — material levado uma vez cobre os dias; liga com a Remessa/Container (§9).
+- **Lacunas (fim de semana / dias sem ir):** simplesmente não há RAT; a sequência pula.
+
+**Previsão e andamento:** a Tarefa ganha **previsão** (dias previstos OU data prevista de término) — opcional. O portal mostra o **andamento** ("dia 4 de ~10", barra de progresso); se passar do previsto, **sinaliza sem bloquear**. Ajuda a acompanhar serviços longos.
+
+**Entregável = consolidado no encerramento (cliente NÃO assina RAT diária).** A RAT diária é registro **interno** de progresso — sem PDF nem assinatura por dia. No encerramento da Tarefa, o sistema gera **um documento consolidado no nível da Tarefa** (período de X a Y · resumo de cada dia · material conciliado total · horas · fotos de todos os dias) — é o que vai pro cliente (edge function de documentos).
 
 ### App do técnico (celular) — navegação e telas
 
@@ -282,6 +324,24 @@ São **eixos diferentes** e podem coexistir (uma RAT "concluída c/ pendência" 
 - **Bônus pra jornada contínua (§10.1):** entrada/saída do dia vêm da mesma consulta = a moldura da validação "Σ segmentos = entrada → saída".
 - Tangerino segue sendo o registro **oficial/legal**; o SR consome operacionalmente (arredondamento 5-em-5 e faturamento são camada do SR).
 
+### Autoria da RAT — edição colaborativa por login (nº de celulares varia)
+
+Em campo o nº de celulares **varia**, e **vários técnicos podem preencher a MESMA RAT ao mesmo tempo, cada um no seu login**, dividindo as seções por combinação entre eles (ex.: um lança o serviço executado, o outro o material). A RAT é **um documento compartilhado** por `(tarefa, dia)`; cada contribuição é **atribuída ao login** (auditoria: "material por Pablo, execução por Charles").
+
+- **Seções que somam (append):** material (linhas), fotos, **participações de tempo** (uma por técnico) → merge por **união**; sincronizam independentes, então dois logins em **seções diferentes só se encaixam, sem conflito**.
+- **Campos de valor único** (descrição, horários do deslocamento do dia): **última escrita vence**, com atribuição — na prática um só preenche (combinação entre eles).
+- **Mesma seção pelos dois:** online, cada um **vê o estado atual** (o que o outro já lançou), o que evita relançar; offline, se ambos mexeram na mesma coisa (ex.: os dois lançaram material), o servidor **não soma escondido — marca conflito pro admin** (§12).
+- **Tempo é sempre por pessoa, mas login de cada técnico NÃO é obrigatório.** O padrão é **uma pessoa preencher a RAT pela equipe** — incluindo o horário de cada participante (chips "horário por técnico"). A participação de um técnico existe na RAT mesmo que ele nunca logue. Se *houver* um segundo aparelho e o próprio técnico ajustar o horário dele, esse ajuste **prevalece** sobre o que foi preenchido por outro — é regra de **desempate**, não exigência.
+
+Constraint `(tarefa, dia)` garante **uma RAT**; o que muda é que ela é **colaborativa**, não de dono único.
+
+### RAT improdutiva (visita sem execução)
+
+Acontece (cliente não liberou, local não pronto, falta de peça, clima, equipamento do cliente indisponível...). A RAT ganha o eixo **"Atendimento executado? Sim/Não"**:
+- **Não →** escolhe **motivo** (lista + "outro" texto). A RAT **registra deslocamento e tempo de quem foi** (viagem perdida é custo real — relevante no FBTB por hora), execução zerada. A **Tarefa não conclui** — fica aguardando nova ida.
+- Se o tempo/deslocamento improdutivo é faturável, decide a **modalidade** (§10.1); o SR garante o **registro**.
+- **Alerta pro admin:** RAT improdutiva gera aviso "visita improdutiva em [cliente] · motivo [X] · reagendar" — pra Thaís remarcar.
+
 ---
 
 ## 9. Material e conciliação
@@ -298,7 +358,7 @@ Coração do sistema. Conciliação **interna** (não depende do Omie).
 | **Devolvida** | Calculada (= Levada − Utilizada) | O que volta pro estoque. |
 | **Situação** | Calculada | Sinaliza divergências. |
 
-**Visibilidade do técnico:** vê *orçada* e *levada* (leitura), edita só *utilizada*. **Não vê preço** (ver §12).
+**Visibilidade do técnico:** vê *orçada* e *levada* (leitura), edita só *utilizada*. **Não vê preço** (ver §10).
 
 **Terminologia no app do técnico (11/06):** nos textos visíveis, "Levado"/"Comigo" virou **"Disponível"** (o conceito/coluna interna continua *levada*).
 
@@ -456,6 +516,8 @@ O **técnico nunca escolhe a modalidade** — ela é **derivada** (do contrato/o
 7. **Tempo por técnico + integração Tangerino (§8)** — desenhado (casos Marcelo/Pablo; almoço por pessoa/dia puxado do ponto, 3 camadas). Pacote de transição pronto pra build; **passo zero: pedir o token de integração ao suporte do Tangerino**.
 8. **Remessa de material + estoque em campo/Container (§9)** — desenhado e validado com o almoxarifado; aguarda ok final + definição do papel do Yago. Mata a planilha semanal da WestRock.
 9. **Módulo "Viagem" (§4.1)** — desenho de referência registrado; **não construir** antes da jornada contínua (provável redundância).
+10. **Dedup do deslocamento do dia (evolução futura, sem necessidade hoje):** se um técnico fizer várias tarefas no mesmo dia, a ida/volta pode ser lançada em mais de uma RAT e contar dobrado (mesmo problema do almoço). Hoje raro (geralmente 1 serviço por ida) → **não construir**; retomar só se o dobro passar a incomodar, reusando a mecânica de "por pessoa/dia" do almoço.
+11. **Ideias estratégicas (cada uma é projeto próprio, futuro):** central de pendências do admin (unifica alertas: improdutiva, conflitos, devolução, contagem, faturamento) · GPS pontual no início/fim da execução (prova de presença, além do deslocamento) · checklist por tipo de serviço (preventiva padronizada) · histórico por local/equipamento (manutenção) · cockpit de fechamento do mês (horas + material + container + improdutivas prontos pra faturar).
 
 ---
 

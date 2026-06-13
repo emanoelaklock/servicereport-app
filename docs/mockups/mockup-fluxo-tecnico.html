@@ -1,0 +1,247 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Fluxo do técnico — agenda · RAT colaborativa · improdutiva</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --red:#E5403A; --orange:#F4861F; --yellow:#F7B81E; --green:#179A47; --blue:#1E8AE0; --purple:#8E45B5; --teal:#12A5A5;
+    --bg:#F3F4F8; --card:#fff; --line:#ECEEF3; --ink:#1B1E26; --muted:#7C8290;
+    --exec-bg:#E6F6EC; --exec-fg:#0B7A43; --exec-m:#179A47;
+    --warn-bg:#FEF3DA; --warn-fg:#92670A; --warn-m:#F7B81E;
+    --pend-bg:#FDECEA; --pend-fg:#C0362C; --pend-m:#E5403A;
+    --info-bg:#E7F1FC; --info-fg:#1565C0; --info-m:#1E8AE0;
+  }
+  *{box-sizing:border-box;margin:0;padding:0;}
+  body{font-family:'Manrope',system-ui,sans-serif;font-weight:500;color:var(--ink);background:#DCDEE4;-webkit-font-smoothing:antialiased;display:flex;justify-content:center;gap:26px;padding:26px 14px;flex-wrap:wrap;}
+  .num{font-variant-numeric:tabular-nums;letter-spacing:-.3px;}
+  .cap{font-size:12px;font-weight:700;color:#566;letter-spacing:.3px;margin:0 0 9px 6px;text-transform:uppercase;}
+  svg.i{stroke:currentColor;fill:none;stroke-width:2;stroke-linecap:round;stroke-linejoin:round;flex:none;}
+
+  .phone{width:372px;background:#E7E9EF;border-radius:36px;padding:13px;box-shadow:0 24px 60px rgba(30,35,55,.22);}
+  .screen{background:var(--bg);border-radius:24px;overflow:hidden;display:flex;flex-direction:column;min-height:720px;}
+  .mbody{padding:16px;flex:1;overflow:auto;}
+  .mfoot{padding:13px 15px;background:#fff;border-top:1px solid var(--line);}
+  .btn{display:flex;align-items:center;justify-content:center;gap:8px;width:100%;border:none;font-family:inherit;font-size:15px;font-weight:700;padding:15px;border-radius:14px;cursor:pointer;letter-spacing:-.2px;color:#fff;background:var(--green);}
+  .btn svg{width:18px;height:18px;}
+  .btn-red{background:var(--orange);}
+
+  /* avatar foto-estilo */
+  .av{border-radius:50%;display:grid;place-items:center;font-weight:800;color:#fff;flex:none;border:2px solid #fff;box-shadow:0 1px 3px rgba(0,0,0,.15);}
+  .a1{background:linear-gradient(135deg,#6B8FB8,#41658C);} .a2{background:linear-gradient(135deg,#C58F5E,#9a6336);}
+  .a3{background:linear-gradient(135deg,#7FA86B,#55793f);} .a4{background:linear-gradient(135deg,#9A6FB0,#6f4a86);}
+
+  /* ===== HEADER home ===== */
+  .hh{background:#fff;border-bottom:1px solid var(--line);padding:16px;display:flex;align-items:center;gap:11px;}
+  .hh .av{width:40px;height:40px;font-size:13px;}
+  .hh .hi{font-size:11px;color:var(--muted);font-weight:600;}
+  .hh .nm{font-size:15px;font-weight:800;letter-spacing:-.3px;}
+  .hh .sync{margin-left:auto;display:inline-flex;align-items:center;gap:5px;background:var(--exec-bg);color:var(--exec-fg);font-size:10.5px;font-weight:700;padding:6px 10px;border-radius:999px;}
+  .hh .sync i{width:6px;height:6px;border-radius:50%;background:var(--exec-m);}
+  .dateh{font-size:12px;font-weight:700;color:var(--muted);margin:2px 2px 12px;text-transform:capitalize;}
+
+  .sec{display:flex;align-items:center;gap:7px;font-size:10.5px;font-weight:700;letter-spacing:1.1px;text-transform:uppercase;color:var(--muted);margin:18px 2px 10px;}
+  .sec:first-child{margin-top:0;}
+  .sec .ct{margin-left:auto;background:#EAEDF2;color:#6b7280;border-radius:99px;font-size:10px;padding:2px 8px;letter-spacing:.3px;}
+
+  /* task card */
+  .tk{background:#fff;border:1px solid var(--line);border-left:4px solid #cfd5df;border-radius:15px;padding:13px 14px;margin-bottom:10px;}
+  .tk.e-exec{border-left-color:var(--exec-m);} .tk.e-wait{border-left-color:#B6BDC9;} .tk.e-fila{border-left-color:var(--info-m);}
+  .tk .cli{font-size:15px;font-weight:800;letter-spacing:-.3px;}
+  .tk .tp{font-size:12px;color:var(--muted);font-weight:600;margin-top:2px;}
+  .tk .row{display:flex;align-items:center;gap:9px;margin-top:11px;}
+  .bdg{display:inline-flex;align-items:center;gap:6px;font-size:11px;font-weight:700;padding:5px 11px;border-radius:999px;}
+  .bdg i{width:6px;height:6px;border-radius:50%;}
+  .b-exec{background:var(--exec-bg);color:var(--exec-fg);} .b-exec i{background:var(--exec-m);}
+  .b-wait{background:#EEF1F5;color:#5b6270;} .b-wait i{background:#9aa3b2;}
+  .b-fila{background:var(--info-bg);color:var(--info-fg);} .b-fila i{background:var(--info-m);}
+  .tk .go{margin-left:auto;font-size:12.5px;font-weight:700;color:var(--exec-fg);display:inline-flex;align-items:center;gap:4px;}
+  .tk .go svg{width:15px;height:15px;}
+  .pick{margin-left:auto;font-size:12.5px;font-weight:700;color:#fff;background:var(--blue);border:none;border-radius:10px;padding:8px 14px;font-family:inherit;}
+  .progmini{font-size:11px;color:var(--muted);font-weight:600;margin-top:7px;}
+
+  /* ===== RAT colaborativa ===== */
+  .mhead{padding:16px;background:var(--green);color:#fff;display:flex;align-items:center;gap:10px;}
+  .mhead.orange{background:var(--orange);}
+  .mhead .x{width:34px;height:34px;border-radius:10px;background:rgba(255,255,255,.22);border:none;color:#fff;font-size:18px;line-height:1;flex:none;}
+  .mhead h2{font-size:16px;font-weight:700;letter-spacing:-.2px;flex:1;}
+  .ctx{background:#fff;border:1px solid var(--line);border-left:4px solid var(--green);border-radius:15px;padding:13px 14px;margin-bottom:13px;}
+  .ctx.orange{border-left-color:var(--orange);}
+  .ctx .tag{font-size:9.5px;font-weight:800;letter-spacing:.5px;text-transform:uppercase;color:var(--exec-fg);}
+  .ctx.orange .tag{color:#b85e0a;}
+  .ctx .cli{font-size:17px;font-weight:800;letter-spacing:-.3px;margin-top:3px;}
+  .ctx .rt{font-size:12px;color:var(--muted);font-weight:600;margin-top:3px;}
+
+  .team{display:flex;align-items:center;gap:10px;background:var(--info-bg);border:1px solid #D5E5F8;border-radius:13px;padding:10px 13px;margin-bottom:14px;}
+  .team .avs{display:flex;}
+  .team .avs .av{width:28px;height:28px;font-size:10px;margin-left:-7px;}
+  .team .avs .av:first-child{margin-left:0;}
+  .team .tx{font-size:11.5px;font-weight:600;color:#1f5fa6;line-height:1.35;}
+  .team .tx b{font-weight:800;}
+
+  .reg{background:#fff;border:1px solid var(--line);border-radius:16px;padding:13px;display:flex;flex-direction:column;gap:9px;}
+  .regs{display:grid;grid-template-columns:1fr 1fr;gap:10px;}
+  .reg .top{display:flex;align-items:center;gap:9px;}
+  .reg .ic{width:32px;height:32px;border-radius:9px;display:grid;place-items:center;flex:none;}
+  .reg .ic svg{width:17px;height:17px;stroke:#fff;}
+  .reg .lbl{font-size:13.5px;font-weight:700;letter-spacing:-.2px;}
+  .i-teal{background:var(--teal);} .i-purple{background:var(--purple);} .i-orange{background:var(--orange);} .i-yellow{background:var(--yellow);} .i-green{background:var(--green);}
+  .i-yellow svg{stroke:#1A1A1A;}
+  .st{align-self:flex-start;display:inline-flex;align-items:center;gap:6px;font-size:10.5px;font-weight:700;padding:4px 9px;border-radius:999px;}
+  .st .av{width:17px;height:17px;font-size:7.5px;border-width:1.5px;}
+  .st-ok{background:var(--exec-bg);color:var(--exec-fg);}
+  .st-me{background:var(--info-bg);color:var(--info-fg);}
+  .st-pend{background:var(--warn-bg);color:var(--warn-fg);}
+
+  .full{grid-column:1 / -1;}
+  .exec .top{justify-content:space-between;}
+  .exec .desc{font-size:12.5px;color:#4a515e;font-weight:500;line-height:1.4;background:#FAFBFD;border:1px solid #EEF0F4;border-radius:10px;padding:9px 11px;}
+
+  .hintbox{display:flex;gap:10px;align-items:flex-start;background:#F8FAFC;border:1px solid #E7ECF2;border-radius:13px;padding:11px 13px;margin-top:13px;}
+  .hintbox svg{width:17px;height:17px;stroke:var(--info-m);margin-top:1px;}
+  .hintbox .t{font-size:11.5px;color:#4a515e;font-weight:600;line-height:1.45;}
+
+  /* ===== improdutiva ===== */
+  .q{font-size:16px;font-weight:800;letter-spacing:-.3px;margin-bottom:12px;}
+  .seg{display:flex;gap:9px;margin-bottom:18px;}
+  .seg .opt{flex:1;text-align:center;padding:13px;border-radius:13px;font-size:14.5px;font-weight:700;border:1.7px solid #DCE0E8;background:#fff;color:#5b6270;}
+  .opt.on-no{background:var(--orange);border-color:var(--orange);color:#fff;}
+  .ml{font-size:12.5px;font-weight:700;color:#3a414e;margin:0 2px 9px;}
+  .mot{display:flex;align-items:center;gap:11px;background:#fff;border:1.7px solid #DCE0E8;border-radius:13px;padding:13px;margin-bottom:9px;}
+  .mot .rd{width:20px;height:20px;border-radius:50%;border:2px solid #C6CCDA;flex:none;}
+  .mot.on{border-color:var(--orange);background:#FEF6F0;}
+  .mot.on .rd{border-color:var(--orange);border-width:6px;}
+  .mot .mx{font-size:13.5px;font-weight:700;}
+</style>
+</head>
+<body>
+
+  <!-- ============ TELA 1: HOME / AGENDA + FILA ============ -->
+  <div>
+    <div class="cap">1 · Home — agenda do dia + fila</div>
+    <div class="phone"><div class="screen">
+      <div class="hh">
+        <span class="av a2">PS</span>
+        <div><div class="hi">Bom dia,</div><div class="nm">Pablo Soares</div></div>
+        <span class="sync"><i></i>sincronizado</span>
+      </div>
+      <div class="mbody">
+        <div class="dateh num">Sábado · 13/06/2026</div>
+
+        <div class="sec">Minhas tarefas de hoje <span class="ct">2</span></div>
+        <div class="tk e-exec">
+          <div class="cli">WESTROCK — FBTB</div>
+          <div class="tp">Instalação de rede · Três Barras/SC</div>
+          <div class="progmini num">Dia 4 trabalhado · previsto ~10</div>
+          <div class="row"><span class="bdg b-exec"><i></i>Atendimento continua</span><span class="go">RAT de hoje <svg class="i" viewBox="0 0 24 24"><path d="M9 6l6 6-6 6"/></svg></span></div>
+        </div>
+        <div class="tk e-wait">
+          <div class="cli">Metalúrgica Andrade</div>
+          <div class="tp">Manutenção preventiva</div>
+          <div class="row"><span class="bdg b-wait"><i></i>Aguardando</span><span class="go">Iniciar <svg class="i" viewBox="0 0 24 24"><path d="M9 6l6 6-6 6"/></svg></span></div>
+        </div>
+
+        <div class="sec">Fila — tarefas abertas <span class="ct">3</span></div>
+        <div class="tk e-fila">
+          <div class="cli">WESTROCK — Torre Paredão</div>
+          <div class="tp">Corretiva · câmera offline · Calmon/SC</div>
+          <div class="row"><span class="bdg b-fila"><i></i>Na fila</span><button class="pick">Pegar</button></div>
+        </div>
+        <div class="tk e-fila">
+          <div class="cli">Frigorífico Sul</div>
+          <div class="tp">Corretiva · rede</div>
+          <div class="row"><span class="bdg b-fila"><i></i>Na fila</span><button class="pick">Pegar</button></div>
+        </div>
+      </div>
+      <div class="mfoot"><button class="btn"><svg class="i" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg>Nova tarefa (em campo)</button></div>
+    </div></div>
+  </div>
+
+  <!-- ============ TELA 2: RAT COLABORATIVA ============ -->
+  <div>
+    <div class="cap">2 · RAT em equipe — cada um preenche uma parte</div>
+    <div class="phone"><div class="screen">
+      <div class="mhead"><button class="x">‹</button><h2>RAT de hoje</h2></div>
+      <div class="mbody">
+        <div class="ctx">
+          <div class="tag">RAT Nº 04750/5</div>
+          <div class="cli">WESTROCK — FBTB</div>
+          <div class="rt">Instalação de rede · 13/06/2026</div>
+        </div>
+
+        <div class="team">
+          <span class="avs"><span class="av a2">PS</span><span class="av a3">CT</span></span>
+          <span class="tx">Nesta RAT: <b>você</b> e <b>Charles</b>. Vocês podem dividir o preenchimento — cada um vê o que o outro já lançou.</span>
+        </div>
+
+        <div class="reg exec full" style="margin-bottom:10px">
+          <div class="top"><span class="lbl">Serviço executado</span><span class="st st-me"><span class="av a2">PS</span>você</span></div>
+          <div class="desc">Passagem de cabo no setor 3, lançamento de 2 racks…</div>
+        </div>
+
+        <div class="regs">
+          <div class="reg">
+            <div class="top"><span class="ic i-teal"><svg class="i" viewBox="0 0 24 24"><path d="M21 16V8l-9-5-9 5v8l9 5 9-5Z"/></svg></span><span class="lbl">Produtos</span></div>
+            <span class="st st-ok"><span class="av a3">CT</span>3 itens · Charles</span>
+          </div>
+          <div class="reg">
+            <div class="top"><span class="ic i-purple"><svg class="i" viewBox="0 0 24 24"><path d="M3 7h4l2-2h6l2 2h4v12H3z"/><circle cx="12" cy="13" r="3.2"/></svg></span><span class="lbl">Fotos</span></div>
+            <span class="st st-me"><span class="av a2">PS</span>2 · você</span>
+          </div>
+          <div class="reg">
+            <div class="top"><span class="ic i-orange"><svg class="i" viewBox="0 0 24 24"><path d="M5 17V8a1 1 0 0 1 1-1h8l4 4v6M5 17h14M5 17a2 2 0 1 0 4 0M15 17a2 2 0 1 0 4 0"/></svg></span><span class="lbl">Deslocam.</span></div>
+            <span class="st st-pend">Pendente</span>
+          </div>
+          <div class="reg">
+            <div class="top"><span class="ic i-yellow"><svg class="i" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg></span><span class="lbl">Pausa</span></div>
+            <span class="st st-ok"><svg class="i" viewBox="0 0 24 24" style="width:12px;height:12px;stroke:var(--exec-fg)"><path d="m5 12 4 4L19 6"/></svg>Almoço · ponto</span>
+          </div>
+        </div>
+
+        <div class="hintbox">
+          <svg class="i" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 8h.01M11 12h1v4h1"/></svg>
+          <span class="t">Charles lançou o material no aparelho dele; você fez o serviço e as fotos. Tudo entra na mesma RAT, com quem lançou cada parte.</span>
+        </div>
+      </div>
+      <div class="mfoot"><button class="btn"><svg class="i" viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg>Continuar atendimento</button></div>
+    </div></div>
+  </div>
+
+  <!-- ============ TELA 3: VISITA IMPRODUTIVA ============ -->
+  <div>
+    <div class="cap">3 · Visita improdutiva — foi e não deu pra executar</div>
+    <div class="phone"><div class="screen">
+      <div class="mhead orange"><button class="x">‹</button><h2>Encerrar a RAT</h2></div>
+      <div class="mbody">
+        <div class="ctx orange">
+          <div class="tag">RAT Nº 04812/1</div>
+          <div class="cli">Metalúrgica Andrade</div>
+          <div class="rt">Manutenção preventiva · 13/06/2026</div>
+        </div>
+
+        <div class="q">O atendimento foi executado?</div>
+        <div class="seg"><div class="opt">Sim</div><div class="opt on-no">Não</div></div>
+
+        <div class="ml">Por que não foi executado?</div>
+        <div class="mot on"><span class="rd"></span><span class="mx">Cliente não liberou acesso</span></div>
+        <div class="mot"><span class="rd"></span><span class="mx">Local não estava pronto</span></div>
+        <div class="mot"><span class="rd"></span><span class="mx">Falta de peça / material</span></div>
+        <div class="mot"><span class="rd"></span><span class="mx">Condições climáticas</span></div>
+        <div class="mot"><span class="rd"></span><span class="mx">Equipamento do cliente indisponível</span></div>
+        <div class="mot"><span class="rd"></span><span class="mx">Outro motivo…</span></div>
+
+        <div class="hintbox">
+          <svg class="i" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 8h.01M11 12h1v4h1"/></svg>
+          <span class="t">O deslocamento e o tempo de quem foi ficam registrados. A tarefa fica aguardando e o escritório é avisado pra reagendar.</span>
+        </div>
+      </div>
+      <div class="mfoot"><button class="btn btn-red"><svg class="i" viewBox="0 0 24 24"><path d="m5 12 4 4L19 6"/></svg>Registrar visita</button></div>
+    </div></div>
+  </div>
+
+</body>
+</html>

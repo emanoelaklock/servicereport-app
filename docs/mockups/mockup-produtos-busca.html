@@ -1,0 +1,190 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Produtos da RAT — escada de localização</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --red:#E5403A; --orange:#F4861F; --yellow:#F7B81E; --green:#179A47; --blue:#1E8AE0; --purple:#8E45B5; --teal:#179A47;
+    --bg:#F3F4F8; --card:#fff; --line:#ECEEF3; --ink:#1B1E26; --muted:#7C8290;
+    --exec-bg:#E6F6EC; --exec-fg:#0B7A43;
+    --warn-bg:#FEF3DA; --warn-fg:#92670A;
+    --info-bg:#E7F1FC; --info-fg:#1565C0;
+    --teal-bg:#E7F4EC; --teal-fg:#0E7A38;
+  }
+  *{box-sizing:border-box;margin:0;padding:0;}
+  body{font-family:'Manrope',system-ui,sans-serif;font-weight:500;color:var(--ink);background:#DCDEE4;-webkit-font-smoothing:antialiased;display:flex;justify-content:center;gap:26px;padding:26px 14px;flex-wrap:wrap;}
+  .num{font-variant-numeric:tabular-nums;letter-spacing:-.3px;}
+  .cap{font-size:12px;font-weight:700;color:#566;letter-spacing:.3px;margin:0 0 9px 6px;text-transform:uppercase;}
+  svg.i{width:15px;height:15px;stroke:currentColor;fill:none;stroke-width:2;stroke-linecap:round;stroke-linejoin:round;flex:none;}
+
+  .phone{width:372px;background:#E7E9EF;border-radius:36px;padding:13px;box-shadow:0 24px 60px rgba(30,35,55,.22);}
+  .screen{background:var(--bg);border-radius:24px;overflow:hidden;display:flex;flex-direction:column;min-height:700px;}
+  .mhead{padding:16px;background:var(--teal);color:#fff;display:flex;align-items:center;gap:10px;}
+  .mhead .x{width:34px;height:34px;border-radius:10px;background:rgba(255,255,255,.22);border:none;color:#fff;font-size:18px;line-height:1;flex:none;}
+  .mhead h2{font-size:16.5px;font-weight:700;letter-spacing:-.2px;flex:1;}
+  .mbody{padding:15px;flex:1;overflow:auto;}
+  .mfoot{padding:12px 15px;background:#fff;border-top:1px solid var(--line);display:flex;align-items:center;gap:12px;}
+  .mfoot .sum{font-size:12.5px;font-weight:700;color:var(--muted);flex:1;}
+  .mfoot .btn{border:none;font-family:inherit;font-size:14.5px;font-weight:700;padding:13px 26px;border-radius:13px;color:#fff;background:var(--teal);letter-spacing:-.2px;}
+
+  .lab{display:block;font-size:12.5px;font-weight:700;color:#3a414e;margin:0 0 8px;}
+  .seg{display:flex;gap:9px;margin-bottom:16px;}
+  .seg .opt{flex:1;text-align:center;padding:12px;border-radius:13px;font-size:14.5px;font-weight:700;border:1.7px solid #DCE0E8;background:#fff;color:#5b6270;}
+  .opt.on-sim{background:var(--green);border-color:var(--green);color:#fff;}
+
+  .sec{display:flex;align-items:center;gap:7px;font-size:10.5px;font-weight:700;letter-spacing:1.1px;text-transform:uppercase;color:var(--muted);margin:15px 2px 9px;}
+  .sec:first-of-type{margin-top:0;}
+  .sec .tag{font-size:9px;font-weight:800;letter-spacing:.3px;background:var(--teal-bg);color:var(--teal-fg);padding:3px 8px;border-radius:99px;text-transform:none;}
+
+  /* linha de produto com stepper */
+  .prow{background:#fff;border:1px solid var(--line);border-radius:15px;padding:11px 12px;display:flex;align-items:center;gap:10px;margin-bottom:8px;}
+  .prow .info{flex:1;min-width:0;}
+  .prow .nm{font-size:12.5px;font-weight:700;letter-spacing:-.1px;line-height:1.3;}
+  .prow .meta{font-size:10.5px;color:var(--muted);font-weight:600;margin-top:3px;}
+  .prow .meta b{color:var(--teal-fg);}
+  .alias{display:inline-flex;align-items:center;gap:4px;font-size:9.5px;font-weight:700;background:var(--info-bg);color:var(--info-fg);padding:2px 7px;border-radius:99px;margin-top:4px;}
+  .stats{display:flex;gap:6px;margin-top:5px;flex-wrap:wrap;}
+  .stat{display:inline-flex;align-items:baseline;gap:5px;border-radius:8px;padding:4px 9px;font-variant-numeric:tabular-nums;}
+  .stat .l{font-size:8.5px;font-weight:800;letter-spacing:.5px;text-transform:uppercase;opacity:.85;}
+  .stat .n{font-size:12.5px;font-weight:800;letter-spacing:-.2px;}
+  .st-orc{background:#F2F4F8;color:#5b6270;}
+  .st-disp{background:var(--teal-bg);color:var(--teal-fg);}
+  .st-cat{background:var(--info-bg);color:var(--info-fg);}
+  .usage{font-size:10px;color:var(--muted);font-weight:600;margin-top:4px;}
+  .step{display:flex;align-items:center;gap:0;flex:none;background:#F6F7FA;border:1px solid #E2E5EC;border-radius:12px;overflow:hidden;}
+  .step button{width:36px;height:38px;border:none;background:transparent;font-size:18px;font-weight:700;color:var(--teal-fg);font-family:inherit;}
+  .step .v{min-width:44px;text-align:center;font-size:14px;font-weight:800;font-variant-numeric:tabular-nums;}
+  .step .v small{display:block;font-size:8.5px;font-weight:700;color:var(--muted);letter-spacing:.3px;}
+  .step.used{background:var(--teal-bg);border-color:#BCE2C9;}
+
+  /* busca */
+  .search{display:flex;align-items:center;gap:9px;background:#fff;border:1.7px solid #DCE0E8;border-radius:14px;padding:12px 13px;margin-bottom:4px;}
+  .search.on{border-color:var(--teal);box-shadow:0 0 0 3px rgba(18,165,165,.13);}
+  .search svg{color:#9aa3b2;}
+  .search .q{font-size:14px;font-weight:600;color:var(--ink);flex:1;}
+  .search .ph{font-size:13px;font-weight:500;color:#9aa3b2;flex:1;}
+  .hint{font-size:11px;color:var(--muted);font-weight:500;line-height:1.45;margin:7px 2px 0;}
+  .avulso{border:1.5px dashed #C6CCDA;border-radius:14px;padding:12px;text-align:center;font-size:12.5px;font-weight:700;color:var(--info-fg);background:#fff;margin-top:12px;}
+</style>
+</head>
+<body>
+
+  <!-- ============ TELA 1: estado padrão ============ -->
+  <div>
+    <div class="cap">1 · Abriu o modal — o que ele precisa já está na tela</div>
+    <div class="phone"><div class="screen">
+      <div class="mhead"><button class="x">‹</button><h2>Produtos da RAT</h2></div>
+      <div class="mbody">
+
+        <label class="lab">Foi utilizado produto neste atendimento?</label>
+        <div class="seg"><div class="opt on-sim">Sim</div><div class="opt">Não</div></div>
+
+        <div class="sec">Produtos da tarefa</div>
+        <div class="prow">
+          <div class="info">
+            <div class="nm">CABO UTP CAT6 CMX AZUL</div>
+            <div class="stats"><span class="stat st-orc"><span class="l">Orçado</span><span class="n">500 m</span></span><span class="stat st-disp"><span class="l">Disponível</span><span class="n">500 m</span></span></div>
+          </div>
+          <div class="step used"><button>−</button><div class="v num">405<small>m</small></div><button>+</button></div>
+        </div>
+        <div class="prow">
+          <div class="info">
+            <div class="nm">CONECTOR RJ45 CAT6 BLINDADO</div>
+            <div class="stats"><span class="stat st-orc"><span class="l">Orçado</span><span class="n">40 PC</span></span><span class="stat st-disp"><span class="l">Disponível</span><span class="n">40 PC</span></span></div>
+          </div>
+          <div class="step"><button>−</button><div class="v num">0<small>PC</small></div><button>+</button></div>
+        </div>
+
+        <div class="sec">Usados recentemente <span class="tag">neste cliente</span></div>
+        <div class="prow">
+          <div class="info"><div class="nm">ABRAÇADEIRA NYLON 200MM PRETA</div><div class="stats"><span class="stat st-disp"><span class="l">Disponível</span><span class="n">150 PC</span></span></div><div class="usage">usado em 8 das últimas 10 RATs</div></div>
+          <div class="step"><button>−</button><div class="v num">0<small>PC</small></div><button>+</button></div>
+        </div>
+        <div class="prow">
+          <div class="info"><div class="nm">FITA ISOLANTE 20M PRETA</div><div class="stats"><span class="stat st-disp"><span class="l">Disponível</span><span class="n">12 PC</span></span></div></div>
+          <div class="step"><button>−</button><div class="v num">0<small>PC</small></div><button>+</button></div>
+        </div>
+        <div class="prow">
+          <div class="info"><div class="nm">PARAFUSO PHILIPS 4,2×32 C/ BUCHA 6</div><div class="stats"><span class="stat st-disp"><span class="l">Disponível</span><span class="n">200 PC</span></span></div></div>
+          <div class="step"><button>−</button><div class="v num">0<small>PC</small></div><button>+</button></div>
+        </div>
+
+        <div class="sec">Buscar nos itens disponíveis</div>
+        <div class="search"><svg class="i" viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg><span class="ph">Nome ou apelido — ex.: "cabo azul"</span></div>
+
+        <div class="avulso">+ Item avulso (não está no catálogo)</div>
+
+      </div>
+      <div class="mfoot"><span class="sum">1 item com uso</span><button class="btn">Salvar</button></div>
+    </div></div>
+  </div>
+
+  <!-- ============ TELA 2: busca tolerante + apelido ============ -->
+  <div>
+    <div class="cap">2 · Busca tolerante — acha por pedaço do nome ou apelido</div>
+    <div class="phone"><div class="screen">
+      <div class="mhead"><button class="x">‹</button><h2>Produtos da RAT</h2></div>
+      <div class="mbody">
+
+        <div class="sec" style="margin-top:0">Buscar nos itens disponíveis</div>
+        <div class="search on"><svg class="i" viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg><span class="q">cabo camera</span></div>
+        <div class="hint">Busca <b>só no que foi levado/está disponível</b> (não no catálogo inteiro) — por qualquer pedaço do nome, em qualquer ordem, sem acento, e pelos <b>apelidos</b> que o escritório cadastra.</div>
+
+        <div class="sec">Resultados · 2 disponíveis</div>
+        <div class="prow">
+          <div class="info">
+            <div class="nm">CABO COAXIAL FLEX 4MM 80% BRANCO</div>
+            <div class="stats"><span class="stat st-disp"><span class="l">Disponível</span><span class="n">200 m</span></span></div>
+            <span class="alias"><svg class="i" viewBox="0 0 24 24" style="width:10px;height:10px"><path d="M7 7h10v10"/><path d="M7 17 17 7"/></svg>apelido: cabo de câmera</span>
+          </div>
+          <div class="step"><button>−</button><div class="v num">0<small>m</small></div><button>+</button></div>
+        </div>
+        <div class="prow">
+          <div class="info"><div class="nm">CONECTOR BNC MOLA P/ CABO 4MM</div><div class="stats"><span class="stat st-disp"><span class="l">Disponível</span><span class="n">30 PC</span></span></div></div>
+          <div class="step"><button>−</button><div class="v num">0<small>PC</small></div><button>+</button></div>
+        </div>
+
+        <div class="avulso">Não achou? + Item avulso — o escritório concilia e o nome que você escreveu <b>vira apelido</b> (da próxima vez a busca acha)</div>
+
+      </div>
+      <div class="mfoot"><span class="sum">1 item com uso</span><button class="btn">Salvar</button></div>
+    </div></div>
+  </div>
+
+  <!-- ============ TELA 3: item avulso — catálogo completo → texto livre ============ -->
+  <div>
+    <div class="cap">3 · Item avulso — busca no catálogo completo; texto livre é o último recurso</div>
+    <div class="phone"><div class="screen">
+      <div class="mhead"><button class="x">‹</button><h2>Item avulso</h2></div>
+      <div class="mbody">
+
+        <div class="hint" style="margin:0 2px 10px">Use quando o item <b>não está nos disponíveis</b>. Primeiro procure no catálogo completo — se achar, o escritório recebe a linha já vinculada ao produto certo.</div>
+
+        <div class="sec" style="margin-top:0">Buscar no catálogo completo</div>
+        <div class="search on"><svg class="i" viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg><span class="q">tomada sobrepor</span></div>
+
+        <div class="sec">Resultados · 2</div>
+        <div class="prow">
+          <div class="info"><div class="nm">TOMADA SOBREPOR 2P+T 10A BRANCA</div><div class="stats"><span class="stat st-cat"><span class="l">Catálogo</span><span class="n">PC</span></span></div></div>
+          <div class="step"><button>−</button><div class="v num">0<small>PC</small></div><button>+</button></div>
+        </div>
+        <div class="prow">
+          <div class="info"><div class="nm">CAIXA SOBREPOR P/ TOMADA 4×2</div><div class="stats"><span class="stat st-cat"><span class="l">Catálogo</span><span class="n">PC</span></span></div></div>
+          <div class="step"><button>−</button><div class="v num">0<small>PC</small></div><button>+</button></div>
+        </div>
+        <div class="hint">A linha entra como <b>avulso vinculado ao produto</b> (marcada "fora do disponível") — a conciliação chega pronta pro escritório.</div>
+
+        <div class="avulso" style="margin-top:14px">Não está no catálogo?<br><b>+ Adicionar como texto livre</b> (nome · unidade · quantidade)<br><span style="font-weight:600;color:var(--muted)">na conciliação, o nome que você escreveu vira apelido</span></div>
+
+      </div>
+      <div class="mfoot"><span class="sum">1 item com uso</span><button class="btn">Salvar</button></div>
+    </div></div>
+  </div>
+
+</body>
+</html>
