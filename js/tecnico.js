@@ -806,7 +806,7 @@
     respTarefaIds = (respPorTarefa[t.id] && respPorTarefa[t.id].length) ? respPorTarefa[t.id].slice() : [tecnico.id]
     // tarefa entra em execução assim que ganha uma RAT (o servidor confirma via trigger)
     if (t.status === 'aguardando_execucao') t.status = 'em_execucao'
-    const rat = await D().novoRat({ tarefa_id: t.id, tarefa_numero: t.numero || null, cliente_id: t.cliente_id || null, cliente_nome: cliNomeDe(t.cliente_id, null) })
+    const rat = await D().novoRat({ tarefa_id: t.id, tarefa_numero: t.numero || null, cliente_id: t.cliente_id || null, cliente_nome: cliNomeDe(t.cliente_id, null), data_tarefa: jorHoje() })
     cur = { client_uuid: rat.client_uuid, campos: [], tarefa_id: t.id, tarefa_numero: t.numero }
     usoProd = null
     const tipoNome = (ref.tipos.find(x => x.id === tipoId) || {}).nome
@@ -2962,7 +2962,7 @@
       motivo_improdutiva: null,
       motivo_texto: null,
       tempo_trabalhado: calcTempo(),
-      data_tarefa: new Date().toISOString(),
+      // data_tarefa fixado na criação (jorHoje, local) — não re-carimbar a cada save (evitava virar o dia em UTC)
       respostas,
       uso_produtos: usoProd || null,
       questionario_ok: faltando.length === 0,
@@ -3018,7 +3018,7 @@
       motivo_improdutiva: motivo,
       motivo_texto: motivoTexto,
       tempo_trabalhado: (mFim - mIni),   // tempo no local pelos campos de execução (sem serviço concluído)
-      data_tarefa: new Date().toISOString(),
+      // data_tarefa fixado na criação (jorHoje, local) — não re-carimbar
       respostas: Object.keys(respostas).length ? respostas : null,
       uso_produtos: null,
       questionario_ok: true,
