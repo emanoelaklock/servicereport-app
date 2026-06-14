@@ -2909,6 +2909,11 @@
       tecnico_nome: tecnico.nome,
       status: sit,
       pendencias: null,
+      // execução normal: atendimento_executado=true limpa qualquer marca de improdutiva e SOBE no sync
+      // (campo null é pulado no upload → servidor ficaria com false e remarcaria o checkbox ao reabrir).
+      atendimento_executado: true,
+      motivo_improdutiva: null,
+      motivo_texto: null,
       tempo_trabalhado: calcTempo(),
       data_tarefa: new Date().toISOString(),
       respostas,
