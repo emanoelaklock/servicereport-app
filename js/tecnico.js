@@ -52,14 +52,12 @@
   const stStyle = (s) => `background:${stCor(s)}1A;color:${stCor(s)};border:none`
   // Mapeia status do sistema → variante visual do skin (info/done/warn/pend/aguard).
   const SKIN_STATUS = { em_execucao: 'info', aguardando_execucao: 'aguard', concluida: 'done', concluida_pendencia: 'warn', devolvida: 'pend', aprovada_faturamento: 'done', faturada: 'done' }
-  // A RAT não conclui mais o serviço (isso é da Tarefa); só registra o dia.
-  function togglePendencias() { togglePassagem(); atualizarBtnSalvar() }
-  // Checkpoint de passagem: ao encerrar o dia (registrado), "volta amanhã?"; se Não, o que falta/levar.
+  // Checkpoint de passagem: revelado ao tocar "Encerrar a RAT do dia". "Volta amanhã?"; se Não, o que falta/levar.
   let voltaAmanha = null
+  let revelarPass = false   // o checkpoint só aparece quando o técnico opta por encerrar o dia
   function togglePassagem() {
-    const reg = document.getElementById('f-status').value === 'registrado'
     const box = document.getElementById('f-passagem')
-    if (box) box.style.display = reg ? 'block' : 'none'
+    if (box) box.style.display = (atendExec === 'Sim' && revelarPass) ? 'block' : 'none'
   }
   function setVoltaAmanha(v) {
     voltaAmanha = (v === 'Não') ? 'Não' : 'Sim'
@@ -87,17 +85,19 @@
     if (sim) sim.style.display = (atendExec === 'Não') ? 'none' : 'block'
     if (nao) nao.style.display = (atendExec === 'Não') ? 'block' : 'none'
     atualizarBtnSalvar()
+    togglePassagem()
   }
   function toggleMotivoTexto() {
     const sel = document.querySelector('#f-motivos input[name="f-motivo"]:checked')
     const wrap = document.getElementById('f-motivo-texto-wrap')
     if (wrap) wrap.style.display = (sel && sel.value === 'outro') ? 'block' : 'none'
   }
+  // Ação primária: "Encerrar a RAT do dia" (Sim) | "Registrar visita" (Não improdutiva).
+  // Secundária "Salvar e continuar" (salva parcial em_andamento) só aparece no Sim.
   function atualizarBtnSalvar() {
-    const b = document.getElementById('btn-salvar'); if (!b) return
-    if (atendExec === 'Não') { b.textContent = 'Registrar visita'; return }
-    const v = document.getElementById('f-status').value
-    b.textContent = (v === 'em_andamento') ? 'Salvar e continuar' : 'Encerrar a RAT do dia'
+    const b = document.getElementById('btn-salvar'), bc = document.getElementById('btn-continuar')
+    if (b) b.textContent = (atendExec === 'Não') ? 'Registrar visita' : 'Encerrar a RAT do dia'
+    if (bc) bc.style.display = (atendExec === 'Não') ? 'none' : ''
   }
   const osNo = (n) => n != null ? String(n).padStart(5, '0') : '—'
   const cliNomeDe = (id, fb) => (ref.clientes.find(c => c.id === id) || {}).nome || fb || '—'
@@ -188,7 +188,13 @@
   function bind() {
     // RAT — sempre criada DENTRO de uma Tarefa (não há criação avulsa).
     document.getElementById('btn-cancelar').onclick = cancelar
-    document.getElementById('btn-salvar').onclick = salvar
+    // Ação primária: encerrar o dia (Sim, revela o checkpoint) ou registrar visita (Não improdutiva).
+    document.getElementById('btn-salvar').onclick = () => {
+      if (atendExec === 'Não') return salvar()
+      revelarPass = true; togglePassagem(); salvar('registrado')
+    }
+    // Secundária: salvar parcial e continuar editando hoje (em_andamento).
+    document.getElementById('btn-continuar').onclick = () => salvar('em_andamento')
     // Botões do formulário da RAT
     document.getElementById('form-produtos-btn').onclick = abrirModalProd
     document.getElementById('form-fotos-btn').onclick = abrirModalFotos
@@ -222,8 +228,8 @@
     const pcb = document.getElementById('prod-cat-busca')
     if (pcb) pcb.oninput = () => renderCatalogoSug()
     document.getElementById('f-tipo').onchange = onTipoChange
-    document.getElementById('f-status').onchange = togglePendencias
-    document.querySelectorAll('#f-exec-seg button').forEach(b => { b.onclick = () => setExec(b.dataset.v) })
+    // trocar de Sim/Não recolhe o checkpoint (só reaparece ao tocar "Encerrar a RAT do dia")
+    document.querySelectorAll('#f-exec-seg button').forEach(b => { b.onclick = () => { revelarPass = false; setExec(b.dataset.v) } })
     document.querySelectorAll('#f-volta-seg button').forEach(b => { b.onclick = () => setVoltaAmanha(b.dataset.v) })
     document.querySelectorAll('#f-passagem-motivo input[name="f-pass-motivo"]').forEach(r => { r.onchange = togglePassagemHandoff })
     document.querySelectorAll('#f-motivos input[name="f-motivo"]').forEach(r => { r.onchange = toggleMotivoTexto })
@@ -776,12 +782,11 @@
     // tipo é SEMPRE da tarefa: o seletor nunca aparece na RAT
     document.getElementById('f-tipo').value = tipoId
     document.getElementById('f-tipo-wrap').style.display = 'none'
-    document.getElementById('f-status').value = 'em_andamento'
-    togglePendencias()
     // RAT nova nasce como atendimento executado (Sim); limpa motivo de improdutiva anterior
     document.querySelectorAll('#f-motivos input[name="f-motivo"]').forEach(r => { r.checked = false })
     const mtx = document.getElementById('f-motivo-texto'); if (mtx) mtx.value = ''
-    // checkpoint de passagem: limpa "volta amanhã?" e os textos
+    // checkpoint de passagem: começa recolhido e limpo ("volta amanhã?" e os textos)
+    revelarPass = false
     voltaAmanha = null
     document.querySelectorAll('#f-volta-seg button').forEach(b => b.classList.remove('on'))
     document.querySelectorAll('#f-passagem-motivo input').forEach(r => { r.checked = false })
@@ -1713,10 +1718,9 @@
     cb.readOnly = false
     document.getElementById('f-tipo-wrap').style.display = 'none'
     const improd = rat.status === 'improdutiva' || rat.atendimento_executado === false
-    // só os status que o select oferece hoje; histórico (concluida) reabre como 'em_andamento'
+    // RAT registrada reabre com o checkpoint visível; em_andamento/histórico, recolhido.
     const reabreStatus = (rat.status === 'em_andamento' || rat.status === 'registrado') ? rat.status : 'em_andamento'
-    document.getElementById('f-status').value = improd ? 'em_andamento' : reabreStatus
-    togglePendencias()
+    revelarPass = (!improd && reabreStatus === 'registrado')
     // Checkpoint de passagem salvo (relevante quando a RAT foi registrada)
     const rs0 = rat.respostas || {}
     if (!improd && reabreStatus === 'registrado' && rs0.volta_amanha) {
@@ -2778,7 +2782,8 @@
     if (primeiro) primeiro.scrollIntoView({ behavior: 'smooth', block: 'center' })
   }
 
-  async function salvar() {
+  // modo: 'em_andamento' (botão "Salvar e continuar") | 'registrado' (botão "Encerrar a RAT do dia").
+  async function salvar(modo) {
     if (!cur) return
     const cliId = document.getElementById('f-cliente').value
     if (!cliId) return toast('Selecione o cliente.', 'err')
@@ -2786,7 +2791,7 @@
     if (atendExec === 'Não') return salvarImprodutiva(cliId)
     if (!cur.formulario_id) return toast('Esta tarefa não tem formulário configurado.', 'err')
 
-    const sit = document.getElementById('f-status').value
+    const sit = (modo === 'em_andamento') ? 'em_andamento' : 'registrado'
     // "Salvar e continuar" (em_andamento) → salva parcial, sem exigir os obrigatórios.
     const emExecucao = (sit === 'em_andamento')
 

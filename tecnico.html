@@ -729,17 +729,9 @@ try{if(localStorage.getItem('sr_dark')==='1')document.documentElement.classList.
               <button type="button" data-v="Não">Não</button>
             </div>
           </div>
-          <!-- Atendimento executado (Sim) → a RAT registra o DIA; concluir o serviço é na Tarefa -->
+          <!-- Atendimento executado (Sim) → a RAT registra o DIA (botões no rodapé); concluir o serviço é na Tarefa -->
           <div id="f-exec-sim">
-            <div class="fg campo">
-              <label>Situação do atendimento</label>
-              <select id="f-status">
-                <option value="em_andamento">Salvar e continuar</option>
-                <option value="registrado">Encerrar a RAT do dia</option>
-              </select>
-              <p class="hintn" id="f-status-hint">"Salvar e continuar" guarda o rascunho do dia (segue editável). "Encerrar a RAT do dia" fecha o <b>dia</b> (registrado) — o serviço se conclui depois, na Tarefa.</p>
-            </div>
-            <!-- Checkpoint de passagem: ao encerrar o dia, "volta amanhã?"; se não, o que falta/levar -->
+            <!-- Checkpoint de passagem: revelado ao tocar "Encerrar a RAT do dia"; "volta amanhã?"; se não, o que falta/levar -->
             <div id="f-passagem" style="display:none">
               <div class="fg campo">
                 <label>Volta amanhã pra continuar? <span class="req">*</span></label>
@@ -792,9 +784,12 @@ try{if(localStorage.getItem('sr_dark')==='1')document.documentElement.classList.
           </div>
         </div>
 
-        <div class="foot">
-          <button class="btn btn-ghost" id="btn-cancelar">Cancelar</button>
-          <button class="btn btn-primary" id="btn-salvar">Salvar no aparelho</button>
+        <div class="foot" style="flex-direction:column">
+          <div style="display:flex;gap:10px">
+            <button class="btn btn-ghost" id="btn-cancelar">Cancelar</button>
+            <button class="btn btn-ghost" id="btn-continuar">Salvar e continuar</button>
+          </div>
+          <button class="btn btn-primary" id="btn-salvar">Encerrar a RAT do dia</button>
         </div>
       </div>
 
