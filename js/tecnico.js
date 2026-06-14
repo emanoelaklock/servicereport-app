@@ -99,7 +99,9 @@
   function atualizarBtnSalvar() {
     const b = document.getElementById('btn-salvar'), bc = document.getElementById('btn-continuar')
     if (b) b.textContent = (atendExec === 'Não') ? 'Registrar visita' : 'Encerrar a RAT do dia'
-    if (bc) bc.style.display = (atendExec === 'Não') ? 'none' : ''
+    // "Salvar e continuar" some na improdutiva e quando o checkpoint de encerrar já foi revelado
+    // (aí o técnico está fechando o dia — fica só "Encerrar a RAT do dia").
+    if (bc) bc.style.display = (atendExec === 'Não' || revelarPass) ? 'none' : ''
   }
   const osNo = (n) => n != null ? String(n).padStart(5, '0') : '—'
   const cliNomeDe = (id, fb) => (ref.clientes.find(c => c.id === id) || {}).nome || fb || '—'
@@ -193,7 +195,7 @@
     // Ação primária: encerrar o dia (Sim, revela o checkpoint) ou registrar visita (Não improdutiva).
     document.getElementById('btn-salvar').onclick = () => {
       if (atendExec === 'Não') return salvar()
-      revelarPass = true; togglePassagem(); salvar('registrado')
+      revelarPass = true; togglePassagem(); atualizarBtnSalvar(); salvar('registrado')
     }
     // Secundária: salvar parcial e continuar editando hoje (em_andamento).
     document.getElementById('btn-continuar').onclick = () => salvar('em_andamento')
