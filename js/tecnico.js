@@ -619,6 +619,18 @@
     await abrirTarefaDet(t.id)
   }
 
+  // Passagem "vou voltar depois pra terminar" em aberto? Olha a RAT mais recente da tarefa que
+  // respondeu o checkpoint: se a última foi volta_amanha=Não + motivo volto_depois, o retorno
+  // está aberto (serviço não acabou). Não inventa status — usa a passagem já gravada nas respostas.
+  function passagemAberta(rats) {
+    const comP = (rats || []).filter(r => r.respostas && r.respostas.volta_amanha)
+    if (!comP.length) return false
+    const chave = (r) => (r.respostas.data || r.data_tarefa || r.criado_em || '')
+    comP.sort((a, b) => chave(b).localeCompare(chave(a)))
+    const u = comP[0]
+    return u.respostas.volta_amanha === 'Não' && u.respostas.passagem_motivo === 'volto_depois'
+  }
+
   async function abrirTarefaDet(id) {
     const t = tarefas.find(x => x.id === id); if (!t) return
     tarefaAberta = t
@@ -642,16 +654,27 @@
     const podeConcluir = !['aprovada_faturamento', 'faturada'].includes(t.status)
     const RAT_FECHADA = ['registrado', 'concluida', 'concluida_pendencia']   // concluida* = histórico
     const todas = await D().listarRats()
-    let temRat = (todas || []).some(r => r.tarefa_id === id && r.sync_status !== D().STATUS.RASCUNHO && RAT_FECHADA.includes(r.status))
-    if (!temRat && navigator.onLine) {
+    const ratsLocais = (todas || []).filter(r => r.tarefa_id === id)
+    let temRat = ratsLocais.some(r => r.sync_status !== D().STATUS.RASCUNHO && RAT_FECHADA.includes(r.status))
+    let retAberto = passagemAberta(ratsLocais)
+    if (navigator.onLine) {
       try {
-        const { count } = await getSupabase().from('rats').select('id', { count: 'exact', head: true })
-          .eq('tarefa_id', id).in('status', RAT_FECHADA)
-        temRat = (count || 0) > 0
+        const { data: srv } = await getSupabase().from('rats')
+          .select('respostas,data_tarefa,criado_em,status').eq('tarefa_id', id)
+        if (srv) { temRat = temRat || srv.some(r => RAT_FECHADA.includes(r.status)); retAberto = passagemAberta(srv) }   // servidor é autoritativo (vê RAT de coautor)
       } catch (e) { /* offline/erro: mantém o que tem local */ }
     }
-    document.getElementById('t-det-concluir').style.display = (podeConcluir && temRat) ? 'flex' : 'none'
-    document.getElementById('t-det-concluir-hint').style.display = (podeConcluir && !temRat) ? 'block' : 'none'
+    // Concluir bloqueado se há "retorno em aberto" (RAT marcada como "vou voltar depois pra terminar").
+    // O técnico não pode; o admin pode forçar pelo portal (com ciência).
+    const liberado = podeConcluir && temRat && !retAberto
+    document.getElementById('t-det-concluir').style.display = liberado ? 'flex' : 'none'
+    const hintEl = document.getElementById('t-det-concluir-hint')
+    if (podeConcluir && !liberado) {
+      hintEl.style.display = 'block'
+      hintEl.innerHTML = retAberto
+        ? 'Esta tarefa tem uma RAT marcada como <b>“retornar para finalizar”</b>. Conclua o retorno antes de finalizar a tarefa.'
+        : 'Para concluir o serviço, encerre ao menos uma RAT desta tarefa com <b>todos os campos obrigatórios</b> preenchidos.'
+    } else { hintEl.style.display = 'none' }
     mostrar('tarefa-det')
     await carregarMaterialDaTarefa(id)
     await carregarEquipDaTarefa(id)

@@ -465,6 +465,16 @@ const TarefaApp = (() => {
     autoGrow(document.getElementById('cc-d-obs'))
   }
 
+  // Passagem "vou voltar depois pra terminar" em aberto na RAT mais recente da tarefa?
+  function passagemAberta(rats) {
+    const comP = (rats || []).filter(r => r.respostas && r.respostas.volta_amanha)
+    if (!comP.length) return false
+    const chave = (r) => (r.respostas.data || r.data_tarefa || r.criado_em || '')
+    comP.sort((a, b) => chave(b).localeCompare(chave(a)))
+    const u = comP[0]
+    return u.respostas.volta_amanha === 'Não' && u.respostas.passagem_motivo === 'volto_depois'
+  }
+
   async function salvarDados() {
     if (!cur) return
     const patch = {
@@ -493,6 +503,10 @@ const TarefaApp = (() => {
       await carregarTarefas()
       return abrirTarefa(ins.data.id, 'dados')
     }
+    // Concluir com "retorno em aberto": o escritório PODE forçar, mas com ciência (confirma).
+    const concluindo = ['concluida', 'concluida_pendencia'].includes(patch.status) && !['concluida', 'concluida_pendencia'].includes(cur.status)
+    if (concluindo && passagemAberta(cur.rats) &&
+        !confirm('Esta tarefa tem uma RAT marcada como "retornar para finalizar" (retorno em aberto). Concluir mesmo assim?')) return
     const up = await sb().from('tarefas').update(patch).eq('id', cur.id)
     if (up.error) return toast('Erro ao salvar: ' + up.error.message, 'err')
     cur.status = patch.status
