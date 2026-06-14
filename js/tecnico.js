@@ -242,7 +242,7 @@
     document.getElementById('nt-fechar').onclick = () => document.getElementById('modal-nt').classList.remove('open')
     document.getElementById('nt-cancelar').onclick = () => document.getElementById('modal-nt').classList.remove('open')
     document.getElementById('nt-criar').onclick = criarTarefaTecnico
-    document.getElementById('btn-iniciar-rat').onclick = () => { if (tarefaAberta) iniciarRatDaTarefa(tarefaAberta) }
+    document.getElementById('btn-iniciar-rat').onclick = () => { if (tarefaAberta) abrirRatDeHoje(tarefaAberta) }
     document.getElementById('btn-concluir').onclick = () => concluirTarefa(false)
     document.getElementById('btn-concluir-pend').onclick = () => concluirTarefa(true)
     document.getElementById('cp-fechar').onclick = () => document.getElementById('modal-conc-pend').classList.remove('open')
@@ -483,7 +483,8 @@
   const tipoNomeDe = (id) => (ref.tipos.find(x => x.id === id) || {}).nome || ''
   const LC_SK = { info: 'lc-info', done: 'lc-done', warn: 'lc-warn' }
   const isHoje = (d) => { if (!d) return false; const x = new Date(String(d).length <= 10 ? d + 'T00:00:00' : d); if (isNaN(x)) return false; const h = new Date(); return x.getFullYear() === h.getFullYear() && x.getMonth() === h.getMonth() && x.getDate() === h.getDate() }
-  const ratDoDiaDe = (rs, tid) => rs.find(r => r.tarefa_id === tid && r.sync_status !== D().STATUS.RASCUNHO && r.status === 'em_andamento' && isHoje((r.respostas && r.respostas.data) || r.criado_em))
+  // RAT do dia (uma por tarefa/dia): reusa a de hoje seja em andamento OU já registrada (evita duplicar).
+  const ratDoDiaDe = (rs, tid) => rs.find(r => r.tarefa_id === tid && r.sync_status !== D().STATUS.RASCUNHO && (r.status === 'em_andamento' || r.status === 'registrado') && isHoje((r.respostas && r.respostas.data) || r.criado_em))
   function estadoAgenda(t, temRatHoje) {
     if (t.status === 'em_execucao') return { sk: 'info', txt: temRatHoje ? 'Atendimento continua' : 'Em execução' }
     if (t.status === 'devolvida') return { sk: 'pend', txt: 'Devolvida — corrigir' }
@@ -626,15 +627,15 @@
     if (t.orientacao) { document.getElementById('t-det-orient').textContent = t.orientacao; oSec.style.display = 'block' } else oSec.style.display = 'none'
     const obSec = document.getElementById('t-det-obs-sec')
     if (t.observacoes) { document.getElementById('t-det-obs').textContent = t.observacoes; obSec.style.display = 'block' } else obSec.style.display = 'none'
-    // concluir exige ≥1 RAT salva desta tarefa (não dá pra concluir sem registro)
+    // concluir exige ≥1 RAT REGISTRADA (o dia precisa estar fechado; "em andamento" não conta)
     const podeConcluir = !['aprovada_faturamento', 'faturada'].includes(t.status)
+    const RAT_FECHADA = ['registrado', 'concluida', 'concluida_pendencia']   // concluida* = histórico
     const todas = await D().listarRats()
-    // RAT "completa" = salva (o salvar() só promove de rascunho após validar os obrigatórios) e questionário ok
-    let temRat = (todas || []).some(r => r.tarefa_id === id && r.sync_status !== D().STATUS.RASCUNHO && r.questionario_ok !== false)
+    let temRat = (todas || []).some(r => r.tarefa_id === id && r.sync_status !== D().STATUS.RASCUNHO && RAT_FECHADA.includes(r.status))
     if (!temRat && navigator.onLine) {
       try {
         const { count } = await getSupabase().from('rats').select('id', { count: 'exact', head: true })
-          .eq('tarefa_id', id).eq('questionario_ok', true)
+          .eq('tarefa_id', id).in('status', RAT_FECHADA)
         temRat = (count || 0) > 0
       } catch (e) { /* offline/erro: mantém o que tem local */ }
     }
@@ -1985,7 +1986,7 @@
         })
       }, 0)
     } else if (c.tipo === 'data') {
-      const hoje = new Date().toISOString().slice(0, 10)
+      const hoje = jorHoje()   // data LOCAL (UTC viraria o dia à noite no fuso BR)
       wrap.innerHTML = `${label}<input type="date" value="${hoje}" data-campo="${esc(c.id)}" data-tipo="data"/>`
     } else if (c.tipo === 'hora') {
       wrap.innerHTML = `${label}<input type="time" data-campo="${esc(c.id)}" data-tipo="hora"/>`
