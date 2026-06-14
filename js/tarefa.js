@@ -861,6 +861,7 @@ const TarefaApp = (() => {
   async function carregarRats() {
     const { data, error } = await sb().from('rats').select(RatView.RAT_SELECT)
       .eq('tarefa_id', cur.id).order('data_tarefa', { ascending: true, nullsFirst: true })
+    cur.ratsErro = !!error            // erro de carga ≠ tarefa sem RAT: não esvaziar a lista em silêncio
     cur.rats = error ? [] : (data || [])
     renderRats()
     renderSituacao()
@@ -868,6 +869,11 @@ const TarefaApp = (() => {
   // Mostra as RATs já abertas (expandidas) dentro da aba.
   async function renderRats() {
     const box = document.getElementById('cc-rat-list')
+    if (cur.ratsErro) {   // falha na busca ≠ "sem RAT" — nunca fingir lista vazia
+      document.getElementById('cc-rat-pdf').disabled = true
+      box.innerHTML = '<span class="cc-empty-sm" style="color:var(--red)">Erro ao carregar as RATs — recarregue a página.</span>'
+      return
+    }
     const rats = cur.rats || []
     document.getElementById('cc-rat-pdf').disabled = !rats.length
     if (!rats.length) { box.innerHTML = '<span class="cc-empty-sm">Nenhuma RAT registrada nesta tarefa ainda.</span>'; return }
@@ -1262,13 +1268,15 @@ const TarefaApp = (() => {
     const e = estadoTarefa()
     box.innerHTML = [
       situCard(e.dadosOk ? 's-ok' : 's-warn', SITU_ICO.dados, 'Dados da tarefa', e.dadosOk ? 'Preenchido' : 'Incompleto'),
-      e.ratsLen === 0
-        ? situCard('s-warn', SITU_ICO.rats, 'RATs', 'Sem RATs')
-        : e.ratNaoEncN
-          ? situCard('s-pend', SITU_ICO.rats, 'RATs', e.ratNaoEncN > 1 ? `${e.ratNaoEncN} não encerradas` : 'Não encerrada', diasTxt(e.ratNaoEncDias))
-          : e.ratEmAndHoje
-            ? situCard('s-warn', SITU_ICO.rats, 'RATs', 'Em andamento', 'hoje')
-            : situCard('s-ok', SITU_ICO.rats, 'RATs', 'Concluído'),
+      cur.ratsErro
+        ? situCard('s-warn', SITU_ICO.rats, 'RATs', 'Erro ao carregar')
+        : e.ratsLen === 0
+          ? situCard('s-warn', SITU_ICO.rats, 'RATs', 'Sem RATs')
+          : e.ratNaoEncN
+            ? situCard('s-pend', SITU_ICO.rats, 'RATs', e.ratNaoEncN > 1 ? `${e.ratNaoEncN} não encerradas` : 'Não encerrada', diasTxt(e.ratNaoEncDias))
+            : e.ratEmAndHoje
+              ? situCard('s-warn', SITU_ICO.rats, 'RATs', 'Em andamento', 'hoje')
+              : situCard('s-ok', SITU_ICO.rats, 'RATs', 'Concluído'),
       situCard(e.prodWarn ? 's-warn' : 's-ok', SITU_ICO.prod, 'Produtos', e.prodWarn ? 'Pendência' : 'OK', e.devItens ? `${e.devItens} a devolver` : ''),
       situCard(e.foraN ? 's-pend' : 's-ok', SITU_ICO.fora, 'Fora da proposta', e.foraN ? `${e.foraN} ${e.foraN > 1 ? 'itens' : 'item'}` : 'OK'),
       situCard(e.fat ? 's-ok' : 's-warn', SITU_ICO.fat, 'Faturamento', e.fat ? 'Faturado' : 'Pendente'),
