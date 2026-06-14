@@ -25,6 +25,15 @@ Coberto pela `validar_rat()` do F2. Mantido aqui só como lembrete de que tempo 
 - **Risco:** tocar "Iniciar RAT" 2x sem salvar cria 2 rascunhos; `seqNova` (`:814`) conta RATs e infla o `/NN`. `limparRascunhosVazios` só limpa vazios na abertura do app.
 - **Correção:** no `ratDoDiaDe`, casar também o rascunho do dia (ex.: `sync_status === RASCUNHO` da mesma tarefa) **ou** `iniciarRatDaTarefa` setar `status:'em_andamento'` na criação. Alinhar o comentário.
 
+### F12 — Alerta de integridade "Concluída sem RAT registrada" (portal admin) 🟠
+- **Motivo:** hoje a trava de "exige RAT registrada pra concluir" só roda no **momento** de concluir (e o app esconde o botão). Não há **alerta retroativo**: se uma tarefa ficar concluída/concluida_pendencia com **0 RAT registrada** (burla de API — ver F2 —, "admin força", ou churn de dados), nada aponta. É o irmão retroativo do F2.
+- **Correção:** no portal admin (`js/tarefa.js`), ao renderizar a tarefa, se `status ∈ (concluida, concluida_pendencia, aprovada_faturamento, faturada)` **e** nº de RATs com `status ∈ (registrado, concluida, concluida_pendencia)` = 0 → badge "Concluída sem RAT registrada — verificar". Leitura pura (o portal já carrega `cur.rats`), **sem migration**. Pode espelhar na tela de **Conciliação**.
+- **Nota:** levantado a partir da 04757, que na verdade **tinha** a `/02 registrado` no servidor — o "sem RAT" era view local (ver F13). O alerta vale pro caso de órfã real.
+
+### F13 — Lista de RATs do técnico lê só o aparelho (local-only) 🟠 (baixo)
+- **Onde:** `js/tecnico.js:787` `renderRatsDaTarefa` usa `D().listarRats()` (IndexedDB) e esconde a seção se vazia (`:789`). O técnico **não vê** RATs que estão só no servidor (de coautor, ou após excluir a cópia local) — mesmo o gate de concluir já consultar o servidor (autoritativo). Tela fica enganosa ("parece sem RAT").
+- **Correção:** `renderRatsDaTarefa` buscar também do servidor (merge com o local por `client_uuid`), como o bloco de conclusão já faz. Mudança de comportamento no app — testar offline (cair pro local quando sem rede).
+
 ## Cauda (cosmético / baixo — quando sobrar)
 
 - **F6 ⚪ — `js/tecnico.js:28** `T_STATUS` não lista `devolvida`/`aprovada_faturamento`/`faturada` (mitigado por `ref.status` do servidor). Acrescentar as 3 chaves.
