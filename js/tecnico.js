@@ -2684,6 +2684,9 @@
   // Ignora virada de meia-noite (término < início = madrugada do dia seguinte, já passada).
   function horaTerminoNoFuturo() {
     const tEnd = minutosDe(valorCampo('hora_termino')); if (tEnd == null) return false
+    // só é "futuro" se a RAT for de HOJE — RAT de dia passado já está toda no passado.
+    const dataRat = valorCampo('data')
+    if (dataRat && dataRat !== jorHoje()) return false
     const tIni = minutosDe(valorCampo('hora_inicio'))
     if (tIni != null && tEnd < tIni) return false
     return tEnd > minutosAgora()
