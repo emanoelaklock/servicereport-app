@@ -2787,7 +2787,7 @@
     if (!cur.formulario_id) return toast('Esta tarefa não tem formulário configurado.', 'err')
 
     const sit = document.getElementById('f-status').value
-    // Atendimento continua (em execução) → salva parcial, sem exigir os obrigatórios.
+    // "Salvar e continuar" (em_andamento) → salva parcial, sem exigir os obrigatórios.
     const emExecucao = (sit === 'em_andamento')
 
     // Hora de Término não pode estar no futuro (vale também ao salvar parcial).

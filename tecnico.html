@@ -734,10 +734,10 @@ try{if(localStorage.getItem('sr_dark')==='1')document.documentElement.classList.
             <div class="fg campo">
               <label>Situação do atendimento</label>
               <select id="f-status">
-                <option value="em_andamento">Atendimento continua (em execução)</option>
+                <option value="em_andamento">Salvar e continuar</option>
                 <option value="registrado">Encerrar a RAT do dia</option>
               </select>
-              <p class="hintn" id="f-status-hint">Encerrar a RAT fecha o <b>dia</b> (registrado). O serviço se conclui depois, na Tarefa.</p>
+              <p class="hintn" id="f-status-hint">"Salvar e continuar" guarda o rascunho do dia (segue editável). "Encerrar a RAT do dia" fecha o <b>dia</b> (registrado) — o serviço se conclui depois, na Tarefa.</p>
             </div>
             <!-- Checkpoint de passagem: ao encerrar o dia, "volta amanhã?"; se não, o que falta/levar -->
             <div id="f-passagem" style="display:none">
