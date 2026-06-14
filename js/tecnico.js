@@ -384,12 +384,13 @@
     // Status da tarefa-pai (para ordenar por prioridade); cai no status da própria RAT se a tarefa não estiver carregada.
     const tarStatusDe = (r) => { const t = tarefas.find(x => x.id === r.tarefa_id); return t ? t.status : (RAT_PARA_TAREFA[r.status] || r.status) }
     const tarNumeroDe = (r) => { const t = tarefas.find(x => x.id === r.tarefa_id); return (t && t.numero != null) ? t.numero : r.tarefa_numero }
-    // Subnumeração por tarefa (/01, /02…): usa rat_seq do servidor; se ainda local, ordem de criação.
+    // Subnumeração por tarefa (/01, /02…): usa rat_seq do servidor; se ainda local (não rascunho),
+    // ordem de criação. Rascunho NÃO recebe nº (não colide com o /NN do servidor de outra RAT).
     const subLocal = {}
-    for (const r of [...rats].sort((a, b) => (a.criado_em || '').localeCompare(b.criado_em || ''))) {
+    for (const r of [...rats].filter(r => r.sync_status !== D().STATUS.RASCUNHO).sort((a, b) => (a.criado_em || '').localeCompare(b.criado_em || ''))) {
       (subLocal[r.tarefa_id] = subLocal[r.tarefa_id] || []).push(r.client_uuid)
     }
-    const subDe = (r) => { if (r.rat_seq != null) return r.rat_seq; const a = subLocal[r.tarefa_id] || []; const i = a.indexOf(r.client_uuid); return i >= 0 ? i + 1 : null }
+    const subDe = (r) => { if (r.rat_seq != null) return r.rat_seq; if (r.sync_status === D().STATUS.RASCUNHO) return null; const a = subLocal[r.tarefa_id] || []; const i = a.indexOf(r.client_uuid); return i >= 0 ? i + 1 : null }
     const pad2 = (n) => String(n).padStart(2, '0')
     const tarLabel = (r) => { const n = tarNumeroDe(r); if (n == null) return ''; const s = subDe(r); return 'Tarefa Nº ' + osNo(n) + (s != null ? '/' + pad2(s) : '') + ' · ' }
     const ordenadas = rats.slice().sort((a, b) => prioStatus(tarStatusDe(a)) - prioStatus(tarStatusDe(b)) || (b.criado_em || '').localeCompare(a.criado_em || ''))
@@ -492,8 +493,9 @@
   const tipoNomeDe = (id) => (ref.tipos.find(x => x.id === id) || {}).nome || ''
   const LC_SK = { info: 'lc-info', done: 'lc-done', warn: 'lc-warn' }
   const isHoje = (d) => { if (!d) return false; const x = new Date(String(d).length <= 10 ? d + 'T00:00:00' : d); if (isNaN(x)) return false; const h = new Date(); return x.getFullYear() === h.getFullYear() && x.getMonth() === h.getMonth() && x.getDate() === h.getDate() }
-  // RAT do dia (uma por tarefa/dia): reusa a de hoje seja em andamento OU já registrada (evita duplicar).
-  const ratDoDiaDe = (rs, tid) => rs.find(r => r.tarefa_id === tid && r.sync_status !== D().STATUS.RASCUNHO && (r.status === 'em_andamento' || r.status === 'registrado') && isHoje((r.respostas && r.respostas.data) || r.criado_em))
+  // RAT do dia (uma por tarefa/dia): reusa a de hoje — inclusive RASCUNHO ainda não enviado —
+  // pra "Iniciar RAT" reabrir em vez de criar outra. Não reusa improdutiva (visita fechada à parte).
+  const ratDoDiaDe = (rs, tid) => rs.find(r => r.tarefa_id === tid && (r.status === 'em_andamento' || r.status === 'registrado') && isHoje((r.respostas && r.respostas.data) || r.criado_em))
   function estadoAgenda(t, temRatHoje) {
     if (t.status === 'em_execucao') return { sk: 'info', txt: temRatHoje ? 'Atendimento continua' : 'Em execução' }
     if (t.status === 'devolvida') return { sk: 'pend', txt: 'Devolvida — corrigir' }
