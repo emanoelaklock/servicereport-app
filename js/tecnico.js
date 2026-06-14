@@ -2921,6 +2921,15 @@
         marcarErros([], [document.getElementById('form-produtos-btn')])
         return toast('Informe se houve uso de produtos.', 'err')
       }
+      // Marcou "Sim" mas não lançou nenhum produto (qtd > 0): bloqueia.
+      // Itens da tarefa pré-carregados (orçado/levado) ficam com qtd 0 e NÃO contam.
+      if (temProdutosCampo && usoProd === 'Sim') {
+        const matsU = await D().listarMateriais(cur.client_uuid)
+        if (!matsU.some(m => Number(m.quantidade) > 0)) {
+          marcarErros([], [document.getElementById('form-produtos-btn')])
+          return toast('Você marcou que usou produtos — lance ao menos um (qtd maior que zero) ou marque “Não”.', 'err')
+        }
+      }
       // Deslocamento do dia precisa ser respondido (mora no botão "Deslocamento")
       const temDesloc = cur.campos.some(c => c.id === 'deslocamento' && vis(c))
       if (temDesloc && !respostas.deslocamento) {
