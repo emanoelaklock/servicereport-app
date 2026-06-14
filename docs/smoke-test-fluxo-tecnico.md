@@ -7,7 +7,7 @@
 
 ## Pré-requisitos
 - [ ] Abrir o **preview** da branch (`servicereport-app-git-feat-fluxo-…vercel.app`), **não** produção.
-- [ ] **Recarregar** uma vez pra pegar o **SW v355**.
+- [ ] **Recarregar** uma vez pra pegar o **SW v359** (ou superior).
 - [ ] Duas sessões: **Técnico** (ex.: Pablo, no celular/PWA) e **Admin** (no portal desktop).
 - [ ] No aparelho do **admin**, ativar **notificações push** (o remetente nunca recebe o próprio push — o push precisa ser visto num usuário ≠ do técnico).
 
@@ -18,9 +18,11 @@
 - [ ] **A4** Técnico toca **Pegar** → vira responsável; a tarefa **sai da Fila** e entra em **"Minhas tarefas de hoje"**; abre a RAT do dia.
 
 ## B. RAT registra o DIA (passo 1 de 2)
+> Não há mais o select "Situação do atendimento". No rodapé (quando "O atendimento foi executado? **Sim**") há **dois botões**: **Salvar e continuar** (secundário) e **Encerrar a RAT do dia** (primário).
 - [ ] **B1** Na RAT, preencher os obrigatórios; usar o timer **Iniciar/Encerrar atendimento** (preenche Hora de Início/Término).
-- [ ] **B2** Em **Situação**: "O atendimento foi executado? **Sim**" → "Situação do atendimento = **Encerrar a RAT do dia**". Surge o checkpoint **"Volta amanhã?"**.
-- [ ] **B3** "Volta amanhã? **Sim**" → botão **"Encerrar a RAT do dia"** → toast **"RAT do dia registrada"**; volta pra lista.
+- [ ] **B2** Em **Situação**: "O atendimento foi executado? **Sim**". No rodapé aparecem **"Salvar e continuar"** + **"Encerrar a RAT do dia"**.
+- [ ] **B2b** (salvar parcial) Tocar **"Salvar e continuar"** → toast "RAT salva no aparelho"; a RAT fica **"Em andamento"** e segue editável (sem exigir obrigatórios nem checkpoint).
+- [ ] **B3** Tocar **"Encerrar a RAT do dia"** → surge o checkpoint **"Volta amanhã?"**; responder **Sim** e tocar **"Encerrar a RAT do dia"** de novo → toast **"RAT do dia registrada"**; volta pra lista.
 - [ ] **B4** A RAT aparece como **"Registrada"** (não "Concluída"); a **Tarefa continua "Em execução / Atendimento continua"** (não concluída).
 - [ ] **B5** Admin recebe push **"RAT registrada"** (tarefa · cliente).
 
@@ -35,7 +37,7 @@
 - [ ] **D3** A tarefa **original** passa de "concluída c/ pendência" → **"concluída"** automaticamente (não precisa reconcluir).
 
 ## E. Checkpoint de passagem (handoff)
-- [ ] **E1** Nova RAT → registrar o dia → "Volta amanhã? **Não**" → aparece **"Por quê?"**.
+- [ ] **E1** Nova RAT → tocar **"Encerrar a RAT do dia"** (surge o checkpoint) → "Volta amanhã? **Não**" → aparece **"Por quê?"**.
 - [ ] **E2** Escolher **"Terminei o serviço"** → **não** pede o que falta/levar → registra. **Confirme que a Tarefa NÃO ficou concluída** (continua "Em execução") — "Terminei" só dispensa o checkpoint.
 - [ ] **E3** Outra RAT → "Não" → **"Vou voltar depois pra terminar"** → preenche **o que falta** e **o que levar** → registra.
 - [ ] **E4** No portal, abrir essa RAT → mostra a seção **"Passagem — volta depois pra terminar"** com o que falta / o que levar.
@@ -62,7 +64,7 @@
 - [ ] **H3** **Hora de término no futuro** (improdutiva ou ao registrar o dia): pôr um horário maior que o relógio atual → **bloqueia**: *"A Hora de Término não pode ser depois do horário atual."*
 - [ ] **H4** Checkpoint **"Vou voltar depois"** com **"o que falta" vazio** → **bloqueia**: *"Informe o que falta pra terminar."*
 - [ ] **H5** Idem com **"o que levar" vazio** → **bloqueia**: *"Informe o que levar na próxima ida."*
-- [ ] **H6** Registrar o dia **sem responder "Volta amanhã?"** → **bloqueia**: *"Responda se volta amanhã pra continuar."*
+- [ ] **H6** Tocar **"Encerrar a RAT do dia"** e, com o checkpoint aberto, tocar de novo **sem responder "Volta amanhã?"** → **bloqueia**: *"Responda se volta amanhã pra continuar."*
 - [ ] **H7** "Volta amanhã? Não" **sem escolher o porquê** → **bloqueia**: *"Diga por que não volta amanhã."*
 - [ ] **H8** Concluir c/ pendência **sem texto** → **bloqueia**: *"Descreva a pendência."*
 - [ ] **H9** Improdutiva **sem motivo** → **bloqueia**: *"Escolha o motivo de não ter executado."* (e "Outro" sem texto → *"Descreva o motivo."*)
