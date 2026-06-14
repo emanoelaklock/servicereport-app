@@ -650,8 +650,12 @@
     if (t.orientacao) { document.getElementById('t-det-orient').textContent = t.orientacao; oSec.style.display = 'block' } else oSec.style.display = 'none'
     const obSec = document.getElementById('t-det-obs-sec')
     if (t.observacoes) { document.getElementById('t-det-obs').textContent = t.observacoes; obSec.style.display = 'block' } else obSec.style.display = 'none'
+    // Tarefa já encerrada p/ o técnico: concluída (com/sem pendência) ou em faturamento.
+    // Nessas, não há "Concluir serviço" (já concluiu) nem "Iniciar RAT" (serviço fechado; reabrir é do admin = devolvida).
+    const TAREFA_FECHADA = ['concluida', 'concluida_pendencia', 'aprovada_faturamento', 'faturada']
+    document.getElementById('btn-iniciar-rat-wrap').style.display = TAREFA_FECHADA.includes(t.status) ? 'none' : 'block'
     // concluir exige ≥1 RAT REGISTRADA (o dia precisa estar fechado; "em andamento" não conta)
-    const podeConcluir = !['aprovada_faturamento', 'faturada'].includes(t.status)
+    const podeConcluir = !TAREFA_FECHADA.includes(t.status)
     const RAT_FECHADA = ['registrado', 'concluida', 'concluida_pendencia']   // concluida* = histórico
     const todas = await D().listarRats()
     const ratsLocais = (todas || []).filter(r => r.tarefa_id === id)
