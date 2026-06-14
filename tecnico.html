@@ -245,10 +245,16 @@ try{if(localStorage.getItem('sr_dark')==='1')document.documentElement.classList.
   .motivos .motopt:has(input:checked) .rd{border-color:#DE2C2C}
   .motivos .motopt:has(input:checked) .rd::after{content:"";position:absolute;inset:3px;border-radius:50%;background:#DE2C2C}
   html.dark .motivos .motopt:has(input:checked){background:#2a1715;border-color:#4a2522}
-  /* Exceção: marcar visita improdutiva (execução é o padrão) */
-  .exc-imp{display:flex;align-items:center;gap:10px;cursor:pointer;padding:2px 0;margin-bottom:4px;font-size:14px;font-weight:600;color:var(--tx)}
+  /* Exceção: marcar visita improdutiva (execução é o padrão) — fica abaixo do checkpoint */
+  .exc-imp{display:flex;align-items:center;gap:10px;cursor:pointer;padding:2px 0;margin-top:10px;font-size:14px;font-weight:600;color:var(--tx)}
   .exc-imp input{width:18px;height:18px;accent-color:#DE2C2C;flex:none;margin:0}
   .exc-imp:has(input:checked){color:#DE2C2C}
+  /* Destaque do checkpoint "Volta amanhã?" (decisão ao encerrar o dia) */
+  #f-passagem{background:#FFF6E5;border:1px solid #F2E2B6;border-radius:12px;padding:12px 14px 6px;margin-top:4px}
+  #f-passagem .fg>label{font-size:14.5px;color:var(--tx);font-weight:700}
+  html.dark #f-passagem{background:#2a2410;border-color:#4a4222}
+  /* Rodapé fixo (sticky) na tela da RAT */
+  .tskin #view-form .foot{position:sticky;bottom:0;background:var(--bg);padding:12px 0 calc(10px + env(safe-area-inset-bottom,0px));border-top:1px solid var(--bd);box-shadow:0 -3px 10px rgba(20,30,55,.05);z-index:10}
 
   /* ===== Produtos da RAT: linhas com stepper ===== */
   .prod-row2{display:flex;align-items:center;gap:10px;padding:12px 0;border-bottom:1px solid var(--bd)}
@@ -726,8 +732,6 @@ try{if(localStorage.getItem('sr_dark')==='1')document.documentElement.classList.
 
         <div class="fcard fc-red">
           <div class="h"><span class="hi"><svg viewBox="0 0 24 24"><path d="M20 6 9 17l-5-5"/></svg></span>Situação</div>
-          <!-- Execução é o padrão (é só trabalhar e usar os botões do rodapé). A visita improdutiva é exceção. -->
-          <label class="exc-imp"><input type="checkbox" id="f-improdutiva-chk"><span>Não consegui executar (visita improdutiva)</span></label>
           <!-- Atendimento executado (padrão) → a RAT registra o DIA (botões no rodapé); concluir o serviço é na Tarefa -->
           <div id="f-exec-sim">
             <!-- Checkpoint de passagem: revelado ao tocar "Encerrar a RAT do dia"; "volta amanhã?"; se não, o que falta/levar -->
@@ -762,6 +766,8 @@ try{if(localStorage.getItem('sr_dark')==='1')document.documentElement.classList.
               </div>
             </div>
           </div>
+          <!-- Exceção: visita improdutiva (abaixo do fluxo normal). Execução é o padrão. -->
+          <label class="exc-imp"><input type="checkbox" id="f-improdutiva-chk"><span>Não consegui executar (visita improdutiva)</span></label>
           <!-- Visita improdutiva (Não) → motivo; tarefa fica aguardando, sem exigir execução -->
           <div id="f-exec-nao" style="display:none">
             <div class="fg campo">
