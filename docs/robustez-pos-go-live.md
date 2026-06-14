@@ -34,6 +34,17 @@ Coberto pela `validar_rat()` do F2. Mantido aqui só como lembrete de que tempo 
 - **Onde:** `js/tecnico.js:787` `renderRatsDaTarefa` usa `D().listarRats()` (IndexedDB) e esconde a seção se vazia (`:789`). O técnico **não vê** RATs que estão só no servidor (de coautor, ou após excluir a cópia local) — mesmo o gate de concluir já consultar o servidor (autoritativo). Tela fica enganosa ("parece sem RAT").
 - **Correção:** `renderRatsDaTarefa` buscar também do servidor (merge com o local por `client_uuid`), como o bloco de conclusão já faz. Mudança de comportamento no app — testar offline (cair pro local quando sem rede).
 
+### F15 — Estado de erro nas demais listas do portal (erro != vazio) 🟠 (baixo)
+- **Motivo:** mesma "mentira silenciosa" do F14 (já corrigido p/ RATs): `lista = error ? [] : data` + render de vazio idêntico a "deu erro". Um erro transitório (rede/RLS/versão) some como "nada aqui".
+- **Onde (todos mudos — sem toast/aviso):**
+  - `js/tarefa.js:572` `carregarEquip` → "Nenhum equipamento vinculado."
+  - `js/tarefa.js:603` `carregarAnexos` → "Nenhum anexo." (**também alimenta o card Situação "Anexos: Nenhum"** — mente no resumo, como o RATs mentia).
+  - `js/tarefa.js:1345` `carregarTimeline` → "Sem eventos registrados ainda."
+  - `js/painel.js:39` `renderRecentes` (dashboard) → "Nenhuma RAT ainda."
+- **Já OK (não mexer):** `js/tarefa.js:646` `carregarLinhas` (conciliação) já dá `toast('Erro ao carregar conciliação…')` (`:648`).
+- **Correção:** mesmo padrão do F14 — flag de erro por lista, render "Erro ao carregar — recarregue" em vez do vazio (e card Situação dos Anexos idem). Só frontend, sem migration.
+- **Prioridade interna:** anexos > painel/recentes > equipamentos > timeline.
+
 ## Cauda (cosmético / baixo — quando sobrar)
 
 - **F6 ⚪ — `js/tecnico.js:28** `T_STATUS` não lista `devolvida`/`aprovada_faturamento`/`faturada` (mitigado por `ref.status` do servidor). Acrescentar as 3 chaves.
