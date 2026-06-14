@@ -2993,9 +2993,12 @@
     if (!emExecucao && navigator.onLine && window.notificarPush) {
       notificarPush('rat_registrada', { numero: cur.tarefa_numero, cliente: cli?.nome, tarefa_id: cur.tarefa_id })
     }
+    // "Terminei o serviço — vou concluir na Tarefa" → abre o detalhe da Tarefa (onde fica
+    // "Concluir serviço") em vez de "Minhas RATs". Sim / volto depois / em_andamento → lista.
+    const tarefaConcluir = (sit === 'registrado' && voltaAmanha === 'Não' && passMotivoVal() === 'terminei') ? cur.tarefa_id : null
     cur = null; sig = null; usoProd = null
-    mostrar('lista')
-    await renderLista()
+    if (tarefaConcluir) { await renderTarefas(); await abrirTarefaDet(tarefaConcluir) }
+    else { mostrar('lista'); await renderLista() }
     // Tenta sincronizar imediatamente se houver conexão (passo 5).
     if (window.SyncEngine && navigator.onLine) window.SyncEngine.syncAll()
   }
