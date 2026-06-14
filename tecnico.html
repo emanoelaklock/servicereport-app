@@ -245,6 +245,10 @@ try{if(localStorage.getItem('sr_dark')==='1')document.documentElement.classList.
   .motivos .motopt:has(input:checked) .rd{border-color:#DE2C2C}
   .motivos .motopt:has(input:checked) .rd::after{content:"";position:absolute;inset:3px;border-radius:50%;background:#DE2C2C}
   html.dark .motivos .motopt:has(input:checked){background:#2a1715;border-color:#4a2522}
+  /* Exceção: marcar visita improdutiva (execução é o padrão) */
+  .exc-imp{display:flex;align-items:center;gap:10px;cursor:pointer;padding:2px 0;margin-bottom:4px;font-size:14px;font-weight:600;color:var(--tx)}
+  .exc-imp input{width:18px;height:18px;accent-color:#DE2C2C;flex:none;margin:0}
+  .exc-imp:has(input:checked){color:#DE2C2C}
 
   /* ===== Produtos da RAT: linhas com stepper ===== */
   .prod-row2{display:flex;align-items:center;gap:10px;padding:12px 0;border-bottom:1px solid var(--bd)}
@@ -722,14 +726,9 @@ try{if(localStorage.getItem('sr_dark')==='1')document.documentElement.classList.
 
         <div class="fcard fc-red">
           <div class="h"><span class="hi"><svg viewBox="0 0 24 24"><path d="M20 6 9 17l-5-5"/></svg></span>Situação</div>
-          <div class="fg campo">
-            <label>O atendimento foi executado?</label>
-            <div class="segq" id="f-exec-seg">
-              <button type="button" data-v="Sim">Sim</button>
-              <button type="button" data-v="Não">Não</button>
-            </div>
-          </div>
-          <!-- Atendimento executado (Sim) → a RAT registra o DIA (botões no rodapé); concluir o serviço é na Tarefa -->
+          <!-- Execução é o padrão (é só trabalhar e usar os botões do rodapé). A visita improdutiva é exceção. -->
+          <label class="exc-imp"><input type="checkbox" id="f-improdutiva-chk"><span>Não consegui executar (visita improdutiva)</span></label>
+          <!-- Atendimento executado (padrão) → a RAT registra o DIA (botões no rodapé); concluir o serviço é na Tarefa -->
           <div id="f-exec-sim">
             <!-- Checkpoint de passagem: revelado ao tocar "Encerrar a RAT do dia"; "volta amanhã?"; se não, o que falta/levar -->
             <div id="f-passagem" style="display:none">

@@ -7,7 +7,7 @@
 
 ## Pré-requisitos
 - [ ] Abrir o **preview** da branch (`servicereport-app-git-feat-fluxo-…vercel.app`), **não** produção.
-- [ ] **Recarregar** uma vez pra pegar o **SW v359** (ou superior).
+- [ ] **Recarregar** uma vez pra pegar o **SW v360** (ou superior).
 - [ ] Duas sessões: **Técnico** (ex.: Pablo, no celular/PWA) e **Admin** (no portal desktop).
 - [ ] No aparelho do **admin**, ativar **notificações push** (o remetente nunca recebe o próprio push — o push precisa ser visto num usuário ≠ do técnico).
 
@@ -18,9 +18,9 @@
 - [ ] **A4** Técnico toca **Pegar** → vira responsável; a tarefa **sai da Fila** e entra em **"Minhas tarefas de hoje"**; abre a RAT do dia.
 
 ## B. RAT registra o DIA (passo 1 de 2)
-> Não há mais o select "Situação do atendimento". No rodapé (quando "O atendimento foi executado? **Sim**") há **dois botões**: **Salvar e continuar** (secundário) e **Encerrar a RAT do dia** (primário).
+> No card **Situação** não há mais o toggle "Sim/Não" — **execução é o padrão**. A visita improdutiva é um **checkbox discreto** ("Não consegui executar"). No fluxo normal (checkbox desmarcado), o rodapé tem **dois botões**: **Salvar e continuar** (secundário) e **Encerrar a RAT do dia** (primário).
 - [ ] **B1** Na RAT, preencher os obrigatórios; usar o timer **Iniciar/Encerrar atendimento** (preenche Hora de Início/Término).
-- [ ] **B2** Em **Situação**: "O atendimento foi executado? **Sim**". No rodapé aparecem **"Salvar e continuar"** + **"Encerrar a RAT do dia"**.
+- [ ] **B2** Em **Situação**, deixe o checkbox **"Não consegui executar"** **desmarcado** (= execução). No rodapé aparecem **"Salvar e continuar"** + **"Encerrar a RAT do dia"**.
 - [ ] **B2b** (salvar parcial) Tocar **"Salvar e continuar"** → toast "RAT salva no aparelho"; a RAT fica **"Em andamento"** e segue editável (sem exigir obrigatórios nem checkpoint).
 - [ ] **B3** Tocar **"Encerrar a RAT do dia"** → surge o checkpoint **"Volta amanhã?"**; responder **Sim** e tocar **"Encerrar a RAT do dia"** de novo → toast **"RAT do dia registrada"**; volta pra lista.
 - [ ] **B4** A RAT aparece como **"Registrada"** (não "Concluída"); a **Tarefa continua "Em execução / Atendimento continua"** (não concluída).
@@ -43,7 +43,7 @@
 - [ ] **E4** No portal, abrir essa RAT → mostra a seção **"Passagem — volta depois pra terminar"** com o que falta / o que levar.
 
 ## F. RAT improdutiva
-- [ ] **F1** Nova RAT → "O atendimento foi executado? **Não**" → escolher **motivo** → preencher **Hora de Início / Hora de Término** (tempo no local) → **"Registrar visita"** → toast "Visita improdutiva registrada".
+- [ ] **F1** Nova RAT → no card **Situação**, marcar **"Não consegui executar (visita improdutiva)"** → escolher **motivo** → preencher **Hora de Início / Hora de Término** (tempo no local) → **"Registrar visita"** → toast "Visita improdutiva registrada".
 - [ ] **F2** A **Tarefa continua "Aguardando"** (não progride); a RAT fica **"Visita improdutiva"**.
 - [ ] **F3** Admin recebe push **"Visita improdutiva — reagendar"** (tarefa · cliente · motivo).
 - [ ] **F4** No portal, a RAT mostra **"Visita improdutiva"** + motivo + **"Tempo no local (início–término)"**.
@@ -59,7 +59,7 @@
 - [ ] **G8** (duplicação forçada) Depois do G4, clicar **"Sincronizar"** de novo manualmente → continua **1 RAT** no portal (não cria segunda).
 
 ## H. Caminho NEGATIVO das validações (obrigatório) — tem que BLOQUEAR ⛔
-- [ ] **H1** Improdutiva **sem tempo no local**: "Não" + motivo, mas **Hora de Início/Término vazias** → "Registrar visita" → **bloqueia**: *"Informe Hora de Início e Hora de Término (tempo no local)."* (não salva)
+- [ ] **H1** Improdutiva **sem tempo no local**: marcar "Não consegui executar" + motivo, mas **Hora de Início/Término vazias** → "Registrar visita" → **bloqueia**: *"Informe Hora de Início e Hora de Término (tempo no local)."* (não salva)
 - [ ] **H2** Improdutiva com **término < início** → **bloqueia**: *"A Hora de Término não pode ser antes da de Início."*
 - [ ] **H3** **Hora de término no futuro** (improdutiva ou ao registrar o dia): pôr um horário maior que o relógio atual → **bloqueia**: *"A Hora de Término não pode ser depois do horário atual."*
 - [ ] **H4** Checkpoint **"Vou voltar depois"** com **"o que falta" vazio** → **bloqueia**: *"Informe o que falta pra terminar."*

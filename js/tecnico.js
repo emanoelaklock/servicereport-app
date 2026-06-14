@@ -75,12 +75,11 @@
     const ho = document.getElementById('f-passagem-handoff'); if (ho) ho.style.display = (m === 'volto_depois') ? 'block' : 'none'
     const th = document.getElementById('f-passagem-terminei-hint'); if (th) th.style.display = (m === 'terminei') ? 'block' : 'none'
   }
-  // Eixo "O atendimento foi executado?": Não → visita improdutiva (motivo, sem exigir
-  // execução; a tarefa fica aguardando). Mantém o estado em `atendExec` ('Sim'|'Não').
+  // Execução é o padrão; o checkbox "visita improdutiva" troca pra 'Não' (motivo + tempo no local,
+  // sem exigir execução; a tarefa fica aguardando). Estado em `atendExec` ('Sim'|'Não').
   let atendExec = 'Sim'
   function setExec(v) {
     atendExec = (v === 'Não') ? 'Não' : 'Sim'
-    document.querySelectorAll('#f-exec-seg button').forEach(b => b.classList.toggle('on', b.dataset.v === atendExec))
     const sim = document.getElementById('f-exec-sim'), nao = document.getElementById('f-exec-nao')
     if (sim) sim.style.display = (atendExec === 'Não') ? 'none' : 'block'
     if (nao) nao.style.display = (atendExec === 'Não') ? 'block' : 'none'
@@ -228,8 +227,8 @@
     const pcb = document.getElementById('prod-cat-busca')
     if (pcb) pcb.oninput = () => renderCatalogoSug()
     document.getElementById('f-tipo').onchange = onTipoChange
-    // trocar de Sim/Não recolhe o checkpoint (só reaparece ao tocar "Encerrar a RAT do dia")
-    document.querySelectorAll('#f-exec-seg button').forEach(b => { b.onclick = () => { revelarPass = false; setExec(b.dataset.v) } })
+    // Execução é o padrão; marcar "visita improdutiva" troca o modo (recolhe o checkpoint).
+    document.getElementById('f-improdutiva-chk').onchange = (e) => { revelarPass = false; setExec(e.target.checked ? 'Não' : 'Sim') }
     document.querySelectorAll('#f-volta-seg button').forEach(b => { b.onclick = () => setVoltaAmanha(b.dataset.v) })
     document.querySelectorAll('#f-passagem-motivo input[name="f-pass-motivo"]').forEach(r => { r.onchange = togglePassagemHandoff })
     document.querySelectorAll('#f-motivos input[name="f-motivo"]').forEach(r => { r.onchange = toggleMotivoTexto })
@@ -794,6 +793,7 @@
     const pnao = document.getElementById('f-passagem-nao'); if (pnao) pnao.style.display = 'none'
     const pho = document.getElementById('f-passagem-handoff'); if (pho) pho.style.display = 'none'
     const pth = document.getElementById('f-passagem-terminei-hint'); if (pth) pth.style.display = 'none'
+    const ic = document.getElementById('f-improdutiva-chk'); if (ic) ic.checked = false   // RAT nova nasce como execução
     toggleMotivoTexto()
     setExec('Sim')
     document.getElementById('campos-container').innerHTML = ''
@@ -1743,6 +1743,7 @@
       document.getElementById('f-motivo-texto').value = rat.motivo_texto || ''
       toggleMotivoTexto()
     }
+    const ic = document.getElementById('f-improdutiva-chk'); if (ic) ic.checked = improd
     setExec(improd ? 'Não' : 'Sim')
     // carrega o formulário que a RAT respondeu (snapshot), independente do tipo
     await carregarFormularioPorId(rat.formulario_id || (tarefaDela && ref.tipos.find(x => x.id === tarefaDela.tipo_servico_id)?.formulario_id) || null)
