@@ -69,6 +69,14 @@
     if (nao) nao.style.display = (voltaAmanha === 'Não') ? 'block' : 'none'
     if (voltaAmanha !== 'Não') document.querySelectorAll('#f-passagem-motivo input').forEach(r => { r.checked = false })
     togglePassagemHandoff()
+    atualizarBtnSalvar()   // "Não" revela o "Encerrar" final; "Sim" encerra direto (no handler do botão)
+  }
+  // Voltar do checkpoint: recolhe "Volta amanhã?" e devolve "Salvar e continuar" — o técnico não fica preso.
+  function voltarDoCheckpoint() {
+    revelarPass = false; voltaAmanha = null
+    document.querySelectorAll('#f-volta-seg button').forEach(b => b.classList.remove('on'))
+    const nao = document.getElementById('f-passagem-nao'); if (nao) nao.style.display = 'none'
+    togglePassagem(); atualizarBtnSalvar()
   }
   // Sub-motivo do "Não volto amanhã": 'terminei' (vou concluir na Tarefa, sem handoff) |
   // 'volto_depois' (continua → o que falta / o que levar OBRIGATÓRIOS). 'Terminei' NÃO conclui aqui.
@@ -98,10 +106,16 @@
   // Secundária "Salvar e continuar" (salva parcial em_andamento) só aparece no Sim.
   function atualizarBtnSalvar() {
     const b = document.getElementById('btn-salvar'), bc = document.getElementById('btn-continuar')
-    if (b) b.textContent = (atendExec === 'Não') ? 'Registrar visita' : 'Encerrar a RAT do dia'
-    // "Salvar e continuar" some na improdutiva e quando o checkpoint de encerrar já foi revelado
-    // (aí o técnico está fechando o dia — fica só "Encerrar a RAT do dia").
-    if (bc) bc.style.display = (atendExec === 'Não' || revelarPass) ? 'none' : ''
+    const bv = document.getElementById('btn-voltar-pass')
+    const imp = (atendExec === 'Não')
+    if (b) b.textContent = imp ? 'Registrar visita' : 'Encerrar a RAT do dia'
+    // "Salvar e continuar": só no fluxo normal, antes de abrir o checkpoint de encerrar.
+    if (bc) bc.style.display = (imp || revelarPass) ? 'none' : ''
+    // "Voltar": só com o checkpoint aberto (execução) — pra o técnico não ficar preso.
+    if (bv) bv.style.display = (!imp && revelarPass) ? '' : 'none'
+    // "Encerrar": some enquanto espera a resposta do "Volta amanhã?" (Sim encerra sozinho) e
+    // reaparece no caminho "Não" pra confirmar depois do motivo.
+    if (b) b.style.display = (!imp && revelarPass && voltaAmanha !== 'Não') ? 'none' : ''
   }
   const osNo = (n) => n != null ? String(n).padStart(5, '0') : '—'
   const cliNomeDe = (id, fb) => (ref.clientes.find(c => c.id === id) || {}).nome || fb || '—'
@@ -194,8 +208,9 @@
     document.getElementById('btn-cancelar').onclick = cancelar
     // Ação primária: encerrar o dia (Sim, revela o checkpoint) ou registrar visita (Não improdutiva).
     document.getElementById('btn-salvar').onclick = () => {
-      if (atendExec === 'Não') return salvar()
-      revelarPass = true; togglePassagem(); atualizarBtnSalvar(); salvar('registrado')
+      if (atendExec === 'Não') return salvar()                 // improdutiva: registra direto
+      if (!revelarPass) { revelarPass = true; togglePassagem(); atualizarBtnSalvar(); return }  // 1º toque: revela o checkpoint, sem salvar
+      salvar('registrado')                                      // caminho "Não": confirma depois do motivo
     }
     // Secundária: salvar parcial e continuar editando hoje (em_andamento).
     document.getElementById('btn-continuar').onclick = () => salvar('em_andamento')
@@ -234,7 +249,8 @@
     document.getElementById('f-tipo').onchange = onTipoChange
     // Execução é o padrão; marcar "visita improdutiva" troca o modo (recolhe o checkpoint).
     document.getElementById('f-improdutiva-chk').onchange = (e) => { revelarPass = false; setExec(e.target.checked ? 'Não' : 'Sim') }
-    document.querySelectorAll('#f-volta-seg button').forEach(b => { b.onclick = () => setVoltaAmanha(b.dataset.v) })
+    document.querySelectorAll('#f-volta-seg button').forEach(b => { b.onclick = () => { setVoltaAmanha(b.dataset.v); if (b.dataset.v === 'Sim') salvar('registrado') } })
+    document.getElementById('btn-voltar-pass').onclick = voltarDoCheckpoint
     document.querySelectorAll('#f-passagem-motivo input[name="f-pass-motivo"]').forEach(r => { r.onchange = togglePassagemHandoff })
     document.querySelectorAll('#f-motivos input[name="f-motivo"]').forEach(r => { r.onchange = toggleMotivoTexto })
     // Navegação da home
