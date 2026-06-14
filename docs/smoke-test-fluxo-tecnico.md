@@ -68,6 +68,10 @@
 - [ ] **H7** "Volta amanhã? Não" **sem escolher o porquê** → **bloqueia**: *"Diga por que não volta amanhã."*
 - [ ] **H8** Concluir c/ pendência **sem texto** → **bloqueia**: *"Descreva a pendência."*
 - [ ] **H9** Improdutiva **sem motivo** → **bloqueia**: *"Escolha o motivo de não ter executado."* (e "Outro" sem texto → *"Descreva o motivo."*)
+- [ ] **H10** **Deslocamento de ida depois do Início** (ex.: ida 10:00, Hora de Início 09:00) → ao encerrar → **bloqueia**: *"Deslocamento de ida não pode ser depois da Hora de Início da execução."*
+- [ ] **H11** **Deslocamento de retorno antes do Término** (ex.: retorno 16:00, Hora de Término 17:00) → **bloqueia**: *"Deslocamento de retorno não pode ser antes da Hora de Término da execução."*
+- [ ] **H12** **Pausa fora da janela ida→retorno** (ex.: pausa antes da ida) → **bloqueia**: *"A pausa tem de ficar entre o deslocamento de ida e o de retorno."*
+- [ ] **H13** (rollover OK — NÃO pode bloquear) Dia que **vira a meia-noite** (ex.: Início 22:00, Término 02:00, retorno 03:00) → **encerra normalmente**, sem falso-bloqueio.
 
 ---
 

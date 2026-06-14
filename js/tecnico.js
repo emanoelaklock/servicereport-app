@@ -2688,6 +2688,37 @@
     if (tIni != null && tEnd < tIni) return false
     return tEnd > minutosAgora()
   }
+  // Coerência cronológica do dia, tratando a virada de meia-noite: compara pela DISTÂNCIA
+  // de relógio (gap pequeno = ordem certa; gap > 12h = ordem invertida = erro real). Só valida
+  // quando os dois campos do confronto têm valor.
+  //  · deslocamento de IDA não pode ser DEPOIS da Hora de Início da execução
+  //  · deslocamento de RETORNO não pode ser ANTES da Hora de Término da execução
+  //  · a PAUSA tem de ficar entre o início da ida e o fim do retorno (a janela do dia)
+  function erroCronologia() {
+    const m = (id) => minutosDe(valorCampo(id))
+    const adiante = (a, b) => ((b - a) % 1440 + 1440) % 1440   // distância a→b no relógio (0..1439)
+    const LIM = 720   // 12h: gap acima disso = ordem invertida (não é só virada de meia-noite)
+    const dbtn = document.getElementById('form-desloc-btn'), pbtn = document.getElementById('form-pausa-btn')
+    const ini = m('hora_inicio'), fim = m('hora_termino')
+    if (ini != null) {
+      for (const id of ['desloc_inicial_ida', 'desloc_final_ida']) {
+        const t = m(id); if (t != null && adiante(t, ini) > LIM) return { btns: [dbtn], msg: 'Deslocamento de ida não pode ser depois da Hora de Início da execução.' }
+      }
+    }
+    if (fim != null) {
+      for (const id of ['desloc_inicial_retorno', 'desloc_final_retorno']) {
+        const t = m(id); if (t != null && adiante(fim, t) > LIM) return { btns: [dbtn], msg: 'Deslocamento de retorno não pode ser antes da Hora de Término da execução.' }
+      }
+    }
+    const dia0 = m('desloc_inicial_ida'), diaN = m('desloc_final_retorno')
+    if (dia0 != null && diaN != null) {
+      const span = adiante(dia0, diaN)   // duração da janela do dia (trata virada)
+      for (const id of ['pausa_inicio', 'pausa_termino']) {
+        const t = m(id); if (t != null && adiante(dia0, t) > span) return { btns: [pbtn], msg: 'A pausa tem de ficar entre o deslocamento de ida e o de retorno.' }
+      }
+    }
+    return null
+  }
   // O "tempo no local" da visita improdutiva usa os campos do formulário Hora de Início /
   // Hora de Término (execução) — não há mais campos próprios de permanência.
   // Cálculo puro a partir das respostas (compartilhado com o back-office).
@@ -2843,6 +2874,8 @@
     // Checkpoint de passagem (ao encerrar o dia): "volta amanhã?" obrigatório. Se Não → por quê?
     // 'volto_depois' exige o handoff (o que falta / o que levar); 'terminei' dispensa (NÃO conclui aqui).
     if (sit === 'registrado') {
+      const ec = erroCronologia()
+      if (ec) { limparErros(); marcarErros([], ec.btns.filter(Boolean)); return toast(ec.msg, 'err') }
       if (!voltaAmanha) return toast('Responda se volta amanhã pra continuar.', 'err')
       if (voltaAmanha === 'Não') {
         const m = passMotivoVal()
@@ -2915,6 +2948,8 @@
     if (mIni == null || mFim == null) { marcarErros(['hora_inicio', 'hora_termino'], []); return toast('Informe Hora de Início e Hora de Término (tempo no local).', 'err') }
     if (mFim < mIni) { marcarErros(['hora_termino'], []); return toast('A Hora de Término não pode ser antes da de Início.', 'err') }
     if (horaTerminoNoFuturo()) { marcarErros(['hora_termino'], []); return toast('A Hora de Término não pode ser depois do horário atual.', 'err') }
+    const ecImp = erroCronologia()
+    if (ecImp) { limparErros(); marcarErros([], ecImp.btns.filter(Boolean)); return toast(ecImp.msg, 'err') }
     // Mantém o que já foi apontado no formulário (deslocamento, início/término).
     const { respostas } = coletarRespostas()
     const cli = ref.clientes.find(c => c.id === cliId)
