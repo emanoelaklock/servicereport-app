@@ -2584,18 +2584,29 @@
   // Busca no catálogo (ref.produtos — cacheado p/ offline): sugere e inclui com qtd 1.
   async function renderCatalogoSug() {
     const box = document.getElementById('prod-cat-sug'); if (!box || !cur) return
-    const q = normStr(document.getElementById('prod-cat-busca').value || '')
-    if (q.length < 2) { box.innerHTML = ''; return }
+    // Busca tolerante por tokens (sem acento, em qualquer ordem) em descrição + código.
+    // Procura nos DOIS grupos: (1) produtos já na RAT/tarefa (orçado/levado pré-carregado) → ajusta qtd;
+    // (2) catálogo (o que ainda não está na RAT) → inclui. Ex.: "cabo azul" acha "CABO UTP CAT6 CMX AZUL".
+    const toks = normStr(document.getElementById('prod-cat-busca').value || '').split(/\s+/).filter(t => t.length >= 2)
+    if (!toks.length) { box.innerHTML = ''; return }
+    const casa = (s) => { const hay = normStr(s); return toks.every(t => hay.includes(t)) }
     const mats = await D().listarMateriais(cur.client_uuid)
+    const naRat = mats.filter(m => casa((m.descricao || '') + ' ' + (m.codigo_produto || ''))).slice(0, 8)
     const ja = new Set(mats.map(m => m.produto_id).filter(Boolean))
-    const sugest = (ref.produtos || [])
-      .filter(p => !ja.has(p.id) && (normStr(p.descricao || '').includes(q) || normStr(p.codigo || '').includes(q)))
-      .slice(0, 8)
-    box.innerHTML = sugest.length ? sugest.map(p => `
-      <div class="prod-row2">
-        <div class="pr-main"><div class="pr-desc">${esc(p.descricao || '—')}${p.unidade ? ` <span class="pr-un">${esc(p.unidade)}</span>` : ''}</div>${p.codigo ? `<div class="pr-sub">${esc(p.codigo)}</div>` : ''}</div>
-        <button type="button" class="btn btn-sm btn-p pr-add" data-pid="${esc(p.id)}" style="width:auto;padding:9px 13px;font-size:13px">+ Incluir</button>
-      </div>`).join('') : '<div class="prod-empty">Nenhum produto encontrado no catálogo.</div>'
+    const cat = (ref.produtos || []).filter(p => !ja.has(p.id) && casa((p.descricao || '') + ' ' + (p.codigo || ''))).slice(0, 8)
+    if (!naRat.length && !cat.length) { box.innerHTML = '<div class="prod-empty">Nenhum produto encontrado.</div>'; return }
+    box.innerHTML =
+      naRat.map(m => `
+        <div class="prod-row2">
+          <div class="pr-main"><div class="pr-desc">${esc(m.descricao || m.codigo_produto || '—')}${m.unidade ? ` <span class="pr-un">${esc(m.unidade)}</span>` : ''}</div><div class="pr-sub">já na RAT · ${fmtQtd(Number(m.quantidade) || 0)}</div></div>
+          <button type="button" class="btn btn-sm btn-p pr-inc" data-mid="${esc(m.id)}" style="width:auto;padding:9px 13px;font-size:13px">+1</button>
+        </div>`).join('') +
+      cat.map(p => `
+        <div class="prod-row2">
+          <div class="pr-main"><div class="pr-desc">${esc(p.descricao || '—')}${p.unidade ? ` <span class="pr-un">${esc(p.unidade)}</span>` : ''}</div>${p.codigo ? `<div class="pr-sub">${esc(p.codigo)}</div>` : ''}</div>
+          <button type="button" class="btn btn-sm btn-p pr-add" data-pid="${esc(p.id)}" style="width:auto;padding:9px 13px;font-size:13px">+ Incluir</button>
+        </div>`).join('')
+    box.querySelectorAll('.pr-inc').forEach(b => { b.onclick = async () => { await ajustarQtd(b.dataset.mid, +1); await renderCatalogoSug() } })
     box.querySelectorAll('.pr-add').forEach(b => {
       b.onclick = async () => {
         const p = (ref.produtos || []).find(x => x.id === b.dataset.pid); if (!p) return
@@ -2909,6 +2920,15 @@
       if (temProdutosCampo && !usoProd) {
         marcarErros([], [document.getElementById('form-produtos-btn')])
         return toast('Informe se houve uso de produtos.', 'err')
+      }
+      // Marcou "Sim" mas não lançou nenhum produto (qtd > 0): bloqueia.
+      // Itens da tarefa pré-carregados (orçado/levado) ficam com qtd 0 e NÃO contam.
+      if (temProdutosCampo && usoProd === 'Sim') {
+        const matsU = await D().listarMateriais(cur.client_uuid)
+        if (!matsU.some(m => Number(m.quantidade) > 0)) {
+          marcarErros([], [document.getElementById('form-produtos-btn')])
+          return toast('Você marcou que usou produtos — lance ao menos um (qtd maior que zero) ou marque “Não”.', 'err')
+        }
       }
       // Deslocamento do dia precisa ser respondido (mora no botão "Deslocamento")
       const temDesloc = cur.campos.some(c => c.id === 'deslocamento' && vis(c))

@@ -253,8 +253,12 @@ try{if(localStorage.getItem('sr_dark')==='1')document.documentElement.classList.
   #f-passagem{background:#FFF6E5;border:1px solid #F2E2B6;border-radius:12px;padding:12px 14px 6px;margin-top:4px}
   #f-passagem .fg>label{font-size:14.5px;color:var(--tx);font-weight:700}
   html.dark #f-passagem{background:#2a2410;border-color:#4a4222}
-  /* Rodapé fixo (sticky) na tela da RAT */
-  .tskin #view-form .foot{position:sticky;bottom:0;background:var(--bg);padding:12px 0 calc(10px + env(safe-area-inset-bottom,0px));border-top:1px solid var(--bd);box-shadow:0 -3px 10px rgba(20,30,55,.05);z-index:10}
+  /* Rodapé da RAT colado na base da tela. O seletor antigo ".tskin #view-form" (com espaco)
+     nunca casava (o proprio #view-form e' .tskin). E sticky com scroll de documento falha no
+     celular — entao FIXED na viewport. Sem ancestral com transform/contain/overflow, pina de
+     verdade. padding-bottom no form pra os ultimos campos nao ficarem atras da barra. */
+  #view-form{padding-bottom:144px}
+  #view-form .foot{position:fixed;left:50%;transform:translateX(-50%);bottom:0;width:100%;max-width:560px;background:var(--bg);padding:12px 16px calc(12px + env(safe-area-inset-bottom,0px));border-top:1px solid var(--bd);box-shadow:0 -3px 14px rgba(20,30,55,.12);z-index:40}
 
   /* ===== Produtos da RAT: linhas com stepper ===== */
   .prod-row2{display:flex;align-items:center;gap:10px;padding:12px 0;border-bottom:1px solid var(--bd)}
@@ -923,7 +927,7 @@ try{if(localStorage.getItem('sr_dark')==='1')document.documentElement.classList.
       <div id="prod-lista-wrap" style="display:none">
         <div class="prod-list" id="prod-list"></div>
         <div class="fg" style="margin-top:14px">
-          <label>Incluir do catálogo</label>
+          <label>Buscar produto (na tarefa ou no catálogo)</label>
           <input id="prod-cat-busca" placeholder="Buscar produto por nome ou código…" autocomplete="off">
           <div id="prod-cat-sug"></div>
         </div>
