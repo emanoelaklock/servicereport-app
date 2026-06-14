@@ -20,7 +20,10 @@
   let sig = null            // controlador do canvas de assinatura
   let curVisivel = {}       // id do campo -> visível? (condicionais)
   const TAREFAS_KEY = 'sr_tarefas_v1'
+  const RESP_KEY = 'sr_resp_tarefa_v1'
   let tarefas = []          // tarefas atribuídas (cache)
+  let respPorTarefa = {}    // tarefa_id → [tecnico_id] responsáveis (RLS 0063 deixa ver os co-responsáveis)
+  let respTarefaIds = []    // responsáveis da tarefa da RAT aberta (pré-marca o campo de técnicos)
   let tarefaAberta = null   // tarefa no detalhe
   const T_STATUS = {
     aguardando_execucao: { t: 'Aguardando execução', c: '' },
@@ -442,9 +445,15 @@
       if (error) throw error
       tarefas = data || []
       localStorage.setItem(TAREFAS_KEY, JSON.stringify(tarefas))
+      // Responsáveis das tarefas (a RAT pré-preenche a equipe). RLS 0063: técnico vê os co-responsáveis das tarefas dele.
+      const { data: tts } = await sb.from('tarefa_tecnicos').select('tarefa_id,tecnico_id')
+      respPorTarefa = {}
+      for (const r of (tts || [])) (respPorTarefa[r.tarefa_id] = respPorTarefa[r.tarefa_id] || []).push(r.tecnico_id)
+      localStorage.setItem(RESP_KEY, JSON.stringify(respPorTarefa))
     } catch (e) {
       const cache = localStorage.getItem(TAREFAS_KEY)
       tarefas = cache ? JSON.parse(cache) : []
+      try { respPorTarefa = JSON.parse(localStorage.getItem(RESP_KEY) || '{}') } catch (_) { respPorTarefa = {} }
       if (force) toast('Offline — mostrando tarefas salvas.', 'info')
     }
     // Mescla tarefas criadas offline (ainda na fila) que ainda não vieram do servidor.
@@ -764,6 +773,8 @@
 
   async function iniciarRatDaTarefa(t) {
     const tipoId = t.tipo_servico_id || ''
+    // RAT nova: pré-marca a equipe da tarefa (responsáveis). Cai pro técnico logado se ainda não carregou.
+    respTarefaIds = (respPorTarefa[t.id] && respPorTarefa[t.id].length) ? respPorTarefa[t.id].slice() : [tecnico.id]
     // tarefa entra em execução assim que ganha uma RAT (o servidor confirma via trigger)
     if (t.status === 'aguardando_execucao') t.status = 'em_execucao'
     const rat = await D().novoRat({ tarefa_id: t.id, tarefa_numero: t.numero || null, cliente_id: t.cliente_id || null, cliente_nome: cliNomeDe(t.cliente_id, null) })
@@ -1746,6 +1757,8 @@
     }
     const ic = document.getElementById('f-improdutiva-chk'); if (ic) ic.checked = improd
     setExec(improd ? 'Não' : 'Sim')
+    // pré-marca a equipe da tarefa (a seleção salva da RAT, repopulada abaixo, ainda prevalece)
+    respTarefaIds = (respPorTarefa[rat.tarefa_id] && respPorTarefa[rat.tarefa_id].length) ? respPorTarefa[rat.tarefa_id].slice() : [tecnico.id]
     // carrega o formulário que a RAT respondeu (snapshot), independente do tipo
     await carregarFormularioPorId(rat.formulario_id || (tarefaDela && ref.tipos.find(x => x.id === tarefaDela.tipo_servico_id)?.formulario_id) || null)
     // repopula respostas
@@ -2022,10 +2035,11 @@
       tecCampoId = c.id
       const checks = (ref.tecnicos || []).map(t => {
         const n = tcase(t.nome); const eu = n === tcase(tecnico.nome)
+        const resp = eu || respTarefaIds.includes(t.id)   // pré-marca todos os responsáveis da tarefa
         const rl = t.cargo ? `${t.cargo} · Técnico` : 'Técnico'
         const foto = (typeof avatarUrl === 'function') ? avatarUrl(t.foto_url) : null
         const av = foto ? `<img src="${esc(foto)}" alt="">` : esc(iniciaisDe(n))
-        return `<label class="tec-row" data-nome="${esc(n)}"><input type="checkbox" data-multi="${esc(c.id)}" value="${esc(n)}"${eu ? ' checked' : ''}><span class="av">${av}</span><span class="ti"><span class="nm">${esc(n)}</span><span class="rl">${esc(rl)}</span></span><span class="pl">+</span></label>`
+        return `<label class="tec-row" data-nome="${esc(n)}"><input type="checkbox" data-multi="${esc(c.id)}" value="${esc(n)}"${resp ? ' checked' : ''}><span class="av">${av}</span><span class="ti"><span class="nm">${esc(n)}</span><span class="rl">${esc(rl)}</span></span><span class="pl">+</span></label>`
       }).join('')
       wrap.innerHTML = `${label}<div class="tec-cards" data-teccards="${esc(c.id)}"></div><button type="button" class="tec-add-btn" data-tecbtn="${esc(c.id)}">+ Adicionar Técnico</button>`
       setTimeout(() => {
