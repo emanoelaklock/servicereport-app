@@ -2584,12 +2584,18 @@
   // Busca no catálogo (ref.produtos — cacheado p/ offline): sugere e inclui com qtd 1.
   async function renderCatalogoSug() {
     const box = document.getElementById('prod-cat-sug'); if (!box || !cur) return
-    const q = normStr(document.getElementById('prod-cat-busca').value || '')
-    if (q.length < 2) { box.innerHTML = ''; return }
+    // Busca tolerante: por tokens (sem acento, em qualquer ordem) em descrição + código.
+    // Ex.: "cabo azul" acha "CABO UTP CAT6 CMX AZUL"; "rj45 cat6" acha em qualquer ordem.
+    const toks = normStr(document.getElementById('prod-cat-busca').value || '').split(/\s+/).filter(t => t.length >= 2)
+    if (!toks.length) { box.innerHTML = ''; return }
     const mats = await D().listarMateriais(cur.client_uuid)
     const ja = new Set(mats.map(m => m.produto_id).filter(Boolean))
     const sugest = (ref.produtos || [])
-      .filter(p => !ja.has(p.id) && (normStr(p.descricao || '').includes(q) || normStr(p.codigo || '').includes(q)))
+      .filter(p => {
+        if (ja.has(p.id)) return false
+        const hay = normStr((p.descricao || '') + ' ' + (p.codigo || ''))
+        return toks.every(t => hay.includes(t))
+      })
       .slice(0, 8)
     box.innerHTML = sugest.length ? sugest.map(p => `
       <div class="prod-row2">
