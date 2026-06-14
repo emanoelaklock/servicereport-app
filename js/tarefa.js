@@ -24,7 +24,7 @@ const TarefaApp = (() => {
   let ratEdit = false        // modo edição do modal de RAT
   let pendRat = null         // RAT base do modal "nova tarefa da pendência"
 
-  const RAT_SIT = { em_andamento: 'Em andamento', concluida: 'Concluída', concluida_pendencia: 'Concluída c/ pendência' }
+  const RAT_SIT = { em_andamento: 'Em andamento', registrado: 'Registrada', concluida: 'Concluída', concluida_pendencia: 'Concluída c/ pendência', improdutiva: 'Visita improdutiva' }
   const ratSit = (s) => RAT_SIT[s] || s || '—'
   const PANES = ['dados', 'equip', 'anexos', 'rats', 'material', 'fat']
   // Cresce o textarea para caber todo o conteúdo (sem barra de rolagem).
@@ -465,6 +465,16 @@ const TarefaApp = (() => {
     autoGrow(document.getElementById('cc-d-obs'))
   }
 
+  // Passagem "vou voltar depois pra terminar" em aberto na RAT mais recente da tarefa?
+  function passagemAberta(rats) {
+    const comP = (rats || []).filter(r => r.respostas && r.respostas.volta_amanha)
+    if (!comP.length) return false
+    const chave = (r) => (r.respostas.data || r.data_tarefa || r.criado_em || '')
+    comP.sort((a, b) => chave(b).localeCompare(chave(a)))
+    const u = comP[0]
+    return u.respostas.volta_amanha === 'Não' && u.respostas.passagem_motivo === 'volto_depois'
+  }
+
   async function salvarDados() {
     if (!cur) return
     const patch = {
@@ -493,6 +503,10 @@ const TarefaApp = (() => {
       await carregarTarefas()
       return abrirTarefa(ins.data.id, 'dados')
     }
+    // Concluir com "retorno em aberto": o escritório PODE forçar, mas com ciência (confirma).
+    const concluindo = ['concluida', 'concluida_pendencia'].includes(patch.status) && !['concluida', 'concluida_pendencia'].includes(cur.status)
+    if (concluindo && passagemAberta(cur.rats) &&
+        !confirm('Esta tarefa tem uma RAT marcada como "retornar para finalizar" (retorno em aberto). Concluir mesmo assim?')) return
     const up = await sb().from('tarefas').update(patch).eq('id', cur.id)
     if (up.error) return toast('Erro ao salvar: ' + up.error.message, 'err')
     cur.status = patch.status
@@ -509,6 +523,13 @@ const TarefaApp = (() => {
     if (tecNovos.length) {
       const insT = await sb().from('tarefa_tecnicos').insert(tecNovos.map(tid => ({ tarefa_id: cur.id, tecnico_id: tid })))
       if (insT.error) return toast('Erro ao salvar técnicos: ' + insT.error.message, 'err')
+    }
+    // Responsável é N:N (tarefa_tecnicos) e não há trigger que bumpe tarefas.atualizado_em; sem isso
+    // a alteração feita no portal não deixa rastro de "última modificação". Marca a tarefa explícito.
+    // (Propagação ao app de campo via realtime/tombstone em tarefa_tecnicos fica p/ depois.)
+    if (tecRemov.length || tecNovos.length) {
+      const bump = await sb().from('tarefas').update({ atualizado_em: new Date().toISOString() }).eq('id', cur.id)
+      if (bump.error) console.warn('[tarefa] bump atualizado_em falhou:', bump.error.message)
     }
     tecPorTarefa[cur.id] = tecIds
     // atualiza cache local p/ a lista refletir sem novo fetch
@@ -840,6 +861,7 @@ const TarefaApp = (() => {
   async function carregarRats() {
     const { data, error } = await sb().from('rats').select(RatView.RAT_SELECT)
       .eq('tarefa_id', cur.id).order('data_tarefa', { ascending: true, nullsFirst: true })
+    cur.ratsErro = !!error            // erro de carga ≠ tarefa sem RAT: não esvaziar a lista em silêncio
     cur.rats = error ? [] : (data || [])
     renderRats()
     renderSituacao()
@@ -847,6 +869,11 @@ const TarefaApp = (() => {
   // Mostra as RATs já abertas (expandidas) dentro da aba.
   async function renderRats() {
     const box = document.getElementById('cc-rat-list')
+    if (cur.ratsErro) {   // falha na busca ≠ "sem RAT" — nunca fingir lista vazia
+      document.getElementById('cc-rat-pdf').disabled = true
+      box.innerHTML = '<span class="cc-empty-sm" style="color:var(--red)">Erro ao carregar as RATs — recarregue a página.</span>'
+      return
+    }
     const rats = cur.rats || []
     document.getElementById('cc-rat-pdf').disabled = !rats.length
     if (!rats.length) { box.innerHTML = '<span class="cc-empty-sm">Nenhuma RAT registrada nesta tarefa ainda.</span>'; return }
@@ -876,14 +903,14 @@ const TarefaApp = (() => {
   // esqueceu de fechar o atendimento. RLS: tarefas_admin_all permite o update.
   async function encerrarRat(ratId) {
     const r = (cur.rats || []).find(x => x.id === ratId); if (!r) return
-    if (!confirm('Encerrar esta RAT em andamento e marcá-la como Concluída?\n\nUse "Abrir ↗" para acertar horários/tempo antes, se precisar. Esta ação destrava a tarefa.')) return
-    const upd = { status: 'concluida' }
+    if (!confirm('Encerrar esta RAT em andamento e marcá-la como Registrada (fecha o dia)?\n\nUse "Abrir ↗" para acertar horários/tempo antes, se precisar. Encerrar a RAT não conclui o serviço — isso é feito na Tarefa.')) return
+    const upd = { status: 'registrado' }
     const tm = RatView.tempoRat(r)
     if (tm != null) upd.tempo_trabalhado = tm
     const { error } = await sb().from('rats').update(upd).eq('id', ratId)
     if (error) return toast('Erro ao encerrar: ' + error.message, 'err')
-    r.status = 'concluida'; if (tm != null) r.tempo_trabalhado = tm
-    toast('RAT encerrada (concluída).', 'ok')
+    r.status = 'registrado'; if (tm != null) r.tempo_trabalhado = tm
+    toast('RAT registrada (dia encerrado).', 'ok')
     await carregarRats()   // recarrega RATs + atualiza a faixa Situação/abas
   }
 
@@ -1082,6 +1109,17 @@ const TarefaApp = (() => {
       criado_por: user.id,
     }).select('numero').single()
     if (ins.error) return toast('Erro ao criar tarefa: ' + ins.error.message, 'err')
+    // A pendência virou uma tarefa própria → a original deixa de ser "concluída c/ pendência"
+    // e passa a "concluída" (a pendência não pende mais nela). Só quando já estava nesse estado.
+    if (cur && cur.status === 'concluida_pendencia') {
+      const upd = await sb().from('tarefas').update({ status: 'concluida', pendencias: null }).eq('id', cur.id)
+      if (upd.error) toast('Tarefa de retorno criada, mas falhou atualizar a original: ' + upd.error.message, 'err')
+      else {
+        cur.status = 'concluida'; cur.pendencias = null
+        setStatusBadge(cur.status)
+        const ss = document.getElementById('cc-d-status-sel'); if (ss) ss.value = 'concluida'
+      }
+    }
     fecharModal('modal-pend')
     toast(`Tarefa Nº ${osNo(ins.data.numero)} criada. Atribua o técnico na lista.`, 'ok')
     await carregarTarefas()
@@ -1230,13 +1268,15 @@ const TarefaApp = (() => {
     const e = estadoTarefa()
     box.innerHTML = [
       situCard(e.dadosOk ? 's-ok' : 's-warn', SITU_ICO.dados, 'Dados da tarefa', e.dadosOk ? 'Preenchido' : 'Incompleto'),
-      e.ratsLen === 0
-        ? situCard('s-warn', SITU_ICO.rats, 'RATs', 'Sem RATs')
-        : e.ratNaoEncN
-          ? situCard('s-pend', SITU_ICO.rats, 'RATs', e.ratNaoEncN > 1 ? `${e.ratNaoEncN} não encerradas` : 'Não encerrada', diasTxt(e.ratNaoEncDias))
-          : e.ratEmAndHoje
-            ? situCard('s-warn', SITU_ICO.rats, 'RATs', 'Em andamento', 'hoje')
-            : situCard('s-ok', SITU_ICO.rats, 'RATs', 'Concluído'),
+      cur.ratsErro
+        ? situCard('s-warn', SITU_ICO.rats, 'RATs', 'Erro ao carregar')
+        : e.ratsLen === 0
+          ? situCard('s-warn', SITU_ICO.rats, 'RATs', 'Sem RATs')
+          : e.ratNaoEncN
+            ? situCard('s-pend', SITU_ICO.rats, 'RATs', e.ratNaoEncN > 1 ? `${e.ratNaoEncN} não encerradas` : 'Não encerrada', diasTxt(e.ratNaoEncDias))
+            : e.ratEmAndHoje
+              ? situCard('s-warn', SITU_ICO.rats, 'RATs', 'Em andamento', 'hoje')
+              : situCard('s-ok', SITU_ICO.rats, 'RATs', 'Concluído'),
       situCard(e.prodWarn ? 's-warn' : 's-ok', SITU_ICO.prod, 'Produtos', e.prodWarn ? 'Pendência' : 'OK', e.devItens ? `${e.devItens} a devolver` : ''),
       situCard(e.foraN ? 's-pend' : 's-ok', SITU_ICO.fora, 'Fora da proposta', e.foraN ? `${e.foraN} ${e.foraN > 1 ? 'itens' : 'item'}` : 'OK'),
       situCard(e.fat ? 's-ok' : 's-warn', SITU_ICO.fat, 'Faturamento', e.fat ? 'Faturado' : 'Pendente'),

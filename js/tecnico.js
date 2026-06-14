@@ -20,7 +20,10 @@
   let sig = null            // controlador do canvas de assinatura
   let curVisivel = {}       // id do campo -> visível? (condicionais)
   const TAREFAS_KEY = 'sr_tarefas_v1'
+  const RESP_KEY = 'sr_resp_tarefa_v1'
   let tarefas = []          // tarefas atribuídas (cache)
+  let respPorTarefa = {}    // tarefa_id → [tecnico_id] responsáveis (RLS 0063 deixa ver os co-responsáveis)
+  let respTarefaIds = []    // responsáveis da tarefa da RAT aberta (pré-marca o campo de técnicos)
   let tarefaAberta = null   // tarefa no detalhe
   const T_STATUS = {
     aguardando_execucao: { t: 'Aguardando execução', c: '' },
@@ -31,11 +34,20 @@
     aprovada_faturamento: { t: 'Aprovada p/ faturamento', c: 's-done' },
     faturada: { t: 'Faturada', c: 's-done' },
   }
-  const RAT_SIT_LABEL = { em_andamento: 'Em andamento', concluida: 'Concluída', concluida_pendencia: 'Concluída c/ pendência' }
+  const RAT_SIT_LABEL = { em_andamento: 'Em andamento', registrado: 'Registrada', concluida: 'Concluída', concluida_pendencia: 'Concluída c/ pendência', improdutiva: 'Visita improdutiva' }
   const ratSit = (s) => RAT_SIT_LABEL[s] || s || '—'
+  // Motivos da visita improdutiva (chave salva → rótulo). 'outro' usa texto livre.
+  const MOTIVO_IMPRODUTIVA = {
+    cliente_nao_liberou: 'Cliente não liberou acesso',
+    local_nao_pronto: 'Local não estava pronto',
+    falta_material: 'Falta de peça / material',
+    clima: 'Condições climáticas',
+    equip_cliente_indisponivel: 'Equipamento do cliente indisponível',
+    outro: 'Outro motivo',
+  }
   // Prioridade de exibição por status da tarefa (menor = aparece primeiro).
   const STATUS_PRIORIDADE = { em_execucao: 1, devolvida: 2, aguardando_execucao: 3, concluida_pendencia: 4, concluida: 5, aprovada_faturamento: 6, faturada: 7 }
-  const RAT_PARA_TAREFA = { em_andamento: 'em_execucao', concluida: 'concluida', concluida_pendencia: 'concluida_pendencia' }
+  const RAT_PARA_TAREFA = { em_andamento: 'em_execucao', registrado: 'em_execucao', concluida: 'concluida', concluida_pendencia: 'concluida_pendencia' }
   const prioStatus = (s) => (STATUS_PRIORIDADE[s] != null ? STATUS_PRIORIDADE[s] : 50)
   // Label/cor do status vindos de Configurações (status_tarefa); cai no T_STATUS fixo.
   const stLabel = (s) => (ref.status && ref.status[s] && ref.status[s].label) || (T_STATUS[s] && T_STATUS[s].t) || s || '—'
@@ -43,11 +55,67 @@
   const stStyle = (s) => `background:${stCor(s)}1A;color:${stCor(s)};border:none`
   // Mapeia status do sistema → variante visual do skin (info/done/warn/pend/aguard).
   const SKIN_STATUS = { em_execucao: 'info', aguardando_execucao: 'aguard', concluida: 'done', concluida_pendencia: 'warn', devolvida: 'pend', aprovada_faturamento: 'done', faturada: 'done' }
-  function togglePendencias() {
-    const v = document.getElementById('f-status').value
-    document.getElementById('f-pendencias-wrap').style.display = (v === 'concluida_pendencia') ? 'block' : 'none'
-    const b = document.getElementById('btn-salvar')
-    if (b) b.textContent = (v === 'em_andamento') ? 'Salvar e continuar' : 'Salvar e concluir'
+  // Checkpoint de passagem: revelado ao tocar "Encerrar a RAT do dia". "Volta amanhã?"; se Não, o que falta/levar.
+  let voltaAmanha = null
+  let revelarPass = false   // o checkpoint só aparece quando o técnico opta por encerrar o dia
+  function togglePassagem() {
+    const box = document.getElementById('f-passagem')
+    if (box) box.style.display = (atendExec === 'Sim' && revelarPass) ? 'block' : 'none'
+  }
+  function setVoltaAmanha(v) {
+    voltaAmanha = (v === 'Não') ? 'Não' : 'Sim'
+    document.querySelectorAll('#f-volta-seg button').forEach(b => b.classList.toggle('on', b.dataset.v === voltaAmanha))
+    const nao = document.getElementById('f-passagem-nao')
+    if (nao) nao.style.display = (voltaAmanha === 'Não') ? 'block' : 'none'
+    if (voltaAmanha !== 'Não') document.querySelectorAll('#f-passagem-motivo input').forEach(r => { r.checked = false })
+    togglePassagemHandoff()
+    atualizarBtnSalvar()   // "Não" revela o "Encerrar" final; "Sim" encerra direto (no handler do botão)
+  }
+  // Voltar do checkpoint: recolhe "Volta amanhã?" e devolve "Salvar e continuar" — o técnico não fica preso.
+  function voltarDoCheckpoint() {
+    revelarPass = false; voltaAmanha = null
+    document.querySelectorAll('#f-volta-seg button').forEach(b => b.classList.remove('on'))
+    const nao = document.getElementById('f-passagem-nao'); if (nao) nao.style.display = 'none'
+    togglePassagem(); atualizarBtnSalvar()
+  }
+  // Sub-motivo do "Não volto amanhã": 'terminei' (vou concluir na Tarefa, sem handoff) |
+  // 'volto_depois' (continua → o que falta / o que levar OBRIGATÓRIOS). 'Terminei' NÃO conclui aqui.
+  const passMotivoVal = () => { const el = document.querySelector('#f-passagem-motivo input:checked'); return el ? el.value : null }
+  function togglePassagemHandoff() {
+    const m = (voltaAmanha === 'Não') ? passMotivoVal() : null
+    const ho = document.getElementById('f-passagem-handoff'); if (ho) ho.style.display = (m === 'volto_depois') ? 'block' : 'none'
+    const th = document.getElementById('f-passagem-terminei-hint'); if (th) th.style.display = (m === 'terminei') ? 'block' : 'none'
+  }
+  // Execução é o padrão; o checkbox "visita improdutiva" troca pra 'Não' (motivo + tempo no local,
+  // sem exigir execução; a tarefa fica aguardando). Estado em `atendExec` ('Sim'|'Não').
+  let atendExec = 'Sim'
+  function setExec(v) {
+    atendExec = (v === 'Não') ? 'Não' : 'Sim'
+    const sim = document.getElementById('f-exec-sim'), nao = document.getElementById('f-exec-nao')
+    if (sim) sim.style.display = (atendExec === 'Não') ? 'none' : 'block'
+    if (nao) nao.style.display = (atendExec === 'Não') ? 'block' : 'none'
+    atualizarBtnSalvar()
+    togglePassagem()
+  }
+  function toggleMotivoTexto() {
+    const sel = document.querySelector('#f-motivos input[name="f-motivo"]:checked')
+    const wrap = document.getElementById('f-motivo-texto-wrap')
+    if (wrap) wrap.style.display = (sel && sel.value === 'outro') ? 'block' : 'none'
+  }
+  // Ação primária: "Encerrar a RAT do dia" (Sim) | "Registrar visita" (Não improdutiva).
+  // Secundária "Salvar e continuar" (salva parcial em_andamento) só aparece no Sim.
+  function atualizarBtnSalvar() {
+    const b = document.getElementById('btn-salvar'), bc = document.getElementById('btn-continuar')
+    const bv = document.getElementById('btn-voltar-pass')
+    const imp = (atendExec === 'Não')
+    if (b) b.textContent = imp ? 'Registrar visita' : 'Encerrar a RAT do dia'
+    // "Salvar e continuar": só no fluxo normal, antes de abrir o checkpoint de encerrar.
+    if (bc) bc.style.display = (imp || revelarPass) ? 'none' : ''
+    // "Voltar": só com o checkpoint aberto (execução) — pra o técnico não ficar preso.
+    if (bv) bv.style.display = (!imp && revelarPass) ? '' : 'none'
+    // "Encerrar": some enquanto espera a resposta do "Volta amanhã?" (Sim encerra sozinho) e
+    // reaparece no caminho "Não" pra confirmar depois do motivo.
+    if (b) b.style.display = (!imp && revelarPass && voltaAmanha !== 'Não') ? 'none' : ''
   }
   const osNo = (n) => n != null ? String(n).padStart(5, '0') : '—'
   const cliNomeDe = (id, fb) => (ref.clientes.find(c => c.id === id) || {}).nome || fb || '—'
@@ -138,7 +206,14 @@
   function bind() {
     // RAT — sempre criada DENTRO de uma Tarefa (não há criação avulsa).
     document.getElementById('btn-cancelar').onclick = cancelar
-    document.getElementById('btn-salvar').onclick = salvar
+    // Ação primária: encerrar o dia (Sim, revela o checkpoint) ou registrar visita (Não improdutiva).
+    document.getElementById('btn-salvar').onclick = () => {
+      if (atendExec === 'Não') return salvar()                 // improdutiva: registra direto
+      if (!revelarPass) { revelarPass = true; togglePassagem(); atualizarBtnSalvar(); return }  // 1º toque: revela o checkpoint, sem salvar
+      salvar('registrado')                                      // caminho "Não": confirma depois do motivo
+    }
+    // Secundária: salvar parcial e continuar editando hoje (em_andamento).
+    document.getElementById('btn-continuar').onclick = () => salvar('em_andamento')
     // Botões do formulário da RAT
     document.getElementById('form-produtos-btn').onclick = abrirModalProd
     document.getElementById('form-fotos-btn').onclick = abrirModalFotos
@@ -172,26 +247,28 @@
     const pcb = document.getElementById('prod-cat-busca')
     if (pcb) pcb.oninput = () => renderCatalogoSug()
     document.getElementById('f-tipo').onchange = onTipoChange
-    document.getElementById('f-status').onchange = togglePendencias
+    // Execução é o padrão; marcar "visita improdutiva" troca o modo (recolhe o checkpoint).
+    document.getElementById('f-improdutiva-chk').onchange = (e) => { revelarPass = false; setExec(e.target.checked ? 'Não' : 'Sim') }
+    document.querySelectorAll('#f-volta-seg button').forEach(b => { b.onclick = () => { setVoltaAmanha(b.dataset.v); if (b.dataset.v === 'Sim') salvar('registrado') } })
+    document.getElementById('btn-voltar-pass').onclick = voltarDoCheckpoint
+    document.querySelectorAll('#f-passagem-motivo input[name="f-pass-motivo"]').forEach(r => { r.onchange = togglePassagemHandoff })
+    document.querySelectorAll('#f-motivos input[name="f-motivo"]').forEach(r => { r.onchange = toggleMotivoTexto })
     // Navegação da home
     document.getElementById('btn-voltar').onclick = onVoltar
     document.getElementById('nav-os').onclick = async () => { mostrar('lista'); await renderLista() }
     document.getElementById('nav-tarefas').onclick = async () => { mostrar('tarefas'); await renderTarefas() }
     document.getElementById('btn-tarefas-sync').onclick = async () => { await renderTarefas(true) }
-    document.getElementById('btn-nova-tarefa').onclick = () => {
-      document.getElementById('nt-cliente').value = ''; document.getElementById('nt-cliente-busca').value = ''
-      document.getElementById('nt-tipo').value = ''; document.getElementById('nt-data').value = ''
-      document.getElementById('nt-status').value = 'aguardando_execucao'
-      document.getElementById('nt-orientacao').value = ''
-      montarNtTecnicos()
-      document.getElementById('modal-nt').classList.add('open')
-    }
+    document.getElementById('btn-nova-tarefa').onclick = () => abrirModalNovaTarefa(false)
+    const hnt = document.getElementById('home-nova-tarefa'); if (hnt) hnt.onclick = () => abrirModalNovaTarefa(true)
     document.getElementById('nt-fechar').onclick = () => document.getElementById('modal-nt').classList.remove('open')
     document.getElementById('nt-cancelar').onclick = () => document.getElementById('modal-nt').classList.remove('open')
     document.getElementById('nt-criar').onclick = criarTarefaTecnico
-    document.getElementById('btn-iniciar-rat').onclick = () => { if (tarefaAberta) iniciarRatDaTarefa(tarefaAberta) }
+    document.getElementById('btn-iniciar-rat').onclick = () => { if (tarefaAberta) abrirRatDeHoje(tarefaAberta) }
     document.getElementById('btn-concluir').onclick = () => concluirTarefa(false)
     document.getElementById('btn-concluir-pend').onclick = () => concluirTarefa(true)
+    document.getElementById('cp-fechar').onclick = () => document.getElementById('modal-conc-pend').classList.remove('open')
+    document.getElementById('cp-cancelar').onclick = () => document.getElementById('modal-conc-pend').classList.remove('open')
+    document.getElementById('cp-confirmar').onclick = confirmarConcluirPend
     document.getElementById('nav-preorc').onclick = async () => { mostrar('preorc-lista'); await renderPreorcLista() }
     document.getElementById('nav-jornada').onclick = async () => { mostrar('jornada'); await renderJornada() }
     document.getElementById('nav-desloc').onclick = async () => { mostrar('desloc'); await renderDesloc() }
@@ -208,6 +285,14 @@
     const pf = document.getElementById('po-foto-input')
     document.getElementById('po-btn-foto').onclick = () => pf.click()
     pf.onchange = () => poAddFotos(pf.files)
+    // A fila (Home) depende de estado do servidor — responsável — que NÃO passa pelo SYNC_MAP de
+    // RATs/deslocamentos; logo mudança feita no portal não dispara onSyncChanged. Enquanto a Home
+    // estiver visível, atualizamos a fila por conta própria: ao reganhar foco, ao reconectar e a
+    // cada 60s. (Propagação via realtime/tombstone em tarefa_tecnicos fica como melhoria futura.)
+    const refreshFilaSeHome = () => { if (screen === 'home' && !document.hidden && navigator.onLine) renderFila() }
+    document.addEventListener('visibilitychange', refreshFilaSeHome)
+    window.addEventListener('online', refreshFilaSeHome)
+    setInterval(refreshFilaSeHome, 60 * 1000)
   }
 
   // ───────────────────── Dados de referência ─────────────────────
@@ -317,12 +402,13 @@
     // Status da tarefa-pai (para ordenar por prioridade); cai no status da própria RAT se a tarefa não estiver carregada.
     const tarStatusDe = (r) => { const t = tarefas.find(x => x.id === r.tarefa_id); return t ? t.status : (RAT_PARA_TAREFA[r.status] || r.status) }
     const tarNumeroDe = (r) => { const t = tarefas.find(x => x.id === r.tarefa_id); return (t && t.numero != null) ? t.numero : r.tarefa_numero }
-    // Subnumeração por tarefa (/01, /02…): usa rat_seq do servidor; se ainda local, ordem de criação.
+    // Subnumeração por tarefa (/01, /02…): usa rat_seq do servidor; se ainda local (não rascunho),
+    // ordem de criação. Rascunho NÃO recebe nº (não colide com o /NN do servidor de outra RAT).
     const subLocal = {}
-    for (const r of [...rats].sort((a, b) => (a.criado_em || '').localeCompare(b.criado_em || ''))) {
+    for (const r of [...rats].filter(r => r.sync_status !== D().STATUS.RASCUNHO).sort((a, b) => (a.criado_em || '').localeCompare(b.criado_em || ''))) {
       (subLocal[r.tarefa_id] = subLocal[r.tarefa_id] || []).push(r.client_uuid)
     }
-    const subDe = (r) => { if (r.rat_seq != null) return r.rat_seq; const a = subLocal[r.tarefa_id] || []; const i = a.indexOf(r.client_uuid); return i >= 0 ? i + 1 : null }
+    const subDe = (r) => { if (r.rat_seq != null) return r.rat_seq; if (r.sync_status === D().STATUS.RASCUNHO) return null; const a = subLocal[r.tarefa_id] || []; const i = a.indexOf(r.client_uuid); return i >= 0 ? i + 1 : null }
     const pad2 = (n) => String(n).padStart(2, '0')
     const tarLabel = (r) => { const n = tarNumeroDe(r); if (n == null) return ''; const s = subDe(r); return 'Tarefa Nº ' + osNo(n) + (s != null ? '/' + pad2(s) : '') + ' · ' }
     const ordenadas = rats.slice().sort((a, b) => prioStatus(tarStatusDe(a)) - prioStatus(tarStatusDe(b)) || (b.criado_em || '').localeCompare(a.criado_em || ''))
@@ -365,23 +451,28 @@
   }
 
   // ─────────────────────── Tarefas atribuídas (#7) ───────────────────────
-  // RLS já filtra para as tarefas do técnico (via tarefa_tecnicos). Cacheia p/ offline.
-  async function renderTarefas(force) {
-    const box = document.getElementById('lista-tarefas')
-    if (box && !tarefas.length) box.innerHTML = '<p class="dim" style="padding:14px 2px">Carregando…</p>'
+  // Carrega as tarefas do técnico (RLS já filtra por tarefa_tecnicos) e mescla as criadas
+  // offline ainda na fila. Cacheia p/ offline. Popula o global `tarefas` (sem renderizar).
+  async function carregarTarefas(force) {
     try {
       const sb = getSupabase()
       const { data, error } = await sb.from('tarefas')
-        .select('id,numero,status,data_agendada,cliente_id,orientacao,observacoes,tipo_servico_id')
+        .select('id,numero,status,data_agendada,cliente_id,orientacao,observacoes,tipo_servico_id,local_servico,previsao_dias')
         .neq('status', 'faturada')
         .order('data_agendada', { ascending: true, nullsFirst: false })
         .order('numero', { ascending: false })
       if (error) throw error
       tarefas = data || []
       localStorage.setItem(TAREFAS_KEY, JSON.stringify(tarefas))
+      // Responsáveis das tarefas (a RAT pré-preenche a equipe). RLS 0063: técnico vê os co-responsáveis das tarefas dele.
+      const { data: tts } = await sb.from('tarefa_tecnicos').select('tarefa_id,tecnico_id')
+      respPorTarefa = {}
+      for (const r of (tts || [])) (respPorTarefa[r.tarefa_id] = respPorTarefa[r.tarefa_id] || []).push(r.tecnico_id)
+      localStorage.setItem(RESP_KEY, JSON.stringify(respPorTarefa))
     } catch (e) {
       const cache = localStorage.getItem(TAREFAS_KEY)
       tarefas = cache ? JSON.parse(cache) : []
+      try { respPorTarefa = JSON.parse(localStorage.getItem(RESP_KEY) || '{}') } catch (_) { respPorTarefa = {} }
       if (force) toast('Offline — mostrando tarefas salvas.', 'info')
     }
     // Mescla tarefas criadas offline (ainda na fila) que ainda não vieram do servidor.
@@ -392,6 +483,13 @@
     tarefas = extras.concat(tarefas)
     // Ordena por prioridade de status (Em execução → Devolvida → Aguardando → …), depois por data.
     tarefas.sort((a, b) => prioStatus(a.status) - prioStatus(b.status) || (a.data_agendada || '').localeCompare(b.data_agendada || ''))
+    return tarefas
+  }
+
+  async function renderTarefas(force) {
+    const box = document.getElementById('lista-tarefas')
+    if (box && !tarefas.length) box.innerHTML = '<p class="dim" style="padding:14px 2px">Carregando…</p>'
+    await carregarTarefas(force)
     if (!box) return
     if (!tarefas.length) { box.innerHTML = '<p class="dim" style="padding:14px 2px">Nenhuma tarefa atribuída a você.</p>'; return }
     box.innerHTML = tarefas.map(t => {
@@ -409,6 +507,112 @@
     box.querySelectorAll('.listcard').forEach(el => el.onclick = () => abrirTarefaDet(el.dataset.id))
   }
 
+  // ───────────────────── Home — agenda do dia + fila ─────────────────────
+  const tipoNomeDe = (id) => (ref.tipos.find(x => x.id === id) || {}).nome || ''
+  const LC_SK = { info: 'lc-info', done: 'lc-done', warn: 'lc-warn' }
+  const isHoje = (d) => { if (!d) return false; const x = new Date(String(d).length <= 10 ? d + 'T00:00:00' : d); if (isNaN(x)) return false; const h = new Date(); return x.getFullYear() === h.getFullYear() && x.getMonth() === h.getMonth() && x.getDate() === h.getDate() }
+  // RAT do dia (uma por tarefa/dia): reusa a de hoje — inclusive RASCUNHO ainda não enviado —
+  // pra "Iniciar RAT" reabrir em vez de criar outra. Não reusa improdutiva (visita fechada à parte).
+  const ratDoDiaDe = (rs, tid) => rs.find(r => r.tarefa_id === tid && (r.status === 'em_andamento' || r.status === 'registrado') && isHoje((r.respostas && r.respostas.data) || r.criado_em))
+  function estadoAgenda(t, temRatHoje) {
+    if (t.status === 'em_execucao') return { sk: 'info', txt: temRatHoje ? 'Atendimento continua' : 'Em execução' }
+    if (t.status === 'devolvida') return { sk: 'pend', txt: 'Devolvida — corrigir' }
+    return { sk: 'aguard', txt: 'Aguardando' }
+  }
+
+  async function renderHome() {
+    await carregarTarefas()
+    updateHomeResumo()
+    const ratsLocais = await D().listarRats()
+    // (1) Minhas tarefas de hoje: agendada hoje OU em execução (atividade contínua)
+    const FECHADAS = ['concluida', 'concluida_pendencia', 'aprovada_faturamento', 'faturada']
+    const hoje = (tarefas || []).filter(t => !FECHADAS.includes(t.status) && (isHoje(t.data_agendada) || t.status === 'em_execucao'))
+    const hojeBox = document.getElementById('home-hoje'), hojeCt = document.getElementById('home-hoje-ct')
+    if (hojeCt) hojeCt.textContent = hoje.length || ''
+    if (hojeBox) {
+      hojeBox.innerHTML = !hoje.length
+        ? '<div class="home-empty">Nada agendado pra hoje. Pegue uma da fila ou crie uma nova.</div>'
+        : hoje.map(t => {
+            const temRatHoje = !!ratDoDiaDe(ratsLocais, t.id)
+            const e = estadoAgenda(t, temRatHoje)
+            const dias = new Set(ratsLocais.filter(r => r.tarefa_id === t.id && r.sync_status !== D().STATUS.RASCUNHO)
+              .map(r => (r.respostas && r.respostas.data) || (r.criado_em || '').slice(0, 10)).filter(Boolean)).size
+            const multi = t.previsao_dias ? `<div class="tkprog num">Dia ${dias + (temRatHoje ? 0 : 1)} · previsto ~${t.previsao_dias}</div>` : ''
+            const sub = [tipoNomeDe(t.tipo_servico_id), t.local_servico].filter(Boolean).join(' · ')
+            return `<div class="listcard ${LC_SK[e.sk] || ''}" data-hoje="${esc(t.id)}"><span class="edge e-${e.sk}"></span>
+              <div class="t"><span class="cli">${esc(cliNomeDe(t.cliente_id))}</span></div>
+              ${sub ? `<div class="meta">${esc(sub)}</div>` : ''}${multi}
+              <div class="tkact"><span class="badge b-${e.sk}">${esc(e.txt)}</span><span class="tkgo">${temRatHoje ? 'RAT de hoje' : 'Iniciar'} <svg viewBox="0 0 24 24"><path d="M9 6l6 6-6 6"/></svg></span></div>
+            </div>`
+          }).join('')
+      hojeBox.querySelectorAll('[data-hoje]').forEach(el => el.onclick = () => { const t = (tarefas || []).find(x => x.id === el.dataset.hoje); if (t) abrirRatDeHoje(t) })
+    }
+    // (2) Fila — em função própria: ela se atualiza sozinha (visibilitychange/online/tick no bind()),
+    //     já que mudança de responsável no portal não passa pelo SYNC_MAP (RATs/deslocamentos).
+    await renderFila()
+  }
+
+  // Fila — tarefas abertas (sem responsável). Só online (consulta o servidor via RPC).
+  // Chamada pelo renderHome e, enquanto a Home estiver à frente, pelos gatilhos do bind()
+  // (foco/reconexão/tick): o app de campo não recebe a mudança de responsável pelo sync.
+  async function renderFila() {
+    const filaBox = document.getElementById('home-fila'), filaCt = document.getElementById('home-fila-ct')
+    if (!filaBox) return
+    if (!navigator.onLine) { filaBox.innerHTML = '<div class="home-empty">Sem conexão — a fila aparece quando houver internet.</div>'; if (filaCt) filaCt.textContent = ''; return }
+    try {
+      const { data, error } = await getSupabase().rpc('fila_tarefas')
+      if (error) throw error
+      const fila = data || []
+      if (filaCt) filaCt.textContent = fila.length || ''
+      filaBox.innerHTML = !fila.length
+        ? '<div class="home-empty">Nenhuma tarefa aberta na fila.</div>'
+        : fila.map(t => {
+            const sub = [tipoNomeDe(t.tipo_servico_id), t.local_servico].filter(Boolean).join(' · ')
+            return `<div class="listcard lc-info"><span class="edge e-info"></span>
+              <div class="t"><span class="cli">${esc(cliNomeDe(t.cliente_id))}</span></div>
+              ${sub ? `<div class="meta">${esc(sub)}</div>` : ''}
+              <div class="tkact"><span class="badge b-info">Na fila</span><button class="tkpick" data-pegar="${esc(t.id)}">Pegar</button></div>
+            </div>`
+          }).join('')
+      filaBox.querySelectorAll('[data-pegar]').forEach(b => b.onclick = (e) => { e.stopPropagation(); pegarDaFila(b.dataset.pegar) })
+    } catch (e) { filaBox.innerHTML = '<div class="home-empty">Não foi possível carregar a fila.</div>'; if (filaCt) filaCt.textContent = '' }
+  }
+
+  // Abre a RAT de hoje da tarefa: reabre a do dia se já existe (local), senão cria.
+  async function abrirRatDeHoje(t) {
+    const doDia = ratDoDiaDe(await D().listarRats(), t.id)
+    if (doDia) return abrirExistente(doDia.client_uuid)
+    return iniciarRatDaTarefa(t)
+  }
+
+  // Pega uma tarefa da fila: vira responsável (RPC) e abre a RAT do dia.
+  async function pegarDaFila(tarefaId) {
+    try {
+      const { error } = await getSupabase().rpc('pegar_tarefa', { p_tarefa: tarefaId })
+      if (error) throw error
+    } catch (e) {
+      return toast((e && e.message && /já tem responsável/.test(e.message)) ? 'Outro técnico já pegou essa tarefa.' : 'Não foi possível pegar a tarefa.', 'err')
+    }
+    toast('Tarefa atribuída a você.', 'ok')
+    await carregarTarefas(true)
+    const t = (tarefas || []).find(x => x.id === tarefaId)
+    if (t) await abrirRatDeHoje(t); else await renderHome()
+  }
+
+  // Abre o modal Nova tarefa. emCampo = atalho da home (corretivo na hora): nasce
+  // "Em execução" e já agendada pra hoje, pois o técnico está no local.
+  function abrirModalNovaTarefa(emCampo) {
+    document.getElementById('nt-cliente').value = ''; document.getElementById('nt-cliente-busca').value = ''
+    document.getElementById('nt-tipo').value = ''
+    const loc = document.getElementById('nt-local'); if (loc) loc.value = ''
+    const hojeISO = new Date().toISOString().slice(0, 10)
+    document.getElementById('nt-data').value = emCampo ? hojeISO : ''
+    document.getElementById('nt-status').value = emCampo ? 'em_execucao' : 'aguardando_execucao'
+    document.getElementById('nt-orientacao').value = ''
+    montarNtTecnicos()
+    document.getElementById('modal-nt').classList.add('open')
+  }
+
   async function criarTarefaTecnico() {
     const cliId = document.getElementById('nt-cliente').value
     const tipoId = document.getElementById('nt-tipo').value
@@ -416,11 +620,13 @@
     if (!tipoId) return toast('Selecione o tipo de serviço.', 'err')
     const status = document.getElementById('nt-status').value || 'aguardando_execucao'
     const orientacao = document.getElementById('nt-orientacao').value.trim() || null
+    const localServico = (document.getElementById('nt-local') || {}).value
     const tecs = [...document.querySelectorAll('#nt-tecs input:checked')].map(c => c.value)
     if (!tecs.includes(tecnico.id)) tecs.push(tecnico.id)   // o próprio técnico sempre incluso
     // Offline-first: grava na fila local; o SyncEngine envia (tarefa antes das RATs).
     const t = await D().salvarTarefaLocal({
       id: crypto.randomUUID(), cliente_id: cliId, status, tipo_servico_id: tipoId, orientacao,
+      local_servico: (localServico || '').trim() || null,
       data_agendada: document.getElementById('nt-data').value || null, criado_por: tecnico.id, tecnicos: tecs,
     })
     document.getElementById('modal-nt').classList.remove('open')
@@ -429,6 +635,18 @@
     if (window.SyncEngine && navigator.onLine) window.SyncEngine.syncAll()
     if (navigator.onLine && window.notificarPush && tecs.some(id => id !== tecnico.id)) notificarPush('tarefa_atribuida', { tecnicos: tecs, cliente: cliNomeDe(cliId) })
     await abrirTarefaDet(t.id)
+  }
+
+  // Passagem "vou voltar depois pra terminar" em aberto? Olha a RAT mais recente da tarefa que
+  // respondeu o checkpoint: se a última foi volta_amanha=Não + motivo volto_depois, o retorno
+  // está aberto (serviço não acabou). Não inventa status — usa a passagem já gravada nas respostas.
+  function passagemAberta(rats) {
+    const comP = (rats || []).filter(r => r.respostas && r.respostas.volta_amanha)
+    if (!comP.length) return false
+    const chave = (r) => (r.respostas.data || r.data_tarefa || r.criado_em || '')
+    comP.sort((a, b) => chave(b).localeCompare(chave(a)))
+    const u = comP[0]
+    return u.respostas.volta_amanha === 'Não' && u.respostas.passagem_motivo === 'volto_depois'
   }
 
   async function abrirTarefaDet(id) {
@@ -450,20 +668,35 @@
     if (t.orientacao) { document.getElementById('t-det-orient').textContent = t.orientacao; oSec.style.display = 'block' } else oSec.style.display = 'none'
     const obSec = document.getElementById('t-det-obs-sec')
     if (t.observacoes) { document.getElementById('t-det-obs').textContent = t.observacoes; obSec.style.display = 'block' } else obSec.style.display = 'none'
-    // concluir exige ≥1 RAT salva desta tarefa (não dá pra concluir sem registro)
-    const podeConcluir = !['aprovada_faturamento', 'faturada'].includes(t.status)
+    // Tarefa já encerrada p/ o técnico: concluída (com/sem pendência) ou em faturamento.
+    // Nessas, não há "Concluir serviço" (já concluiu) nem "Iniciar RAT" (serviço fechado; reabrir é do admin = devolvida).
+    const TAREFA_FECHADA = ['concluida', 'concluida_pendencia', 'aprovada_faturamento', 'faturada']
+    document.getElementById('btn-iniciar-rat-wrap').style.display = TAREFA_FECHADA.includes(t.status) ? 'none' : 'block'
+    // concluir exige ≥1 RAT REGISTRADA (o dia precisa estar fechado; "em andamento" não conta)
+    const podeConcluir = !TAREFA_FECHADA.includes(t.status)
+    const RAT_FECHADA = ['registrado', 'concluida', 'concluida_pendencia']   // concluida* = histórico
     const todas = await D().listarRats()
-    // RAT "completa" = salva (o salvar() só promove de rascunho após validar os obrigatórios) e questionário ok
-    let temRat = (todas || []).some(r => r.tarefa_id === id && r.sync_status !== D().STATUS.RASCUNHO && r.questionario_ok !== false)
-    if (!temRat && navigator.onLine) {
+    const ratsLocais = (todas || []).filter(r => r.tarefa_id === id)
+    let temRat = ratsLocais.some(r => r.sync_status !== D().STATUS.RASCUNHO && RAT_FECHADA.includes(r.status))
+    let retAberto = passagemAberta(ratsLocais)
+    if (navigator.onLine) {
       try {
-        const { count } = await getSupabase().from('rats').select('id', { count: 'exact', head: true })
-          .eq('tarefa_id', id).eq('questionario_ok', true)
-        temRat = (count || 0) > 0
+        const { data: srv } = await getSupabase().from('rats')
+          .select('respostas,data_tarefa,criado_em,status').eq('tarefa_id', id)
+        if (srv) { temRat = temRat || srv.some(r => RAT_FECHADA.includes(r.status)); retAberto = passagemAberta(srv) }   // servidor é autoritativo (vê RAT de coautor)
       } catch (e) { /* offline/erro: mantém o que tem local */ }
     }
-    document.getElementById('t-det-concluir').style.display = (podeConcluir && temRat) ? 'flex' : 'none'
-    document.getElementById('t-det-concluir-hint').style.display = (podeConcluir && !temRat) ? 'block' : 'none'
+    // Concluir bloqueado se há "retorno em aberto" (RAT marcada como "vou voltar depois pra terminar").
+    // O técnico não pode; o admin pode forçar pelo portal (com ciência).
+    const liberado = podeConcluir && temRat && !retAberto
+    document.getElementById('t-det-concluir').style.display = liberado ? 'flex' : 'none'
+    const hintEl = document.getElementById('t-det-concluir-hint')
+    if (podeConcluir && !liberado) {
+      hintEl.style.display = 'block'
+      hintEl.innerHTML = retAberto
+        ? 'Esta tarefa tem uma RAT marcada como <b>“retornar para finalizar”</b>. Conclua o retorno antes de finalizar a tarefa.'
+        : 'Para concluir o serviço, encerre ao menos uma RAT desta tarefa com <b>todos os campos obrigatórios</b> preenchidos.'
+    } else { hintEl.style.display = 'none' }
     mostrar('tarefa-det')
     await carregarMaterialDaTarefa(id)
     await carregarEquipDaTarefa(id)
@@ -511,19 +744,40 @@
     } catch (e) { sec.style.display = 'none' }
   }
 
+  // Concluir o SERVIÇO (nível Tarefa, deliberado, uma vez) — separado de encerrar a RAT do dia.
   async function concluirTarefa(comPendencia) {
     if (!tarefaAberta) return
-    if (!navigator.onLine) return toast('Sem conexão — conclua pela RAT ou quando estiver online.', 'err')
-    let pend = null
-    if (comPendencia) {
-      pend = (prompt('Descreva a pendência da tarefa:') || '').trim()
-      if (!pend) return toast('Pendência obrigatória.', 'err')
-    }
-    const novo = comPendencia ? 'concluida_pendencia' : 'concluida'
-    const up = await getSupabase().from('tarefas').update({ status: novo, pendencias: pend }).eq('id', tarefaAberta.id)
-    if (up.error) return toast('Erro ao concluir: ' + up.error.message, 'err')
+    if (!navigator.onLine) return toast('Sem conexão — conclua o serviço quando estiver online.', 'err')
+    if (comPendencia) return abrirModalConcPend()
+    if (!confirm('Concluir o serviço desta tarefa?\n\nIsso fecha a Tarefa inteira (não só o dia). Se o trabalho continua, use "RAT de hoje".')) return
     const id = tarefaAberta.id
-    toast(comPendencia ? 'Tarefa concluída com pendência.' : 'Tarefa concluída.', 'ok')
+    const up = await getSupabase().from('tarefas').update({ status: 'concluida', pendencias: null }).eq('id', id)
+    if (up.error) return toast('Erro ao concluir: ' + up.error.message, 'err')
+    toast('Serviço concluído.', 'ok')
+    await renderTarefas()
+    await abrirTarefaDet(id)
+  }
+
+  // Modal: concluir com pendência (texto). A tarefa de retorno é decisão do admin no portal.
+  function abrirModalConcPend() {
+    const t = tarefaAberta; if (!t) return
+    document.getElementById('cp-texto').value = (t.pendencias || '').trim()
+    document.getElementById('modal-conc-pend').classList.add('open')
+  }
+  async function confirmarConcluirPend() {
+    const t = tarefaAberta; if (!t) return
+    if (!navigator.onLine) return toast('Sem conexão — conclua quando estiver online.', 'err')
+    const texto = document.getElementById('cp-texto').value.trim()
+    if (!texto) return toast('Descreva a pendência.', 'err')
+    const up = await getSupabase().from('tarefas').update({ status: 'concluida_pendencia', pendencias: texto }).eq('id', t.id)
+    if (up.error) return toast('Erro ao concluir: ' + up.error.message, 'err')
+    // Avisa o admin/gestor: como o retorno é gerado no portal, este push é o gatilho pra reagendar.
+    if (navigator.onLine && window.notificarPush) {
+      notificarPush('tarefa_pendencia', { numero: t.numero, cliente: cliNomeDe(t.cliente_id), tarefa_id: t.id, pendencia: texto.slice(0, 160) })
+    }
+    document.getElementById('modal-conc-pend').classList.remove('open')
+    toast('Serviço concluído com pendência.', 'ok')
+    const id = t.id
     await renderTarefas()
     await abrirTarefaDet(id)
   }
@@ -566,9 +820,11 @@
 
   async function iniciarRatDaTarefa(t) {
     const tipoId = t.tipo_servico_id || ''
+    // RAT nova: pré-marca a equipe da tarefa (responsáveis). Cai pro técnico logado se ainda não carregou.
+    respTarefaIds = (respPorTarefa[t.id] && respPorTarefa[t.id].length) ? respPorTarefa[t.id].slice() : [tecnico.id]
     // tarefa entra em execução assim que ganha uma RAT (o servidor confirma via trigger)
     if (t.status === 'aguardando_execucao') t.status = 'em_execucao'
-    const rat = await D().novoRat({ tarefa_id: t.id, tarefa_numero: t.numero || null, cliente_id: t.cliente_id || null, cliente_nome: cliNomeDe(t.cliente_id, null) })
+    const rat = await D().novoRat({ tarefa_id: t.id, tarefa_numero: t.numero || null, cliente_id: t.cliente_id || null, cliente_nome: cliNomeDe(t.cliente_id, null), data_tarefa: jorHoje() })
     cur = { client_uuid: rat.client_uuid, campos: [], tarefa_id: t.id, tarefa_numero: t.numero }
     usoProd = null
     const tipoNome = (ref.tipos.find(x => x.id === tipoId) || {}).nome
@@ -584,9 +840,21 @@
     // tipo é SEMPRE da tarefa: o seletor nunca aparece na RAT
     document.getElementById('f-tipo').value = tipoId
     document.getElementById('f-tipo-wrap').style.display = 'none'
-    document.getElementById('f-status').value = 'em_andamento'
-    document.getElementById('f-pendencias').value = ''
-    togglePendencias()
+    // RAT nova nasce como atendimento executado (Sim); limpa motivo de improdutiva anterior
+    document.querySelectorAll('#f-motivos input[name="f-motivo"]').forEach(r => { r.checked = false })
+    const mtx = document.getElementById('f-motivo-texto'); if (mtx) mtx.value = ''
+    // checkpoint de passagem: começa recolhido e limpo ("volta amanhã?" e os textos)
+    revelarPass = false
+    voltaAmanha = null
+    document.querySelectorAll('#f-volta-seg button').forEach(b => b.classList.remove('on'))
+    document.querySelectorAll('#f-passagem-motivo input').forEach(r => { r.checked = false })
+    ;['f-passagem-falta', 'f-passagem-levar'].forEach(id => { const el = document.getElementById(id); if (el) el.value = '' })
+    const pnao = document.getElementById('f-passagem-nao'); if (pnao) pnao.style.display = 'none'
+    const pho = document.getElementById('f-passagem-handoff'); if (pho) pho.style.display = 'none'
+    const pth = document.getElementById('f-passagem-terminei-hint'); if (pth) pth.style.display = 'none'
+    const ic = document.getElementById('f-improdutiva-chk'); if (ic) ic.checked = false   // RAT nova nasce como execução
+    toggleMotivoTexto()
+    setExec('Sim')
     document.getElementById('campos-container').innerHTML = ''
     mostrar('form')
     // carrega o formulário do tipo da tarefa (ou mostra aviso se a tarefa não tem tipo)
@@ -631,7 +899,7 @@
     const t = document.getElementById('ft-title'); if (t) t.textContent = TITLES[secao] || 'Service Report'
     const b = document.getElementById('btn-voltar'); if (b) b.style.display = (secao === 'home') ? 'none' : 'block'
     try { sessionStorage.setItem('sr_tec_screen', SCREEN_PARENT[secao] || secao) } catch (e) { /* sem storage */ }
-    if (secao === 'home') updateHomeResumo()
+    if (secao === 'home') renderHome()
   }
   // Resumo do herói da home (apresentação) — lê dados já em memória/IndexedDB, sem novas chamadas Supabase.
   async function updateHomeResumo() {
@@ -654,7 +922,8 @@
   }
   // Sync trouxe mudanças do servidor (edição/exclusão) → re-renderiza a tela atual.
   window.onSyncChanged = () => {
-    if (screen === 'desloc') renderDesloc()
+    if (screen === 'home') renderHome()
+    else if (screen === 'desloc') renderDesloc()
     else if (screen === 'jornada') renderJornada()
     else if (screen === 'tarefas') renderTarefas()
     else if (screen === 'lista') renderLista()
@@ -662,7 +931,8 @@
   }
   // Terminou um ciclo de envio (tarefas/RATs subiram/sumiram) → atualiza a tela atual.
   window.onSyncDone = () => {
-    if (screen === 'tarefas') renderTarefas()
+    if (screen === 'home') renderHome()
+    else if (screen === 'tarefas') renderTarefas()
     else if (screen === 'lista') renderLista()
   }
   function onVoltar() {
@@ -1506,9 +1776,36 @@
     cb.value = (ref.clientes.find(c => c.id === rat.cliente_id) || {}).nome || rat.cliente_nome || ''
     cb.readOnly = false
     document.getElementById('f-tipo-wrap').style.display = 'none'
-    document.getElementById('f-status').value = RAT_SIT_LABEL[rat.status] ? rat.status : 'em_andamento'
-    document.getElementById('f-pendencias').value = rat.pendencias || ''
-    togglePendencias()
+    const improd = rat.status === 'improdutiva' || rat.atendimento_executado === false
+    // RAT registrada reabre com o checkpoint visível; em_andamento/histórico, recolhido.
+    const reabreStatus = (rat.status === 'em_andamento' || rat.status === 'registrado') ? rat.status : 'em_andamento'
+    revelarPass = (!improd && reabreStatus === 'registrado')
+    // Checkpoint de passagem salvo (relevante quando a RAT foi registrada)
+    const rs0 = rat.respostas || {}
+    if (!improd && reabreStatus === 'registrado' && rs0.volta_amanha) {
+      setVoltaAmanha(rs0.volta_amanha)
+      if (rs0.volta_amanha === 'Não' && rs0.passagem_motivo) {
+        const mr = document.querySelector(`#f-passagem-motivo input[value="${CSS.escape(rs0.passagem_motivo)}"]`)
+        if (mr) mr.checked = true
+        togglePassagemHandoff()
+      }
+      const ff = document.getElementById('f-passagem-falta'); if (ff) ff.value = rs0.passagem_falta || ''
+      const fl = document.getElementById('f-passagem-levar'); if (fl) fl.value = rs0.passagem_levar || ''
+    } else {
+      voltaAmanha = null
+      document.querySelectorAll('#f-volta-seg button').forEach(b => b.classList.remove('on'))
+    }
+    // Eixo "atendimento executado?" e motivo (visita improdutiva)
+    if (improd && rat.motivo_improdutiva) {
+      const mr = document.querySelector(`#f-motivos input[value="${CSS.escape(rat.motivo_improdutiva)}"]`)
+      if (mr) mr.checked = true
+      document.getElementById('f-motivo-texto').value = rat.motivo_texto || ''
+      toggleMotivoTexto()
+    }
+    const ic = document.getElementById('f-improdutiva-chk'); if (ic) ic.checked = improd
+    setExec(improd ? 'Não' : 'Sim')
+    // pré-marca a equipe da tarefa (a seleção salva da RAT, repopulada abaixo, ainda prevalece)
+    respTarefaIds = (respPorTarefa[rat.tarefa_id] && respPorTarefa[rat.tarefa_id].length) ? respPorTarefa[rat.tarefa_id].slice() : [tecnico.id]
     // carrega o formulário que a RAT respondeu (snapshot), independente do tipo
     await carregarFormularioPorId(rat.formulario_id || (tarefaDela && ref.tipos.find(x => x.id === tarefaDela.tipo_servico_id)?.formulario_id) || null)
     // repopula respostas
@@ -1749,7 +2046,7 @@
         })
       }, 0)
     } else if (c.tipo === 'data') {
-      const hoje = new Date().toISOString().slice(0, 10)
+      const hoje = jorHoje()   // data LOCAL (UTC viraria o dia à noite no fuso BR)
       wrap.innerHTML = `${label}<input type="date" value="${hoje}" data-campo="${esc(c.id)}" data-tipo="data"/>`
     } else if (c.tipo === 'hora') {
       wrap.innerHTML = `${label}<input type="time" data-campo="${esc(c.id)}" data-tipo="hora"/>`
@@ -1785,10 +2082,11 @@
       tecCampoId = c.id
       const checks = (ref.tecnicos || []).map(t => {
         const n = tcase(t.nome); const eu = n === tcase(tecnico.nome)
+        const resp = eu || respTarefaIds.includes(t.id)   // pré-marca todos os responsáveis da tarefa
         const rl = t.cargo ? `${t.cargo} · Técnico` : 'Técnico'
         const foto = (typeof avatarUrl === 'function') ? avatarUrl(t.foto_url) : null
         const av = foto ? `<img src="${esc(foto)}" alt="">` : esc(iniciaisDe(n))
-        return `<label class="tec-row" data-nome="${esc(n)}"><input type="checkbox" data-multi="${esc(c.id)}" value="${esc(n)}"${eu ? ' checked' : ''}><span class="av">${av}</span><span class="ti"><span class="nm">${esc(n)}</span><span class="rl">${esc(rl)}</span></span><span class="pl">+</span></label>`
+        return `<label class="tec-row" data-nome="${esc(n)}"><input type="checkbox" data-multi="${esc(c.id)}" value="${esc(n)}"${resp ? ' checked' : ''}><span class="av">${av}</span><span class="ti"><span class="nm">${esc(n)}</span><span class="rl">${esc(rl)}</span></span><span class="pl">+</span></label>`
       }).join('')
       wrap.innerHTML = `${label}<div class="tec-cards" data-teccards="${esc(c.id)}"></div><button type="button" class="tec-add-btn" data-tecbtn="${esc(c.id)}">+ Adicionar Técnico</button>`
       setTimeout(() => {
@@ -2443,6 +2741,51 @@
     if (isNaN(h) || isNaN(m)) return null
     return h * 60 + m
   }
+  const minutosAgora = () => { const d = new Date(); return d.getHours() * 60 + d.getMinutes() }
+  // Hora de Término (execução) não pode ser depois do relógio real (no futuro).
+  // Ignora virada de meia-noite (término < início = madrugada do dia seguinte, já passada).
+  function horaTerminoNoFuturo() {
+    const tEnd = minutosDe(valorCampo('hora_termino')); if (tEnd == null) return false
+    // só é "futuro" se a RAT for de HOJE — RAT de dia passado já está toda no passado.
+    const dataRat = valorCampo('data')
+    if (dataRat && dataRat !== jorHoje()) return false
+    const tIni = minutosDe(valorCampo('hora_inicio'))
+    if (tIni != null && tEnd < tIni) return false
+    return tEnd > minutosAgora()
+  }
+  // Coerência cronológica do dia, tratando a virada de meia-noite: compara pela DISTÂNCIA
+  // de relógio (gap pequeno = ordem certa; gap > 12h = ordem invertida = erro real). Só valida
+  // quando os dois campos do confronto têm valor.
+  //  · deslocamento de IDA não pode ser DEPOIS da Hora de Início da execução
+  //  · deslocamento de RETORNO não pode ser ANTES da Hora de Término da execução
+  //  · a PAUSA tem de ficar entre o início da ida e o fim do retorno (a janela do dia)
+  function erroCronologia() {
+    const m = (id) => minutosDe(valorCampo(id))
+    const adiante = (a, b) => ((b - a) % 1440 + 1440) % 1440   // distância a→b no relógio (0..1439)
+    const LIM = 720   // 12h: gap acima disso = ordem invertida (não é só virada de meia-noite)
+    const dbtn = document.getElementById('form-desloc-btn'), pbtn = document.getElementById('form-pausa-btn')
+    const ini = m('hora_inicio'), fim = m('hora_termino')
+    if (ini != null) {
+      for (const id of ['desloc_inicial_ida', 'desloc_final_ida']) {
+        const t = m(id); if (t != null && adiante(t, ini) > LIM) return { btns: [dbtn], msg: 'Deslocamento de ida não pode ser depois da Hora de Início da execução.' }
+      }
+    }
+    if (fim != null) {
+      for (const id of ['desloc_inicial_retorno', 'desloc_final_retorno']) {
+        const t = m(id); if (t != null && adiante(fim, t) > LIM) return { btns: [dbtn], msg: 'Deslocamento de retorno não pode ser antes da Hora de Término da execução.' }
+      }
+    }
+    const dia0 = m('desloc_inicial_ida'), diaN = m('desloc_final_retorno')
+    if (dia0 != null && diaN != null) {
+      const span = adiante(dia0, diaN)   // duração da janela do dia (trata virada)
+      for (const id of ['pausa_inicio', 'pausa_termino']) {
+        const t = m(id); if (t != null && adiante(dia0, t) > span) return { btns: [pbtn], msg: 'A pausa tem de ficar entre o deslocamento de ida e o de retorno.' }
+      }
+    }
+    return null
+  }
+  // O "tempo no local" da visita improdutiva usa os campos do formulário Hora de Início /
+  // Hora de Término (execução) — não há mais campos próprios de permanência.
   // Cálculo puro a partir das respostas (compartilhado com o back-office).
   // Janela: deslocamento Sim → ida→retorno; senão → execução. Desconta almoço e pausa.
   function calcTempoDe(resp) {
@@ -2536,15 +2879,21 @@
     if (primeiro) primeiro.scrollIntoView({ behavior: 'smooth', block: 'center' })
   }
 
-  async function salvar() {
+  // modo: 'em_andamento' (botão "Salvar e continuar") | 'registrado' (botão "Encerrar a RAT do dia").
+  async function salvar(modo) {
     if (!cur) return
     const cliId = document.getElementById('f-cliente').value
     if (!cliId) return toast('Selecione o cliente.', 'err')
+    // Visita improdutiva: fui e não executei → registra motivo, sem exigir execução.
+    if (atendExec === 'Não') return salvarImprodutiva(cliId)
     if (!cur.formulario_id) return toast('Esta tarefa não tem formulário configurado.', 'err')
 
-    const sit = document.getElementById('f-status').value
-    // Atendimento continua (em execução) → salva parcial, sem exigir os obrigatórios.
+    const sit = (modo === 'em_andamento') ? 'em_andamento' : 'registrado'
+    // "Salvar e continuar" (em_andamento) → salva parcial, sem exigir os obrigatórios.
     const emExecucao = (sit === 'em_andamento')
+
+    // Hora de Término não pode estar no futuro (vale também ao salvar parcial).
+    if (horaTerminoNoFuturo()) { limparErros(); marcarErros(['hora_termino'], []); return toast('A Hora de Término não pode ser depois do horário atual.', 'err') }
 
     const { respostas, faltando, faltandoIds } = coletarRespostas()
     const vis = (c) => curVisivel[c.id] !== false
@@ -2587,15 +2936,34 @@
     if (!emExecucao && assinaturaObrig && !temAssinatura) return toast('Capture a assinatura.', 'err')
     if (temAssinatura) assinatura_local = sig.dataURL()
 
-    const pendencias = document.getElementById('f-pendencias').value.trim()
-    if (sit === 'concluida_pendencia' && !pendencias) {
-      const w = document.getElementById('f-pendencias-wrap'); if (w) { w.classList.add('campo-erro'); w.scrollIntoView({ behavior: 'smooth', block: 'center' }) }
-      return toast('Descreva a pendência.', 'err')
+    // Checkpoint de passagem (ao encerrar o dia): "volta amanhã?" obrigatório. Se Não → por quê?
+    // 'volto_depois' exige o handoff (o que falta / o que levar); 'terminei' dispensa (NÃO conclui aqui).
+    if (sit === 'registrado') {
+      const ec = erroCronologia()
+      if (ec) { limparErros(); marcarErros([], ec.btns.filter(Boolean)); return toast(ec.msg, 'err') }
+      if (!voltaAmanha) return toast('Responda se volta amanhã pra continuar.', 'err')
+      if (voltaAmanha === 'Não') {
+        const m = passMotivoVal()
+        if (!m) return toast('Diga por que não volta amanhã.', 'err')
+        if (m === 'volto_depois') {
+          if (!document.getElementById('f-passagem-falta').value.trim()) return toast('Informe o que falta pra terminar.', 'err')
+          if (!document.getElementById('f-passagem-levar').value.trim()) return toast('Informe o que levar na próxima ida.', 'err')
+        }
+      }
     }
 
     const cli = ref.clientes.find(c => c.id === cliId)
     if (usoProd) respostas.uso_produtos = usoProd
+    if (sit === 'registrado') {
+      const m = (voltaAmanha === 'Não') ? passMotivoVal() : null
+      respostas.volta_amanha = voltaAmanha
+      respostas.passagem_motivo = m
+      respostas.passagem_falta = (m === 'volto_depois') ? (document.getElementById('f-passagem-falta').value.trim() || null) : null
+      respostas.passagem_levar = (m === 'volto_depois') ? (document.getElementById('f-passagem-levar').value.trim() || null) : null
+    }
 
+    // sit = 'em_andamento' (continua) | 'registrado' (encerra o dia). A RAT NUNCA conclui
+    // o serviço — isso é deliberado na Tarefa ("Concluir serviço").
     await D().salvarRat(cur.client_uuid, {
       tarefa_id: cur.tarefa_id || null,
       tarefa_numero: cur.tarefa_numero || null,
@@ -2605,9 +2973,14 @@
       tecnico_id: tecnico.id,
       tecnico_nome: tecnico.nome,
       status: sit,
-      pendencias: sit === 'concluida_pendencia' ? pendencias : null,
+      pendencias: null,
+      // execução normal: atendimento_executado=true limpa qualquer marca de improdutiva e SOBE no sync
+      // (campo null é pulado no upload → servidor ficaria com false e remarcaria o checkbox ao reabrir).
+      atendimento_executado: true,
+      motivo_improdutiva: null,
+      motivo_texto: null,
       tempo_trabalhado: calcTempo(),
-      data_tarefa: new Date().toISOString(),
+      // data_tarefa fixado na criação (jorHoje, local) — não re-carimbar a cada save (evitava virar o dia em UTC)
       respostas,
       uso_produtos: usoProd || null,
       questionario_ok: faltando.length === 0,
@@ -2615,15 +2988,72 @@
       assinatura_local,
     })
     await D().definirStatus(cur.client_uuid, D().STATUS.SALVO_LOCAL, 'salvo pelo técnico')
-    toast('RAT salva no aparelho.', 'ok')
-    // Notifica admin/gestor quando a RAT é concluída (push), se online.
+    toast(emExecucao ? 'RAT salva no aparelho.' : 'RAT do dia registrada.', 'ok')
+    // Avisa admin/gestor quando a RAT do dia é encerrada (registrada), se online.
     if (!emExecucao && navigator.onLine && window.notificarPush) {
-      notificarPush('rat_concluida', { numero: cur.tarefa_numero, cliente: cli?.nome, tarefa_id: cur.tarefa_id })
+      notificarPush('rat_registrada', { numero: cur.tarefa_numero, cliente: cli?.nome, tarefa_id: cur.tarefa_id })
+    }
+    // "Terminei o serviço — vou concluir na Tarefa" → abre o detalhe da Tarefa (onde fica
+    // "Concluir serviço") em vez de "Minhas RATs". Sim / volto depois / em_andamento → lista.
+    const tarefaConcluir = (sit === 'registrado' && voltaAmanha === 'Não' && passMotivoVal() === 'terminei') ? cur.tarefa_id : null
+    cur = null; sig = null; usoProd = null
+    if (tarefaConcluir) { await renderTarefas(); await abrirTarefaDet(tarefaConcluir) }
+    else { mostrar('lista'); await renderLista() }
+    // Tenta sincronizar imediatamente se houver conexão (passo 5).
+    if (window.SyncEngine && navigator.onLine) window.SyncEngine.syncAll()
+  }
+
+  // Visita improdutiva (§ "RAT improdutiva"): registra deslocamento + tempo de quem foi,
+  // execução zerada, motivo. A RAT fecha como 'improdutiva' e a Tarefa fica aguardando
+  // (o trigger 0053 não promove quando atendimento_executado=false). Avisa o admin.
+  async function salvarImprodutiva(cliId) {
+    const motivoEl = document.querySelector('#f-motivos input[name="f-motivo"]:checked')
+    if (!motivoEl) return toast('Escolha o motivo de não ter executado.', 'err')
+    const motivo = motivoEl.value
+    let motivoTexto = null
+    if (motivo === 'outro') {
+      motivoTexto = (document.getElementById('f-motivo-texto').value || '').trim()
+      if (!motivoTexto) { const w = document.getElementById('f-motivo-texto-wrap'); if (w) w.classList.add('campo-erro'); return toast('Descreva o motivo.', 'err') }
+    }
+    // Tempo no local = Hora de Início / Hora de Término (execução) — obrigatório (faturável:
+    // cliente paga deslocamento + permanência). Reusa os campos do formulário, não há bloco próprio.
+    const mIni = minutosDe(valorCampo('hora_inicio')), mFim = minutosDe(valorCampo('hora_termino'))
+    if (mIni == null || mFim == null) { marcarErros(['hora_inicio', 'hora_termino'], []); return toast('Informe Hora de Início e Hora de Término (tempo no local).', 'err') }
+    if (mFim < mIni) { marcarErros(['hora_termino'], []); return toast('A Hora de Término não pode ser antes da de Início.', 'err') }
+    if (horaTerminoNoFuturo()) { marcarErros(['hora_termino'], []); return toast('A Hora de Término não pode ser depois do horário atual.', 'err') }
+    const ecImp = erroCronologia()
+    if (ecImp) { limparErros(); marcarErros([], ecImp.btns.filter(Boolean)); return toast(ecImp.msg, 'err') }
+    // Mantém o que já foi apontado no formulário (deslocamento, início/término).
+    const { respostas } = coletarRespostas()
+    const cli = ref.clientes.find(c => c.id === cliId)
+    await D().salvarRat(cur.client_uuid, {
+      tarefa_id: cur.tarefa_id || null,
+      tarefa_numero: cur.tarefa_numero || null,
+      cliente_id: cliId,
+      cliente_nome: cli?.nome || null,
+      formulario_id: cur.formulario_id || null,
+      tecnico_id: tecnico.id,
+      tecnico_nome: tecnico.nome,
+      status: 'improdutiva',
+      atendimento_executado: false,
+      motivo_improdutiva: motivo,
+      motivo_texto: motivoTexto,
+      tempo_trabalhado: (mFim - mIni),   // tempo no local pelos campos de execução (sem serviço concluído)
+      // data_tarefa fixado na criação (jorHoje, local) — não re-carimbar
+      respostas: Object.keys(respostas).length ? respostas : null,
+      uso_produtos: null,
+      questionario_ok: true,
+      tem_assinatura: false,
+      assinatura_local: null,
+    })
+    await D().definirStatus(cur.client_uuid, D().STATUS.SALVO_LOCAL, 'visita improdutiva')
+    toast('Visita improdutiva registrada.', 'ok')
+    if (navigator.onLine && window.notificarPush) {
+      notificarPush('rat_improdutiva', { numero: cur.tarefa_numero, cliente: cli?.nome, tarefa_id: cur.tarefa_id, motivo: MOTIVO_IMPRODUTIVA[motivo] || motivo })
     }
     cur = null; sig = null; usoProd = null
     mostrar('lista')
     await renderLista()
-    // Tenta sincronizar imediatamente se houver conexão (passo 5).
     if (window.SyncEngine && navigator.onLine) window.SyncEngine.syncAll()
   }
 

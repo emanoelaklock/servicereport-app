@@ -235,6 +235,27 @@ try{if(localStorage.getItem('sr_dark')==='1')document.documentElement.classList.
   html.dark .segq button.on[data-v="Sim"]{background:#179A47;color:#fff}
   html.dark .segq button.on[data-v="Não"]{background:#DE2C2C;color:#fff}
 
+  /* ===== Motivos / opções de "por quê" (radio de linha) ===== */
+  .motivos{display:flex;flex-direction:column;gap:8px}
+  .motivos .motopt{display:flex;align-items:center;justify-content:flex-start;gap:11px;padding:13px 14px;border:1.6px solid var(--bd,#DCE0E8);border-radius:12px;cursor:pointer;background:#fff;text-align:left;text-transform:none;margin:0}
+  .motivos .motopt input{position:absolute;width:1px;height:1px;margin:0;padding:0;border:0;background:transparent;opacity:0;pointer-events:none;-webkit-appearance:none;appearance:none}
+  .motivos .motopt .rd{flex:0 0 20px;width:20px;height:20px;border-radius:50%;border:2px solid #C3C8D4;background:transparent;position:relative;box-sizing:border-box;padding:0}
+  .motivos .motopt .mx{flex:1 1 auto;min-width:0;text-align:left;font-size:14.5px;font-weight:600;color:var(--tx,#2c3142);line-height:1.35;background:transparent;border:0;padding:0}
+  .motivos .motopt:has(input:checked){border-color:#DE2C2C;background:#FDF6F5}
+  .motivos .motopt:has(input:checked) .rd{border-color:#DE2C2C}
+  .motivos .motopt:has(input:checked) .rd::after{content:"";position:absolute;inset:3px;border-radius:50%;background:#DE2C2C}
+  html.dark .motivos .motopt:has(input:checked){background:#2a1715;border-color:#4a2522}
+  /* Exceção: marcar visita improdutiva (execução é o padrão) — fica abaixo do checkpoint */
+  .exc-imp{display:flex;align-items:center;gap:10px;cursor:pointer;padding:2px 0;margin-top:10px;font-size:14px;font-weight:600;color:var(--tx)}
+  .exc-imp input{width:18px;height:18px;accent-color:#DE2C2C;flex:none;margin:0}
+  .exc-imp:has(input:checked){color:#DE2C2C}
+  /* Destaque do checkpoint "Volta amanhã?" (decisão ao encerrar o dia) */
+  #f-passagem{background:#FFF6E5;border:1px solid #F2E2B6;border-radius:12px;padding:12px 14px 6px;margin-top:4px}
+  #f-passagem .fg>label{font-size:14.5px;color:var(--tx);font-weight:700}
+  html.dark #f-passagem{background:#2a2410;border-color:#4a4222}
+  /* Rodapé fixo (sticky) na tela da RAT */
+  .tskin #view-form .foot{position:sticky;bottom:0;background:var(--bg);padding:12px 0 calc(10px + env(safe-area-inset-bottom,0px));border-top:1px solid var(--bd);box-shadow:0 -3px 10px rgba(20,30,55,.05);z-index:10}
+
   /* ===== Produtos da RAT: linhas com stepper ===== */
   .prod-row2{display:flex;align-items:center;gap:10px;padding:12px 0;border-bottom:1px solid var(--bd)}
   .prod-row2 .pr-main{flex:1;min-width:0}
@@ -526,6 +547,19 @@ try{if(localStorage.getItem('sr_dark')==='1')document.documentElement.classList.
           </div>
           <button class="cta" id="btn-sync-home"><svg viewBox="0 0 24 24"><path d="M3 12a9 9 0 1 0 3-6.7L3 8"/><path d="M3 3v5h5"/></svg>Sincronizar</button>
         </div>
+
+        <!-- Agenda do dia -->
+        <div class="sec">Minhas tarefas de hoje <span class="ct num" id="home-hoje-ct"></span></div>
+        <div id="home-hoje"><p class="dim" style="padding:8px 2px">Carregando…</p></div>
+
+        <!-- Fila de tarefas abertas (sem responsável) -->
+        <div class="sec">Fila — tarefas abertas <span class="ct num" id="home-fila-ct"></span></div>
+        <div id="home-fila"></div>
+
+        <button type="button" class="btn btn-ok" id="home-nova-tarefa" style="width:100%;justify-content:center;margin:4px 0 6px">
+          <svg viewBox="0 0 24 24" style="width:18px;height:18px;stroke:currentColor;fill:none;stroke-width:2;stroke-linecap:round;stroke-linejoin:round"><path d="M12 5v14M5 12h14"/></svg>Nova tarefa (em campo)
+        </button>
+
         <div class="sec">Áreas</div>
         <div class="grid">
           <button type="button" class="tile t-green" id="nav-tarefas">
@@ -626,12 +660,12 @@ try{if(localStorage.getItem('sr_dark')==='1')document.documentElement.classList.
             <div class="sec" style="margin:16px 0 2px">RATs desta tarefa</div>
             <div id="t-det-rats"></div>
           </div>
-          <div style="margin-top:16px"><button class="btn btn-primary" id="btn-iniciar-rat"><svg viewBox="0 0 24 24"><path d="M7 4.5v15l12-7.5-12-7.5Z"/></svg>Iniciar RAT desta tarefa</button></div>
+          <div style="margin-top:16px" id="btn-iniciar-rat-wrap"><button class="btn btn-primary" id="btn-iniciar-rat"><svg viewBox="0 0 24 24"><path d="M7 4.5v15l12-7.5-12-7.5Z"/></svg>Iniciar RAT desta tarefa</button></div>
           <div class="btn-row" id="t-det-concluir" style="display:none">
-            <button class="btn btn-ok" id="btn-concluir">✓ Concluir</button>
-            <button class="btn btn-warn" id="btn-concluir-pend">⚠ Concluir c/ pend.</button>
+            <button class="btn btn-ok" id="btn-concluir">✓ Concluir serviço</button>
+            <button class="btn btn-warn" id="btn-concluir-pend">⚠ Concluir c/ pendência</button>
           </div>
-          <p class="hintn" id="t-det-concluir-hint" style="display:none;margin-top:10px;text-align:center">Para concluir, salve uma RAT desta tarefa com <b>todos os campos obrigatórios</b> preenchidos.</p>
+          <p class="hintn" id="t-det-concluir-hint" style="display:none;margin-top:10px;text-align:center">Para concluir o serviço, encerre ao menos uma RAT desta tarefa com <b>todos os campos obrigatórios</b> preenchidos.</p>
         </div>
       </div>
 
@@ -698,24 +732,70 @@ try{if(localStorage.getItem('sr_dark')==='1')document.documentElement.classList.
 
         <div class="fcard fc-red">
           <div class="h"><span class="hi"><svg viewBox="0 0 24 24"><path d="M20 6 9 17l-5-5"/></svg></span>Situação</div>
-          <div class="fg campo">
-            <label>Situação do atendimento</label>
-            <select id="f-status">
-              <option value="em_andamento">Atendimento continua (em execução)</option>
-              <option value="concluida">Concluída</option>
-              <option value="concluida_pendencia">Concluída com pendência</option>
-            </select>
-            <p class="hintn" id="f-status-hint">Atualiza o status da Tarefa. "Continua" = mais visitas/RATs depois.</p>
+          <!-- Atendimento executado (padrão) → a RAT registra o DIA (botões no rodapé); concluir o serviço é na Tarefa -->
+          <div id="f-exec-sim">
+            <!-- Checkpoint de passagem: revelado ao tocar "Encerrar a RAT do dia"; "volta amanhã?"; se não, o que falta/levar -->
+            <div id="f-passagem" style="display:none">
+              <div class="fg campo">
+                <label>Volta amanhã pra continuar? <span class="req">*</span></label>
+                <div class="segq" id="f-volta-seg">
+                  <button type="button" data-v="Sim">Sim</button>
+                  <button type="button" data-v="Não">Não</button>
+                </div>
+              </div>
+              <div id="f-passagem-nao" style="display:none">
+                <div class="fg campo">
+                  <label>Por quê? <span class="req">*</span></label>
+                  <div class="motivos" id="f-passagem-motivo">
+                    <label class="motopt"><input type="radio" name="f-pass-motivo" value="terminei"><span class="rd"></span><span class="mx">Terminei o serviço — vou concluir na Tarefa</span></label>
+                    <label class="motopt"><input type="radio" name="f-pass-motivo" value="volto_depois"><span class="rd"></span><span class="mx">Vou voltar depois pra terminar</span></label>
+                  </div>
+                </div>
+                <p class="hintn" id="f-passagem-terminei-hint" style="display:none">Isso <b>não conclui</b> o serviço — só dispensa o handoff. Conclua na Tarefa quando estiver pronto.</p>
+                <div id="f-passagem-handoff" style="display:none">
+                  <div class="fg campo">
+                    <label>O que falta <span class="req">*</span></label>
+                    <textarea id="f-passagem-falta" rows="3" placeholder="O que ainda falta pra concluir o serviço…"></textarea>
+                  </div>
+                  <div class="fg campo">
+                    <label>O que levar <span class="req">*</span></label>
+                    <textarea id="f-passagem-levar" rows="3" placeholder="Material / ferramenta / peça pra levar na próxima ida…"></textarea>
+                  </div>
+                  <p class="hintn">Fica registrado pra quem voltar — ou pro escritório reagendar com o que falta.</p>
+                </div>
+              </div>
+            </div>
           </div>
-          <div class="fg campo" id="f-pendencias-wrap" style="display:none">
-            <label>Pendências <span class="req">*</span></label>
-            <textarea id="f-pendencias" rows="6" style="min-height:150px" placeholder="O que ficou pendente / o que falta resolver…"></textarea>
+          <!-- Exceção: visita improdutiva (abaixo do fluxo normal). Execução é o padrão. -->
+          <label class="exc-imp"><input type="checkbox" id="f-improdutiva-chk"><span>Não consegui executar (visita improdutiva)</span></label>
+          <!-- Visita improdutiva (Não) → motivo; tarefa fica aguardando, sem exigir execução -->
+          <div id="f-exec-nao" style="display:none">
+            <div class="fg campo">
+              <label>Por que não foi executado? <span class="req">*</span></label>
+              <div class="motivos" id="f-motivos">
+                <label class="motopt"><input type="radio" name="f-motivo" value="cliente_nao_liberou"><span class="rd"></span><span class="mx">Cliente não liberou acesso</span></label>
+                <label class="motopt"><input type="radio" name="f-motivo" value="local_nao_pronto"><span class="rd"></span><span class="mx">Local não estava pronto</span></label>
+                <label class="motopt"><input type="radio" name="f-motivo" value="falta_material"><span class="rd"></span><span class="mx">Falta de peça / material</span></label>
+                <label class="motopt"><input type="radio" name="f-motivo" value="clima"><span class="rd"></span><span class="mx">Condições climáticas</span></label>
+                <label class="motopt"><input type="radio" name="f-motivo" value="equip_cliente_indisponivel"><span class="rd"></span><span class="mx">Equipamento do cliente indisponível</span></label>
+                <label class="motopt"><input type="radio" name="f-motivo" value="outro"><span class="rd"></span><span class="mx">Outro motivo…</span></label>
+              </div>
+            </div>
+            <div class="fg campo" id="f-motivo-texto-wrap" style="display:none">
+              <label>Qual o motivo? <span class="req">*</span></label>
+              <textarea id="f-motivo-texto" rows="3" placeholder="Descreva o motivo…"></textarea>
+            </div>
+            <p class="hintn">Preencha <b>Hora de Início / Hora de Término</b> (execução) com o tempo no local — é o que entra no faturamento (deslocamento + permanência). O deslocamento e o tempo de quem foi ficam registrados; a tarefa fica aguardando e o escritório é avisado pra reagendar.</p>
           </div>
         </div>
 
-        <div class="foot">
-          <button class="btn btn-ghost" id="btn-cancelar">Cancelar</button>
-          <button class="btn btn-primary" id="btn-salvar">Salvar no aparelho</button>
+        <div class="foot" style="flex-direction:column">
+          <div style="display:flex;gap:10px">
+            <button class="btn btn-ghost" id="btn-cancelar">Cancelar</button>
+            <button class="btn btn-ghost" id="btn-continuar">Salvar e continuar</button>
+            <button class="btn btn-ghost" id="btn-voltar-pass" style="display:none">‹ Voltar</button>
+          </div>
+          <button class="btn btn-primary" id="btn-salvar">Encerrar a RAT do dia</button>
         </div>
       </div>
 
@@ -885,6 +965,8 @@ try{if(localStorage.getItem('sr_dark')==='1')document.documentElement.classList.
       </select>
       <label style="margin-top:12px">Tipo de tarefa</label>
       <select id="nt-tipo"><option value="">— selecione —</option></select>
+      <label style="margin-top:12px">Local (opcional)</label>
+      <input type="text" id="nt-local" placeholder="Ex.: Torre Paredão · Calmon/SC">
       <label style="margin-top:12px">Data agendada</label>
       <input type="date" id="nt-data">
       <label style="margin-top:12px">Orientação ao técnico</label>
@@ -895,6 +977,22 @@ try{if(localStorage.getItem('sr_dark')==='1')document.documentElement.classList.
     <div class="tm-f">
       <button class="btn" id="nt-cancelar">Cancelar</button>
       <button class="btn btn-p" id="nt-criar">Criar tarefa</button>
+    </div>
+  </div>
+</div>
+
+<!-- Concluir o serviço (Tarefa) com pendência. A tarefa de retorno é gerada pelo admin no portal. -->
+<div class="tm-back" id="modal-conc-pend">
+  <div class="tm-box">
+    <div class="tm-h"><span>Concluir com pendência</span><button class="tm-x" id="cp-fechar">✕</button></div>
+    <div class="tm-b">
+      <label>Pendência <span class="req">*</span></label>
+      <textarea id="cp-texto" rows="4" placeholder="O que ficou pendente / o que falta resolver…" style="width:100%;box-sizing:border-box;padding:9px 11px;border:1px solid var(--bd);border-radius:8px;font:inherit;font-size:14px;resize:vertical"></textarea>
+      <p class="hintn">A pendência fica registrada na tarefa; o escritório reagenda (gera a tarefa de retorno) no portal.</p>
+    </div>
+    <div class="tm-f">
+      <button class="btn" id="cp-cancelar">Cancelar</button>
+      <button class="btn btn-warn" id="cp-confirmar">Concluir c/ pendência</button>
     </div>
   </div>
 </div>

@@ -24,6 +24,7 @@
     'checkin_lat', 'checkin_lng', 'checkin_precisao', 'checkin_em', 'assinatura_url', 'respostas',
     'tem_foto', 'tem_assinatura', 'questionario_ok', 'pendencias',
     'sync_status', 'device_id', 'os_omie', 'observacoes', 'tempo_trabalhado',
+    'atendimento_executado', 'motivo_improdutiva', 'motivo_texto',   // visita improdutiva
   ]
 
   function dataURLparaBlob(dataURL) {
@@ -97,7 +98,9 @@
     //     Guardas: não mexe em tarefas já em faturamento; "em execução" só inicia
     //     (não rebaixa uma tarefa concluída por causa de uma RAT antiga).
     if (rat.tarefa_id && rat.status) {
-      const MAP = { em_andamento: 'em_execucao', concluida: 'concluida', concluida_pendencia: 'concluida_pendencia' }
+      // A RAT só leva a Tarefa a "em execução" (atendimento continua). Concluir o serviço
+      // ('concluida'/'concluida_pendencia') é deliberado na Tarefa — nunca a partir da RAT.
+      const MAP = { em_andamento: 'em_execucao', registrado: 'em_execucao' }
       const novo = MAP[rat.status]
       if (novo) {
         const { data: tt } = await sb.from('tarefas').select('status').eq('id', rat.tarefa_id).maybeSingle()
@@ -225,6 +228,7 @@
       p_id: t.id, p_cliente_id: t.cliente_id, p_status: t.status || 'aguardando_execucao',
       p_tipo_servico_id: t.tipo_servico_id || null, p_orientacao: t.orientacao || null,
       p_data_agendada: t.data_agendada || null, p_tecnicos: t.tecnicos || [],
+      p_local: t.local_servico || null,
     })
     if (error) throw error
     await D().removerTarefaLocal(t.id)

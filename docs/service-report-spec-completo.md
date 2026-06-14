@@ -299,10 +299,12 @@ Referência visual: `docs/mockups/mockup-nova-rat-topo.html`. Reorganização co
 
 ### Duas "pendências" distintas (não confundir)
 
-1. **`Concluído com pendência`** — **status da RAT, definido pelo técnico** ao fechar. A atividade principal foi feita, sobrou um **detalhe pequeno**. **NÃO bloqueia** faturamento nem fechamento da OS — o admin segue aprovando normal.
+> **Correção (Commit 2 do fluxo do técnico, §211-218):** "Concluída com pendência" **não é mais status da RAT**. Encerrar a RAT fecha o **dia** → `registrado`; concluir o serviço **com ou sem pendência** é ação **deliberada na Tarefa** (botões "RAT de hoje" / "Concluir serviço"). A RAT nunca conclui o serviço. O texto abaixo foi ajustado.
+
+1. **`Concluída com pendência`** — **status da TAREFA, definido pelo técnico (ou admin)** ao **concluir o serviço** na Tarefa. O trabalho terminou, sobrou um **detalhe pequeno**. **NÃO bloqueia** faturamento nem fechamento da OS — o admin segue aprovando normal. Ao concluir com pendência, o técnico pode **gerar uma "tarefa de retorno"** (nova Tarefa, sem responsável, com a pendência na orientação) pra resolver o detalhe depois.
 2. **OS Pendentes / `Devolvida`** — **estado da OS, definido pelo administrativo** na revisão. O admin **devolveu** a OS pro técnico **corrigir** (ex.: descrição errada do serviço executado, material inconsistente com o fechamento). A OS volta **editável** e **precisa ser corrigida** antes de seguir. O card "OS Pendentes" da home lista justamente essas.
 
-São **eixos diferentes** e podem coexistir (uma RAT "concluída c/ pendência" ainda pode ser devolvida pelo admin se houver erro de dado).
+São **eixos diferentes** e podem coexistir (uma Tarefa "concluída c/ pendência" ainda pode ser devolvida pelo admin se houver erro de dado).
 
 ### Tempo por técnico (equipes compartilhadas e artefatos simultâneos) — casos "Marcelo" e "Pablo"
 
