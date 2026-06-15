@@ -563,14 +563,13 @@ try{if(localStorage.getItem('sr_dark')==='1')document.documentElement.classList.
         <!-- Agenda do dia -->
         <div class="sec">Minhas tarefas de hoje <span class="ct num" id="home-hoje-ct"></span></div>
         <div id="home-hoje"><p class="dim" style="padding:8px 2px">Carregando…</p></div>
+        <button type="button" class="btn btn-ok" id="home-nova-tarefa" style="width:100%;justify-content:center;margin:8px 0 6px">
+          <svg viewBox="0 0 24 24" style="width:18px;height:18px;stroke:currentColor;fill:none;stroke-width:2;stroke-linecap:round;stroke-linejoin:round"><path d="M12 5v14M5 12h14"/></svg>Nova tarefa (em campo)
+        </button>
 
         <!-- Fila de tarefas abertas (sem responsável) -->
         <div class="sec">Fila — tarefas abertas <span class="ct num" id="home-fila-ct"></span></div>
         <div id="home-fila"></div>
-
-        <button type="button" class="btn btn-ok" id="home-nova-tarefa" style="width:100%;justify-content:center;margin:4px 0 6px">
-          <svg viewBox="0 0 24 24" style="width:18px;height:18px;stroke:currentColor;fill:none;stroke-width:2;stroke-linecap:round;stroke-linejoin:round"><path d="M12 5v14M5 12h14"/></svg>Nova tarefa (em campo)
-        </button>
 
         <div class="sec">Áreas</div>
         <div class="grid">
