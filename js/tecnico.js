@@ -204,6 +204,15 @@
   }
 
   function bind() {
+    // Texto livre: ao sair do campo, capitaliza a 1a letra de cada frase (alem do autocapitalize do teclado).
+    document.addEventListener('focusout', (e) => {
+      const el = e.target
+      if (!el || !el.matches || !el.matches('textarea,[data-tipo="texto"],.cap-frase')) return
+      const v = el.value || ''
+      if (!v) return
+      const nv = v.replace(/(^\s*|[.!?]\s+)(\p{Ll})/gu, (m, sep, ch) => sep + ch.toUpperCase())
+      if (nv !== v) el.value = nv
+    })
     // RAT — sempre criada DENTRO de uma Tarefa (não há criação avulsa).
     document.getElementById('btn-cancelar').onclick = cancelar
     // Ação primária: encerrar o dia (Sim, revela o checkpoint) ou registrar visita (Não improdutiva).
@@ -2026,7 +2035,7 @@
     const label = `<label>${esc(c.label)}${req}</label>`
 
     if (c.tipo === 'texto') {
-      wrap.innerHTML = `${label}<input type="text" data-campo="${esc(c.id)}" data-tipo="texto"/>`
+      wrap.innerHTML = `${label}<input type="text" data-campo="${esc(c.id)}" data-tipo="texto" autocapitalize="sentences"/>`
     } else if (c.tipo === 'texto_longo') {
       // campos com orientação + bullets automáticos
       const TA_DICAS = {
@@ -2035,7 +2044,7 @@
       }
       const ehServico = !!TA_DICAS[c.id]
       const ph = TA_DICAS[c.id] || '…'
-      wrap.innerHTML = `${label}<textarea class="ta-longo${ehServico ? ' ta-servico' : ''}" data-campo="${esc(c.id)}" data-tipo="texto_longo" placeholder="${esc(ph)}"></textarea>`
+      wrap.innerHTML = `${label}<textarea class="ta-longo${ehServico ? ' ta-servico' : ''}" data-campo="${esc(c.id)}" data-tipo="texto_longo" autocapitalize="sentences" placeholder="${esc(ph)}"></textarea>`
       if (ehServico) setTimeout(() => {
         const ta = wrap.querySelector('textarea'); if (!ta) return
         // bullets automáticos: "- " ao focar vazio e a cada Enter
@@ -2129,7 +2138,7 @@
         </div>`
       setTimeout(() => { wrap.querySelector('#btn-sig-limpar').onclick = () => sig && sig.clear() }, 0)
     } else {
-      wrap.innerHTML = `${label}<input type="text" data-campo="${esc(c.id)}" data-tipo="texto"/>`
+      wrap.innerHTML = `${label}<input type="text" data-campo="${esc(c.id)}" data-tipo="texto" autocapitalize="sentences"/>`
     }
     return wrap
   }
