@@ -770,11 +770,11 @@ try{if(localStorage.getItem('sr_dark')==='1')document.documentElement.classList.
                 <div id="f-passagem-handoff" style="display:none">
                   <div class="fg campo">
                     <label>O que falta <span class="req">*</span></label>
-                    <textarea id="f-passagem-falta" rows="3" placeholder="O que ainda falta pra concluir o serviço…"></textarea>
+                    <textarea id="f-passagem-falta" rows="3" autocapitalize="sentences" placeholder="O que ainda falta pra concluir o serviço…"></textarea>
                   </div>
                   <div class="fg campo">
                     <label>O que levar <span class="req">*</span></label>
-                    <textarea id="f-passagem-levar" rows="3" placeholder="Material / ferramenta / peça pra levar na próxima ida…"></textarea>
+                    <textarea id="f-passagem-levar" rows="3" autocapitalize="sentences" placeholder="Material / ferramenta / peça pra levar na próxima ida…"></textarea>
                   </div>
                   <p class="hintn">Fica registrado pra quem voltar — ou pro escritório reagendar com o que falta.</p>
                 </div>
@@ -945,7 +945,7 @@ try{if(localStorage.getItem('sr_dark')==='1')document.documentElement.classList.
         <button type="button" class="btn btn-sm prod-avulso" id="prod-avulso-btn">+ Item avulso</button>
         <div id="prod-avulso-form" style="display:none;margin-top:10px">
           <div style="display:flex;gap:8px">
-            <input id="pav-nome" placeholder="Nome do item" style="flex:2;min-width:0">
+            <input id="pav-nome" class="cap-frase" autocapitalize="sentences" placeholder="Nome do item" style="flex:2;min-width:0">
             <input id="pav-un" placeholder="Un." style="flex:.55;min-width:0">
             <input id="pav-qtd" inputmode="decimal" placeholder="Qtd" style="flex:.55;min-width:0">
           </div>
@@ -992,11 +992,11 @@ try{if(localStorage.getItem('sr_dark')==='1')document.documentElement.classList.
       <label style="margin-top:12px">Tipo de tarefa</label>
       <select id="nt-tipo"><option value="">— selecione —</option></select>
       <label style="margin-top:12px">Local (opcional)</label>
-      <input type="text" id="nt-local" placeholder="Ex.: Torre Paredão · Calmon/SC">
+      <input type="text" id="nt-local" class="cap-frase" autocapitalize="sentences" placeholder="Ex.: Torre Paredão · Calmon/SC">
       <label style="margin-top:12px">Data agendada</label>
       <input type="date" id="nt-data">
       <label style="margin-top:12px">Orientação ao técnico</label>
-      <textarea id="nt-orientacao" rows="3" placeholder="O que precisa ser feito no campo…" style="width:100%;box-sizing:border-box;padding:9px 11px;border:1px solid var(--bd);border-radius:8px;font:inherit;font-size:14px;resize:vertical"></textarea>
+      <textarea id="nt-orientacao" rows="3" autocapitalize="sentences" placeholder="O que precisa ser feito no campo…" style="width:100%;box-sizing:border-box;padding:9px 11px;border:1px solid var(--bd);border-radius:8px;font:inherit;font-size:14px;resize:vertical"></textarea>
       <label style="margin-top:12px">Responsável(is)</label>
       <div class="tec-lista" id="nt-tecs"></div>
     </div>
