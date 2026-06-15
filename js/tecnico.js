@@ -375,7 +375,11 @@
     const lista = eu ? ref.tecnicos : [{ id: tecnico.id, nome: tecnico.nome }].concat(ref.tecnicos)
     box.innerHTML = lista.map(t => {
       const souEu = t.id === tecnico.id
-      return `<label><input type="checkbox" value="${esc(t.id)}"${souEu ? ' checked' : ''}> ${esc(tcase(t.nome))}${souEu ? ' (você)' : ''}</label>`
+      const n = tcase(t.nome)
+      const rl = t.cargo ? `${t.cargo} · Técnico` : 'Técnico'
+      const foto = (typeof avatarUrl === 'function') ? avatarUrl(t.foto_url) : null
+      const av = foto ? `<img src="${esc(foto)}" alt="">` : esc(iniciaisDe(n))
+      return `<label class="tec-row"><input type="checkbox" value="${esc(t.id)}"${souEu ? ' checked' : ''}><span class="av">${av}</span><span class="ti"><span class="nm">${esc(n)}${souEu ? ' (você)' : ''}</span><span class="rl">${esc(rl)}</span></span><span class="pl">+</span></label>`
     }).join('')
   }
 
