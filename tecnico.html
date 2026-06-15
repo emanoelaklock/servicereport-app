@@ -351,9 +351,9 @@ try{if(localStorage.getItem('sr_dark')==='1')document.documentElement.classList.
   .tec-lista .tec-row .pl.pl-rem{background:#FDECEA;color:#E5403A}
   html.dark .tec-lista .tec-row .pl.pl-rem{background:#3a1714;color:#f08a82}
   /* Responsaveis (Nova tarefa): card de tecnico com foto; marcado = destaque azul + check no lugar do "+" */
-  #nt-tecs .tec-row:has(input:checked){border-color:#1E8AE0;background:rgba(30,138,224,.08)}
-  #nt-tecs .tec-row:has(input:checked) .pl{background:#1E8AE0;color:#fff;font-size:0}
-  #nt-tecs .tec-row:has(input:checked) .pl::after{content:"✓";font-size:15px;font-weight:800}
+  #nt-tecs .tec-row:has(input:checked),#po-tecs .tec-row:has(input:checked){border-color:#1E8AE0;background:rgba(30,138,224,.08)}
+  #nt-tecs .tec-row:has(input:checked) .pl,#po-tecs .tec-row:has(input:checked) .pl{background:#1E8AE0;color:#fff;font-size:0}
+  #nt-tecs .tec-row:has(input:checked) .pl::after,#po-tecs .tec-row:has(input:checked) .pl::after{content:"✓";font-size:15px;font-weight:800}
 
   /* ===== Tempo por técnico: chip de horário no card (cinza = herda da RAT; azul = ajustado) ===== */
   .tec-card .hchip{display:inline-flex;align-items:center;gap:6px;font-size:11.5px;font-weight:700;padding:4px 10px;border-radius:999px;margin-top:5px;border:none;cursor:pointer;font-family:inherit;background:var(--sur2);color:var(--tx3);font-variant-numeric:tabular-nums;align-self:flex-start}
@@ -901,6 +901,16 @@ try{if(localStorage.getItem('sr_dark')==='1')document.documentElement.classList.
               <div class="photo" id="po-btn-foto"><svg viewBox="0 0 24 24"><path d="M3 7h4l2-2h6l2 2h4v12H3z"/><circle cx="12" cy="13" r="3.2"/></svg>Adicionar foto</div>
               <div class="thumbs" id="po-thumbs" style="margin-top:10px"></div>
             </div>
+          </div>
+
+          <div class="fg campo">
+            <label>Técnicos responsáveis</label>
+            <div class="tec-lista" id="po-tecs"></div>
+          </div>
+
+          <div class="fg campo">
+            <label>Veículo</label>
+            <select id="po-veiculo"><option value="">Selecione…</option><option value="Sem veículo">Sem veículo</option></select>
           </div>
 
           <!-- Tempo da visita (levantamento): carimbado automático, igual ao timer da RAT -->

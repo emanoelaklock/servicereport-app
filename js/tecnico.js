@@ -392,6 +392,27 @@
       return `<label class="tec-row"><input type="checkbox" value="${esc(t.id)}"${souEu ? ' checked' : ''}><span class="av">${av}</span><span class="ti"><span class="nm">${esc(n)}${souEu ? ' (você)' : ''}</span><span class="rl">${esc(rl)}</span></span><span class="pl">+</span></label>`
     }).join('')
   }
+  // Técnicos responsáveis do pré-orçamento (mesmo card com foto). marcados = ids pré-selecionados.
+  function montarPoTecnicos(marcados) {
+    const box = document.getElementById('po-tecs'); if (!box) return
+    const sel = new Set((marcados && marcados.length) ? marcados : [tecnico.id])
+    const eu = ref.tecnicos.find(t => t.id === tecnico.id)
+    const lista = eu ? ref.tecnicos : [{ id: tecnico.id, nome: tecnico.nome }].concat(ref.tecnicos)
+    box.innerHTML = lista.map(t => {
+      const n = tcase(t.nome), souEu = t.id === tecnico.id
+      const rl = t.cargo ? `${t.cargo} · Técnico` : 'Técnico'
+      const foto = (typeof avatarUrl === 'function') ? avatarUrl(t.foto_url) : null
+      const av = foto ? `<img src="${esc(foto)}" alt="">` : esc(iniciaisDe(n))
+      return `<label class="tec-row"><input type="checkbox" value="${esc(t.id)}"${sel.has(t.id) ? ' checked' : ''}><span class="av">${av}</span><span class="ti"><span class="nm">${esc(n)}${souEu ? ' (você)' : ''}</span><span class="rl">${esc(rl)}</span></span><span class="pl">+</span></label>`
+    }).join('')
+  }
+  function poPopularVeiculos() {
+    const sel = document.getElementById('po-veiculo'); if (!sel) return
+    const atual = sel.value
+    const ops = (ref.veiculos || []).map(v => { const lbl = `${v.modelo || ''} (${v.placa || ''})`; return `<option value="${esc(lbl)}">${esc(lbl)}</option>` }).join('')
+    sel.innerHTML = `<option value="">Selecione…</option><option value="Sem veículo">Sem veículo</option>${ops}`
+    sel.value = atual
+  }
 
   // ─────────────────────────── Lista ───────────────────────────
   const BADGE = {
@@ -3204,7 +3225,7 @@
       'po-desloc', 'po-hora-inicio', 'po-hora-termino', 'po-ida', 'po-retorno', 'po-almoco', 'po-pausa',
       'po-est-dias', 'po-est-tec'].forEach(id => set(id, ''))
     set('po-tempo', '—')
-    onDeslocPoChange(); atualizarEstimPo(); poRenderTimer()
+    onDeslocPoChange(); atualizarEstimPo(); poRenderTimer(); poPopularVeiculos(); montarPoTecnicos()
   }
 
   async function novoPreorcUI() {
@@ -3234,6 +3255,7 @@
     set('po-ida', r.ida); set('po-retorno', r.retorno); set('po-almoco', r.almoco); set('po-pausa', r.pausa)
     const es = r.estimativa || {}; set('po-est-dias', es.dias); set('po-est-tec', es.tecnicos)
     onDeslocPoChange(); atualizarEstimPo(); poRenderTimer()
+    montarPoTecnicos(r.tecnicos); set('po-veiculo', r.veiculo)
     poBindAutocomplete()
     await poRefreshThumbs()
     await poRefreshItens()
@@ -3375,6 +3397,8 @@
         ida: v('po-ida') || null, retorno: v('po-retorno') || null,
         almoco: v('po-almoco') || null, pausa: v('po-pausa') || null,
         estimativa: { dias: est.dias, tecnicos: est.tec, horas_obra: est.horasObra, duplas: est.duplas, horas_dupla: est.horasDupla },
+        tecnicos: [...document.querySelectorAll('#po-tecs input:checked')].map(c => c.value),
+        veiculo: document.getElementById('po-veiculo').value || null,
       },
       tempo_trabalhado: calcTempoPo(),
       data: new Date().toISOString(),
