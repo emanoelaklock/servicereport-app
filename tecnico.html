@@ -279,7 +279,7 @@ try{if(localStorage.getItem('sr_dark')==='1')document.documentElement.classList.
   .stp .stp-n{min-width:56px;height:44px;padding:0 6px;font-size:15.5px;font-weight:800;font-variant-numeric:tabular-nums;color:var(--tx)}
   .stp .stp-n.over{color:#DE2C2C}
   .stp .stp-i{width:64px;height:44px;border:none;text-align:center;font:inherit;font-size:15.5px;font-weight:800;outline:2px solid #1B7FC4;background:var(--sur);color:var(--tx)}
-  #prod-avulso-form input,#prod-cat-busca{width:100%;padding:10px 11px;border:1px solid var(--bd);border-radius:9px;font:inherit;font-size:16px;background:var(--sur);color:var(--tx)}
+  #prod-avulso-form input,#prod-cat-busca,#pb-busca{width:100%;padding:10px 11px;border:1px solid var(--bd);border-radius:9px;font:inherit;font-size:16px;background:var(--sur);color:var(--tx)}
 
   /* ===== Badge de estado no botão Produtos ===== */
   .pbg{font-size:10.5px;font-weight:800;padding:3px 8px;border-radius:999px;margin-left:4px}
@@ -934,7 +934,7 @@ try{if(localStorage.getItem('sr_dark')==='1')document.documentElement.classList.
         <div class="prod-list" id="prod-list"></div>
         <div class="fg" style="margin-top:14px">
           <label>Buscar produto (na tarefa ou no catálogo)</label>
-          <input id="prod-cat-busca" placeholder="Buscar produto por nome ou código…" autocomplete="off">
+          <input id="prod-cat-busca" placeholder="Toque para buscar…" autocomplete="off" readonly style="cursor:pointer">
           <div id="prod-cat-sug"></div>
         </div>
         <button type="button" class="btn btn-sm prod-avulso" id="prod-avulso-btn">+ Item avulso</button>
@@ -954,6 +954,17 @@ try{if(localStorage.getItem('sr_dark')==='1')document.documentElement.classList.
     <div class="tm-f" style="justify-content:space-between;align-items:center">
       <span style="font-weight:700;font-size:13.5px" id="prod-resumo-foot">—</span>
       <button class="btn btn-teal" id="prod-ok">Concluir</button>
+    </div>
+  </div>
+</div>
+
+<!-- Busca de produto em tela cheia (lista extensa) -->
+<div class="tm-back tm-fs" id="modal-prod-busca">
+  <div class="tm-box" style="display:flex;flex-direction:column">
+    <div class="tm-h tmh tmh-teal"><span class="tmh-t">Buscar produto</span><button class="tm-x" id="pb-x">✕</button></div>
+    <div class="tm-b tskin" style="flex:1;overflow:auto;min-height:0">
+      <div class="fg"><input id="pb-busca" placeholder="Nome ou código — ex.: cabo azul" autocomplete="off"></div>
+      <div id="pb-res" style="margin-top:8px"></div>
     </div>
   </div>
 </div>
