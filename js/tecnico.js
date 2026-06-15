@@ -912,6 +912,8 @@
       const el = document.getElementById(id); if (el) el.style.display = (k === secao) ? 'block' : 'none'
     }
     const t = document.getElementById('ft-title'); if (t) t.textContent = TITLES[secao] || 'Service Report'
+    // Cor por artefato: pré-orçamento é amarelo — marca a casca quando no fluxo PO.
+    const app = document.getElementById('app-screen'); if (app) app.classList.toggle('po-mode', secao === 'preorc-form' || secao === 'preorc-lista')
     const b = document.getElementById('btn-voltar'); if (b) b.style.display = (secao === 'home') ? 'none' : 'block'
     try { sessionStorage.setItem('sr_tec_screen', SCREEN_PARENT[secao] || secao) } catch (e) { /* sem storage */ }
     if (secao === 'home') renderHome()

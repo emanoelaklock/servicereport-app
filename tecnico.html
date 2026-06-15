@@ -30,6 +30,10 @@ try{if(localStorage.getItem('sr_dark')==='1')document.documentElement.classList.
   .field-top .ft-back{background:rgba(255,255,255,.12);border:none;color:#fff;border-radius:8px;width:32px;height:32px;font-size:20px;line-height:1;cursor:pointer;margin-right:8px;flex:none}
   /* Cards da Fila (tarefas abertas): azul claro translucido — o lc-info (#F2F8FE) sumia no fundo branco */
   #home-fila .listcard{background:rgba(30,138,224,.12);border-color:rgba(30,138,224,.32)}
+  /* Cor por artefato: pre-orcamento = AMARELO (#F7B81E); RAT/agenda = azul. Casca muda no fluxo PO. */
+  .po-mode .field-top{background:#F7B81E;color:#3a2c05}
+  .po-mode .field-top .ft-back,.po-mode .field-top .ft-logout{background:rgba(58,44,5,.14);color:#3a2c05}
+  #po-btn-salvar,#btn-preorc-novo{background:#F7B81E;border-color:#F7B81E;color:#3a2c05}
   .field-body{flex:1;padding:18px 16px}
 
   /* Home (3 botões) */
@@ -838,8 +842,8 @@ try{if(localStorage.getItem('sr_dark')==='1')document.documentElement.classList.
           </div>
 
           <div class="fg campo">
-            <label>Descrição do levantamento <span style="color:var(--re)">*</span></label>
-            <textarea class="ta-longo" id="po-descricao" placeholder="O que foi avaliado, escopo, condições do local…"></textarea>
+            <label>Serviço solicitado <span style="color:var(--re)">*</span></label>
+            <textarea class="ta-longo cap-frase" id="po-descricao" autocapitalize="sentences" placeholder="O que o cliente precisa que seja feito (escopo, condições do local)…"></textarea>
           </div>
 
           <div class="fg campo">
@@ -896,7 +900,7 @@ try{if(localStorage.getItem('sr_dark')==='1')document.documentElement.classList.
 
           <div class="foot">
             <button class="btn btn-ghost" id="po-btn-cancelar">Cancelar</button>
-            <button class="btn btn-primary" id="po-btn-salvar">Concluir</button>
+            <button class="btn btn-primary" id="po-btn-salvar">Finalizar pré-orçamento</button>
           </div>
         </div>
       </div>
