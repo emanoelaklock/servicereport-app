@@ -292,6 +292,7 @@
     document.getElementById('po-btn-salvar').onclick = concluirPreorc
     document.getElementById('po-desloc').onchange = onDeslocPoChange
     document.getElementById('view-preorc-form').addEventListener('input', () => { atualizarTempoPo(); atualizarEstimPo() })
+    document.getElementById('po-btn-visita').onclick = poVisitaToggle
     document.getElementById('po-prod-add-btn').onclick = poAddItem
     const pf = document.getElementById('po-foto-input')
     document.getElementById('po-btn-foto').onclick = () => pf.click()
@@ -3203,7 +3204,7 @@
       'po-desloc', 'po-hora-inicio', 'po-hora-termino', 'po-ida', 'po-retorno', 'po-almoco', 'po-pausa',
       'po-est-dias', 'po-est-tec'].forEach(id => set(id, ''))
     set('po-tempo', '—')
-    onDeslocPoChange(); atualizarEstimPo()
+    onDeslocPoChange(); atualizarEstimPo(); poRenderTimer()
   }
 
   async function novoPreorcUI() {
@@ -3232,7 +3233,7 @@
     set('po-desloc', r.deslocamento); set('po-hora-inicio', r.hora_inicio); set('po-hora-termino', r.hora_termino)
     set('po-ida', r.ida); set('po-retorno', r.retorno); set('po-almoco', r.almoco); set('po-pausa', r.pausa)
     const es = r.estimativa || {}; set('po-est-dias', es.dias); set('po-est-tec', es.tecnicos)
-    onDeslocPoChange(); atualizarEstimPo()
+    onDeslocPoChange(); atualizarEstimPo(); poRenderTimer()
     poBindAutocomplete()
     await poRefreshThumbs()
     await poRefreshItens()
@@ -3241,17 +3242,35 @@
 
   function onDeslocPoChange() {
     const d = document.getElementById('po-desloc').value
-    document.getElementById('po-bloco-sem').style.display = d === 'Não' ? 'block' : 'none'
     document.getElementById('po-bloco-com').style.display = d === 'Sim' ? 'block' : 'none'
     atualizarTempoPo()
   }
+  // Timer carimbado da visita: o tempo de levantamento vem do relógio (técnico não digita).
+  const poHHMM = () => { const d = new Date(); return String(d.getHours()).padStart(2, '0') + ':' + String(d.getMinutes()).padStart(2, '0') }
+  function poRenderTimer() {
+    const val = (id) => { const e = document.getElementById(id); return e ? e.value : '' }
+    const ini = val('po-hora-inicio'), fim = val('po-hora-termino')
+    const di = document.getElementById('po-ini-disp'); if (di) di.textContent = ini || '—:—'
+    const df = document.getElementById('po-fim-disp'); if (df) df.textContent = fim || '—:—'
+    const si = document.getElementById('po-stamp-ini'); if (si) si.classList.toggle('on', !!ini)
+    const sf = document.getElementById('po-stamp-fim'); if (sf) sf.classList.toggle('on', !!fim)
+    const b = document.getElementById('po-btn-visita'); if (!b) return
+    if (!ini) { b.textContent = '▶ Iniciar visita'; b.className = 'po-tbtn po-start' }
+    else if (!fim) { b.textContent = '■ Encerrar visita'; b.className = 'po-tbtn po-stop' }
+    else { b.textContent = '↻ Refazer'; b.className = 'po-tbtn po-redo' }
+  }
+  function poVisitaToggle() {
+    const set = (id, v) => { const e = document.getElementById(id); if (e) e.value = v }
+    const val = (id) => { const e = document.getElementById(id); return e ? e.value : '' }
+    const ini = val('po-hora-inicio'), fim = val('po-hora-termino')
+    if (!ini) { set('po-hora-inicio', poHHMM()); set('po-hora-termino', '') }
+    else if (!fim) { set('po-hora-termino', poHHMM()) }
+    else { set('po-hora-inicio', ''); set('po-hora-termino', '') }   // refazer
+    poRenderTimer(); atualizarTempoPo()
+  }
   function calcTempoPo() {
     const v = (id) => { const e = document.getElementById(id); return e ? e.value : '' }
-    const d = v('po-desloc'); let ini, fim
-    if (d === 'Sim') { ini = v('po-ida'); fim = v('po-retorno') }
-    else if (d === 'Não') { ini = v('po-hora-inicio'); fim = v('po-hora-termino') }
-    else return null
-    const a = minutosDe(ini), b = minutosDe(fim)
+    const a = minutosDe(v('po-hora-inicio')), b = minutosDe(v('po-hora-termino'))
     if (a == null || b == null) return null
     const t = b - a - (Number(v('po-almoco')) || 0) - (Number(v('po-pausa')) || 0)
     return t < 0 ? 0 : t

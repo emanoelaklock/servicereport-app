@@ -41,6 +41,17 @@ try{if(localStorage.getItem('sr_dark')==='1')document.documentElement.classList.
   .po-estim-row input{flex:1;min-width:0;width:0;background:#fff;border:1.5px solid #F2D98C;border-radius:10px;padding:10px 8px;font:inherit;font-size:15px;font-weight:700;text-align:center;color:var(--tx)}
   .po-estim-x{font-size:12.5px;font-weight:800;color:#92670A;flex:none}
   .po-estim-prev{margin-top:10px;font-size:12.5px;font-weight:800;color:#92670A;text-align:center;background:#fff;border:1px dashed #EAC766;border-radius:10px;padding:9px}
+  /* Timer carimbado da visita de levantamento */
+  .po-timer{background:#fff;border:1px solid var(--bd);border-radius:14px;padding:13px}
+  .po-timer-row{display:flex;gap:10px;margin-bottom:11px}
+  .po-stamp{flex:1;background:var(--sur2);border:1px solid var(--bd);border-radius:11px;padding:10px;text-align:center}
+  .po-stamp.on{background:#E6F6EC;border-color:#CDE9D8}
+  .po-stamp .k{display:block;font-size:10px;font-weight:700;color:var(--tx3);text-transform:uppercase;letter-spacing:.4px;margin-bottom:3px}
+  .po-stamp b{font-size:19px;font-weight:800;color:#B6BCC8;letter-spacing:-.5px;font-variant-numeric:tabular-nums}
+  .po-stamp.on b{color:#0B7A43}
+  .po-tbtn{display:flex;align-items:center;justify-content:center;gap:8px;width:100%;border:none;font-family:inherit;font-size:14px;font-weight:700;padding:13px;border-radius:11px;color:#fff;cursor:pointer}
+  .po-tbtn.po-start{background:#179A47} .po-tbtn.po-stop{background:#E5403A} .po-tbtn.po-redo{background:var(--sur2);color:var(--tx2);border:1px solid var(--bd)}
+  .po-visita-nota{font-size:11px;color:var(--tx3);font-weight:600;margin-top:7px;line-height:1.4}
   .field-body{flex:1;padding:18px 16px}
 
   /* Home (3 botões) */
@@ -892,7 +903,21 @@ try{if(localStorage.getItem('sr_dark')==='1')document.documentElement.classList.
             </div>
           </div>
 
-          <!-- Bloco de controle de tempo (mesma lógica da RAT) -->
+          <!-- Tempo da visita (levantamento): carimbado automático, igual ao timer da RAT -->
+          <div class="fg campo">
+            <label>Tempo da visita (levantamento)</label>
+            <div class="po-timer">
+              <div class="po-timer-row">
+                <div class="po-stamp" id="po-stamp-ini"><span class="k">Início</span><b id="po-ini-disp">—:—</b></div>
+                <div class="po-stamp" id="po-stamp-fim"><span class="k">Término</span><b id="po-fim-disp">—:—</b></div>
+              </div>
+              <button type="button" class="po-tbtn po-start" id="po-btn-visita">▶ Iniciar visita</button>
+            </div>
+            <input type="hidden" id="po-hora-inicio"><input type="hidden" id="po-hora-termino">
+            <p class="po-visita-nota">Este tempo conta na <b>jornada</b> do técnico e entra no <b>valor</b> do orçamento (a visita é cobrada, como uma RAT).</p>
+          </div>
+
+          <!-- Deslocamento do dia (registro à parte) -->
           <div class="fg campo">
             <label>Houve deslocamento?</label>
             <select id="po-desloc">
@@ -900,10 +925,6 @@ try{if(localStorage.getItem('sr_dark')==='1')document.documentElement.classList.
               <option value="Não">Não</option>
               <option value="Sim">Sim</option>
             </select>
-          </div>
-          <div id="po-bloco-sem" style="display:none">
-            <div class="fg campo"><label>Início</label><input type="time" id="po-hora-inicio"></div>
-            <div class="fg campo"><label>Término</label><input type="time" id="po-hora-termino"></div>
           </div>
           <div id="po-bloco-com" style="display:none">
             <div class="fg campo"><label>Início do deslocamento (ida)</label><input type="time" id="po-ida"></div>
