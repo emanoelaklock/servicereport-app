@@ -291,7 +291,7 @@
     document.getElementById('po-btn-cancelar').onclick = cancelarPreorc
     document.getElementById('po-btn-salvar').onclick = concluirPreorc
     document.getElementById('po-desloc').onchange = onDeslocPoChange
-    document.getElementById('view-preorc-form').addEventListener('input', atualizarTempoPo)
+    document.getElementById('view-preorc-form').addEventListener('input', () => { atualizarTempoPo(); atualizarEstimPo() })
     document.getElementById('po-prod-add-btn').onclick = poAddItem
     const pf = document.getElementById('po-foto-input')
     document.getElementById('po-btn-foto').onclick = () => pf.click()
@@ -3200,9 +3200,10 @@
   function poLimparForm() {
     const set = (id, v) => { const e = document.getElementById(id); if (e) e.value = v }
     ;['po-cliente', 'po-cliente-busca', 'po-descricao', 'po-prod-sel', 'po-prod-busca', 'po-prod-qtd',
-      'po-desloc', 'po-hora-inicio', 'po-hora-termino', 'po-ida', 'po-retorno', 'po-almoco', 'po-pausa'].forEach(id => set(id, ''))
+      'po-desloc', 'po-hora-inicio', 'po-hora-termino', 'po-ida', 'po-retorno', 'po-almoco', 'po-pausa',
+      'po-est-dias', 'po-est-tec'].forEach(id => set(id, ''))
     set('po-tempo', '—')
-    onDeslocPoChange()
+    onDeslocPoChange(); atualizarEstimPo()
   }
 
   async function novoPreorcUI() {
@@ -3230,7 +3231,8 @@
     const set = (id, v) => { const e = document.getElementById(id); if (e && v != null) e.value = v }
     set('po-desloc', r.deslocamento); set('po-hora-inicio', r.hora_inicio); set('po-hora-termino', r.hora_termino)
     set('po-ida', r.ida); set('po-retorno', r.retorno); set('po-almoco', r.almoco); set('po-pausa', r.pausa)
-    onDeslocPoChange()
+    const es = r.estimativa || {}; set('po-est-dias', es.dias); set('po-est-tec', es.tecnicos)
+    onDeslocPoChange(); atualizarEstimPo()
     poBindAutocomplete()
     await poRefreshThumbs()
     await poRefreshItens()
@@ -3316,12 +3318,30 @@
     box.querySelectorAll('[data-mid]').forEach(b => { b.onclick = async () => { await D().removerItemPreorc(b.dataset.mid); await poRefreshItens() } })
   }
 
+  // Estimativa de execução em HORAS-DUPLA: (dias × 9h de obra) × (nº técnicos / 2). Dupla = 2 técnicos.
+  const H_DIA_OBRA = 9
+  function calcEstimPo() {
+    const num = (id) => { const e = document.getElementById(id); const n = Number(e && e.value); return isFinite(n) ? n : 0 }
+    const dias = num('po-est-dias'), tec = num('po-est-tec')
+    if (dias <= 0 || tec <= 0) return null
+    const horasObra = dias * H_DIA_OBRA, duplas = tec / 2
+    return { dias, tec, horasObra, duplas, horasDupla: horasObra * duplas }
+  }
+  function atualizarEstimPo() {
+    const el = document.getElementById('po-est-prev'); if (!el) return
+    const e = calcEstimPo()
+    if (!e) { el.textContent = 'Informe dias e nº de técnicos'; return }
+    const fmt = (x) => Number.isInteger(x) ? String(x) : x.toFixed(1).replace('.', ',')
+    el.textContent = `≈ ${e.dias} ${e.dias === 1 ? 'dia' : 'dias'} (${fmt(e.horasObra)}h) × ${fmt(e.duplas)} ${e.duplas === 1 ? 'dupla' : 'duplas'} = ${fmt(e.horasDupla)} horas-dupla`
+  }
   async function concluirPreorc() {
     if (!curPo) return
     const cliId = document.getElementById('po-cliente').value
     const desc = document.getElementById('po-descricao').value.trim()
     if (!cliId) return toast('Selecione o cliente.', 'err')
-    if (!desc) return toast('Descreva o levantamento.', 'err')
+    if (!desc) return toast('Descreva o serviço solicitado.', 'err')
+    const est = calcEstimPo()
+    if (!est) return toast('Informe a estimativa: dias e nº de técnicos.', 'err')
     const v = (id) => { const e = document.getElementById(id); return e ? e.value : '' }
     const cli = ref.clientes.find(c => c.id === cliId)
     await D().salvarPreorc(curPo.client_uuid, {
@@ -3335,6 +3355,7 @@
         hora_inicio: v('po-hora-inicio') || null, hora_termino: v('po-hora-termino') || null,
         ida: v('po-ida') || null, retorno: v('po-retorno') || null,
         almoco: v('po-almoco') || null, pausa: v('po-pausa') || null,
+        estimativa: { dias: est.dias, tecnicos: est.tec, horas_obra: est.horasObra, duplas: est.duplas, horas_dupla: est.horasDupla },
       },
       tempo_trabalhado: calcTempoPo(),
       data: new Date().toISOString(),

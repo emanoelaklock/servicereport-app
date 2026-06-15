@@ -34,6 +34,13 @@ try{if(localStorage.getItem('sr_dark')==='1')document.documentElement.classList.
   .po-mode .field-top{background:#F7B81E;color:#3a2c05}
   .po-mode .field-top .ft-back,.po-mode .field-top .ft-logout{background:rgba(58,44,5,.14);color:#3a2c05}
   #po-btn-salvar,#btn-preorc-novo{background:#F7B81E;border-color:#F7B81E;color:#3a2c05}
+  /* Estimativa para executar (campo estrela do pre-orcamento) */
+  .po-estim{background:linear-gradient(180deg,#FFFBEF,#FEF3DA);border:1.8px solid #F2D98C;border-radius:14px;padding:13px}
+  .po-estim-hint{font-size:11px;color:#a07d2a;font-weight:600;margin-bottom:10px;line-height:1.4}
+  .po-estim-row{display:flex;align-items:center;gap:8px}
+  .po-estim-row input{flex:1;min-width:0;width:0;background:#fff;border:1.5px solid #F2D98C;border-radius:10px;padding:10px 8px;font:inherit;font-size:15px;font-weight:700;text-align:center;color:var(--tx)}
+  .po-estim-x{font-size:12.5px;font-weight:800;color:#92670A;flex:none}
+  .po-estim-prev{margin-top:10px;font-size:12.5px;font-weight:800;color:#92670A;text-align:center;background:#fff;border:1px dashed #EAC766;border-radius:10px;padding:9px}
   .field-body{flex:1;padding:18px 16px}
 
   /* Home (3 botões) */
@@ -844,6 +851,20 @@ try{if(localStorage.getItem('sr_dark')==='1')document.documentElement.classList.
           <div class="fg campo">
             <label>Serviço solicitado <span style="color:var(--re)">*</span></label>
             <textarea class="ta-longo cap-frase" id="po-descricao" autocapitalize="sentences" placeholder="O que o cliente precisa que seja feito (escopo, condições do local)…"></textarea>
+          </div>
+
+          <div class="fg campo">
+            <label>Estimativa para executar <span style="color:var(--re)">*</span></label>
+            <div class="po-estim">
+              <div class="po-estim-hint">Quanto a obra vai levar — dias × equipe. A cobrança é por <b>hora-dupla</b> (2 técnicos = 1 dupla).</div>
+              <div class="po-estim-row">
+                <input type="number" id="po-est-dias" inputmode="numeric" min="0" step="1" placeholder="dias">
+                <span class="po-estim-x">dias&nbsp;×</span>
+                <input type="number" id="po-est-tec" inputmode="numeric" min="0" step="1" placeholder="téc.">
+                <span class="po-estim-x">téc.</span>
+              </div>
+              <div class="po-estim-prev" id="po-est-prev">Informe dias e nº de técnicos</div>
+            </div>
           </div>
 
           <div class="fg campo">
