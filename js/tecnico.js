@@ -245,7 +245,9 @@
     document.getElementById('tec-ok').onclick = fecharModalTecnicos
     document.getElementById('tec-busca').oninput = filtrarTecnicos
     const pcb = document.getElementById('prod-cat-busca')
-    if (pcb) pcb.oninput = () => renderCatalogoSug()
+    if (pcb) { pcb.readOnly = true; pcb.onclick = abrirModalBuscaProd }   // campo vira gatilho do modal fullscreen de busca
+    const pbb = document.getElementById('pb-busca'); if (pbb) pbb.oninput = renderBuscaProd
+    const pbx = document.getElementById('pb-x'); if (pbx) pbx.onclick = fecharModalBuscaProd
     document.getElementById('f-tipo').onchange = onTipoChange
     // Execução é o padrão; marcar "visita improdutiva" troca o modo (recolhe o checkpoint).
     document.getElementById('f-improdutiva-chk').onchange = (e) => { revelarPass = false; setExec(e.target.checked ? 'Não' : 'Sim') }
@@ -2539,6 +2541,52 @@
   async function fecharModalProd() {
     document.getElementById('modal-prod').classList.remove('open')
     await atualizarBadgeProd()
+  }
+  // Busca de produto em tela cheia (lista extensa, ate 50 + "refine"). Mesma busca tolerante,
+  // nos dois grupos: ja na RAT/tarefa (+1) e catalogo (+ Incluir). Pode adicionar varios sem fechar.
+  function abrirModalBuscaProd() {
+    if (!cur) return
+    const m = document.getElementById('modal-prod-busca'); if (!m) return
+    const i = document.getElementById('pb-busca'); if (i) i.value = ''
+    const r = document.getElementById('pb-res'); if (r) r.innerHTML = '<div class="prod-empty">Digite ao menos 2 letras.</div>'
+    m.classList.add('open')
+    if (i) setTimeout(() => i.focus(), 60)
+  }
+  async function fecharModalBuscaProd() {
+    document.getElementById('modal-prod-busca').classList.remove('open')
+    await refreshMateriais()   // reflete na lista de cima o que foi lancado
+  }
+  async function renderBuscaProd() {
+    const box = document.getElementById('pb-res'); if (!box || !cur) return
+    const toks = normStr(document.getElementById('pb-busca').value || '').split(/\s+/).filter(t => t.length >= 2)
+    if (!toks.length) { box.innerHTML = '<div class="prod-empty">Digite ao menos 2 letras.</div>'; return }
+    const casa = (s) => { const hay = normStr(s); return toks.every(t => hay.includes(t)) }
+    const mats = await D().listarMateriais(cur.client_uuid)
+    const naRat = mats.filter(m => casa((m.descricao || '') + ' ' + (m.codigo_produto || '')))
+    const ja = new Set(mats.map(m => m.produto_id).filter(Boolean))
+    const catAll = (ref.produtos || []).filter(p => !ja.has(p.id) && casa((p.descricao || '') + ' ' + (p.codigo || '')))
+    const LIM = 50, cat = catAll.slice(0, LIM)
+    if (!naRat.length && !cat.length) { box.innerHTML = '<div class="prod-empty">Nenhum produto encontrado.</div>'; return }
+    box.innerHTML =
+      naRat.map(m => `
+        <div class="prod-row2">
+          <div class="pr-main"><div class="pr-desc">${esc(m.descricao || m.codigo_produto || '—')}${m.unidade ? ` <span class="pr-un">${esc(m.unidade)}</span>` : ''}</div><div class="pr-sub">já na RAT · ${fmtQtd(Number(m.quantidade) || 0)}</div></div>
+          <button type="button" class="btn btn-sm btn-p pr-inc" data-mid="${esc(m.id)}" style="width:auto;padding:9px 13px;font-size:13px">+1</button>
+        </div>`).join('') +
+      cat.map(p => `
+        <div class="prod-row2">
+          <div class="pr-main"><div class="pr-desc">${esc(p.descricao || '—')}${p.unidade ? ` <span class="pr-un">${esc(p.unidade)}</span>` : ''}</div>${p.codigo ? `<div class="pr-sub">${esc(p.codigo)}</div>` : ''}</div>
+          <button type="button" class="btn btn-sm btn-p pr-add" data-pid="${esc(p.id)}" style="width:auto;padding:9px 13px;font-size:13px">+ Incluir</button>
+        </div>`).join('') +
+      (catAll.length > LIM ? `<div class="prod-empty">Mostrando ${LIM} de ${catAll.length} — refine a busca.</div>` : '')
+    box.querySelectorAll('.pr-inc').forEach(b => { b.onclick = async () => { await ajustarQtd(b.dataset.mid, +1); await renderBuscaProd() } })
+    box.querySelectorAll('.pr-add').forEach(b => {
+      b.onclick = async () => {
+        const p = (ref.produtos || []).find(x => x.id === b.dataset.pid); if (!p) return
+        await D().adicionarMaterial(cur.client_uuid, { produto_id: p.id, codigo_produto: p.codigo || null, descricao: p.descricao, unidade: p.unidade || null, quantidade: 1 })
+        await renderBuscaProd()   // permanece na busca pra adicionar varios
+      }
+    })
   }
   async function responderUsoProd(v) {
     if (!cur) return
