@@ -970,10 +970,10 @@ try{if(localStorage.getItem('sr_dark')==='1')document.documentElement.classList.
   </div>
 </div>
 
-<div class="tm-back" id="modal-nt">
-  <div class="tm-box">
-    <div class="tm-h"><span>Nova tarefa</span><button class="tm-x" id="nt-fechar">✕</button></div>
-    <div class="tm-b">
+<div class="tm-back tm-fs" id="modal-nt">
+  <div class="tm-box" style="display:flex;flex-direction:column">
+    <div class="tm-h tmh tmh-blue"><span class="tmh-ic"><svg viewBox="0 0 24 24"><rect x="4" y="4" width="16" height="16" rx="2"/><path d="M12 9v6M9 12h6"/></svg></span><span class="tmh-t">Nova tarefa</span><button class="tm-x" id="nt-fechar">✕</button></div>
+    <div class="tm-b" style="flex:1;overflow:auto;min-height:0">
       <label>Cliente *</label>
       <div class="ac">
         <input type="text" id="nt-cliente-busca" placeholder="Buscar cliente…" autocomplete="off">
