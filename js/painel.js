@@ -25,13 +25,16 @@
     const isoHoje = hoje.toISOString()
     const cont = (q) => q.then(r => r.error ? '—' : r.count)
 
-    const [hojeC, pendC, fatC, fatHojeC] = await Promise.all([
+    const [hojeC, pendC, fatC, fatHojeC, svC] = await Promise.all([
       cont(sb.from('rats').select('*', { count: 'exact', head: true }).gte('data_tarefa', isoHoje)),
       cont(sb.from('rats').select('*', { count: 'exact', head: true }).eq('status', 'Concluído com Pendências')),
       cont(sb.from('rats').select('*', { count: 'exact', head: true }).eq('faturado', false).eq('relatorio_completo', true)),
       cont(sb.from('rats').select('*', { count: 'exact', head: true }).eq('faturado', true).gte('data_faturamento', isoHoje)),
+      cont(sb.from('vw_alerta_desloc_sem_volta').select('*', { count: 'exact', head: true })),   // conferência (leitura): dias técnico×dia com ida sem volta
     ])
-    set('kpi-hoje', hojeC); set('kpi-pend', pendC); set('kpi-faturar', fatC); set('kpi-fat-hoje', fatHojeC)
+    set('kpi-hoje', hojeC); set('kpi-pend', pendC); set('kpi-faturar', fatC); set('kpi-fat-hoje', fatHojeC); set('kpi-sem-volta', svC)
+    // conferência: o cartão só aparece quando há dias a verificar (>0). 0 ou '—' (erro/RLS) = escondido (sem ruído)
+    const svCard = document.getElementById('kpi-sem-volta-card'); if (svCard) svCard.style.display = (typeof svC === 'number' && svC > 0) ? '' : 'none'
 
     const { data, error } = await sb.from('rats')
       .select('id,cliente_nome,data_tarefa,sync_status,relatorio_completo,faturado')
