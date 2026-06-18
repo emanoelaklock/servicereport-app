@@ -20,12 +20,13 @@
 ============================================================================ */
 
 :root{
-  --red:#DE2C2C; --orange:#F27423; --yellow:#FDB31F; --green:#179A47; --blue:#1B7FC4; --purple:#73328E; --pink:#D63384;
-  --bg:#F4F5F8; --card:#FFFFFF; --line:#EAEDF2; --ink:#1B1E26; --muted:#7C8290; --title:#243456;
-  --exec-bg:#EAF7F0; --exec-fg:#0B7A43; --exec-m:#179A47;
-  --warn-bg:#FFF6E5; --warn-fg:#A2740C; --warn-m:#FDB31F;
-  --pend-bg:#FDEEEC; --pend-fg:#C0362C; --pend-m:#DE2C2C;
-  --info-bg:#E7F1FC; --info-fg:#1565C0; --info-m:#1B7FC4;
+  /* paleta → fonte única oficial (css/tokens.css) */
+  --red:var(--sr-red); --orange:var(--sr-orange); --yellow:var(--sr-yellow); --green:var(--sr-green); --blue:var(--sr-blue); --purple:var(--sr-purple); --pink:var(--sr-pink);
+  --bg:var(--sr-bg); --card:var(--sr-card); --line:var(--sr-line); --ink:var(--sr-ink); --muted:var(--sr-muted); --title:var(--sr-title);
+  --exec-bg:var(--sr-exec-bg); --exec-fg:var(--sr-exec-fg); --exec-m:var(--sr-exec-m);
+  --warn-bg:var(--sr-warn-bg); --warn-fg:var(--sr-warn-fg); --warn-m:var(--sr-warn-m);
+  --pend-bg:var(--sr-pend-bg); --pend-fg:var(--sr-pend-fg); --pend-m:var(--sr-pend-m);
+  --info-bg:var(--sr-info-bg); --info-fg:var(--sr-info-fg); --info-m:var(--sr-info-m);
   --r-lg:16px; --r-md:11px; --r-sm:9px; --r-pill:999px;
   --font:'Manrope',system-ui,-apple-system,sans-serif;
 }
@@ -57,7 +58,7 @@
 .c-gray{color:#5B6270;}   .c-gray .ni{background:#EEF0F4;color:#8A909C;}
 .nav.on{color:#fff;} .nav.on .ni{background:rgba(255,255,255,.25);color:#fff;}
 .nav.on.c-blue{background:var(--blue);}   .nav.on.c-purple{background:var(--purple);}
-.nav.on.c-green{background:var(--green);} .nav.on.c-amber{background:#E5890B;color:#fff;}
+.nav.on.c-green{background:var(--green);} .nav.on.c-amber{background:#E5890B;color:var(--sr-on-warn);}
 .nav.on.c-orange{background:var(--orange);} .nav.on.c-pink{background:var(--pink);} .nav.on.c-gray{background:#3a4150;}
 .nav.on{box-shadow:0 8px 16px rgba(30,40,70,.18);}
 .side .foot{margin-top:auto;display:flex;align-items:center;gap:10px;padding:11px 8px 4px;border-top:1px solid var(--line);}
@@ -235,7 +236,7 @@
 .ck-card .l{font-size:12px;font-weight:700;letter-spacing:normal;text-transform:none;opacity:.92;}
 .ck-card .v{font-size:25px;font-weight:800;margin-top:5px;letter-spacing:-.5px;font-variant-numeric:tabular-nums;}
 .ck-blue{background:linear-gradient(135deg,#3B7AF0,#1B7FC4);} .ck-green{background:linear-gradient(135deg,#34BD5A,#179A47);}
-.ck-amber{background:linear-gradient(135deg,#F5A623,#E5890B);color:#fff;} .ck-red{background:linear-gradient(135deg,#EF5A52,#DE2C2C);}
+.ck-amber{background:linear-gradient(135deg,#F5A623,#E5890B);color:var(--sr-on-warn);} .ck-red{background:linear-gradient(135deg,#EF5A52,#DE2C2C);}
 table.concil{width:100%;border-collapse:collapse;}
 table.concil thead th{font-size:12px;font-weight:700;letter-spacing:normal;text-transform:none;color:var(--muted);text-align:right;padding:0 10px 11px;border-bottom:1px solid var(--line);}
 table.concil thead th.l{text-align:left;}

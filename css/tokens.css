@@ -1,0 +1,43 @@
+/* ============================================================================
+   SERVICE REPORT · TOKENS DE COR — FONTE ÚNICA (paleta oficial, CLAUDE.md)
+   ----------------------------------------------------------------------------
+   Importado do design system (claude.ai/design · tokens/colors.css).
+   "Cor = significado." Esta é a ÚNICA fonte de verdade da paleta: os CSS de
+   tema (theme.css, design-system-admin.css, design-system-tecnico.css,
+   tecnico-skin.css) APONTAM seus tokens locais para estes `--sr-*`.
+   Carregar este arquivo ANTES dos demais em toda página.
+
+   Tema escuro: o bloco [data-theme="dark"] (design system · tokens/semantic.css)
+   é trivial de somar aqui quando o dark for priorizado — todo o sistema vira de
+   uma vez, pois tudo deriva destes tokens base.
+   ========================================================================== */
+:root{
+  /* ---- Paleta de marca (oficial) — cor = estado ------------------------- */
+  --sr-red:#E5403A;     /* erro / pendência grave / fora-da-proposta        */
+  --sr-orange:#F4861F;  /* deslocamento / viagem                            */
+  --sr-yellow:#F7B81E;  /* pausa / atenção                                  */
+  --sr-green:#179A47;   /* ok / execução / concluído                        */
+  --sr-blue:#1E8AE0;    /* info / ação primária                             */
+  --sr-purple:#8E45B5;  /* jornada / serviço / orçamentos                   */
+  --sr-pink:#D63384;    /* relatórios                                       */
+
+  /* ---- Neutros (tema claro) -------------------------------------------- */
+  --sr-bg:#F3F4F8;      /* fundo de tela                                    */
+  --sr-card:#FFFFFF;    /* superfície de card / input                       */
+  --sr-line:#ECEEF3;    /* divisórias / bordas suaves                       */
+  --sr-line-strong:#DCE0E8; /* borda de input                              */
+  --sr-ink:#1B1E26;     /* texto principal                                  */
+  --sr-muted:#636A76;   /* texto secundário (AA ≥ 4.5 sobre card e fundo)   */
+  --sr-title:#243456;   /* títulos do portal (azul-tinta)                   */
+  --sr-sidebar:#1B2A4A; /* navy do ícone PWA / marca                        */
+  --sr-on-warn:#1A1A1A; /* texto SEMPRE escuro sobre amarelo/laranja (AA)   */
+
+  /* ---- Famílias de status (fundo · texto · marca) ---------------------- */
+  --sr-exec-bg:#E6F6EC;  --sr-exec-fg:#0B7A43;  --sr-exec-m:#179A47;  /* execução/ok      */
+  --sr-info-bg:#E7F1FC;  --sr-info-fg:#1565C0;  --sr-info-m:#1E8AE0;  /* info             */
+  --sr-warn-bg:#FEF3DA;  --sr-warn-fg:#92670A;  --sr-warn-m:#F7B81E;  /* atenção/pausa    */
+  --sr-pend-bg:#FDECEA;  --sr-pend-fg:#C0362C;  --sr-pend-m:#E5403A;  /* pendência/erro   */
+  --sr-move-bg:#FDEEE0;  --sr-move-fg:#A8540A;  --sr-move-m:#F4861F;  /* deslocamento     */
+  --sr-jrny-bg:#F3E8FA;  --sr-jrny-fg:#6C2F96;  --sr-jrny-m:#8E45B5;  /* jornada/serviço  */
+  --sr-aguard-bg:#EEF0F4;--sr-aguard-fg:#5B6573;--sr-aguard-m:#9CA3AF;/* aguardando/cinza */
+}

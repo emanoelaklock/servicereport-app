@@ -5,13 +5,13 @@
    Fonte: Manrope.
 ============================================================================ */
 :root{
-  --red:#E5403A; --orange:#F4861F; --yellow:#F7B81E; --green:#28A94C; --blue:#1E8AE0; --purple:#8E45B5;
-  --t-bg:#F3F4F8; --t-card:#FFFFFF; --t-line:#ECEEF3; --t-ink:#1B1E26; --t-muted:#7C8290;
-  --exec-bg:#E6F6EC; --exec-fg:#0B7A43; --exec-m:#28A94C;
-  --info-bg:#E7F1FC; --info-fg:#1565C0; --info-m:#1E8AE0;
-  --warn-bg:#FEF3DA; --warn-fg:#92670A; --warn-m:#F7B81E;
-  --pend-bg:#FDECEA; --pend-fg:#C0362C; --pend-m:#E5403A;
-  --aguard-bg:#EEF0F4; --aguard-fg:#5B6573; --aguard-m:#9CA3AF;
+  --red:var(--sr-red); --orange:var(--sr-orange); --yellow:var(--sr-yellow); --green:var(--sr-green); --blue:var(--sr-blue); --purple:var(--sr-purple); --pink:var(--sr-pink);
+  --t-bg:var(--sr-bg); --t-card:var(--sr-card); --t-line:var(--sr-line); --t-ink:var(--sr-ink); --t-muted:var(--sr-muted);
+  --exec-bg:var(--sr-exec-bg); --exec-fg:var(--sr-exec-fg); --exec-m:var(--sr-exec-m);
+  --info-bg:var(--sr-info-bg); --info-fg:var(--sr-info-fg); --info-m:var(--sr-info-m);
+  --warn-bg:var(--sr-warn-bg); --warn-fg:var(--sr-warn-fg); --warn-m:var(--sr-warn-m);
+  --pend-bg:var(--sr-pend-bg); --pend-fg:var(--sr-pend-fg); --pend-m:var(--sr-pend-m);
+  --aguard-bg:var(--sr-aguard-bg); --aguard-fg:var(--sr-aguard-fg); --aguard-m:var(--sr-aguard-m);
   --r-xl:24px; --r-lg:20px; --r-md:15px; --r-sm:11px; --r-pill:999px;
   --t-font:'Manrope',system-ui,-apple-system,sans-serif;
 }
@@ -42,7 +42,7 @@
 .tskin .tile .cnt{position:absolute;top:14px;right:15px;font-size:25px;font-weight:700;line-height:1;letter-spacing:-1px;font-variant-numeric:tabular-nums;}
 .tskin .t-green{background:var(--green);} .tskin .t-blue{background:var(--blue);} .tskin .t-purple{background:var(--purple);} .tskin .t-red{background:var(--red);}
 .tskin .t-yellow{background:var(--yellow);}
-.tskin .strip{margin-top:11px;border-radius:var(--r-lg);padding:15px 17px;background:var(--orange);color:#fff;display:flex;align-items:center;gap:13px;cursor:pointer;text-decoration:none;border:none;font-family:inherit;text-align:left;width:100%;}
+.tskin .strip{margin-top:11px;border-radius:var(--r-lg);padding:15px 17px;background:var(--orange);color:var(--sr-on-warn);display:flex;align-items:center;gap:13px;cursor:pointer;text-decoration:none;border:none;font-family:inherit;text-align:left;width:100%;}
 .tskin .strip .ic{width:38px;height:38px;border-radius:var(--r-sm);background:rgba(255,255,255,.24);display:grid;place-items:center;flex:none;}
 .tskin .strip .ic svg{width:21px;height:21px;stroke:#fff;fill:none;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round;}
 .tskin .strip .lbl{font-size:15px;font-weight:600;letter-spacing:-.2px;}
@@ -53,10 +53,10 @@
 .tskin .btn{display:flex;align-items:center;justify-content:center;gap:8px;width:100%;border:none;font-family:inherit;font-size:15px;font-weight:700;padding:14px;border-radius:var(--r-md);cursor:pointer;letter-spacing:-.2px;}
 .tskin .btn-primary{background:var(--blue);color:#fff;}
 .tskin .btn-purple{background:var(--purple);color:#fff;}
-.tskin .btn-orange{background:var(--orange);color:#fff;}
+.tskin .btn-orange{background:var(--orange);color:var(--sr-on-warn);}
 .tskin .btn-red{background:var(--red);color:#fff;}
 .tskin .btn-teal{background:var(--green);color:#fff;}
-.tskin .btn-yellow{background:var(--yellow);color:#fff;}
+.tskin .btn-yellow{background:var(--yellow);color:var(--sr-on-warn);}
 .tskin .btn svg{width:17px;height:17px;stroke:currentColor;fill:none;stroke-width:2;stroke-linecap:round;stroke-linejoin:round;flex:none;}
 .tskin .seg-tipo svg{width:15px;height:15px;stroke:currentColor;fill:none;stroke-width:2;stroke-linecap:round;stroke-linejoin:round;vertical-align:-2px;margin-right:5px;}
 .tskin .btn-ghost{background:#fff;color:var(--t-ink);border:1px solid var(--t-line);}
@@ -85,7 +85,8 @@
 .tskin .listcard .tkgo svg{width:15px;height:15px;stroke:currentColor;fill:none;stroke-width:2;stroke-linecap:round;stroke-linejoin:round;}
 .tskin .tkpick{margin-left:auto;font-size:12.5px;font-weight:700;color:#fff;background:var(--blue);border:none;border-radius:10px;padding:8px 16px;font-family:inherit;cursor:pointer;}
 .tskin .home-empty{font-size:12.5px;color:var(--t-muted);padding:6px 4px 2px;}
-.tskin .lc-info{background:#F2F8FE;} .tskin .lc-warn{background:#FFF9EE;} .tskin .lc-done{background:#F2FAF5;}
+/* cards brancos em todos os status — status indicado pela barra lateral (.edge) + badge */
+.tskin .lc-info{background:var(--t-card);} .tskin .lc-warn{background:var(--t-card);} .tskin .lc-done{background:var(--t-card);}
 
 /* ---------- BADGES ---------- */
 /* badges SÓLIDOS (cor cheia) — alto destaque, sobretudo Devolvida e c/ pendência */

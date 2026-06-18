@@ -21,16 +21,16 @@
 ============================================================================ */
 
 :root{
-  /* paleta vívida */
-  --red:#E5403A; --orange:#F4861F; --yellow:#F7B81E; --green:#28A94C; --blue:#1E8AE0; --purple:#8E45B5;
+  /* paleta vívida → fonte única oficial (css/tokens.css) */
+  --red:var(--sr-red); --orange:var(--sr-orange); --yellow:var(--sr-yellow); --green:var(--sr-green); --blue:var(--sr-blue); --purple:var(--sr-purple); --pink:var(--sr-pink);
   /* neutros (tema claro) */
-  --bg:#F3F4F8; --card:#FFFFFF; --line:#ECEEF3; --ink:#1B1E26; --muted:#7C8290;
+  --bg:var(--sr-bg); --card:var(--sr-card); --line:var(--sr-line); --ink:var(--sr-ink); --muted:var(--sr-muted);
   /* status (fundo · texto · marca) */
-  --exec-bg:#E6F6EC; --exec-fg:#0B7A43; --exec-m:#28A94C;
-  --info-bg:#E7F1FC; --info-fg:#1565C0; --info-m:#1E8AE0;
-  --warn-bg:#FEF3DA; --warn-fg:#92670A; --warn-m:#F7B81E;
-  --pend-bg:#FDECEA; --pend-fg:#C0362C; --pend-m:#E5403A;
-  --aguard-bg:#EEF0F4; --aguard-fg:#5B6573; --aguard-m:#9CA3AF;
+  --exec-bg:var(--sr-exec-bg); --exec-fg:var(--sr-exec-fg); --exec-m:var(--sr-exec-m);
+  --info-bg:var(--sr-info-bg); --info-fg:var(--sr-info-fg); --info-m:var(--sr-info-m);
+  --warn-bg:var(--sr-warn-bg); --warn-fg:var(--sr-warn-fg); --warn-m:var(--sr-warn-m);
+  --pend-bg:var(--sr-pend-bg); --pend-fg:var(--sr-pend-fg); --pend-m:var(--sr-pend-m);
+  --aguard-bg:var(--sr-aguard-bg); --aguard-fg:var(--sr-aguard-fg); --aguard-m:var(--sr-aguard-m);
   /* raio */
   --r-xl:24px; --r-lg:20px; --r-md:15px; --r-sm:11px; --r-pill:999px;
   --font:'Manrope',system-ui,-apple-system,sans-serif;
@@ -84,7 +84,7 @@
 .tile .cnt{position:absolute;top:14px;right:15px;font-size:25px;font-weight:700;line-height:1;letter-spacing:-1px;font-variant-numeric:tabular-nums;}
 .t-green{background:var(--green);} .t-blue{background:var(--blue);} .t-purple{background:var(--purple);} .t-red{background:var(--red);}
 .t-yellow{background:var(--yellow);color:#1A1A1A;} .t-yellow .ic{background:rgba(0,0,0,.12);}
-.strip{margin-top:11px;border-radius:var(--r-lg);padding:15px 17px;background:var(--orange);color:#fff;display:flex;align-items:center;gap:13px;cursor:pointer;text-decoration:none;}
+.strip{margin-top:11px;border-radius:var(--r-lg);padding:15px 17px;background:var(--orange);color:var(--sr-on-warn);display:flex;align-items:center;gap:13px;cursor:pointer;text-decoration:none;}
 .strip .ic{width:38px;height:38px;border-radius:var(--r-sm);background:rgba(255,255,255,.24);display:grid;place-items:center;flex:none;}
 .strip .ic svg{width:21px;height:21px;stroke:#fff;fill:none;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round;}
 .strip .lbl{font-size:15px;font-weight:600;letter-spacing:-.2px;}
@@ -110,7 +110,8 @@
 .listcard .cli{font-size:15.5px;font-weight:700;letter-spacing:-.2px;flex:1;}
 .listcard .meta{font-size:12px;color:var(--muted);font-weight:500;}
 .listcard .meta b{color:#5b6270;font-weight:600;}
-.lc-info{background:#F2F8FE;} .lc-warn{background:#FFF9EE;} .lc-done{background:#F2FAF5;}
+/* cards brancos em todos os status — status indicado pela barra lateral (.edge) + badge */
+.lc-info{background:var(--card);} .lc-warn{background:var(--card);} .lc-done{background:var(--card);}
 
 /* ---------- BADGES de status (reutilizável) ---------- */
 .badge{font-size:10.5px;font-weight:700;padding:4px 10px;border-radius:var(--r-pill);white-space:nowrap;}
