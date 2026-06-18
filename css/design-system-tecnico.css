@@ -22,7 +22,7 @@
 
 :root{
   /* paleta vívida → fonte única oficial (css/tokens.css) */
-  --red:var(--sr-red); --orange:var(--sr-orange); --yellow:var(--sr-yellow); --green:var(--sr-green); --blue:var(--sr-blue); --purple:var(--sr-purple);
+  --red:var(--sr-red); --orange:var(--sr-orange); --yellow:var(--sr-yellow); --green:var(--sr-green); --blue:var(--sr-blue); --purple:var(--sr-purple); --pink:var(--sr-pink);
   /* neutros (tema claro) */
   --bg:var(--sr-bg); --card:var(--sr-card); --line:var(--sr-line); --ink:var(--sr-ink); --muted:var(--sr-muted);
   /* status (fundo · texto · marca) */

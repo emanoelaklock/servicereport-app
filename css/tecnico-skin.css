@@ -5,7 +5,7 @@
    Fonte: Manrope.
 ============================================================================ */
 :root{
-  --red:var(--sr-red); --orange:var(--sr-orange); --yellow:var(--sr-yellow); --green:var(--sr-green); --blue:var(--sr-blue); --purple:var(--sr-purple);
+  --red:var(--sr-red); --orange:var(--sr-orange); --yellow:var(--sr-yellow); --green:var(--sr-green); --blue:var(--sr-blue); --purple:var(--sr-purple); --pink:var(--sr-pink);
   --t-bg:var(--sr-bg); --t-card:var(--sr-card); --t-line:var(--sr-line); --t-ink:var(--sr-ink); --t-muted:var(--sr-muted);
   --exec-bg:var(--sr-exec-bg); --exec-fg:var(--sr-exec-fg); --exec-m:var(--sr-exec-m);
   --info-bg:var(--sr-info-bg); --info-fg:var(--sr-info-fg); --info-m:var(--sr-info-m);
