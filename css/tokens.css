@@ -30,6 +30,7 @@
   --sr-muted:#636A76;   /* texto secundário (AA ≥ 4.5 sobre card e fundo)   */
   --sr-title:#243456;   /* títulos do portal (azul-tinta)                   */
   --sr-sidebar:#1B2A4A; /* navy do ícone PWA / marca                        */
+  --sr-on-warn:#1A1A1A; /* texto SEMPRE escuro sobre amarelo/laranja (AA)   */
 
   /* ---- Famílias de status (fundo · texto · marca) ---------------------- */
   --sr-exec-bg:#E6F6EC;  --sr-exec-fg:#0B7A43;  --sr-exec-m:#179A47;  /* execução/ok      */
