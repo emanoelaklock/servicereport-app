@@ -75,7 +75,7 @@ Artefato **próprio** do técnico (não é um campo dentro da RAT — esse é o 
 
 **Implementado (11/06):** acessível em **Home > Deslocamento** no app do técnico. Blocos de **Ida** e **Volta** (com ícones SVG) e **técnicos a bordo** selecionados em cards (mesmo padrão visual da RAT).
 
-> Não confundir com o **deslocamento do dia**, que mora dentro da RAT (botão "Deslocamento" no grid de registros — pergunta Sim/Não + horários de ida/retorno). Pernoite é viagem; deslocamento do dia é o trajeto da visita.
+> Não confundir com o **deslocamento do dia**, que mora dentro da RAT (botão "Deslocamento" no grid de registros — **toggles independentes de ida e retorno** (Sim/Não), cada um com início/fim carimbados). Pernoite é viagem; deslocamento do dia é o trajeto da visita.
 
 **Reformulação aprovada (12/06) — trechos dinâmicos** *(referência visual: `docs/mockups/mockup-deslocamento-tempo.html`; construir junto com o pacote tempo-por-técnico, §8)*:
 - **Trechos:** o deslocamento vira lista ordenada de trechos (origem → destino, data, saída/chegada). **Nasce com 2 (ida e volta)** = comportamento atual, zero mudança no caso comum; "+ Adicionar trecho" pros demais. Trecho novo **herda veículo, direção e passageiros** do anterior.
@@ -285,7 +285,7 @@ Cada RAT = uma visita/dia dentro de uma Tarefa. Offline-first.
 Referência visual: `docs/mockups/mockup-nova-rat-topo.html`. Reorganização completa do formulário:
 
 - **Topo:** card de **contexto** (cliente/tarefa) + **grid 2×2 de registros** em cards coloridos (estilo dos tiles da home): **Deslocamento** · **Pausa/Almoço** · **Produtos** · **Fotos**. Cada card abre um **modal** com identidade de cor (header colorido, botão **Concluir** na cor do card) e mostra badge de estado (**Pendente** / valor preenchido com ✓).
-- **Deslocamento (do dia):** pergunta Sim/Não + horários de **ida/retorno**. (Pernoite é à parte — §4.1.)
+- **Deslocamento (do dia):** **IDA e RETORNO são dois toggles Sim/Não independentes** — ida=Sim revela início/fim da ida; retorno=Sim revela início/fim do retorno; **ambos=Não é estado válido** (técnico já estava no local, ou o trecho foi registrado em outra tarefa). Horários por **carimbo de hora** (Iniciar/Encerrar, igual ao timer da RAT — o técnico não digita; editável se precisar). **Faturamento:** o tempo de deslocamento (**ida + retorno que existiram**) **soma ao tempo da atividade da tarefa** (`tempo = execução + ida + retorno − almoço − pausa`); cada RAT cobra só os trechos que registrou. (Pernoite é à parte — §4.1.)
 - **Pausa/Almoço:** num modal só — "Houve almoço?" e pausa com motivo/horários, ambos com botões **Sim/Não**.
 - **Produtos:** pergunta Sim/Não + **steppers** de quantidade; catálogo de produtos mora aqui (autocomplete paginado — o catálogo tem ~1.715 itens, acima do teto de 1.000/req do Supabase). No fechamento, **Utilizada = teto da soma** das RATs na conciliação.
 - **Botões Sim/Não semânticos:** Sim verde, Não vermelho, preenchidos ao selecionar.

@@ -2068,7 +2068,7 @@
     } else if (c.tipo === 'numero') {
       wrap.innerHTML = `${label}<input type="number" inputmode="decimal" data-campo="${esc(c.id)}" data-tipo="numero"/>`
     } else if (c.tipo === 'selecao') {
-      const PERG_SEG = { deslocamento: 'Houve deslocamento?', pausa: 'Houve pausa?', almoco: 'Houve almoço?' }
+      const PERG_SEG = { deslocamento: 'Houve deslocamento?', desloc_ida: 'Deslocamento de ida', desloc_retorno: 'Deslocamento de retorno', pausa: 'Houve pausa?', almoco: 'Houve almoço?' }
       if (PERG_SEG[c.id]) {
         // pergunta em botões grandes Sim/Não — salva o MESMO valor do dropdown antigo
         wrap.innerHTML = `<label>${esc(PERG_SEG[c.id])}${req}</label>
@@ -2194,12 +2194,15 @@
     const dc = document.getElementById('desloc-campos')
     if (dc) dc.innerHTML = ''
     let nD = 0
+    // ida/retorno são perguntas independentes; `deslocamento` (legado) ainda é aceito
+    const DESLOC_Q = ['deslocamento', 'desloc_ida', 'desloc_retorno']
     for (const c of campos) {
-      if (!(c.id === 'deslocamento' || dependeDe(c, 'deslocamento'))) continue
+      if (!(DESLOC_Q.includes(c.id) || DESLOC_Q.some(q => dependeDe(c, q)))) continue
       if (c.tipo === 'veiculo') continue   // veículo fica no formulário, abaixo da Data
       const w = document.querySelector(`#campos-container [data-field="${CSS.escape(c.id)}"]`)
       if (w && dc) { dc.appendChild(w); idsModalDesloc.add(c.id); nD++ }
     }
+    if (dc && nD) { dc.insertAdjacentHTML('beforeend', '<div id="desloc-soma"></div>'); dc.oninput = dc.onchange = atualizarSomaDesloc }
     // veículo logo abaixo da Data (continua condicionado a "Houve deslocamento? = Sim")
     const wVei = (campos.find(c => c.tipo === 'veiculo') || {}).id
     if (wVei) { const wV = wrapDe(wVei), wDt = wrapDe('data'); if (wV && wDt) wDt.after(wV) }
@@ -2248,13 +2251,37 @@
       card.classList.remove('btn-erro')
     } else { st.className = 'st st-pend'; st.textContent = 'Pendente' }
   }
-  // badge do botão Deslocamento: Pendente / resposta ✓
+  // badge do botão Deslocamento: Pendente / resposta ✓ (considera ida e retorno)
   function atualizarBadgeDesloc() {
     const card = document.getElementById('form-desloc-btn'), st = document.getElementById('reg-desloc-st')
-    if (!card || !st || !cur || !(cur.campos || []).some(c => c.id === 'deslocamento')) return
-    const v = valorCampo('deslocamento')
-    if (v) { st.className = 'st st-ok'; st.textContent = v === 'Não' ? 'Não houve ✓' : 'Houve ✓'; card.classList.remove('btn-erro') }
-    else { st.className = 'st st-pend'; st.textContent = 'Pendente' }
+    if (!card || !st || !cur) return
+    const qs = (cur.campos || []).filter(c => ['deslocamento', 'desloc_ida', 'desloc_retorno'].includes(c.id)).map(c => c.id)
+    if (!qs.length) return
+    const vals = qs.map(id => valorCampo(id))
+    if (!vals.every(Boolean)) { st.className = 'st st-pend'; st.textContent = 'Pendente'; return }
+    const algumSim = vals.some(v => v === 'Sim')
+    st.className = 'st st-ok'; st.textContent = algumSim ? 'Houve ✓' : 'Não houve ✓'; card.classList.remove('btn-erro')
+    atualizarSomaDesloc()
+  }
+  // rodapé do modal: soma de ida + retorno que existiram (entra no tempo da tarefa)
+  function atualizarSomaDesloc() {
+    const box = document.getElementById('desloc-soma'); if (!box) return
+    const dur = (a, b) => { const x = minutosDe(valorCampo(a)), y = minutosDe(valorCampo(b)); if (x == null || y == null) return null; let d = y - x; if (d < 0) d += 1440; return d }
+    // ida=Sim usa desloc_ida; formulário legado (sem desloc_ida) cai no `deslocamento`
+    const temIda = (cur.campos || []).some(c => c.id === 'desloc_ida')
+    const idaOn = (temIda ? valorCampo('desloc_ida') : valorCampo('deslocamento')) === 'Sim'
+    const retOn = (cur.campos || []).some(c => c.id === 'desloc_retorno')
+      ? valorCampo('desloc_retorno') === 'Sim'
+      : (!temIda && valorCampo('deslocamento') === 'Sim')   // legado: a janela única cobre o retorno
+    const di = idaOn ? dur('desloc_inicial_ida', 'desloc_final_ida') : 0
+    const dr = retOn ? dur('desloc_inicial_retorno', 'desloc_final_retorno') : 0
+    if (!idaOn && !retOn) {
+      box.innerHTML = `<div class="dl-totcard"><span class="k">Deslocamento</span><span class="v">0 min</span><span class="s">Sem deslocamento — não soma ao tempo da tarefa</span></div>`
+      return
+    }
+    const incompleto = (idaOn && di == null) || (retOn && dr == null)
+    const total = (di || 0) + (dr || 0)
+    box.innerHTML = `<div class="dl-totcard"><span class="k">Soma ao tempo da tarefa</span><span class="v">${incompleto ? '— parcial' : '+ ' + fmtMin(total)}</span><span class="s">ida + retorno que existiram</span></div>`
   }
   function abrirModalDesloc() { if (!cur) return; document.getElementById('modal-desloc-rat').classList.add('open') }
   function fecharModalDesloc() { document.getElementById('modal-desloc-rat').classList.remove('open'); atualizarBadgeDesloc() }
@@ -2859,24 +2886,38 @@
   // O "tempo no local" da visita improdutiva usa os campos do formulário Hora de Início /
   // Hora de Término (execução) — não há mais campos próprios de permanência.
   // Cálculo puro a partir das respostas (compartilhado com o back-office).
-  // Janela: deslocamento Sim → ida→retorno; senão → execução. Desconta almoço e pausa.
+  // NOVO: tempo = execução + ida + retorno (que existiram) − almoço − pausa.
+  // LEGADO: RAT antiga (só a chave `deslocamento`) usa a janela única ida→retorno.
+  // horários são só HH:MM (sem data): término < início = virou a meia-noite → +24h.
   function calcTempoDe(resp) {
-    // horários são só HH:MM (sem data): término < início = virou a meia-noite → +24h
+    resp = resp || {}
     const dur = (ini, fim) => { const a = minutosDe(ini), b = minutosDe(fim); if (a == null || b == null) return 0; let d = b - a; if (d < 0) d += 1440; return d }
+    const alm = dur(resp.almoco_inicio, resp.almoco_termino), pau = dur(resp.pausa_inicio, resp.pausa_termino)
+    const temNovo = (resp.desloc_ida != null && resp.desloc_ida !== '') || (resp.desloc_retorno != null && resp.desloc_retorno !== '')
+    if (temNovo) {
+      const exec = (resp.hora_inicio && resp.hora_termino) ? dur(resp.hora_inicio, resp.hora_termino) : 0
+      const ida = resp.desloc_ida === 'Sim' ? dur(resp.desloc_inicial_ida, resp.desloc_final_ida) : 0
+      const ret = resp.desloc_retorno === 'Sim' ? dur(resp.desloc_inicial_retorno, resp.desloc_final_retorno) : 0
+      if (!resp.hora_inicio && !ida && !ret) return null
+      const t = exec + ida + ret - alm - pau
+      return t < 0 ? 0 : t
+    }
     let ini, fim
     if (resp.deslocamento === 'Sim') { ini = resp.desloc_inicial_ida; fim = resp.desloc_final_retorno }
     else { ini = resp.hora_inicio; fim = resp.hora_termino }
     const a = minutosDe(ini), b = minutosDe(fim)
     if (a == null || b == null) return null
     let bruto = b - a; if (bruto < 0) bruto += 1440   // atendimento que virou o dia
-    const t = bruto - dur(resp.almoco_inicio, resp.almoco_termino) - dur(resp.pausa_inicio, resp.pausa_termino)
+    const t = bruto - alm - pau
     return t < 0 ? 0 : t
   }
   function calcTempo() {
     const val = (id) => { const el = document.querySelector(`[data-campo="${CSS.escape(id)}"]`); return el ? el.value : '' }
     return calcTempoDe({
       deslocamento: val('deslocamento'),
-      desloc_inicial_ida: val('desloc_inicial_ida'), desloc_final_retorno: val('desloc_final_retorno'),
+      desloc_ida: val('desloc_ida'), desloc_retorno: val('desloc_retorno'),
+      desloc_inicial_ida: val('desloc_inicial_ida'), desloc_final_ida: val('desloc_final_ida'),
+      desloc_inicial_retorno: val('desloc_inicial_retorno'), desloc_final_retorno: val('desloc_final_retorno'),
       hora_inicio: val('hora_inicio'), hora_termino: val('hora_termino'),
       almoco_inicio: val('almoco_inicio'), almoco_termino: val('almoco_termino'),
       pausa_inicio: val('pausa_inicio'), pausa_termino: val('pausa_termino'),

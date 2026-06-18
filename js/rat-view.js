@@ -52,20 +52,31 @@ window.RatView = (function () {
     return (r.motivo_improdutiva === 'outro' && r.motivo_texto) ? `${base}: ${r.motivo_texto}` : base
   }
 
-  // ── Tempo trabalhado (mesma regra do app do técnico): janela desloc Sim →
-  //    ida→retorno; senão → execução; desconta almoço e pausa. ──
+  // ── Tempo trabalhado (mesma regra do app do técnico) ──
+  // NOVO: execução + ida + retorno (que existiram) − almoço − pausa.
+  // LEGADO: RAT antiga (só a chave `deslocamento`) → janela única ida→retorno; senão execução.
   const minutosDe = (hhmm) => { if (!hhmm) return null; const [h, m] = String(hhmm).split(':').map(Number); return (isNaN(h) || isNaN(m)) ? null : h * 60 + m }
   function calcTempoDe(resp) {
     resp = resp || {}
     // horários são só HH:MM (sem data): término < início = virou a meia-noite → +24h
     const dur = (ini, fim) => { const a = minutosDe(ini), b = minutosDe(fim); if (a == null || b == null) return 0; let d = b - a; if (d < 0) d += 1440; return d }
+    const alm = dur(resp.almoco_inicio, resp.almoco_termino), pau = dur(resp.pausa_inicio, resp.pausa_termino)
+    const temNovo = (resp.desloc_ida != null && resp.desloc_ida !== '') || (resp.desloc_retorno != null && resp.desloc_retorno !== '')
+    if (temNovo) {
+      const exec = (resp.hora_inicio && resp.hora_termino) ? dur(resp.hora_inicio, resp.hora_termino) : 0
+      const ida = resp.desloc_ida === 'Sim' ? dur(resp.desloc_inicial_ida, resp.desloc_final_ida) : 0
+      const ret = resp.desloc_retorno === 'Sim' ? dur(resp.desloc_inicial_retorno, resp.desloc_final_retorno) : 0
+      if (!resp.hora_inicio && !ida && !ret) return null
+      const t = exec + ida + ret - alm - pau
+      return t < 0 ? 0 : t
+    }
     let ini, fim
     if (resp.deslocamento === 'Sim') { ini = resp.desloc_inicial_ida; fim = resp.desloc_final_retorno }
     else { ini = resp.hora_inicio; fim = resp.hora_termino }
     const a = minutosDe(ini), b = minutosDe(fim)
     if (a == null || b == null) return null
     let bruto = b - a; if (bruto < 0) bruto += 1440
-    const t = bruto - dur(resp.almoco_inicio, resp.almoco_termino) - dur(resp.pausa_inicio, resp.pausa_termino)
+    const t = bruto - alm - pau
     return t < 0 ? 0 : t
   }
   const tempoRat = (r) => { const t = calcTempoDe(r.respostas); return t == null ? r.tempo_trabalhado : t }
