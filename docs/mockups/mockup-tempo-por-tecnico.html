@@ -1,0 +1,236 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Tempo por técnico + Ponto (Tangerino) — mockup</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --red:#E5403A; --orange:#F4861F; --yellow:#F7B81E; --green:#28A94C; --blue:#1E8AE0; --purple:#8E45B5;
+    --bg:#F3F4F8; --card:#fff; --line:#ECEEF3; --ink:#1B1E26; --muted:#7C8290;
+    --exec-bg:#E6F6EC; --exec-fg:#0B7A43; --exec-m:#28A94C;
+    --warn-bg:#FEF3DA; --warn-fg:#92670A; --warn-m:#F7B81E;
+    --pend-bg:#FDECEA; --pend-fg:#C0362C; --pend-m:#E5403A;
+    --info-bg:#E7F1FC; --info-fg:#1565C0; --info-m:#1E8AE0;
+  }
+  *{box-sizing:border-box;margin:0;padding:0;}
+  body{font-family:'Manrope',system-ui,sans-serif;font-weight:500;color:var(--ink);background:#DCDEE4;-webkit-font-smoothing:antialiased;padding:26px 16px;}
+  .num{font-variant-numeric:tabular-nums;letter-spacing:-.3px;}
+  .wrap{max-width:1500px;margin:0 auto;}
+  .cap{font-size:12px;font-weight:700;color:#566;letter-spacing:.3px;margin:0 0 9px 6px;text-transform:uppercase;}
+  .rail{display:flex;gap:28px;flex-wrap:wrap;align-items:flex-start;}
+
+  /* ============ PHONE — Nova RAT ============ */
+  .phone{width:372px;background:#E7E9EF;border-radius:36px;padding:13px;box-shadow:0 24px 60px rgba(30,35,55,.22);}
+  .screen{background:var(--bg);border-radius:24px;overflow:hidden;}
+  .scroll{padding:16px 15px 20px;}
+  .topbar{display:flex;align-items:center;gap:10px;margin-bottom:14px;}
+  .back{width:36px;height:36px;border:1px solid var(--line);border-radius:11px;background:#fff;font-size:19px;line-height:1;flex:none;}
+  .topbar h2{font-size:17px;font-weight:700;letter-spacing:-.3px;}
+  .pill-on{margin-left:auto;display:inline-flex;align-items:center;gap:5px;background:var(--exec-bg);color:var(--exec-fg);font-size:11px;font-weight:600;padding:6px 10px;border-radius:999px;}
+  .pill-on i{width:6px;height:6px;border-radius:50%;background:var(--exec-m);}
+  .info{background:#EAF2FC;border:1px solid #D5E5F8;border-radius:13px;padding:11px 13px;font-size:12px;color:#1f5fa6;font-weight:600;line-height:1.4;}
+
+  .fcard{background:#fff;border:1px solid var(--line);border-left:4px solid var(--blue);border-radius:18px;padding:15px;margin-top:12px;}
+  .fcard>.h{display:flex;align-items:center;gap:10px;font-size:11.5px;font-weight:700;letter-spacing:.6px;text-transform:uppercase;margin-bottom:13px;}
+  .fcard>.h .hi{width:30px;height:30px;border-radius:9px;display:grid;place-items:center;flex:none;}
+  .fcard>.h .hi svg{width:17px;height:17px;stroke:#fff;fill:none;stroke-width:2;stroke-linecap:round;stroke-linejoin:round;}
+  .fc-blue{border-left-color:var(--blue);} .fc-blue>.h{color:#1565C0;} .fc-blue>.h .hi{background:var(--blue);}
+  .fc-green{border-left-color:var(--green);} .fc-green>.h{color:#0B7A43;} .fc-green>.h .hi{background:var(--green);}
+
+  .lab{display:block;font-size:12px;font-weight:600;color:#5b6270;margin-bottom:6px;}
+  .req{color:var(--red);}
+  .field{margin-bottom:12px;} .field:last-child{margin-bottom:0;}
+  .inp{width:100%;font-family:inherit;font-size:14.5px;font-weight:500;background:#fff;border:1px solid #DCE0E8;border-radius:13px;padding:12px 13px;color:var(--ink);}
+  .two{display:flex;gap:10px;} .two .field{flex:1;}
+
+  /* equipe com horário por técnico */
+  .team{border:1px solid #DCE0E8;border-radius:13px;overflow:hidden;}
+  .trow{display:flex;align-items:center;gap:10px;padding:11px 12px;}
+  .trow+.trow{border-top:1px solid var(--line);}
+  .trow .box{width:20px;height:20px;border-radius:6px;border:1.6px solid #C6CCDA;flex:none;}
+  .trow.on .box{background:var(--blue);border-color:var(--blue);position:relative;}
+  .trow.on .box::after{content:"✓";color:#fff;font-size:13px;position:absolute;inset:0;display:grid;place-items:center;}
+  .trow .nm{font-size:14px;font-weight:600;flex:1;letter-spacing:-.2px;}
+  .trow.off .nm{color:#9aa3b2;font-weight:500;}
+  .hchip{display:inline-flex;align-items:center;gap:6px;font-size:12px;font-weight:700;padding:6px 10px;border-radius:999px;font-variant-numeric:tabular-nums;cursor:pointer;}
+  .h-inherit{background:#F2F4F8;color:#7c8290;}
+  .h-edit{background:var(--info-bg);color:var(--info-fg);}
+  .h-edit .tag{font-size:9px;font-weight:800;background:#fff;border-radius:99px;padding:1px 6px;letter-spacing:.4px;}
+  .teamhint{font-size:11px;color:var(--muted);margin-top:6px;line-height:1.4;}
+
+  /* almoço do ponto */
+  .ponto{display:flex;align-items:center;gap:11px;background:linear-gradient(135deg,#E9F7EE,#E0F3EA);border:1px solid #BFE6CC;border-radius:13px;padding:12px 14px;}
+  .ponto .ic{width:34px;height:34px;border-radius:9px;background:#fff;display:grid;place-items:center;flex:none;}
+  .ponto .ic svg{width:18px;height:18px;stroke:var(--exec-fg);fill:none;stroke-width:2;stroke-linecap:round;stroke-linejoin:round;}
+  .ponto .k{font-size:10.5px;font-weight:700;color:var(--exec-fg);text-transform:uppercase;letter-spacing:.5px;}
+  .ponto .v{font-size:15px;font-weight:800;color:#0a6e3c;letter-spacing:-.3px;margin-top:1px;}
+  .ponto .src{margin-left:auto;font-size:10px;font-weight:800;background:#fff;color:var(--exec-fg);border-radius:99px;padding:4px 9px;letter-spacing:.3px;}
+  .ponto.wait{background:#F4F5F8;border-color:#E2E5EC;}
+  .ponto.wait .ic svg{stroke:#9aa3b2;} .ponto.wait .k{color:#7c8290;} .ponto.wait .v{color:#5b6270;font-size:13px;font-weight:600;}
+  .ponto.wait .src{color:#7c8290;}
+  .manual-link{font-size:12px;font-weight:700;color:var(--info-fg);margin-top:7px;display:inline-block;}
+  .calc{display:flex;align-items:center;gap:11px;background:#fff;border:1px solid var(--line);border-radius:13px;padding:12px 14px;margin-top:12px;}
+  .calc .k{font-size:11px;font-weight:600;color:#5b6270;flex:1;}
+  .calc .v{font-size:18px;font-weight:800;color:var(--ink);letter-spacing:-.4px;}
+
+  /* ============ DESKTOP — Horas do dia ============ */
+  .desk{flex:1;min-width:640px;background:var(--bg);border-radius:16px;box-shadow:0 24px 60px rgba(30,35,55,.18);overflow:hidden;}
+  .dtop{background:#fff;border-bottom:1px solid var(--line);padding:16px 24px;display:flex;align-items:center;gap:14px;}
+  .dtop h1{font-size:18px;font-weight:700;letter-spacing:-.3px;color:#243456;}
+  .datechip{display:inline-flex;align-items:center;gap:8px;background:#F3F5F9;border:1px solid var(--line);border-radius:10px;padding:8px 13px;font-size:13px;font-weight:700;font-variant-numeric:tabular-nums;}
+  .dtop .src{margin-left:auto;display:inline-flex;align-items:center;gap:7px;background:var(--exec-bg);color:var(--exec-fg);font-size:11.5px;font-weight:700;padding:7px 12px;border-radius:999px;}
+  .dtop .src i{width:7px;height:7px;border-radius:50%;background:var(--exec-m);}
+  .dbody{padding:20px 24px 24px;}
+  .alert{display:flex;gap:11px;align-items:flex-start;background:var(--warn-bg);border:1px solid #F2E2B6;border-radius:13px;padding:13px 15px;margin-bottom:16px;}
+  .alert .ic{width:32px;height:32px;border-radius:9px;background:#fff;display:grid;place-items:center;flex:none;}
+  .alert .ic svg{width:17px;height:17px;stroke:#D69E12;fill:none;stroke-width:2;stroke-linecap:round;stroke-linejoin:round;}
+  .alert .t{font-size:13px;font-weight:700;color:var(--warn-fg);}
+  .alert .d{font-size:12px;color:#7a6420;font-weight:500;margin-top:2px;line-height:1.45;}
+
+  .htable{background:#fff;border:1px solid var(--line);border-radius:16px;overflow:hidden;}
+  table{width:100%;border-collapse:collapse;}
+  thead th{font-size:10px;font-weight:700;letter-spacing:.6px;text-transform:uppercase;color:var(--muted);text-align:left;padding:14px 16px 11px;border-bottom:1px solid var(--line);}
+  thead th.r{text-align:right;}
+  tbody td{padding:14px 16px;border-bottom:1px solid var(--line);font-size:13px;vertical-align:middle;}
+  tbody tr:last-child td{border-bottom:none;}
+  td.r{text-align:right;}
+  .tec{display:flex;align-items:center;gap:10px;}
+  .tec .av{width:32px;height:32px;border-radius:50%;background:#D9E5F5;color:#3a5f8f;display:grid;place-items:center;font-weight:700;font-size:11px;flex:none;}
+  .tec .nm{font-weight:700;letter-spacing:-.2px;}
+  .seg{display:inline-flex;align-items:center;gap:6px;font-size:11.5px;font-weight:700;padding:5px 10px;border-radius:999px;margin:2px 4px 2px 0;font-variant-numeric:tabular-nums;white-space:nowrap;}
+  .seg i{width:6px;height:6px;border-radius:50%;}
+  .sg-rat{background:var(--info-bg);color:var(--info-fg);} .sg-rat i{background:var(--info-m);}
+  .sg-rat2{background:#F1E9F8;color:#6c2f96;} .sg-rat2 i{background:var(--purple);}
+  .sg-desl{background:#FDEFE0;color:#b85e0a;} .sg-desl i{background:var(--orange);}
+  .lunch{display:inline-flex;align-items:center;gap:6px;font-size:11.5px;font-weight:700;padding:5px 10px;border-radius:999px;background:var(--exec-bg);color:var(--exec-fg);font-variant-numeric:tabular-nums;white-space:nowrap;}
+  .lunch svg{width:12px;height:12px;stroke:var(--exec-fg);fill:none;stroke-width:2.4;}
+  .lunch.man{background:var(--warn-bg);color:var(--warn-fg);} .lunch.man svg{stroke:var(--warn-m);}
+  .hrs{font-size:16px;font-weight:800;letter-spacing:-.4px;}
+  .legend{display:flex;gap:16px;flex-wrap:wrap;margin-top:14px;padding:0 4px;}
+  .legend span{font-size:11.5px;color:#5b6270;font-weight:600;display:inline-flex;align-items:center;gap:6px;}
+  .legend i{width:8px;height:8px;border-radius:50%;}
+</style>
+</head>
+<body>
+<div class="wrap"><div class="rail">
+
+  <!-- ================= PHONE ================= -->
+  <div>
+    <div class="cap">App do técnico · Nova RAT — equipe & tempo</div>
+    <div class="phone"><div class="screen"><div class="scroll">
+      <div class="topbar"><button class="back">‹</button><h2>Nova RAT</h2><span class="pill-on"><i></i>online</span></div>
+      <div class="info">RAT da Tarefa Nº 04741 · WESTROCK — FBTB</div>
+
+      <div class="fcard fc-blue">
+        <div class="h"><span class="hi"><svg viewBox="0 0 24 24"><path d="M16 21v-2a4 4 0 0 0-8 0v2M12 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8Z"/></svg></span>Equipe &amp; horários</div>
+        <label class="lab">Técnicos responsáveis <span class="req">*</span></label>
+        <div class="team">
+          <div class="trow on"><span class="box"></span><span class="nm">Charles Tomio</span><span class="hchip h-inherit">08:00–17:00</span></div>
+          <div class="trow on"><span class="box"></span><span class="nm">Alessandro Santos</span><span class="hchip h-inherit">08:00–17:00</span></div>
+          <div class="trow on"><span class="box"></span><span class="nm">Marcelo Lima</span><span class="hchip h-edit">10:30–17:00 <span class="tag">AJUSTADO</span></span></div>
+          <div class="trow off"><span class="box"></span><span class="nm">Maicon Rocha</span></div>
+        </div>
+        <div class="teamhint">Cada técnico herda o horário da RAT. Toque no horário só pra ajustar exceções (entrou depois / saiu antes).</div>
+      </div>
+
+      <div class="fcard fc-green">
+        <div class="h"><span class="hi"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg></span>Tempo</div>
+        <div class="two">
+          <div class="field"><label class="lab">Início (RAT)</label><input class="inp num" value="08:00"></div>
+          <div class="field"><label class="lab">Término (RAT)</label><input class="inp num" value="17:00"></div>
+        </div>
+        <div class="field">
+          <label class="lab">Almoço</label>
+          <div class="ponto">
+            <span class="ic"><svg viewBox="0 0 24 24"><path d="m5 12 4 4L19 6"/></svg></span>
+            <span><span class="k">Almoço de hoje</span><br><span class="v num">12:02 – 13:04</span></span>
+            <span class="src">PONTO ✓</span>
+          </div>
+        </div>
+        <div class="field">
+          <label class="lab">Almoço — Marcelo Lima</label>
+          <div class="ponto wait">
+            <span class="ic"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg></span>
+            <span><span class="k">Aguardando ponto</span><br><span class="v">batida ainda não sincronizada</span></span>
+            <span class="src">TANGERINO</span>
+          </div>
+          <a class="manual-link">Informar manualmente (vira pendência de conferência)</a>
+        </div>
+        <div class="calc"><span class="k">Tempo desta RAT (08:00–17:00 − almoço)</span><span class="v num">08h00</span></div>
+      </div>
+
+    </div></div></div>
+  </div>
+
+  <!-- ================= DESKTOP ================= -->
+  <div class="desk">
+    <div class="cap" style="padding:14px 24px 0">Portal admin · Jornada — horas do dia por técnico</div>
+    <div class="dtop">
+      <h1>Horas do dia</h1>
+      <span class="datechip num">‹ &nbsp;Ter · 09/06/2026&nbsp; ›</span>
+      <span class="src"><i></i>Almoços do ponto · Tangerino</span>
+    </div>
+    <div class="dbody">
+
+      <div class="alert">
+        <span class="ic"><svg viewBox="0 0 24 24"><path d="M12 9v4m0 4h.01M10.3 3.9 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0Z"/></svg></span>
+        <div><div class="t">1 conflito resolvido automaticamente</div>
+        <div class="d">Marcelo Lima tinha almoço em duas RATs — o sistema manteve <b>um</b> almoço (do ponto) e descartou o duplicado. Nenhuma ação necessária.</div></div>
+      </div>
+
+      <div class="htable">
+        <table>
+          <thead><tr><th>Técnico</th><th>Participações do dia</th><th>Almoço</th><th class="r">Horas</th></tr></thead>
+          <tbody>
+            <tr>
+              <td><span class="tec"><span class="av">AC</span><span class="nm">Arian Camilo</span></span></td>
+              <td><span class="seg sg-rat"><i></i>RAT 04741 · 08:00–17:00</span></td>
+              <td><span class="lunch"><svg viewBox="0 0 24 24"><path d="m5 12 4 4L19 6"/></svg>12:02–13:04 · ponto</span></td>
+              <td class="r"><span class="hrs num">07h58</span></td>
+            </tr>
+            <tr>
+              <td><span class="tec"><span class="av">ML</span><span class="nm">Marcelo Lima</span></span></td>
+              <td>
+                <span class="seg sg-rat"><i></i>RAT 04741 · 08:00–10:30</span>
+                <span class="seg sg-rat2"><i></i>RAT 04742 · 10:30–17:00</span>
+              </td>
+              <td><span class="lunch"><svg viewBox="0 0 24 24"><path d="m5 12 4 4L19 6"/></svg>12:00–13:00 · ponto</span></td>
+              <td class="r"><span class="hrs num">08h00</span></td>
+            </tr>
+            <tr>
+              <td><span class="tec"><span class="av">PS</span><span class="nm">Pablo Soares</span></span></td>
+              <td>
+                <span class="seg sg-rat"><i></i>RAT 04741 · 08:00–10:00</span>
+                <span class="seg sg-desl"><i></i>Deslocamento · 10:00–14:00</span>
+              </td>
+              <td><span class="lunch"><svg viewBox="0 0 24 24"><path d="m5 12 4 4L19 6"/></svg>11:55–12:55 · ponto</span></td>
+              <td class="r"><span class="hrs num">05h00</span></td>
+            </tr>
+            <tr>
+              <td><span class="tec"><span class="av">CT</span><span class="nm">Charles Tomio</span></span></td>
+              <td><span class="seg sg-rat2"><i></i>RAT 04742 · 08:00–17:00</span></td>
+              <td><span class="lunch man"><svg viewBox="0 0 24 24"><path d="M12 9v4m0 4h.01"/></svg>12:00–13:00 · manual</span></td>
+              <td class="r"><span class="hrs num">08h00</span></td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
+      <div class="legend">
+        <span><i style="background:var(--info-m)"></i>RAT 04741 (preventiva)</span>
+        <span><i style="background:var(--purple)"></i>RAT 04742 (passagem de cabo)</span>
+        <span><i style="background:var(--orange)"></i>Deslocamento</span>
+        <span><i style="background:var(--exec-m)"></i>Almoço do ponto</span>
+        <span><i style="background:var(--warn-m)"></i>Almoço manual (conferir)</span>
+      </div>
+
+    </div>
+  </div>
+
+</div></div>
+</body>
+</html>

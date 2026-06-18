@@ -1,0 +1,110 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Nova RAT — topo corrigido</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --red:#E5403A; --orange:#F4861F; --yellow:#F7B81E; --green:#28A94C; --blue:#1E8AE0; --purple:#8E45B5; --teal:#12A5A5;
+    --bg:#F3F4F8; --card:#fff; --line:#ECEEF3; --ink:#1B1E26; --muted:#7C8290;
+    --exec-bg:#E6F6EC; --exec-fg:#0B7A43; --exec-m:#28A94C;
+    --warn-bg:#FEF3DA; --warn-fg:#92670A;
+  }
+  *{box-sizing:border-box;margin:0;padding:0;}
+  body{font-family:'Manrope',system-ui,sans-serif;font-weight:500;color:var(--ink);background:#DCDEE4;-webkit-font-smoothing:antialiased;display:flex;justify-content:center;gap:30px;padding:26px 14px;flex-wrap:wrap;}
+  .cap{font-size:12px;font-weight:700;color:#566;letter-spacing:.3px;margin:0 0 9px 6px;text-transform:uppercase;}
+
+  .phone{width:372px;background:#E7E9EF;border-radius:36px;padding:13px;box-shadow:0 24px 60px rgba(30,35,55,.22);}
+  .screen{background:var(--bg);border-radius:24px;overflow:hidden;}
+  .nav{background:#1B2A4A;color:#fff;padding:14px 15px;display:flex;align-items:center;gap:10px;}
+  .nav .back{width:34px;height:34px;border-radius:10px;background:rgba(255,255,255,.12);border:none;color:#fff;font-size:18px;line-height:1;flex:none;}
+  .nav h2{font-size:16px;font-weight:700;letter-spacing:-.2px;}
+  .nav .sync{margin-left:auto;display:inline-flex;align-items:center;gap:5px;background:rgba(54,199,95,.18);color:#7FE3A0;font-size:11px;font-weight:700;padding:6px 10px;border-radius:999px;}
+  .nav .sync i{width:6px;height:6px;border-radius:50%;background:#36C75F;}
+  .nav .sair{font-size:12px;font-weight:600;color:#C9D2E6;background:rgba(255,255,255,.10);border:none;padding:7px 12px;border-radius:999px;}
+  .scroll{padding:14px 15px 20px;}
+
+  /* 1. card de contexto (funde a faixa azul + Cliente & Serviço) */
+  .ctx{background:#fff;border:1px solid var(--line);border-left:4px solid var(--blue);border-radius:16px;padding:14px 15px;}
+  .ctx .row1{display:flex;align-items:center;gap:8px;}
+  .ctx .tag{font-size:10px;font-weight:800;letter-spacing:.6px;text-transform:uppercase;background:#EAF2FC;color:#1565C0;padding:4px 9px;border-radius:999px;}
+  .ctx .no{font-size:12px;font-weight:700;color:var(--muted);font-variant-numeric:tabular-nums;}
+  .ctx .cli{font-size:18px;font-weight:800;letter-spacing:-.4px;margin-top:8px;}
+  .ctx .tipo{font-size:12px;color:var(--muted);font-weight:600;margin-top:3px;line-height:1.4;}
+
+  /* 2. registros do atendimento — grid 2x2 alinhado */
+  .sec{font-size:10.5px;font-weight:700;letter-spacing:1.3px;text-transform:uppercase;color:var(--muted);margin:16px 4px 10px;}
+  .regs{display:grid;grid-template-columns:1fr 1fr;gap:10px;}
+  .reg{background:#fff;border:1px solid var(--line);border-radius:16px;padding:12px;display:flex;flex-direction:column;gap:9px;cursor:pointer;}
+  .reg .top{display:flex;align-items:center;gap:9px;}
+  .reg .ic{width:32px;height:32px;border-radius:9px;display:grid;place-items:center;flex:none;}
+  .reg .ic svg{width:17px;height:17px;stroke:#fff;fill:none;stroke-width:2;stroke-linecap:round;stroke-linejoin:round;}
+  .reg .lbl{font-size:13.5px;font-weight:700;letter-spacing:-.2px;line-height:1.1;}
+  .reg .st{align-self:flex-start;font-size:10.5px;font-weight:700;padding:4px 9px;border-radius:999px;}
+  .st-pend{background:var(--warn-bg);color:var(--warn-fg);}
+  .st-ok{background:var(--exec-bg);color:var(--exec-fg);}
+  .i-teal{background:var(--teal);} .i-purple{background:var(--purple);} .i-orange{background:var(--orange);} .i-yellow{background:var(--yellow);}
+  .i-yellow svg{stroke:#1A1A1A!important;}
+
+  /* cards do formulário (inalterados) */
+  .fcard{background:#fff;border:1px solid var(--line);border-left:4px solid var(--blue);border-radius:18px;padding:15px;margin-top:14px;}
+  .fcard>.h{display:flex;align-items:center;gap:10px;font-size:11.5px;font-weight:700;letter-spacing:.6px;text-transform:uppercase;color:#1565C0;margin-bottom:12px;}
+  .fcard>.h .hi{width:30px;height:30px;border-radius:9px;background:var(--blue);display:grid;place-items:center;flex:none;}
+  .fcard>.h .hi svg{width:17px;height:17px;stroke:#fff;fill:none;stroke-width:2;}
+  .lab{display:block;font-size:12px;font-weight:600;color:#5b6270;margin-bottom:6px;}
+  .req{color:var(--red);}
+  .inp{width:100%;font-family:inherit;font-size:14.5px;font-weight:500;background:#fff;border:1px solid #DCE0E8;border-radius:13px;padding:12px 13px;color:var(--ink);}
+  .more{text-align:center;color:#9aa3b2;font-size:12px;font-weight:600;padding:14px 0 2px;}
+</style>
+</head>
+<body>
+  <div>
+    <div class="cap">Nova RAT — topo corrigido</div>
+    <div class="phone"><div class="screen">
+      <div class="nav">
+        <button class="back">‹</button><h2>Nova RAT</h2>
+        <span class="sync"><i></i>sincronizado</span>
+        <button class="sair">Sair</button>
+      </div>
+      <div class="scroll">
+
+        <!-- 1) card de contexto: RAT + cliente + tipo, num lugar só -->
+        <div class="ctx">
+          <div class="row1"><span class="tag">RAT</span><span class="no">Nº 04750/1</span></div>
+          <div class="cli">WESTROCK — FBTB</div>
+          <div class="tipo">Contrato — Manutenção Preventiva / Corretiva</div>
+        </div>
+
+        <!-- 2) registros: grid 2x2, cards brancos, cor no ícone, estado no badge -->
+        <div class="sec">Registros do atendimento</div>
+        <div class="regs">
+          <div class="reg">
+            <div class="top"><span class="ic i-teal"><svg viewBox="0 0 24 24"><path d="M21 16V8l-9-5-9 5v8l9 5 9-5Z"/><path d="m3.3 7 8.7 5 8.7-5M12 22V12"/></svg></span><span class="lbl">Produtos</span></div>
+            <span class="st st-pend">Pendente</span>
+          </div>
+          <div class="reg">
+            <div class="top"><span class="ic i-purple"><svg viewBox="0 0 24 24"><path d="M3 7h4l2-2h6l2 2h4v12H3z"/><circle cx="12" cy="13" r="3.2"/></svg></span><span class="lbl">Fotos</span></div>
+            <span class="st st-ok">2 fotos ✓</span>
+          </div>
+          <div class="reg">
+            <div class="top"><span class="ic i-orange"><svg viewBox="0 0 24 24"><path d="M3 17h2m14 0h2M5 17a2 2 0 1 0 4 0 2 2 0 0 0-4 0Zm10 0a2 2 0 1 0 4 0 2 2 0 0 0-4 0Z"/><path d="M5 17V8a1 1 0 0 1 1-1h8l4 4v6"/></svg></span><span class="lbl">Deslocamento</span></div>
+            <span class="st st-pend">Pendente</span>
+          </div>
+          <div class="reg">
+            <div class="top"><span class="ic i-yellow"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg></span><span class="lbl">Pausa/Almoço</span></div>
+            <span class="st st-pend">Pendente</span>
+          </div>
+        </div>
+
+        <!-- 3) formulário começa direto em "O Atendimento" -->
+        <div class="more">… formulário segue direto em "O ATENDIMENTO" (Data, Técnicos…) — o card "Cliente &amp; Serviço" foi absorvido pelo contexto acima …</div>
+
+      </div>
+    </div></div>
+  </div>
+</body>
+</html>

@@ -1,0 +1,154 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Deslocamento — trechos, veículo e revezamento</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --red:#E5403A; --orange:#F4861F; --yellow:#F7B81E; --green:#179A47; --blue:#1E8AE0; --purple:#8E45B5;
+    --bg:#F3F4F8; --card:#fff; --line:#ECEEF3; --ink:#1B1E26; --muted:#7C8290;
+    --exec-bg:#E6F6EC; --exec-fg:#0B7A43;
+    --warn-bg:#FEF3DA; --warn-fg:#92670A;
+    --info-bg:#E7F1FC; --info-fg:#1565C0;
+    --or-bg:#FDEFE0; --or-fg:#b85e0a;
+  }
+  *{box-sizing:border-box;margin:0;padding:0;}
+  body{font-family:'Manrope',system-ui,sans-serif;font-weight:500;color:var(--ink);background:#DCDEE4;-webkit-font-smoothing:antialiased;display:flex;justify-content:center;gap:26px;padding:26px 14px;flex-wrap:wrap;}
+  .num{font-variant-numeric:tabular-nums;letter-spacing:-.3px;}
+  .cap{font-size:12px;font-weight:700;color:#566;letter-spacing:.3px;margin:0 0 9px 6px;text-transform:uppercase;}
+  svg.i{width:15px;height:15px;stroke:currentColor;fill:none;stroke-width:2;stroke-linecap:round;stroke-linejoin:round;flex:none;}
+
+  .phone{width:372px;background:#E7E9EF;border-radius:36px;padding:13px;box-shadow:0 24px 60px rgba(30,35,55,.22);}
+  .screen{background:var(--bg);border-radius:24px;overflow:hidden;display:flex;flex-direction:column;}
+  .mhead{padding:16px;background:var(--orange);color:#fff;display:flex;align-items:center;gap:10px;}
+  .mhead .x{width:34px;height:34px;border-radius:10px;background:rgba(255,255,255,.22);border:none;color:#fff;font-size:18px;line-height:1;flex:none;}
+  .mhead h2{font-size:16.5px;font-weight:700;letter-spacing:-.2px;flex:1;}
+  .mhead .pill{font-size:10.5px;font-weight:700;background:rgba(255,255,255,.22);padding:5px 10px;border-radius:999px;}
+  .mbody{padding:15px;flex:1;}
+  .mfoot{padding:13px 15px;background:#fff;border-top:1px solid var(--line);}
+  .btn{display:flex;align-items:center;justify-content:center;width:100%;border:none;font-family:inherit;font-size:15px;font-weight:700;padding:14px;border-radius:14px;cursor:pointer;letter-spacing:-.2px;color:#fff;background:var(--orange);}
+
+  .sec{font-size:10.5px;font-weight:700;letter-spacing:1.2px;text-transform:uppercase;color:var(--muted);margin:16px 2px 9px;}
+  .sec:first-of-type{margin-top:0;}
+  .hint{font-size:11.5px;color:var(--muted);font-weight:500;line-height:1.45;margin:8px 2px 0;}
+
+  .ctx{background:#fff;border:1px solid var(--line);border-left:4px solid var(--orange);border-radius:15px;padding:12px 14px;margin-bottom:14px;}
+  .ctx .k{font-size:10px;font-weight:800;letter-spacing:.6px;text-transform:uppercase;color:var(--or-fg);}
+  .ctx .cli{font-size:16px;font-weight:800;letter-spacing:-.3px;margin-top:4px;}
+
+  /* avatar padrão com foto (mesmo das RATs/Tarefas — usar usuarios.foto) */
+  .av{width:26px;height:26px;border-radius:50%;display:grid;place-items:center;font-weight:800;font-size:9px;color:#fff;border:1.5px solid #fff;box-shadow:0 1px 3px rgba(0,0,0,.15);background-size:cover;}
+  .av.a1{background:linear-gradient(135deg,#6B8FB8,#41658C);}
+  .av.a2{background:linear-gradient(135deg,#C58F5E,#9a6336);}
+  .av.a3{background:linear-gradient(135deg,#7FA86B,#55793f);}
+
+  /* trecho */
+  .leg{background:#fff;border:1px solid var(--line);border-left:4px solid var(--orange);border-radius:16px;padding:13px;}
+  .leg .h{display:flex;align-items:flex-start;gap:9px;margin-bottom:9px;}
+  .leg .n{width:24px;height:24px;border-radius:50%;background:var(--orange);color:#fff;display:grid;place-items:center;font-size:11.5px;font-weight:800;flex:none;margin-top:1px;}
+  .leg .route{font-size:13px;font-weight:700;letter-spacing:-.2px;line-height:1.3;flex:1;}
+  .leg .route .to{color:var(--or-fg);}
+  .leg .dt{font-size:11px;font-weight:700;color:var(--muted);white-space:nowrap;margin-top:2px;}
+  .vrow{display:flex;align-items:center;gap:8px;background:#FAFBFD;border:1px solid #EEF0F4;border-radius:11px;padding:8px 11px;margin-bottom:7px;font-size:11.5px;font-weight:700;color:var(--ink);}
+  .vrow .ic{color:var(--or-fg);display:flex;}
+  .vrow.none{color:var(--muted);font-weight:600;}
+  .drivers{background:#FAFBFD;border:1px solid #EEF0F4;border-radius:11px;padding:8px 11px;margin-bottom:7px;}
+  .drivers .lbl{display:flex;align-items:center;gap:6px;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:var(--muted);margin-bottom:7px;}
+  .turn{display:flex;align-items:center;gap:8px;margin-bottom:6px;}
+  .turn:last-child{margin-bottom:0;}
+  .turn .nm{font-size:12px;font-weight:700;flex:1;}
+  .turn .rg{font-size:11px;font-weight:700;color:var(--info-fg);font-variant-numeric:tabular-nums;}
+  .addturn{font-size:11px;font-weight:700;color:var(--info-fg);margin-top:7px;display:inline-block;}
+  .bd{display:flex;align-items:center;gap:5px;margin-bottom:9px;}
+  .bd .lbl{font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:var(--muted);margin-right:3px;}
+  .timers{display:flex;gap:9px;}
+  .tbox{flex:1;background:#FAFBFD;border:1px solid #E4E8EF;border-radius:12px;padding:9px 12px;}
+  .tbox .k{font-size:9.5px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.5px;}
+  .tbox .v{font-size:15px;font-weight:800;margin-top:2px;letter-spacing:-.3px;}
+  .tbox.pend .v{color:#aab1bd;font-size:12.5px;font-weight:600;}
+
+  .between{display:flex;align-items:center;gap:9px;margin:8px 0 8px 11px;padding-left:14px;border-left:2px dashed #E2C9AC;}
+  .pn{display:inline-flex;align-items:flex-start;gap:7px;font-size:11px;font-weight:700;background:var(--or-bg);color:var(--or-fg);padding:7px 12px;border-radius:14px;line-height:1.4;}
+  .pn svg.i{margin-top:1px;}
+  .addleg{border:1.5px dashed #C6CCDA;border-radius:15px;padding:12px;text-align:center;font-size:13px;font-weight:700;color:var(--info-fg);background:#fff;margin-top:10px;}
+  .gap8{height:8px;}
+</style>
+</head>
+<body>
+
+  <div>
+    <div class="cap">Deslocamento — caso da semana · SVG + cards com foto + revezamento</div>
+    <div class="phone"><div class="screen">
+      <div class="mhead"><button class="x">‹</button><h2>Deslocamento</h2><span class="pill">Em viagem</span></div>
+      <div class="mbody">
+
+        <div class="ctx">
+          <div class="k">Viagem / Pernoite</div>
+          <div class="cli">WESTROCK — FBTB · Três Barras / SC</div>
+        </div>
+
+        <div class="sec">Roteiro · trechos</div>
+
+        <!-- TRECHO 1 -->
+        <div class="leg">
+          <div class="h"><span class="n">1</span><span class="route">Base (Joinville) → <span class="to">WESTROCK · Torre Paredão</span><br><span style="font-weight:600;color:var(--muted);font-size:11px">Local do cliente · Calmon / SC</span></span><span class="dt num">Seg 08/06</span></div>
+          <div class="vrow"><span class="ic"><svg class="i" viewBox="0 0 24 24"><path d="M3 17h2m14 0h2M5 17a2 2 0 1 0 4 0 2 2 0 0 0-4 0Zm10 0a2 2 0 1 0 4 0 2 2 0 0 0-4 0Z"/><path d="M5 17V8a1 1 0 0 1 1-1h8l4 4v6"/></svg></span>Amarok CD · QJP1J30</div>
+          <div class="drivers">
+            <div class="lbl"><svg class="i" viewBox="0 0 24 24" style="width:13px;height:13px"><circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="2.5"/><path d="M12 3v6.5M4.2 16.5l6-3M19.8 16.5l-6-3"/></svg>Direção (revezamento)</div>
+            <div class="turn"><span class="av a3">CT</span><span class="nm">Charles Tomio</span><span class="rg num">06:15 – 07:30</span></div>
+            <div class="turn"><span class="av a1">AC</span><span class="nm">Arian Camilo</span><span class="rg num">07:30 – 08:30</span></div>
+            <span class="addturn">+ Revezamento (quem assumiu e a hora)</span>
+          </div>
+          <div class="bd"><span class="lbl">A bordo</span><span class="av a1">AC</span><span class="av a2">PS</span><span class="av a3">CT</span></div>
+          <div class="timers">
+            <div class="tbox"><div class="k">Saída</div><div class="v num">06:15</div></div>
+            <div class="tbox"><div class="k">Chegada</div><div class="v num">08:30</div></div>
+          </div>
+          <div style="display:flex;align-items:center;gap:6px;margin-top:7px;font-size:10.5px;font-weight:700;color:var(--exec-fg)"><svg class="i" viewBox="0 0 24 24" style="width:12px;height:12px"><path d="M12 21s-7-5.1-7-11a7 7 0 0 1 14 0c0 5.9-7 11-7 11Z"/><circle cx="12" cy="10" r="2.5"/></svg>GPS confirmado · chegada a 280 m de Torre Paredão</div>
+        </div>
+
+        <div class="between"><span class="pn"><svg class="i" viewBox="0 0 24 24"><path d="M3 18v-7a2 2 0 0 1 2-2h9a5 5 0 0 1 5 5v4M3 18h16M3 18v2m16-2v2M7 11V9"/><circle cx="7.5" cy="11.5" r="1.6"/></svg><span>Pernoite · Três Barras / SC<br>Arian e Charles: 4 noites · Pablo: 3 noites <i style="font-weight:600">(derivado)</i></span></span></div>
+
+        <!-- TRECHO 2 -->
+        <div class="leg">
+          <div class="h"><span class="n">2</span><span class="route">FBTB → <span class="to">Base (Joinville)</span></span><span class="dt num">Qui 11/06</span></div>
+          <div class="vrow none"><span class="ic"><svg class="i" viewBox="0 0 24 24"><path d="M3 17h2m14 0h2M5 17a2 2 0 1 0 4 0 2 2 0 0 0-4 0Zm10 0a2 2 0 1 0 4 0 2 2 0 0 0-4 0Z"/><path d="M5 17V8a1 1 0 0 1 1-1h8l4 4v6"/></svg></span>Sem veículo da empresa · Carona</div>
+          <div class="bd"><span class="lbl">A bordo</span><span class="av a2">PS</span></div>
+          <div class="timers">
+            <div class="tbox"><div class="k">Saída</div><div class="v num">16:30</div></div>
+            <div class="tbox"><div class="k">Chegada</div><div class="v num">19:10</div></div>
+          </div>
+        </div>
+
+        <div class="gap8"></div>
+
+        <!-- TRECHO 3 -->
+        <div class="leg">
+          <div class="h"><span class="n">3</span><span class="route">FBTB → <span class="to">Base (Joinville)</span></span><span class="dt num">Sex 12/06</span></div>
+          <div class="vrow"><span class="ic"><svg class="i" viewBox="0 0 24 24"><path d="M3 17h2m14 0h2M5 17a2 2 0 1 0 4 0 2 2 0 0 0-4 0Zm10 0a2 2 0 1 0 4 0 2 2 0 0 0-4 0Z"/><path d="M5 17V8a1 1 0 0 1 1-1h8l4 4v6"/></svg></span>Amarok CD · QJP1J30 <span style="color:var(--muted);font-weight:600">· herdado da ida</span></div>
+          <div class="drivers">
+            <div class="lbl"><svg class="i" viewBox="0 0 24 24" style="width:13px;height:13px"><circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="2.5"/><path d="M12 3v6.5M4.2 16.5l6-3M19.8 16.5l-6-3"/></svg>Direção</div>
+            <div class="turn"><span class="av a1">AC</span><span class="nm">Arian Camilo</span><span class="rg">trecho todo</span></div>
+            <span class="addturn">+ Revezamento</span>
+          </div>
+          <div class="bd"><span class="lbl">A bordo</span><span class="av a1">AC</span><span class="av a3">CT</span></div>
+          <div class="timers">
+            <div class="tbox pend"><div class="k">Saída</div><div class="v">aguardando</div></div>
+            <div class="tbox pend"><div class="k">Chegada</div><div class="v">aguardando</div></div>
+          </div>
+        </div>
+
+        <div class="addleg">+ Adicionar trecho</div>
+        <div class="hint">Avatares = <b>fotos reais dos colaboradores</b> (mesmo componente das RATs/Tarefas, via foto do Portal). Trecho novo herda veículo, motorista e passageiros do anterior. <b>Revezaram?</b> "+ Revezamento": quem assumiu e a hora — a multa cai no horário de quem dirigia. Veículo da empresa exige direção preenchida.</div>
+
+      </div>
+      <div class="mfoot"><button class="btn">Salvar deslocamento</button></div>
+    </div></div>
+  </div>
+
+</body>
+</html>

@@ -1,0 +1,135 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Tempo por técnico — no app do técnico</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --red:#E5403A; --orange:#F4861F; --yellow:#F7B81E; --green:#179A47; --blue:#1E8AE0; --purple:#8E45B5;
+    --bg:#F3F4F8; --card:#fff; --line:#ECEEF3; --ink:#1B1E26; --muted:#7C8290;
+    --exec-bg:#E6F6EC; --exec-fg:#0B7A43;
+    --warn-bg:#FEF3DA; --warn-fg:#92670A;
+    --info-bg:#E7F1FC; --info-fg:#1565C0;
+  }
+  *{box-sizing:border-box;margin:0;padding:0;}
+  body{font-family:'Manrope',system-ui,sans-serif;font-weight:500;color:var(--ink);background:#DCDEE4;-webkit-font-smoothing:antialiased;display:flex;justify-content:center;gap:26px;padding:26px 14px;flex-wrap:wrap;}
+  .num{font-variant-numeric:tabular-nums;letter-spacing:-.3px;}
+  .cap{font-size:12px;font-weight:700;color:#566;letter-spacing:.3px;margin:0 0 9px 6px;text-transform:uppercase;}
+
+  .phone{width:372px;background:#E7E9EF;border-radius:36px;padding:13px;box-shadow:0 24px 60px rgba(30,35,55,.22);}
+  .screen{background:var(--bg);border-radius:24px;overflow:hidden;display:flex;flex-direction:column;min-height:640px;}
+
+  /* modal header com identidade de cor (padrão do app atual) */
+  .mhead{padding:16px 16px 14px;color:#fff;display:flex;align-items:center;gap:10px;}
+  .mhead.h-blue{background:var(--blue);} .mhead.h-yellow{background:var(--yellow);color:#1A1A1A;}
+  .mhead .x{width:34px;height:34px;border-radius:10px;background:rgba(255,255,255,.22);border:none;color:inherit;font-size:18px;line-height:1;flex:none;}
+  .mhead.h-yellow .x{background:rgba(0,0,0,.10);}
+  .mhead h2{font-size:16.5px;font-weight:700;letter-spacing:-.2px;flex:1;}
+  .mbody{padding:15px;flex:1;}
+  .mfoot{padding:13px 15px;background:#fff;border-top:1px solid var(--line);}
+  .btn{display:flex;align-items:center;justify-content:center;width:100%;border:none;font-family:inherit;font-size:15px;font-weight:700;padding:14px;border-radius:14px;cursor:pointer;letter-spacing:-.2px;color:#fff;}
+  .b-blue{background:var(--blue);} .b-yellow{background:var(--yellow);color:#1A1A1A;}
+
+  .hint{font-size:11.5px;color:var(--muted);font-weight:500;line-height:1.45;margin:10px 2px 0;}
+
+  /* cards de técnico */
+  .tcard{background:#fff;border:1.5px solid var(--line);border-radius:16px;padding:13px;display:flex;align-items:center;gap:11px;margin-bottom:10px;cursor:pointer;}
+  .tcard.on{border-color:var(--blue);}
+  .tcard .av{width:38px;height:38px;border-radius:50%;background:#D9E5F5;color:#3a5f8f;display:grid;place-items:center;font-weight:700;font-size:13px;flex:none;}
+  .tcard .info{flex:1;}
+  .tcard .nm{font-size:14.5px;font-weight:700;letter-spacing:-.2px;}
+  .tcard.off .nm{color:#9aa3b2;font-weight:600;}
+  .tcard .chk{width:22px;height:22px;border-radius:7px;border:1.7px solid #C6CCDA;flex:none;}
+  .tcard.on .chk{background:var(--blue);border-color:var(--blue);position:relative;}
+  .tcard.on .chk::after{content:"✓";color:#fff;font-size:14px;position:absolute;inset:0;display:grid;place-items:center;}
+  .hchip{display:inline-flex;align-items:center;gap:6px;font-size:11.5px;font-weight:700;padding:5px 10px;border-radius:999px;margin-top:6px;font-variant-numeric:tabular-nums;}
+  .h-inherit{background:#F2F4F8;color:#7c8290;}
+  .h-edit{background:var(--info-bg);color:var(--info-fg);}
+  .h-edit .tag{font-size:8.5px;font-weight:800;background:#fff;border-radius:99px;padding:1px 6px;letter-spacing:.4px;}
+
+  /* almoço */
+  .lab{display:block;font-size:12.5px;font-weight:700;color:#3a414e;margin:0 0 8px;}
+  .seg{display:flex;gap:9px;margin-bottom:15px;}
+  .seg .opt{flex:1;text-align:center;padding:13px;border-radius:13px;font-size:14.5px;font-weight:700;border:1.7px solid #DCE0E8;background:#fff;color:#5b6270;}
+  .opt.on-sim{background:var(--green);border-color:var(--green);color:#fff;}
+  .timerline{display:flex;gap:10px;margin-bottom:15px;}
+  .timerline .tbox{flex:1;background:#fff;border:1px solid #DCE0E8;border-radius:13px;padding:11px 13px;}
+  .tbox .k{font-size:10.5px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.5px;}
+  .tbox .v{font-size:17px;font-weight:800;margin-top:3px;letter-spacing:-.3px;}
+
+  .pcard{background:#fff;border:1px solid var(--line);border-radius:14px;padding:11px 13px;display:flex;align-items:center;gap:10px;margin-bottom:9px;}
+  .pcard .av{width:32px;height:32px;border-radius:50%;background:#D9E5F5;color:#3a5f8f;display:grid;place-items:center;font-weight:700;font-size:11px;flex:none;}
+  .pcard .nm{font-size:13.5px;font-weight:700;flex:1;letter-spacing:-.2px;}
+  .pst{font-size:10.5px;font-weight:700;padding:5px 10px;border-radius:999px;white-space:nowrap;font-variant-numeric:tabular-nums;}
+  .p-ok{background:var(--exec-bg);color:var(--exec-fg);}
+  .p-skip{background:var(--warn-bg);color:var(--warn-fg);}
+</style>
+</head>
+<body>
+
+  <!-- ====== PONTO 1: modal Técnicos responsáveis ====== -->
+  <div>
+    <div class="cap">1 · Modal "Técnicos responsáveis" — chip de horário por pessoa</div>
+    <div class="phone"><div class="screen">
+      <div class="mhead h-blue"><button class="x">‹</button><h2>Técnicos responsáveis</h2></div>
+      <div class="mbody">
+        <div class="tcard on">
+          <span class="av">PS</span>
+          <span class="info"><span class="nm">Pablo Soares</span><br>
+            <span class="hchip h-inherit num">08:00–17:00 · da RAT</span></span>
+          <span class="chk"></span>
+        </div>
+        <div class="tcard on">
+          <span class="av">ML</span>
+          <span class="info"><span class="nm">Marcelo Lima</span><br>
+            <span class="hchip h-edit num">10:30–17:00 <span class="tag">AJUSTADO</span></span></span>
+          <span class="chk"></span>
+        </div>
+        <div class="tcard on">
+          <span class="av">CT</span>
+          <span class="info"><span class="nm">Charles Tomio</span><br>
+            <span class="hchip h-inherit num">08:00–17:00 · da RAT</span></span>
+          <span class="chk"></span>
+        </div>
+        <div class="tcard off">
+          <span class="av">MR</span>
+          <span class="info"><span class="nm">Maicon Rocha</span></span>
+          <span class="chk"></span>
+        </div>
+        <div class="hint">Todo técnico marcado já entra com o horário da RAT — não precisa fazer nada. <b>Toque no horário</b> só quando alguém entrou depois ou saiu antes (vira "ajustado").</div>
+      </div>
+      <div class="mfoot"><button class="btn b-blue">Concluir</button></div>
+    </div></div>
+  </div>
+
+  <!-- ====== PONTO 2: modal Pausa/Almoço ====== -->
+  <div>
+    <div class="cap">2 · Modal "Pausa/Almoço" — almoço vira da pessoa, não da RAT</div>
+    <div class="phone"><div class="screen">
+      <div class="mhead h-yellow"><button class="x">‹</button><h2>Pausa / Almoço</h2></div>
+      <div class="mbody">
+        <label class="lab">Houve almoço?</label>
+        <div class="seg"><div class="opt on-sim">Sim</div><div class="opt">Não</div></div>
+
+        <div class="timerline">
+          <div class="tbox"><div class="k">Início</div><div class="v num">12:00</div></div>
+          <div class="tbox"><div class="k">Término</div><div class="v num">13:00</div></div>
+        </div>
+
+        <label class="lab">Registrado para</label>
+        <div class="pcard"><span class="av">ML</span><span class="nm">Marcelo Lima</span><span class="pst p-ok num">✓ 12:00–13:00</span></div>
+        <div class="pcard"><span class="av">CT</span><span class="nm">Charles Tomio</span><span class="pst p-ok num">✓ 12:00–13:00</span></div>
+        <div class="pcard"><span class="av">PS</span><span class="nm">Pablo Soares</span><span class="pst p-skip">já registrado hoje · Deslocamento</span></div>
+
+        <div class="hint">O almoço vale pra quem estava na tarefa nesse horário. Quem já almoçou em outra RAT/Deslocamento <b>não duplica</b> — o sistema avisa e segue.</div>
+      </div>
+      <div class="mfoot"><button class="btn b-yellow">Concluir</button></div>
+    </div></div>
+  </div>
+
+</body>
+</html>
