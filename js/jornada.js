@@ -32,6 +32,7 @@ const JornadaApp = (() => {
     document.getElementById('j-tec').onchange = carregar
     document.getElementById('j-data').onchange = () => { carregar(); carregarHorasDia() }
     carregarHorasDia()
+    carregarSemVolta()   // conferência (leitura): dias com deslocamento de ida sem volta registrada
     // Pernoites: select de técnico (com "todos") + período = mês corrente
     document.getElementById('p-tec').innerHTML = '<option value="">Todos os técnicos</option>' +
       (tec.data || []).map(t => `<option value="${esc(t.id)}">${esc(t.nome || '(sem nome)')}</option>`).join('')
@@ -41,6 +42,27 @@ const JornadaApp = (() => {
     document.getElementById('p-gerar').onclick = carregarPernoites
     if ((tec.data || []).length) { carregar(); carregarPernoites() }
     else document.getElementById('j-timeline').innerHTML = '<div class="j-empty">Nenhum técnico ativo.</div>'
+  }
+
+  // ───────────────────── Conferência: deslocamento de ida sem volta (leitura) ─────────────────────
+  // Lê a vw_alerta_desloc_sem_volta (regra fiscal mora na view; fuso BR lá). Só mostra; não trava.
+  const dmyDia = (s) => s ? String(s).slice(0, 10).split('-').reverse().join('/') : '—'   // 'YYYY-MM-DD' → DD/MM/YYYY (sem new Date: zero off-by-one)
+  async function carregarSemVolta() {
+    const box = document.getElementById('sv-box'); if (!box) return
+    const { data, error } = await sb().from('vw_alerta_desloc_sem_volta').select('*').order('dia', { ascending: false })
+    if (error) { box.innerHTML = '<div class="j-empty">Não foi possível carregar a conferência.</div>'; return }
+    const rows = data || []
+    if (!rows.length) { box.innerHTML = '<div class="j-empty">Nenhum dia com deslocamento de ida sem volta a verificar.</div>'; return }
+    box.innerHTML = rows.map(r => {
+      const links = (r.rats || []).map(x => {
+        const seq = x.rat_seq != null ? '/' + String(x.rat_seq).padStart(2, '0') : ''
+        return `<a href="rat.html?id=${encodeURIComponent(x.rat_id)}" target="_blank" rel="noopener">RAT${seq}${x.cliente ? ' · ' + esc(x.cliente) : ''} ↗</a>`
+      }).join(' · ')
+      return `<div class="hd-alert"><div>
+        <div class="t">${esc(r.tecnico_nome || '—')} · ${dmyDia(r.dia)}</div>
+        <div class="d">${esc(r.clientes || '—')} — ida registrada, <b>sem volta</b> no dia (e sem pernoite). Verificar: ${links}</div>
+      </div></div>`
+    }).join('')
   }
 
   // ───────────────────── Horas do dia por técnico (§8: tempo é da pessoa) ─────────────────────
