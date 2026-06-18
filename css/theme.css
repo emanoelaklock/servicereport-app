@@ -2,24 +2,30 @@
    Axis Inventory — Theme CSS
    Variaveis globais, sidebar navy, componentes
 ═══════════════════════════════════════════════ */
+/* Paleta oficial (fonte única). theme.css é carregado em TODAS as páginas,
+   então este @import garante os tokens --sr-* em todo o app. */
+@import url('tokens.css');
 
 *{box-sizing:border-box;margin:0;padding:0}
 
 :root{
-  --bg:#F4F6FA;
-  --sur:#FFF;
+  /* cores → fonte única oficial (css/tokens.css). Neutros sutis sem equivalente
+     oficial (--sur2/--bd2/--acm) ficam literais. --am usa o âmbar legível
+     (--sr-warn-fg) porque é usado como texto; a marca amarela seria ilegível. */
+  --bg:var(--sr-bg);
+  --sur:var(--sr-card);
   --sur2:#F0F4FA;
-  --bd:#E3E8F0;
+  --bd:var(--sr-line-strong);
   --bd2:#CBD5E8;
-  --tx:#1B2A4A;
-  --tx2:#4A5568;
-  --tx3:#8A9BBB;
-  --ac:#2E6BE6;
-  --acl:#EFF6FF;
+  --tx:var(--sr-ink);
+  --tx2:var(--sr-muted);
+  --tx3:var(--sr-aguard-m);
+  --ac:var(--sr-blue);
+  --acl:var(--sr-info-bg);
   --acm:#BFDBFE;
-  --gr:#059669;
-  --am:#D97706;
-  --re:#DC2626;
+  --gr:var(--sr-green);
+  --am:var(--sr-warn-fg);
+  --re:var(--sr-red);
   --sh:0 1px 3px rgba(27,42,74,.06),0 4px 16px rgba(27,42,74,.04);
   --shl:0 4px 32px rgba(27,42,74,.14);
   --r:10px;
@@ -85,7 +91,7 @@ body{
 }
 .sb-logo-icon{
   width:30px;height:30px;border-radius:8px;
-  background:#2E6BE6;
+  background:var(--ac);
   display:flex;align-items:center;justify-content:center;
   flex-shrink:0;
 }
@@ -142,7 +148,7 @@ body{
 .sb-user:hover{background:rgba(255,255,255,.07)}
 .sb-avatar{
   width:30px;height:30px;border-radius:50%;
-  background:#2E6BE6;color:#fff;
+  background:var(--ac);color:#fff;
   font-size:12px;font-weight:600;
   display:flex;align-items:center;justify-content:center;flex-shrink:0;
 }
@@ -313,8 +319,8 @@ tr:hover td{background:rgba(46,107,230,.03)!important}
 tr:hover .acts{opacity:1}
 .ab{padding:4px 8px;border-radius:6px;border:1px solid transparent;font-size:11px;font-weight:600;cursor:pointer;font-family:inherit;transition:all .15s;white-space:nowrap}
 .ab-v{color:var(--ac);background:var(--acl);border-color:var(--acm)}.ab-v:hover{background:var(--ac);color:#fff}
-.ab-m{color:#059669;background:rgba(5,150,105,.08);border-color:rgba(5,150,105,.2)}.ab-m:hover{background:#059669;color:#fff}
-.ab-c{color:#D97706;background:rgba(217,119,6,.08);border-color:rgba(217,119,6,.2)}.ab-c:hover{background:#D97706;color:#fff}
+.ab-m{color:var(--gr);background:rgba(5,150,105,.08);border-color:rgba(5,150,105,.2)}.ab-m:hover{background:var(--gr);color:#fff}
+.ab-c{color:var(--am);background:rgba(217,119,6,.08);border-color:rgba(217,119,6,.2)}.ab-c:hover{background:var(--am);color:#fff}
 .ab-d{color:var(--tx3);background:var(--sur2);border-color:var(--bd)}.ab-d:hover{background:var(--re);color:#fff;border-color:var(--re)}
 
 /* ── LOGIN ── */

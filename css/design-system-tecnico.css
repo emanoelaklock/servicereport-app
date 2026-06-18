@@ -21,16 +21,16 @@
 ============================================================================ */
 
 :root{
-  /* paleta vívida */
-  --red:#E5403A; --orange:#F4861F; --yellow:#F7B81E; --green:#28A94C; --blue:#1E8AE0; --purple:#8E45B5;
+  /* paleta vívida → fonte única oficial (css/tokens.css) */
+  --red:var(--sr-red); --orange:var(--sr-orange); --yellow:var(--sr-yellow); --green:var(--sr-green); --blue:var(--sr-blue); --purple:var(--sr-purple);
   /* neutros (tema claro) */
-  --bg:#F3F4F8; --card:#FFFFFF; --line:#ECEEF3; --ink:#1B1E26; --muted:#7C8290;
+  --bg:var(--sr-bg); --card:var(--sr-card); --line:var(--sr-line); --ink:var(--sr-ink); --muted:var(--sr-muted);
   /* status (fundo · texto · marca) */
-  --exec-bg:#E6F6EC; --exec-fg:#0B7A43; --exec-m:#28A94C;
-  --info-bg:#E7F1FC; --info-fg:#1565C0; --info-m:#1E8AE0;
-  --warn-bg:#FEF3DA; --warn-fg:#92670A; --warn-m:#F7B81E;
-  --pend-bg:#FDECEA; --pend-fg:#C0362C; --pend-m:#E5403A;
-  --aguard-bg:#EEF0F4; --aguard-fg:#5B6573; --aguard-m:#9CA3AF;
+  --exec-bg:var(--sr-exec-bg); --exec-fg:var(--sr-exec-fg); --exec-m:var(--sr-exec-m);
+  --info-bg:var(--sr-info-bg); --info-fg:var(--sr-info-fg); --info-m:var(--sr-info-m);
+  --warn-bg:var(--sr-warn-bg); --warn-fg:var(--sr-warn-fg); --warn-m:var(--sr-warn-m);
+  --pend-bg:var(--sr-pend-bg); --pend-fg:var(--sr-pend-fg); --pend-m:var(--sr-pend-m);
+  --aguard-bg:var(--sr-aguard-bg); --aguard-fg:var(--sr-aguard-fg); --aguard-m:var(--sr-aguard-m);
   /* raio */
   --r-xl:24px; --r-lg:20px; --r-md:15px; --r-sm:11px; --r-pill:999px;
   --font:'Manrope',system-ui,-apple-system,sans-serif;
