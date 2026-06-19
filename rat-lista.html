@@ -47,16 +47,23 @@
   /* lista de resultados */
   .rl-head{display:flex;align-items:center;gap:10px;margin:2px 2px 0}
   .rl-count{font-size:12.5px;font-weight:600;color:var(--tx2)}
-  .rl-list{display:flex;flex-direction:column;gap:8px}
-  .rl-row{display:block;width:100%;text-align:left;background:var(--card);border:1px solid var(--line);border-left:4px solid var(--bd2);border-radius:12px;padding:12px 15px;cursor:pointer;font-family:inherit;transition:box-shadow .12s,transform .12s}
-  .rl-row:hover{box-shadow:0 4px 14px rgba(20,28,46,.10);transform:translateY(-1px)}
-  .rl-top{display:flex;align-items:center;gap:10px}
-  .rl-no{font-size:14px;font-weight:800;font-variant-numeric:tabular-nums}
-  .rl-cli{font-size:14px;font-weight:700;color:var(--tx)}
-  .rl-pill{margin-left:auto;font-size:11px;font-weight:700;padding:3px 10px;border-radius:999px;white-space:nowrap}
-  .rl-meta{font-size:12px;color:var(--tx2);font-weight:500;margin-top:3px}
-  .rl-ori{font-size:12px;color:var(--tx2);margin-top:5px;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;line-height:1.35}
-  .rl-empty{padding:48px;text-align:center;color:var(--tx2);font-size:13px;background:var(--card);border:1px solid var(--line);border-radius:14px}
+  /* tabela — MESMO padrão da Lista de Tarefas (.cc-list) */
+  .cc-list{width:100%;border-collapse:collapse;font-size:13px}
+  .cc-list th{text-align:left;font-size:12px;text-transform:none;letter-spacing:normal;color:var(--tx3);padding:8px 10px;border-bottom:1px solid var(--bd)}
+  .cc-list td{padding:10px;border-bottom:1px solid var(--bd);color:var(--tx)}
+  .cc-list tr.row-click{cursor:pointer}
+  .cc-list tr.row-click:hover td{background:var(--sur2)}
+  .listpanel .cc-list thead th{background:#FAFBFD;padding-top:14px;padding-bottom:14px}
+  .listpanel .cc-list th:first-child,.listpanel .cc-list td:first-child{padding-left:20px}
+  .listpanel .cc-list th:last-child,.listpanel .cc-list td:last-child{padding-right:20px}
+  .listpanel .cc-list tbody tr:last-child td{border-bottom:none}
+  .cc-num{font-family:var(--mono);font-size:12px;color:var(--tx2);white-space:nowrap}
+  .cc-cli{font-weight:600;color:var(--tx)}
+  .rl-sub{margin-top:2px;font-size:11.5px;color:var(--tx2);font-weight:500}
+  /* prévia da Orientação ao técnico — até 2 linhas, com reticências (igual à Lista de Tarefas) */
+  .cc-ori{margin-top:3px;max-width:460px;font-size:11.5px;font-weight:400;color:var(--tx2);line-height:1.35;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;white-space:normal}
+  .st-pill{display:inline-block;font-size:11px;font-weight:700;padding:3px 10px;border-radius:999px;white-space:nowrap}
+  .rl-empty{padding:48px;text-align:center;color:var(--tx2);font-size:13px}
   .rl-more{align-self:center;margin-top:6px}
   .rc-badge-sync{display:inline-flex;align-items:center;gap:6px;background:var(--exec-bg);color:var(--exec-fg);font-size:12px;font-weight:600;padding:7px 13px;border-radius:999px}
   .rc-badge-sync i{width:7px;height:7px;border-radius:50%;background:var(--exec-m)}
@@ -103,7 +110,7 @@
         </div>
 
         <div class="rl-head"><span class="rl-count" id="rl-count"></span></div>
-        <div class="rl-list" id="rl-list"></div>
+        <div class="listpanel" id="rl-panel" style="overflow-x:auto"></div>
         <button class="btn btn-ghost rl-more" id="rl-more" style="display:none">Carregar mais</button>
       </div>
     </div>

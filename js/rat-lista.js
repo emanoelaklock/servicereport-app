@@ -63,8 +63,11 @@
 
   function buscar() { carregarPagina(true) }
 
+  const TABELA = '<table class="cc-list"><thead><tr><th>Nº</th><th>Cliente</th><th>Status</th><th>Técnico</th><th>Data</th></tr></thead><tbody id="rl-list"></tbody></table>'
+
   async function carregarPagina(reset) {
-    if (reset) { offset = 0; document.getElementById('rl-list').innerHTML = '' }
+    const panel = document.getElementById('rl-panel'), more = document.getElementById('rl-more')
+    if (reset) { offset = 0; panel.innerHTML = TABELA }
     const f = filtros
     let q = sb().from('vw_rats_busca').select('*', { count: 'exact' })
     if (f.busca) q = q.ilike('busca', '%' + f.busca.toLowerCase() + '%')
@@ -75,27 +78,36 @@
     if (f.ate) q = q.lte('dia_rat', f.ate)
     q = q.order('dia_rat', { ascending: false, nullsFirst: false }).range(offset, offset + PAGE - 1)
     const { data, count, error } = await q
-    const lista = document.getElementById('rl-list')
-    if (error) { lista.innerHTML = `<div class="rl-empty" style="color:var(--re)">Erro ao buscar: ${esc(error.message)}</div>`; document.getElementById('rl-more').style.display = 'none'; return }
+    if (error) { panel.innerHTML = `<div class="rl-empty" style="color:var(--re)">Erro ao buscar: ${esc(error.message)}</div>`; more.style.display = 'none'; return }
     total = count == null ? (data || []).length : count
     const rows = data || []
     offset += rows.length
-    lista.insertAdjacentHTML('beforeend', rows.map(rowHTML).join(''))
-    lista.querySelectorAll('.rl-row[data-novo]').forEach(el => { el.removeAttribute('data-novo'); el.onclick = () => abrir(el.dataset.rat, el.dataset.tarefa) })
-    if (reset && !rows.length) lista.innerHTML = '<div class="rl-empty">Nenhuma RAT encontrada para esses filtros.</div>'
+    if (reset && !rows.length) {
+      panel.innerHTML = '<div class="rl-empty">Nenhuma RAT encontrada para esses filtros.</div>'
+    } else {
+      const tbody = document.getElementById('rl-list')
+      tbody.insertAdjacentHTML('beforeend', rows.map(rowHTML).join(''))
+      tbody.querySelectorAll('.row-click[data-novo]').forEach(el => { el.removeAttribute('data-novo'); el.onclick = () => abrir(el.dataset.rat, el.dataset.tarefa) })
+    }
     document.getElementById('rl-count').textContent = total ? `${total} RAT${total === 1 ? '' : 's'} encontrada${total === 1 ? '' : 's'}${offset < total ? ` · mostrando ${offset}` : ''}` : ''
-    document.getElementById('rl-more').style.display = offset < total ? '' : 'none'
+    more.style.display = offset < total ? '' : 'none'
   }
 
   function rowHTML(r) {
     const cor = corDe(r.tarefa_status)
     const ratNo = r.tarefa_numero != null ? osNo(r.tarefa_numero) + (r.rat_seq != null ? '/' + String(r.rat_seq).padStart(2, '0') : '') : '—'
-    const pill = `<span class="rl-pill" style="background:${cor}1A;color:${corTextoLegivel(cor)}">${esc(labelStatus[r.tarefa_status] || r.tarefa_status || '—')}</span>`
-    return `<button class="rl-row" data-novo data-rat="${esc(r.id)}" data-tarefa="${esc(r.tarefa_id || '')}" style="border-left-color:${cor}">
-      <div class="rl-top"><span class="rl-no" style="color:${corTextoLegivel(cor)}">Nº ${esc(ratNo)}</span><span class="rl-cli">${esc(r.cliente_nome || '—')}</span>${pill}</div>
-      <div class="rl-meta">${esc(r.colaboradores || '—')} · ${dmy(r.dia_rat)}${r.pedido_compra ? ' · PC ' + esc(r.pedido_compra) : ''}${r.orcamento_numero ? ' · Orç ' + esc(r.orcamento_numero) : ''}</div>
-      ${r.orientacao ? `<div class="rl-ori">${esc(r.orientacao)}</div>` : ''}
-    </button>`
+    const sub = [r.pedido_compra ? 'PC ' + esc(r.pedido_compra) : '', r.orcamento_numero ? 'Orç ' + esc(r.orcamento_numero) : ''].filter(Boolean).join(' · ')
+    return `<tr class="row-click" data-novo data-rat="${esc(r.id)}" data-tarefa="${esc(r.tarefa_id || '')}">
+      <td class="cc-num">${esc(ratNo)}</td>
+      <td>
+        <div class="cc-cli">${esc(r.cliente_nome || '—')}</div>
+        ${sub ? `<div class="rl-sub">${sub}</div>` : ''}
+        ${r.orientacao ? `<div class="cc-ori" title="${esc(r.orientacao)}">${esc(r.orientacao)}</div>` : ''}
+      </td>
+      <td><span class="st-pill" style="background:${cor}1A;color:${corTextoLegivel(cor)}">${esc(labelStatus[r.tarefa_status] || r.tarefa_status || '—')}</span></td>
+      <td>${esc(r.colaboradores || '—')}</td>
+      <td>${dmy(r.dia_rat)}</td>
+    </tr>`
   }
 
   function abrir(ratId, tarefaId) {
