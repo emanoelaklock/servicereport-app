@@ -12,6 +12,19 @@ var esc = s => String(s || '')
   .replace(/"/g, '&quot;')
   .replace(/'/g, '&#39;')
 
+/* ─── Cor de texto legível sobre um tint claro do próprio matiz ──────────
+   A "cor" de status (marca) pode ser clara (amarelo/laranja) e fica ilegível
+   como TEXTO sobre o fundo tintado. Se o matiz for claro, devolve tinta escura
+   (regra do card colors-contrast); senão, o próprio matiz. Compatível com as
+   cores atuais (todas escuras → inalteradas). */
+var corTextoLegivel = (hex) => {
+  const m = /^#?([0-9a-fA-F]{6})$/.exec(String(hex || ''))
+  if (!m) return hex || '#1A1A1A'
+  const n = parseInt(m[1], 16), r = n >> 16, g = (n >> 8) & 255, b = n & 255
+  const lum = (0.2126 * r + 0.7152 * g + 0.0722 * b) / 255
+  return lum > 0.6 ? '#1A1A1A' : ('#' + m[1])
+}
+
 /* ─── Status → classe CSS (definidas em theme.css) ───────── */
 var SM = {
   'Estoque Novo':                  's-en',

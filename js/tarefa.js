@@ -40,7 +40,7 @@ const TarefaApp = (() => {
   }
   const statusLabel = (k) => (STATUS[k] && STATUS[k].label) || k || '—'
   const statusCor = (k) => (STATUS[k] && STATUS[k].cor) || '#48506A'
-  const statusStyleAttr = (k) => `background:${statusCor(k)}1A;color:${statusCor(k)}`
+  const statusStyleAttr = (k) => `background:${statusCor(k)}1A;color:${corTextoLegivel(statusCor(k))}`
   const statusAtivos = () => Object.values(STATUS).filter(s => s.ativo).sort((a, b) => a.ordem - b.ordem)
   // Opções <option> dos status ativos + garante a opção do status atual (mesmo inativo).
   function statusOptionsHTML(atual) {
@@ -50,7 +50,7 @@ const TarefaApp = (() => {
   }
   const setStatusBadge = (s) => {
     const b = document.getElementById('cc-badge'); if (b) { b.textContent = statusLabel(s); b.className = 'ed-badge'; b.style.cssText = statusStyleAttr(s) }
-    const h = document.getElementById('cc-hd-status'); if (h) { h.textContent = statusLabel(s); h.style.color = statusCor(s) }
+    const h = document.getElementById('cc-hd-status'); if (h) { h.textContent = statusLabel(s); h.style.color = corTextoLegivel(statusCor(s)) }
   }
   const iniciais = (n) => String(n || '').trim().split(/\s+/).slice(0, 2).map(w => w[0] || '').join('').toUpperCase() || '—'
   function renderHeader(t) {
