@@ -128,7 +128,9 @@
   /* Tabela de produtos (conciliação) — ver docs/mockups/mockup-tarefa.html */
   .cc-table{width:100%;border-collapse:collapse;font-size:13px;font-variant-numeric:tabular-nums}
   /* colunas numéricas em caixa: cabeçalho e caixa CENTRALIZADOS na coluna (alinham sempre) */
-  .cc-table th{font-size:11px;letter-spacing:normal;text-transform:none;color:var(--tx3);padding:0 12px 10px;border-bottom:1px solid var(--bd);text-align:center;white-space:nowrap}
+  .cc-table th{font-size:11px;letter-spacing:normal;text-transform:none;color:var(--tx3);padding:14px 12px;border-bottom:1px solid var(--bd);text-align:center;white-space:nowrap;background:#FAFBFD}
+  .cc-table th.th-ord{cursor:pointer;user-select:none}
+  .cc-table th.th-ord:hover{color:var(--tx)}
   .cc-table th.l{text-align:left}
   .cc-table td{padding:10px 12px;border-bottom:1px solid var(--sur2);vertical-align:middle;text-align:center}
   .cc-table td.l{text-align:left}

@@ -29,7 +29,7 @@
   --sh:0 1px 3px rgba(27,42,74,.06),0 4px 16px rgba(27,42,74,.04);
   --shl:0 4px 32px rgba(27,42,74,.14);
   --r:10px;
-  --mono:'IBM Plex Mono',monospace;
+  --mono:'Manrope',system-ui,-apple-system,sans-serif;   /* numeros (Nº tarefa/RAT, produtos, precos) na fonte da marca; tabular-nums onde alinha */
   --sb:220px;
   --sb-col:56px;
 
