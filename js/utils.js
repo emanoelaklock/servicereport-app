@@ -14,15 +14,19 @@ var esc = s => String(s || '')
 
 /* ─── Cor de texto legível sobre um tint claro do próprio matiz ──────────
    A "cor" de status (marca) pode ser clara (amarelo/laranja) e fica ilegível
-   como TEXTO sobre o fundo tintado. Se o matiz for claro, devolve tinta escura
-   (regra do card colors-contrast); senão, o próprio matiz. Compatível com as
-   cores atuais (todas escuras → inalteradas). */
+   como TEXTO sobre o fundo tintado. Matiz escuro o suficiente → o próprio matiz.
+   Matiz claro (amarelo etc.) → ESCURECE o próprio tom até ficar legível (âmbar
+   escuro), em vez de cair pra preto — mantém "cor = significado" na pílula e
+   evita o texto preto destoante. Contraste AA garantido sobre o fundo tintado. */
 var corTextoLegivel = (hex) => {
   const m = /^#?([0-9a-fA-F]{6})$/.exec(String(hex || ''))
   if (!m) return hex || '#1A1A1A'
   const n = parseInt(m[1], 16), r = n >> 16, g = (n >> 8) & 255, b = n & 255
   const lum = (0.2126 * r + 0.7152 * g + 0.0722 * b) / 255
-  return lum > 0.6 ? '#1A1A1A' : ('#' + m[1])
+  if (lum <= 0.6) return '#' + m[1]
+  const k = 0.34 / lum   // escurece proporcionalmente até luminância-alvo ~0.34
+  const hx = (v) => Math.max(0, Math.min(255, Math.round(v * k))).toString(16).padStart(2, '0')
+  return '#' + hx(r) + hx(g) + hx(b)
 }
 
 /* ─── Status → classe CSS (definidas em theme.css) ───────── */
