@@ -17,6 +17,9 @@
 <style>
   /* Calendário de RATs — usa só tokens existentes (var(--card)/--line/--tx/--ac/...) */
   .rc-wrap{padding:20px 24px 28px;display:flex;flex-direction:column;gap:16px}
+  .rc-switch{display:inline-flex;background:var(--bg);border:1px solid var(--line);border-radius:10px;padding:3px;gap:2px;margin-left:14px}
+  .rc-switch a{padding:6px 14px;border-radius:8px;font-size:13px;font-weight:700;color:var(--tx2);text-decoration:none}
+  .rc-switch a.on{background:var(--card);color:var(--ac);box-shadow:0 1px 2px rgba(20,28,46,.08)}
   .rc-filtros{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:16px}
   .rc-fh{display:flex;align-items:center;gap:8px;margin-bottom:13px;font-size:12.5px;font-weight:700;color:var(--tx)}
   .rc-fh .mut{font-size:11.5px;color:var(--tx2);font-weight:500}
@@ -84,7 +87,8 @@
 
 <div class="main">
   <div id="app-screen" style="display:none">
-    <div class="topbar"><h1>RAT — Calendário</h1>
+    <div class="topbar"><h1>RAT</h1>
+      <div class="rc-switch"><a href="rat-calendario.html" class="on">Calendário</a><a href="rat-lista.html">Lista</a></div>
       <div style="margin-left:auto;display:flex;align-items:center;gap:12px">
         <span class="mut" id="rc-count" style="font-size:12.5px;color:var(--tx2);font-weight:600"></span>
         <span class="rc-badge-sync"><i></i>Leitura</span>
