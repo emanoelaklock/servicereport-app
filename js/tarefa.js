@@ -745,7 +745,7 @@ const TarefaApp = (() => {
         const cUtil = `<td>${box(qtd(util), devNeg ? 'alert' : (util === 0 ? 'zero' : ''))}${somaReal}</td>`
         const cDev = `<td>${box(qtd(devShown), devShown === 0 ? 'zero' : '')}</td>`
         const cPreco = semOrcada
-          ? `<td><span class="cc-edit-money"><span class="rs">R$</span><input class="cc-preco" type="text" inputmode="decimal" value="${preco > 0 ? preco.toFixed(2).replace('.', ',') : ''}" data-i="${i}" placeholder="0,00"></span></td>`
+          ? `<td><div class="cc-box money cc-preco-edit${preco === 0 ? ' zero' : ''}" data-i="${i}" tabindex="0" title="Clique para editar o valor">${money(preco)}</div></td>`
           : `<td>${box(money(preco), 'money')}</td>`
         const sub = util * preco
         const cSub = `<td>${box(money(sub), 'money' + (sub === 0 ? ' zero' : ''))}</td>`
@@ -775,7 +775,10 @@ const TarefaApp = (() => {
         </tr>`
       }).join('')
       tb.querySelectorAll('.cc-lev').forEach(inp => inp.onchange = () => salvarLevada(Number(inp.dataset.i), inp.value))
-      tb.querySelectorAll('.cc-preco').forEach(inp => inp.onchange = () => salvarPreco(Number(inp.dataset.i), inp.value))
+      tb.querySelectorAll('.cc-preco-edit').forEach(el => {
+        el.onclick = () => editarPreco(el, Number(el.dataset.i))
+        el.onkeydown = (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); editarPreco(el, Number(el.dataset.i)) } }
+      })
       tb.querySelectorAll('.cc-rev').forEach(btn => btn.onclick = () => salvarRevisado(Number(btn.dataset.i), !linhas[Number(btn.dataset.i)].revisado))
       tb.querySelectorAll('.cc-chk').forEach(cb => cb.onchange = () => { cb.checked ? selMat.add(cb.dataset.tm) : selMat.delete(cb.dataset.tm); renderBulk() })
     }
@@ -850,6 +853,25 @@ const TarefaApp = (() => {
     if (err) return toast('Erro ao salvar Disponibilizada: ' + err.message, 'err')
     toast('Disponibilizada atualizada.', 'ok')
     await carregarLinhas()
+  }
+
+  // Valor unit. (avulso): exibe igual ao Subtotal (money box) e vira input só ao clicar.
+  function editarPreco(boxEl, i) {
+    const l = linhas[i]; if (!l) return
+    const td = boxEl.closest('td'); if (!td) return
+    const preco = Number(l.preco_unitario) || 0
+    td.innerHTML = `<span class="cc-edit-money"><span class="rs">R$</span><input class="cc-preco-inp" type="text" inputmode="decimal" value="${preco > 0 ? preco.toFixed(2).replace('.', ',') : ''}" placeholder="0,00"></span>`
+    const inp = td.querySelector('.cc-preco-inp')
+    inp.focus(); inp.select()
+    let done = false
+    const fim = (salvar) => {
+      if (done) return; done = true
+      const novo = Math.max(0, parseMoneyBR(inp.value))
+      if (!salvar || inp.value.trim() === '' || novo === preco) return renderLinhas()   // sem mudança → restaura o box
+      salvarPreco(i, inp.value)
+    }
+    inp.onblur = () => fim(true)
+    inp.onkeydown = (e) => { if (e.key === 'Enter') { e.preventDefault(); inp.blur() } else if (e.key === 'Escape') { e.preventDefault(); fim(false) } }
   }
 
   // Parser de valor em R$ no padrão BR: aceita "3,50", "1.234,56", "17" ou "3.5".
