@@ -29,17 +29,25 @@
 
   let ym = null
   let corStatus = {}, labelStatus = {}   // chave -> cor / label (tabela status_tarefa)
-  let rats = [], orcNo = {}
+  let rats = [], orcNo = {}, tecNomes = {}, ratTecMap = {}   // tecNomes: id->nome · ratTecMap: rat_id->[tecnico_id] (co-responsáveis)
   const filtros = { tarefa: '', rat: '', tecnico: '', data: '', orientacao: '', orcamento: '', status: '', pc: '' }
 
   const osNo = (n) => n == null ? '—' : String(n).padStart(5, '0')
 
+  // TODOS os responsáveis: principal (rats.tecnico_nome) ∪ co-responsáveis (rat_tecnicos → nome)
+  function tecnicosDe(r) {
+    const set = new Set()
+    if (r.tecnico_nome) set.add(r.tecnico_nome)
+    for (const id of (ratTecMap[r.id] || [])) { const n = tecNomes[id]; if (n) set.add(n) }
+    return [...set]
+  }
   function view(r) {
     const t = r.tarefa || {}
+    const tecs = tecnicosDe(r)
     return {
       id: r.id, seq: r.rat_seq, dia: diaBR(r.data_tarefa),
       tarefaId: t.id || null, numero: t.numero, status: t.status || '',
-      cliente: r.cliente_nome || '—', tecnico: r.tecnico_nome || '—',
+      cliente: r.cliente_nome || '—', tecnicos: tecs, tecnico: tecs.join(', ') || '—',
       pc: t.pedido_compra || '', orcamento: (t.orcamento_id && orcNo[t.orcamento_id] != null) ? String(orcNo[t.orcamento_id]) : '',
       orientacao: t.orientacao || '',
     }
@@ -51,6 +59,9 @@
     const { data: st } = await sb().from('status_tarefa').select('chave,label,cor,ordem,ativo').order('ordem')
     corStatus = {}; labelStatus = {}
     for (const s of (st || [])) { corStatus[s.chave] = s.cor; labelStatus[s.chave] = s.label }
+    // técnicos (id -> nome) p/ resolver os co-responsáveis (rat_tecnicos guarda só o id)
+    const { data: us } = await sb().rpc('sr_usuarios')
+    tecNomes = {}; for (const u of (us || [])) tecNomes[u.id] = u.nome
     // mês corrente em BR
     const y = Number(new Intl.DateTimeFormat('en-CA', { timeZone: TZ, year: 'numeric' }).format(new Date()))
     const m = Number(new Intl.DateTimeFormat('en-CA', { timeZone: TZ, month: '2-digit' }).format(new Date())) - 1
@@ -97,6 +108,13 @@
       .order('data_tarefa', { ascending: true })
     if (error) { document.getElementById('rc-grid').innerHTML = `<div class="rc-empty" style="grid-column:1/-1;color:var(--re)">Erro ao carregar: ${esc(error.message)}</div>`; return }
     rats = data || []
+    // co-responsáveis (RAT colaborativa): rat_tecnicos do mês → mapa rat_id -> [tecnico_id]
+    ratTecMap = {}
+    const ids = rats.map(r => r.id)
+    if (ids.length) {
+      const { data: rt } = await sb().from('rat_tecnicos').select('rat_id,tecnico_id').in('rat_id', ids)
+      for (const x of (rt || [])) (ratTecMap[x.rat_id] = ratTecMap[x.rat_id] || []).push(x.tecnico_id)
+    }
     const oids = [...new Set(rats.map(r => r.tarefa && r.tarefa.orcamento_id).filter(Boolean))]
     orcNo = {}
     if (oids.length) { const { data: os } = await sb().from('orcamentos').select('id,numero').in('id', oids); for (const o of (os || [])) orcNo[o.id] = o.numero }
@@ -107,7 +125,7 @@
     const f = filtros, has = (campo, termo) => String(campo || '').toLowerCase().includes(termo.toLowerCase())
     if (f.tarefa) { const d = f.tarefa.replace(/\D/g, ''); if (!d || !String(v.numero == null ? '' : v.numero).includes(d)) return false }
     if (f.rat && !has(ratNo(v), f.rat)) return false
-    if (f.tecnico && v.tecnico !== f.tecnico) return false
+    if (f.tecnico && !v.tecnicos.includes(f.tecnico)) return false
     if (f.data && v.dia !== f.data) return false
     if (f.orientacao && !has(v.orientacao, f.orientacao)) return false
     if (f.orcamento && !has(v.orcamento, f.orcamento)) return false
@@ -119,7 +137,7 @@
   function popularSelects(views) {
     const selT = document.getElementById('rcf-tecnico')
     if (selT.dataset.k !== String(views.length) + ym.y + ym.m) {   // repopula quando o conjunto muda
-      const tecs = [...new Set(views.map(v => v.tecnico).filter(x => x && x !== '—'))].sort((a, b) => a.localeCompare(b))
+      const tecs = [...new Set(views.flatMap(v => v.tecnicos))].filter(Boolean).sort((a, b) => a.localeCompare(b))
       selT.innerHTML = '<option value="">Todos</option>' + tecs.map(t => `<option${t === filtros.tecnico ? ' selected' : ''}>${esc(t)}</option>`).join('')
       selT.dataset.k = String(views.length) + ym.y + ym.m
     }
