@@ -324,6 +324,19 @@ const TarefaApp = (() => {
     }
   }
 
+  // Ordenação da lista por clique no cabeçalho (top bar da tabela)
+  let ordCampo = 'numero', ordDir = 'desc'
+  const ordVal = (t, campo) => {
+    switch (campo) {
+      case 'cliente': return normStr(cliNomes[t.cliente_id] || '')
+      case 'status': return (STATUS[t.status] && STATUS[t.status].ordem != null) ? STATUS[t.status].ordem : 999
+      case 'tecnico': return normStr((tecPorTarefa[t.id] || []).map(id => tecNomes[id] || '').join(' '))
+      case 'agenda': return (t.data_agendada || '').slice(0, 10)
+      case 'conciliacao': return divPorTarefa[t.id] || 0
+      default: return Number(t.numero) || 0
+    }
+  }
+
   function renderLista() {
     const box = document.getElementById('lista-box')
     const q = normStr(document.getElementById('busca-tarefa').value || '')
@@ -351,10 +364,23 @@ const TarefaApp = (() => {
     if (fDe) rows = rows.filter(t => (t.data_agendada || '').slice(0, 10) >= fDe)
     if (fAte) rows = rows.filter(t => { const d = (t.data_agendada || '').slice(0, 10); return d && d <= fAte })
     if (q) rows = rows.filter(t => buscaStr(t).includes(q))
+    // ordena pela coluna escolhida (vazios por último); desempate por Nº desc
+    const dir = ordDir === 'asc' ? 1 : -1
+    rows = rows.slice().sort((a, b) => {
+      const va = ordVal(a, ordCampo), vb = ordVal(b, ordCampo)
+      const ea = (va === '' || va == null), eb = (vb === '' || vb == null)
+      if (ea !== eb) return ea ? 1 : -1
+      if (va < vb) return -dir
+      if (va > vb) return dir
+      return (Number(b.numero) || 0) - (Number(a.numero) || 0)
+    })
     document.getElementById('f-count').textContent = `${rows.length} de ${tarefas.length}`
     if (!rows.length) { box.innerHTML = '<div class="listpanel"><div class="cc-empty">Nenhuma tarefa encontrada.</div></div>'; return }
+    const COLS = [['numero', 'Nº'], ['cliente', 'Cliente'], ['status', 'Status'], ['tecnico', 'Técnico'], ['agenda', 'Agenda'], ['conciliacao', 'Conciliação']]
+    const seta = (k) => ordCampo === k ? (ordDir === 'asc' ? ' ▲' : ' ▼') : ''
+    const thHtml = COLS.map(([k, t]) => `<th class="th-ord" data-ord="${k}">${t}${seta(k)}</th>`).join('') + '<th>Ações</th>'
     box.innerHTML = `<div class="listpanel" style="overflow-x:auto"><table class="cc-list"><thead><tr>
-        <th>Nº</th><th>Cliente</th><th>Status</th><th>Técnico</th><th>Agenda</th><th>Conciliação</th><th>Ações</th>
+        ${thHtml}
       </tr></thead><tbody>${rows.map(t => {
         const d = divPorTarefa[t.id] || 0
         const concil = d ? `<span class="pill pill-warn">${d} a revisar</span>` : '<span class="pill pill-ok">OK</span>'
@@ -380,6 +406,12 @@ const TarefaApp = (() => {
     box.querySelectorAll('[data-edit]').forEach(b => b.onclick = (e) => { e.stopPropagation(); abrirTarefa(b.dataset.edit) })
     box.querySelectorAll('[data-del]').forEach(b => b.onclick = (e) => { e.stopPropagation(); excluirTarefaLista(b.dataset.del) })
     box.querySelectorAll('[data-atrib]').forEach(b => b.onclick = (e) => { e.stopPropagation(); abrirTarefa(b.dataset.atrib, 'dados') })
+    box.querySelectorAll('th[data-ord]').forEach(th => th.onclick = () => {
+      const k = th.dataset.ord
+      if (ordCampo === k) ordDir = (ordDir === 'asc' ? 'desc' : 'asc')
+      else { ordCampo = k; ordDir = (k === 'cliente' || k === 'tecnico' || k === 'status') ? 'asc' : 'desc' }
+      renderLista()
+    })
   }
 
   async function excluirTarefaLista(id) {
