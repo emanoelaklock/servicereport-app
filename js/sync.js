@@ -100,14 +100,18 @@
     if (rat.tarefa_id && rat.status) {
       // A RAT só leva a Tarefa a "em execução" (atendimento continua). Concluir o serviço
       // ('concluida'/'concluida_pendencia') é deliberado na Tarefa — nunca a partir da RAT.
+      // Reabre tarefa PARADA (aguardando OU em_pausa) → em_execucao. Mas "volto depois"
+      // (não volto amanhã) NÃO reabre: deixa o trigger 0069 pôr em_pausa (espelho coerente).
       const MAP = { em_andamento: 'em_execucao', registrado: 'em_execucao' }
       const novo = MAP[rat.status]
       if (novo) {
+        const rs = rat.respostas || {}
+        const ehPausa = rs.volta_amanha === 'Não' && rs.passagem_motivo === 'volto_depois'
         const { data: tt } = await sb.from('tarefas').select('status').eq('id', rat.tarefa_id).maybeSingle()
         const atual = tt && tt.status
         const terminal = ['aprovada_faturamento', 'faturada']
-        const aplicar = atual && !terminal.includes(atual) &&
-          (novo === 'em_execucao' ? atual === 'aguardando_execucao' : true)
+        const aplicar = atual && !terminal.includes(atual) && !ehPausa &&
+          (atual === 'aguardando_execucao' || atual === 'em_pausa')
         if (aplicar) await sb.from('tarefas').update({ status: novo }).eq('id', rat.tarefa_id)
       }
     }

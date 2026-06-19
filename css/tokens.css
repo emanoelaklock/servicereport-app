@@ -40,4 +40,5 @@
   --sr-move-bg:#FDEEE0;  --sr-move-fg:#A8540A;  --sr-move-m:#F4861F;  /* deslocamento     */
   --sr-jrny-bg:#F3E8FA;  --sr-jrny-fg:#6C2F96;  --sr-jrny-m:#8E45B5;  /* jornada/serviço  */
   --sr-aguard-bg:#EEF0F4;--sr-aguard-fg:#5B6573;--sr-aguard-m:#9CA3AF;/* aguardando/cinza */
+  --sr-pausa-bg:#E2F5F5; --sr-pausa-fg:#0A6E6E; --sr-pausa-m:#0FA3A3; /* Em pausa (teal, fora da paleta de marca — decisão do produto p/ o status "Em pausa") */
 }

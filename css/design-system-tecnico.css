@@ -31,6 +31,7 @@
   --warn-bg:var(--sr-warn-bg); --warn-fg:var(--sr-warn-fg); --warn-m:var(--sr-warn-m);
   --pend-bg:var(--sr-pend-bg); --pend-fg:var(--sr-pend-fg); --pend-m:var(--sr-pend-m);
   --aguard-bg:var(--sr-aguard-bg); --aguard-fg:var(--sr-aguard-fg); --aguard-m:var(--sr-aguard-m);
+  --pausa-bg:var(--sr-pausa-bg); --pausa-fg:var(--sr-pausa-fg); --pausa-m:var(--sr-pausa-m);
   /* raio */
   --r-xl:24px; --r-lg:20px; --r-md:15px; --r-sm:11px; --r-pill:999px;
   --font:'Manrope',system-ui,-apple-system,sans-serif;
@@ -117,9 +118,9 @@
 .badge{font-size:10.5px;font-weight:700;padding:4px 10px;border-radius:var(--r-pill);white-space:nowrap;}
 .b-info{background:var(--info-bg);color:var(--info-fg);} .b-done{background:var(--exec-bg);color:var(--exec-fg);}
 .b-warn{background:var(--warn-bg);color:var(--warn-fg);} .b-pend{background:var(--pend-bg);color:var(--pend-fg);}
-.b-aguard{background:var(--aguard-bg);color:var(--aguard-fg);}
+.b-aguard{background:var(--aguard-bg);color:var(--aguard-fg);} .b-pausa{background:var(--pausa-bg);color:var(--pausa-fg);}
 .edge.e-info{background:var(--info-m);} .edge.e-done{background:var(--exec-m);}
-.edge.e-warn{background:var(--warn-m);} .edge.e-pend{background:var(--pend-m);} .edge.e-aguard{background:var(--aguard-m);}
+.edge.e-warn{background:var(--warn-m);} .edge.e-pend{background:var(--pend-m);} .edge.e-aguard{background:var(--aguard-m);} .edge.e-pausa{background:var(--pausa-m);}
 
 /* ---------- DETALHE DA TAREFA ---------- */
 .dh .no{font-size:12px;color:var(--muted);font-weight:600;letter-spacing:.3px;font-variant-numeric:tabular-nums;}

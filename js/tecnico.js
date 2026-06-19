@@ -54,7 +54,7 @@
   const stCor = (s) => (ref.status && ref.status[s] && ref.status[s].cor) || '#48506A'
   const stStyle = (s) => `background:${stCor(s)}1A;color:${stCor(s)};border:none`
   // Mapeia status do sistema → variante visual do skin (info/done/warn/pend/aguard).
-  const SKIN_STATUS = { em_execucao: 'info', aguardando_execucao: 'aguard', concluida: 'done', concluida_pendencia: 'warn', devolvida: 'pend', aprovada_faturamento: 'done', faturada: 'done' }
+  const SKIN_STATUS = { em_execucao: 'info', em_pausa: 'pausa', aguardando_execucao: 'aguard', concluida: 'done', concluida_pendencia: 'warn', devolvida: 'pend', aprovada_faturamento: 'done', faturada: 'done' }
   // Checkpoint de passagem: revelado ao tocar "Encerrar a RAT do dia". "Volta amanhã?"; se Não, o que falta/levar.
   let voltaAmanha = null
   let revelarPass = false   // o checkpoint só aparece quando o técnico opta por encerrar o dia
@@ -524,13 +524,14 @@
 
   // ───────────────────── Home — agenda do dia + fila ─────────────────────
   const tipoNomeDe = (id) => (ref.tipos.find(x => x.id === id) || {}).nome || ''
-  const LC_SK = { info: 'lc-info', done: 'lc-done', warn: 'lc-warn' }
+  const LC_SK = { info: 'lc-info', done: 'lc-done', warn: 'lc-warn', pausa: 'lc-pausa' }
   const isHoje = (d) => { if (!d) return false; const x = new Date(String(d).length <= 10 ? d + 'T00:00:00' : d); if (isNaN(x)) return false; const h = new Date(); return x.getFullYear() === h.getFullYear() && x.getMonth() === h.getMonth() && x.getDate() === h.getDate() }
   // RAT do dia (uma por tarefa/dia): reusa a de hoje — inclusive RASCUNHO ainda não enviado —
   // pra "Iniciar RAT" reabrir em vez de criar outra. Não reusa improdutiva (visita fechada à parte).
   const ratDoDiaDe = (rs, tid) => rs.find(r => r.tarefa_id === tid && (r.status === 'em_andamento' || r.status === 'registrado') && isHoje((r.respostas && r.respostas.data) || r.criado_em))
   function estadoAgenda(t, temRatHoje) {
     if (t.status === 'em_execucao') return { sk: 'info', txt: temRatHoje ? 'Atendimento continua' : 'Em execução' }
+    if (t.status === 'em_pausa') return { sk: 'pausa', txt: temRatHoje ? 'Atendimento continua' : 'Em pausa — retomar' }
     if (t.status === 'devolvida') return { sk: 'pend', txt: 'Devolvida — corrigir' }
     return { sk: 'aguard', txt: 'Aguardando' }
   }
@@ -541,7 +542,7 @@
     const ratsLocais = await D().listarRats()
     // (1) Minhas tarefas de hoje: agendada hoje OU em execução (atividade contínua)
     const FECHADAS = ['concluida', 'concluida_pendencia', 'aprovada_faturamento', 'faturada']
-    const hoje = (tarefas || []).filter(t => !FECHADAS.includes(t.status) && (isHoje(t.data_agendada) || t.status === 'em_execucao'))
+    const hoje = (tarefas || []).filter(t => !FECHADAS.includes(t.status) && (isHoje(t.data_agendada) || t.status === 'em_execucao' || t.status === 'em_pausa'))
     const hojeBox = document.getElementById('home-hoje'), hojeCt = document.getElementById('home-hoje-ct')
     if (hojeCt) hojeCt.textContent = hoje.length || ''
     if (hojeBox) {
