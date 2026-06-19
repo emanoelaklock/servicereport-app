@@ -1381,7 +1381,9 @@ const TarefaApp = (() => {
     return {
       t, dadosOk, ratsLen: rats.length, ratEmAnd, ratNaoEncN, ratNaoEncDias, ratEmAndHoje,
       prodLen: (linhas || []).length, devItens, aRevisar, foraN, prodAtencao,
-      prodWarn: aRevisar > 0 || devItens > 0,
+      // pendência de Produtos = só divergências NÃO revisadas. "A devolver" de item já revisado
+      // é informativo (segue no card/stat), mas não mantém o card em pendência.
+      prodWarn: aRevisar > 0,
       fat: !!t.faturado, anx: ((cur && cur.anexos) || []).length, equipLen: ((cur && cur.equip) || []).length,
     }
   }
@@ -1422,7 +1424,7 @@ const TarefaApp = (() => {
     const ind = {
       dados: e.dadosOk ? chk : '',
       rats: e.ratsLen === 0 ? '' : (e.ratNaoEncN ? cnt(e.ratNaoEncN, true) : (e.ratEmAnd ? cnt(e.ratsLen) : chk)),
-      material: e.prodLen === 0 ? '' : (e.prodWarn ? cnt(e.prodAtencao) : chk),
+      material: e.prodLen === 0 ? '' : (e.prodWarn ? cnt(e.aRevisar) : chk),
       fat: e.fat ? chk : '',
       equip: e.equipLen ? chk : '',
       anexos: e.anx ? chk : '',
