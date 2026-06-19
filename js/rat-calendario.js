@@ -18,6 +18,13 @@
   const fmtBR = new Intl.DateTimeFormat('en-CA', { timeZone: TZ, year: 'numeric', month: '2-digit', day: '2-digit' })
   const diaBR = (iso) => iso ? fmtBR.format(new Date(iso)) : null
   const hojeBR = () => fmtBR.format(new Date())
+  // DATA da RAT: o campo declarado no formulário (respostas.data, 'YYYY-MM-DD' local) tem
+  // prioridade; senão o timestamp da RAT em fuso BR. Mesma precedência do app (tecnico.js:661).
+  const ratDia = (r) => {
+    const d = r && r.respostas && r.respostas.data
+    if (typeof d === 'string' && /^\d{4}-\d{2}-\d{2}/.test(d)) return d.slice(0, 10)
+    return diaBR(r.data_tarefa)
+  }
   // limites do mês em BR (offset fixo -03:00; Brasil sem horário de verão desde 2019)
   function boundsMes(y, m) {
     const ny = m === 11 ? y + 1 : y, nm = m === 11 ? 0 : m + 1
@@ -30,7 +37,7 @@
   let ym = null
   let corStatus = {}, labelStatus = {}   // chave -> cor / label (tabela status_tarefa)
   let rats = [], orcNo = {}, tecNomes = {}, ratTecMap = {}, vistas = []   // tecNomes: id->nome · ratTecMap: rat_id->[tecnico_id] · vistas: views do mês (com haystack)
-  const filtros = { busca: '', tecnico: '', status: '', tarefa: '', rat: '', de: '', ate: '', pc: '', orcamento: '', orientacao: '' }
+  const filtros = { busca: '', cliente: '', tecnicos: [], status: '', tarefa: '', rat: '', de: '', ate: '' }
 
   const osNo = (n) => n == null ? '—' : String(n).padStart(5, '0')
 
@@ -52,7 +59,7 @@
     const hay = [osNo(t.numero), rno, r.cliente_nome, tecs.join(' '), t.orientacao, pc, orc,
       labelStatus[t.status] || '', r.respostas ? JSON.stringify(r.respostas) : ''].join(' ').toLowerCase()
     return {
-      id: r.id, seq: r.rat_seq, dia: diaBR(r.data_tarefa),
+      id: r.id, seq: r.rat_seq, dia: ratDia(r),
       tarefaId: t.id || null, numero: t.numero, status: t.status || '',
       cliente: r.cliente_nome || '—', tecnicos: tecs, tecnico: tecs.join(', ') || '—',
       pc, orcamento: orc, orientacao: t.orientacao || '', hay,
@@ -85,13 +92,19 @@
       carregarMes()
     }
     // BUSCA EXPLÍCITA: nada dispara ao digitar; só ao clicar "Buscar" (ou Enter no campo de busca).
-    const CAMPOS = { 'rcf-busca': 'busca', 'rcf-tecnico': 'tecnico', 'rcf-status': 'status', 'rcf-tarefa': 'tarefa', 'rcf-rat': 'rat', 'rcf-de': 'de', 'rcf-ate': 'ate', 'rcf-pc': 'pc', 'rcf-orcamento': 'orcamento', 'rcf-orientacao': 'orientacao' }
-    const aplicar = () => { for (const [id, k] of Object.entries(CAMPOS)) { const el = document.getElementById(id); if (el) filtros[k] = el.value.trim() } render() }
+    const CAMPOS = { 'rcf-busca': 'busca', 'rcf-cliente': 'cliente', 'rcf-status': 'status', 'rcf-tarefa': 'tarefa', 'rcf-rat': 'rat', 'rcf-de': 'de', 'rcf-ate': 'ate' }
+    const lerTecnicos = () => [...document.querySelectorAll('#rcf-tecnicos input:checked')].map(c => c.value)
+    const aplicar = () => {
+      for (const [id, k] of Object.entries(CAMPOS)) { const el = document.getElementById(id); if (el) filtros[k] = el.value.trim() }
+      filtros.tecnicos = lerTecnicos()
+      render()
+    }
     document.getElementById('rcf-buscar').onclick = aplicar
-    document.getElementById('rcf-busca').addEventListener('keydown', e => { if (e.key === 'Enter') { e.preventDefault(); aplicar() } })
+    document.querySelectorAll('#rcf-busca, #rcf-cliente').forEach(el => el.addEventListener('keydown', e => { if (e.key === 'Enter') { e.preventDefault(); aplicar() } }))
     document.getElementById('rcf-limpar').onclick = () => {
       for (const id of Object.keys(CAMPOS)) { const el = document.getElementById(id); if (el) el.value = '' }
-      Object.keys(filtros).forEach(k => filtros[k] = '')
+      document.querySelectorAll('#rcf-tecnicos input:checked').forEach(c => { c.checked = false })
+      Object.keys(filtros).forEach(k => { filtros[k] = (k === 'tecnicos') ? [] : '' })
       render()
     }
     const advT = document.getElementById('rcf-adv-toggle'), adv = document.getElementById('rcf-adv')
@@ -135,25 +148,27 @@
 
   function passaFiltro(v) {
     const f = filtros, has = (campo, termo) => String(campo || '').toLowerCase().includes(termo.toLowerCase())
-    if (f.busca && !v.hay.includes(f.busca.toLowerCase())) return false   // busca livre em tudo (inclui CLIENTE + respostas)
-    if (f.tecnico && !v.tecnicos.includes(f.tecnico)) return false
+    if (f.busca && !v.hay.includes(f.busca.toLowerCase())) return false   // busca geral (inclui cliente, técnico, PC, orçamento, orientação + respostas)
+    if (f.cliente && !has(v.cliente, f.cliente)) return false             // campo dedicado de cliente
+    if (f.tecnicos.length && !v.tecnicos.some(t => f.tecnicos.includes(t))) return false   // um ou mais técnicos
     if (f.status && v.status !== f.status) return false
     if (f.tarefa) { const d = f.tarefa.replace(/\D/g, ''); if (!d || !String(v.numero == null ? '' : v.numero).includes(d)) return false }
     if (f.rat && !has(ratNo(v), f.rat)) return false
     if (f.de && (!v.dia || v.dia < f.de)) return false      // período (de/até): compara datas YYYY-MM-DD (sem tz)
     if (f.ate && (!v.dia || v.dia > f.ate)) return false
-    if (f.pc && !has(v.pc, f.pc)) return false
-    if (f.orcamento && !has(v.orcamento, f.orcamento)) return false
-    if (f.orientacao && !has(v.orientacao, f.orientacao)) return false
     return true
   }
 
-  function popularSelects(views) {
-    const selT = document.getElementById('rcf-tecnico')
-    if (selT.dataset.k !== String(views.length) + ym.y + ym.m) {   // repopula quando o conjunto muda
-      const tecs = [...new Set(views.flatMap(v => v.tecnicos))].filter(Boolean).sort((a, b) => a.localeCompare(b))
-      selT.innerHTML = '<option value="">Todos</option>' + tecs.map(t => `<option${t === filtros.tecnico ? ' selected' : ''}>${esc(t)}</option>`).join('')
-      selT.dataset.k = String(views.length) + ym.y + ym.m
+  function popularFiltros(views) {
+    // técnicos como checkboxes (um ou mais); repopula quando o conjunto do mês muda
+    const box = document.getElementById('rcf-tecnicos')
+    const tecs = [...new Set(views.flatMap(v => v.tecnicos))].filter(Boolean).sort((a, b) => a.localeCompare(b))
+    const key = tecs.join('|')
+    if (box.dataset.k !== key) {
+      box.innerHTML = tecs.length
+        ? tecs.map(t => `<label class="rc-chk"><input type="checkbox" value="${esc(t)}"${filtros.tecnicos.includes(t) ? ' checked' : ''}>${esc(t)}</label>`).join('')
+        : '<span style="font-size:12px;color:var(--tx2)">Sem técnicos neste mês</span>'
+      box.dataset.k = key
     }
     const selS = document.getElementById('rcf-status')
     if (!selS.dataset.ready) {
@@ -173,7 +188,7 @@
   }
 
   function render() {
-    popularSelects(vistas)
+    popularFiltros(vistas)
     const filtered = vistas.filter(passaFiltro)
     document.getElementById('rc-count').textContent = `${filtered.length} RAT${filtered.length === 1 ? '' : 's'} em ${MONTHS[ym.m]}`
     const byDay = {}
@@ -185,7 +200,7 @@
     for (let d = 1; d <= dim; d++) {
       const dia = `${ym.y}-${pad(ym.m + 1)}-${pad(d)}`
       const list = byDay[dia] || []
-      const shown = list.slice(0, 3), extra = list.length - shown.length
+      const shown = list.slice(0, 4), extra = list.length - shown.length
       const tdy = dia === hoje
       cells.push(`<div class="rc-cell">
         <div class="rc-dhead">
