@@ -85,7 +85,7 @@
 .tile .cnt{position:absolute;top:14px;right:15px;font-size:25px;font-weight:700;line-height:1;letter-spacing:-1px;font-variant-numeric:tabular-nums;}
 .t-green{background:var(--green);} .t-blue{background:var(--blue);} .t-purple{background:var(--purple);} .t-red{background:var(--red);}
 .t-yellow{background:var(--yellow);color:#1A1A1A;} .t-yellow .ic{background:rgba(0,0,0,.12);}
-.strip{margin-top:11px;border-radius:var(--r-lg);padding:15px 17px;background:var(--orange);color:var(--sr-on-warn);display:flex;align-items:center;gap:13px;cursor:pointer;text-decoration:none;}
+.strip{margin-top:11px;border-radius:var(--r-lg);padding:15px 17px;background:var(--orange);color:#fff;display:flex;align-items:center;gap:13px;cursor:pointer;text-decoration:none;}
 .strip .ic{width:38px;height:38px;border-radius:var(--r-sm);background:rgba(255,255,255,.24);display:grid;place-items:center;flex:none;}
 .strip .ic svg{width:21px;height:21px;stroke:#fff;fill:none;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round;}
 .strip .lbl{font-size:15px;font-weight:600;letter-spacing:-.2px;}
