@@ -16,9 +16,11 @@
 <script src="js/rat-lista.js"></script>
 <style>
   .rl-wrap{padding:20px 24px 28px;display:flex;flex-direction:column;gap:16px}
-  .rc-switch{display:inline-flex;background:var(--bg);border:1px solid var(--line);border-radius:10px;padding:3px;gap:2px;margin-left:14px}
-  .rc-switch a{padding:6px 14px;border-radius:8px;font-size:13px;font-weight:700;color:var(--tx2);text-decoration:none}
-  .rc-switch a.on{background:var(--card);color:var(--ac);box-shadow:0 1px 2px rgba(20,28,46,.08)}
+  .rc-switch{align-self:flex-start;display:inline-flex;background:var(--card);border:1px solid var(--line);border-radius:12px;padding:4px;gap:4px;box-shadow:0 1px 3px rgba(20,28,46,.06)}
+  .rc-switch a{display:inline-flex;align-items:center;gap:7px;padding:9px 22px;border-radius:9px;font-size:14px;font-weight:700;color:var(--tx2);text-decoration:none;transition:background .12s,color .12s}
+  .rc-switch a svg{width:16px;height:16px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
+  .rc-switch a:hover{color:var(--tx)}
+  .rc-switch a.on{background:var(--ac);color:#fff;box-shadow:0 6px 14px rgba(30,138,224,.28)}
   .rc-filtros{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:16px}
   .rc-fh{display:flex;align-items:center;gap:8px;margin-bottom:13px;font-size:12.5px;font-weight:700;color:var(--tx)}
   .rc-fh .mut{font-size:11.5px;color:var(--tx2);font-weight:500}
@@ -62,13 +64,16 @@
 <div class="main">
   <div id="app-screen" style="display:none">
     <div class="topbar"><h1>RAT</h1>
-      <div class="rc-switch"><a href="rat-calendario.html">Calendário</a><a href="rat-lista.html" class="on">Lista</a></div>
       <div style="margin-left:auto;display:flex;align-items:center;gap:12px">
         <span class="rc-badge-sync"><i></i>Leitura</span>
       </div>
     </div>
     <div class="scrollarea">
       <div class="rl-wrap">
+        <div class="rc-switch">
+          <a href="rat-calendario.html"><svg viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="17" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/></svg>Calendário</a>
+          <a href="rat-lista.html" class="on"><svg viewBox="0 0 24 24"><path d="M8 6h13M8 12h13M8 18h13M3 6h.01M3 12h.01M3 18h.01"/></svg>Lista</a>
+        </div>
         <div class="rc-filtros">
           <div class="rc-fh">Buscar RATs <span class="mut">· no banco todo — preencha e clique em Buscar</span></div>
           <div class="rc-grid2">
