@@ -10,6 +10,15 @@ const DeslocApp = (() => {
   let tecArr = [], cliArr = [], veicArr = []
   const SENT = { ida: 'Ida', volta: 'Volta', outro: 'Outro' }
   const dt = (iso) => iso ? new Date(iso).toLocaleString('pt-BR', { day: '2-digit', month: '2-digit', year: '2-digit', hour: '2-digit', minute: '2-digit' }) : '—'
+  // Exibição em fuso BR (America/Sao_Paulo): saida_em/chegada_em são timestamptz (instante
+  // completo → new Date é seguro); a `data` do trecho é só-data 'YYYY-MM-DD' e NUNCA passa por
+  // new Date (split de string evita o off-by-one UTC, o F1).
+  const _fmtDtBR = new Intl.DateTimeFormat('pt-BR', { timeZone: 'America/Sao_Paulo', day: '2-digit', month: '2-digit', year: '2-digit', hour: '2-digit', minute: '2-digit' })
+  const _fmtHoraBR = new Intl.DateTimeFormat('pt-BR', { timeZone: 'America/Sao_Paulo', hour: '2-digit', minute: '2-digit' })
+  const dtBR = (iso) => iso ? _fmtDtBR.format(new Date(iso)) : '—'
+  const horaBR = (iso) => iso ? _fmtHoraBR.format(new Date(iso)) : '—'
+  const diaFull = (s) => s ? String(s).split('-').reverse().join('/') : '—'
+  const hm5 = (s) => s ? String(s).slice(0, 5) : '—'
   const toLocalInput = (iso) => { if (!iso) return ''; const d = new Date(iso); const p = n => String(n).padStart(2, '0'); return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}T${p(d.getHours())}:${p(d.getMinutes())}` }
   const inputToISO = (v) => v ? new Date(v).toISOString() : null
   const veicLbl = (id) => veic[id] || '—'
@@ -56,6 +65,8 @@ const DeslocApp = (() => {
     document.getElementById('vm-salvar').onclick = salvarViagem
     document.getElementById('vm-excluir').onclick = () => { const id = document.getElementById('vm-id').value; fecharViagem(); excluir(id) }
     document.getElementById('vm-addleg').onclick = () => { if (!vmCur) return; vmCur.trechos.push(vmNovoTrecho()); renderVmTrechos() }
+    document.getElementById('det-x').onclick = fecharDetalhe
+    document.getElementById('det-fechar').onclick = fecharDetalhe
     // o campo edita a viagem no celular → a lista se atualiza sozinha
     // (ao voltar o foco, a cada 2 min e em tempo real; pausa enquanto o editor está aberto)
     let recarregaT = null
@@ -214,7 +225,7 @@ const DeslocApp = (() => {
         const cliCell = clisVisita.length
           ? clisVisita.map(id => `<div${id === d.cliente_id ? ' style="font-weight:700"' : ''}>${esc(cliNomes[id] || '—')}</div>`).join('')
           : esc(cliNomes[d.cliente_id] || '—')
-        return `<tr>
+        return `<tr class="row-click" data-det="${esc(d.id)}">
           <td><div class="vtipo">Viagem · ${ts.length} trecho${ts.length > 1 ? 's' : ''}</div>${periodo ? `<div class="vper">${esc(periodo)}</div>` : ''}${(() => { const tv = tempoViagemMin(ts); return tv.temTempo ? `<div class="vper">Tempo: <b>${fmtHm(tv.total)}</b>${tv.aberto ? '…' : ''}${tv.almoco ? ' (− refeição)' : ''}</div>` : '' })()}${(() => { const refs = (d.deslocamento_tarefas || []).map(x => x.tarefas ? `Tarefa Nº ${String(x.tarefas.numero).padStart(5, '0')}` : null).filter(Boolean); return refs.length ? `<div class="vper">Ref.: ${esc(refs.join(' · '))}</div>` : '' })()}<div style="margin-top:5px">${st}</div></td>
           <td>${cliCell}</td>
           <td>${esc(fmtLugar(prim.origem) || '—')} → ${esc(destinoLbl(ult))}${detalhe}</td>
@@ -225,7 +236,7 @@ const DeslocApp = (() => {
           <td><span class="d-act"><button data-edit="${esc(d.id)}">Editar</button><button class="del" data-del="${esc(d.id)}">Excluir</button></span></td>
         </tr>`
       }
-      return `<tr>
+      return `<tr class="row-click" data-det="${esc(d.id)}">
         <td><span class="d-sent ${esc(d.sentido)}">${esc(SENT[d.sentido] || d.sentido)}</span><div class="vper">trajeto antigo</div></td>
         <td>${esc(cliNomes[d.cliente_id] || '—')}</td>
         <td>${esc(localLbl(d.origem_cidade, d.origem_uf, d.origem))} → ${esc(localLbl(d.destino_cidade, d.destino_uf, d.destino))}${rotaInfo(d)}</td>
@@ -238,6 +249,8 @@ const DeslocApp = (() => {
     }).join('')
     tb.querySelectorAll('[data-edit]').forEach(b => b.onclick = () => editar(b.dataset.edit))
     tb.querySelectorAll('[data-del]').forEach(b => b.onclick = () => excluir(b.dataset.del))
+    // clicar na LINHA abre o detalhe (só leitura); clique nos botões de Ação não dispara
+    tb.querySelectorAll('tr.row-click').forEach(tr => { tr.onclick = (e) => { if (e.target.closest('.d-act')) return; abrirDetalhe(tr.dataset.det) } })
   }
 
   // ───────────────────── Editar / Excluir (admin) ─────────────────────
@@ -300,6 +313,64 @@ const DeslocApp = (() => {
     toast('Trajeto excluído.', 'ok')
     fecharModal()
     await carregar()
+  }
+
+  // ───────────────────── Detalhe (SÓ LEITURA: abrir, ver, fechar) ─────────────────────
+  function fecharDetalhe() { document.getElementById('det-back').classList.remove('open') }
+  function abrirDetalhe(id) {
+    const d = rows.find(x => x.id === id); if (!d) return
+    const chip = (tid) => `<span class="abchip"><i>${avHtml(tid)}</i>${esc((tecNomes[tid] || '—').trim().split(/\s+/).slice(0, 2).join(' '))}</span>`
+    const aBordo = (d.deslocamento_tecnicos || []).map(x => chip(x.tecnico_id)).join(' ') || '<span class="dim">—</span>'
+    const kv = (k, v) => `<div class="det-kv"><span class="k">${esc(k)}</span><span class="v">${v}</span></div>`
+    const ts = trechosDe(d)
+    let sec = ''
+    if (ts.length) {
+      const tv = tempoViagemMin(ts)
+      const datas = ts.map(t => t.data).filter(Boolean).sort()
+      const periodo = datas.length ? `${diaFull(datas[0])}${datas[datas.length - 1] !== datas[0] ? ' → ' + diaFull(datas[datas.length - 1]) : ''}` : '—'
+      const emViagem = ts.some(t => t.saida_em) && !ts.every(t => t.chegada_em)
+      const fechada = ts.every(t => t.chegada_em)
+      const stTxt = emViagem ? 'Em andamento' : (fechada ? 'Concluída' : 'Planejada')
+      const veics = [...new Set(ts.map(t => t.veiculo_id).filter(Boolean))].map(veicLbl)
+      const clis = [...new Set([...ts.map(t => t.destino_cliente_id).filter(Boolean), ...(d.cliente_id ? [d.cliente_id] : [])])].map(cid => esc(cliNomes[cid] || '—')).join(' · ') || '—'
+      const refs = (d.deslocamento_tarefas || []).map(x => x.tarefas ? `Tarefa Nº ${String(x.tarefas.numero).padStart(5, '0')}` : null).filter(Boolean).join(' · ')
+      sec += `<div class="det-sec"><h4>Viagem · ${ts.length} trecho${ts.length > 1 ? 's' : ''}</h4>
+        ${kv('Status', esc(stTxt))}
+        ${kv('Período', esc(periodo))}
+        ${tv.temTempo ? kv('Tempo', `${esc(fmtHm(tv.total))}${tv.aberto ? '…' : ''}${tv.almoco ? ' (− refeição)' : ''}`) : ''}
+        ${kv('Cliente/obra', clis)}
+        ${veics.length ? kv('Veículo(s)', veics.map(esc).join(' · ')) : ''}
+        ${refs ? kv('Ref. Tarefa', esc(refs)) : ''}
+        ${d.observacoes ? kv('Observações', esc(d.observacoes)) : ''}</div>`
+      sec += `<div class="det-sec"><h4>Técnicos a bordo</h4>${aBordo}</div>`
+      sec += `<div class="det-sec"><h4>Trechos</h4>` + ts.map(t => {
+        const dir = (t.trecho_direcao || []).map(m => `${esc(tecNomes[m.tecnico_id] || '—')}${(m.hora_de || m.hora_ate) ? ` (${esc(hm5(m.hora_de))}–${esc(hm5(m.hora_ate))})` : ''}`).join(' · ')
+        const tecs = (t.trecho_tecnicos || []).map(x => esc(tecNomes[x.tecnico_id] || '—')).join(' · ')
+        const veicT = t.veiculo_id ? esc(veicLbl(t.veiculo_id)) : (t.nota_transporte ? `<span class="dim">sem veículo (${esc(t.nota_transporte)})</span>` : '—')
+        return `<div class="det-leg"><div class="lh">${t.ordem}. ${esc(fmtLugar(t.origem) || '—')} → ${esc(destinoLbl(t))}</div>
+          ${kv('Data', esc(diaFull(t.data)))}
+          ${kv('Saída', esc(horaBR(t.saida_em)))}
+          ${kv('Chegada', esc(horaBR(t.chegada_em)))}
+          ${(t.almoco_inicio || t.almoco_fim) ? kv('Refeição', `${esc(hm5(t.almoco_inicio))} – ${esc(hm5(t.almoco_fim))}`) : ''}
+          ${kv('Veículo', veicT)}
+          ${tecs ? kv('A bordo', tecs) : ''}
+          ${dir ? kv('Direção', dir) : ''}</div>`
+      }).join('') + `</div>`
+    } else {
+      const mapLink = (lat, lng, lbl) => (lat != null && lng != null) ? `<a href="https://www.google.com/maps?q=${lat},${lng}" target="_blank" rel="noopener">${lbl} 📍</a>` : ''
+      const maps = [mapLink(d.saida_lat, d.saida_lng, 'saída'), mapLink(d.chegada_lat, d.chegada_lng, 'chegada')].filter(Boolean).join(' · ')
+      sec += `<div class="det-sec"><h4>Trajeto antigo · ${esc(SENT[d.sentido] || d.sentido || '—')}</h4>
+        ${kv('Cliente/obra', esc(cliNomes[d.cliente_id] || '—'))}
+        ${kv('Rota', `${esc(localLbl(d.origem_cidade, d.origem_uf, d.origem))} → ${esc(localLbl(d.destino_cidade, d.destino_uf, d.destino))}`)}
+        ${kv('Veículo', esc(veicLbl(d.veiculo_id)))}
+        ${kv('Saída', esc(dtBR(d.saida_em)))}
+        ${kv('Chegada', esc(dtBR(d.chegada_em)))}
+        ${d.motivo ? kv('Motivo', esc(d.motivo)) : ''}
+        ${maps ? kv('Mapa', maps) : ''}</div>`
+      sec += `<div class="det-sec"><h4>Técnicos a bordo</h4>${aBordo}</div>`
+    }
+    document.getElementById('det-body').innerHTML = sec
+    document.getElementById('det-back').classList.add('open')
   }
 
   // avatar com FOTO do Portal (mesmo componente das RATs/Tarefas); iniciais como fallback
