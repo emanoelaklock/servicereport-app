@@ -745,7 +745,7 @@ const TarefaApp = (() => {
         const cUtil = `<td>${box(qtd(util), devNeg ? 'alert' : (util === 0 ? 'zero' : ''))}${somaReal}</td>`
         const cDev = `<td>${box(qtd(devShown), devShown === 0 ? 'zero' : '')}</td>`
         const cPreco = semOrcada
-          ? `<td><span class="cc-edit-money"><span class="rs">R$</span><input class="cc-preco" type="number" inputmode="decimal" min="0" step="0.01" value="${preco > 0 ? preco : ''}" data-i="${i}" placeholder="0,00"></span></td>`
+          ? `<td><span class="cc-edit-money"><span class="rs">R$</span><input class="cc-preco" type="text" inputmode="decimal" value="${preco > 0 ? preco.toFixed(2).replace('.', ',') : ''}" data-i="${i}" placeholder="0,00"></span></td>`
           : `<td>${box(money(preco), 'money')}</td>`
         const sub = util * preco
         const cSub = `<td>${box(money(sub), 'money' + (sub === 0 ? ' zero' : ''))}</td>`
@@ -852,10 +852,17 @@ const TarefaApp = (() => {
     await carregarLinhas()
   }
 
+  // Parser de valor em R$ no padrão BR: aceita "3,50", "1.234,56", "17" ou "3.5".
+  const parseMoneyBR = (s) => {
+    let t = String(s == null ? '' : s).replace(/[^\d.,-]/g, '')
+    if (t.indexOf(',') > -1) t = t.replace(/\./g, '').replace(',', '.')   // . = milhar, , = decimal
+    return Number(t) || 0
+  }
+
   // Valor unitário de venda do produto (tarefa_materiais.preco_unitario).
   async function salvarPreco(i, val) {
     const l = linhas[i]; if (!l) return
-    const v = Number(val) || 0
+    const v = Math.max(0, parseMoneyBR(val))
     let err
     if (l.tm_id) {
       err = (await sb().from('tarefa_materiais').update({ preco_unitario: v }).eq('id', l.tm_id)).error
