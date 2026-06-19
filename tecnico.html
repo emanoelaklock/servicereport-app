@@ -1023,6 +1023,21 @@ try{if(localStorage.getItem('sr_dark')==='1')document.documentElement.classList.
   </div>
 </div>
 
+<!-- Pausa esquecida que cruzou a meia-noite: aviso OBRIGATÓRIO ao reabrir (sem ✕/cancelar) -->
+<div class="tm-back" id="modal-pausa-esq">
+  <div class="tm-box">
+    <div class="tm-h"><span>Pausa não encerrada</span></div>
+    <div class="tm-b">
+      <p class="hintn" id="pe-info" style="margin-top:0"></p>
+      <p>Você iniciou uma <b>pausa</b> num dia anterior e o atendimento <b>não foi encerrado</b>. Como ficou?</p>
+    </div>
+    <div class="tm-f" style="flex-direction:column;gap:9px;align-items:stretch">
+      <button class="btn btn-warn" id="pe-volto">Não terminei — vou voltar depois</button>
+      <button class="btn" id="pe-terminei">Já tinha terminado</button>
+    </div>
+  </div>
+</div>
+
 <!-- Jornada: trocar/iniciar atividade -->
 <div class="tm-back" id="modal-seg">
   <div class="tm-box">
