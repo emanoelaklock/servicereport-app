@@ -22,6 +22,13 @@
   .rc-fh .mut{font-size:11.5px;color:var(--tx2);font-weight:500}
   .rc-grid4{display:grid;grid-template-columns:repeat(4,1fr);gap:12px}
   .rc-grid2{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+  /* combobox de Cliente (dropdown que filtra ao digitar) */
+  .rc-combo{position:relative}
+  .rc-combo-list{position:absolute;top:100%;left:0;right:0;z-index:30;background:#fff;border:1px solid var(--bd2);border-radius:9px;margin-top:4px;max-height:240px;overflow:auto;box-shadow:0 8px 24px rgba(20,28,46,.14)}
+  .rc-combo-list[hidden]{display:none}
+  .rc-combo-opt{padding:8px 11px;font-size:13px;cursor:pointer;color:var(--tx);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .rc-combo-opt:hover,.rc-combo-opt.on{background:var(--acl)}
+  .rc-combo-empty{padding:8px 11px;font-size:12px;color:var(--tx2)}
   .rc-checks{display:flex;flex-wrap:wrap;gap:7px;margin-top:6px}
   .rc-chk{display:inline-flex;align-items:center;gap:6px;font-size:12.5px;font-weight:600;color:var(--tx);background:#fff;border:1px solid var(--bd2);border-radius:999px;padding:6px 12px;cursor:pointer;user-select:none}
   .rc-chk input{margin:0;accent-color:var(--ac)}
@@ -89,7 +96,7 @@
           <div class="rc-fh">Filtros <span class="mut">· preencha e clique em Buscar</span></div>
           <!-- principais (sempre visíveis) -->
           <div class="rc-grid2">
-            <div><label>Cliente</label><input id="rcf-cliente" list="rcf-cliente-list" autocomplete="off" placeholder="Comece a digitar o cliente…"><datalist id="rcf-cliente-list"></datalist></div>
+            <div><label>Cliente</label><div class="rc-combo"><input id="rcf-cliente" autocomplete="off" placeholder="Comece a digitar o cliente…"><div class="rc-combo-list" id="rcf-cliente-list" hidden></div></div></div>
             <div><label>Busca geral</label><input id="rcf-busca" placeholder="Procura em tudo: técnico, nº, PC, orçamento e o que está descrito na RAT…"></div>
           </div>
           <button type="button" class="rc-adv-toggle" id="rcf-adv-toggle" aria-expanded="false">Filtros avançados <svg viewBox="0 0 24 24"><path d="m6 9 6 6 6-6"/></svg></button>
