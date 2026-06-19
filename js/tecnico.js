@@ -499,11 +499,12 @@
     const tarLabel = (r) => { const n = tarNumeroDe(r); if (n == null) return ''; const s = subDe(r); return 'Tarefa Nº ' + osNo(n) + (s != null ? '/' + pad2(s) : '') + ' · ' }
     const ordenadas = rats.slice().sort((a, b) => prioStatus(tarStatusDe(a)) - prioStatus(tarStatusDe(b)) || (b.criado_em || '').localeCompare(a.criado_em || ''))
     box.innerHTML = ordenadas.map(r => {
-      const ts = tarStatusDe(r); const sk = SKIN_STATUS[ts] || 'aguard'
+      const emPausa = pausaAberta(r) && r.status === 'em_andamento'   // pausa aberta nesta RAT (local, imediato)
+      const ts = emPausa ? 'em_pausa' : tarStatusDe(r); const sk = SKIN_STATUS[ts] || 'aguard'
       const lc = sk === 'info' ? 'lc-info' : sk === 'done' ? 'lc-done' : sk === 'warn' ? 'lc-warn' : ''
       const syncTxt = r.sync_status === 'confirmado' ? '✓ enviado' : ((BADGE[r.sync_status] || {}).txt || '')
       return `<div class="listcard ${lc}" data-uuid="${esc(r.client_uuid)}"><span class="edge e-${sk}"></span>
-        <div class="t"><span class="cli">${esc(r.cliente_nome || 'Sem cliente')}</span><span class="badge b-${sk}">${esc(ratSit(r.status || 'em_andamento'))}</span></div>
+        <div class="t"><span class="cli">${esc(r.cliente_nome || 'Sem cliente')}</span><span class="badge b-${sk}">${esc(emPausa ? 'Em pausa' : ratSit(r.status || 'em_andamento'))}</span></div>
         <div class="meta">${tarLabel(r)}<b>${esc(syncTxt)}</b></div>
         <div class="meta" style="display:flex;justify-content:space-between;align-items:center"><span>${fdt(r.criado_em, { withTime: true })}</span><button type="button" class="rat-del" data-del="${esc(r.client_uuid)}" title="Excluir RAT" style="background:none;border:none;cursor:pointer"><svg viewBox="0 0 24 24"><path d="M3 6h18M8 6V4a1 1 0 0 1 1-1h6a1 1 0 0 1 1 1v2m4 0v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6"/></svg></button></div>
       </div>`
