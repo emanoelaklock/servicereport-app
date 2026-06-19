@@ -29,8 +29,8 @@
 
   let ym = null
   let corStatus = {}, labelStatus = {}   // chave -> cor / label (tabela status_tarefa)
-  let rats = [], orcNo = {}, tecNomes = {}, ratTecMap = {}   // tecNomes: id->nome · ratTecMap: rat_id->[tecnico_id] (co-responsáveis)
-  const filtros = { tarefa: '', rat: '', tecnico: '', data: '', orientacao: '', orcamento: '', status: '', pc: '' }
+  let rats = [], orcNo = {}, tecNomes = {}, ratTecMap = {}, vistas = []   // tecNomes: id->nome · ratTecMap: rat_id->[tecnico_id] · vistas: views do mês (com haystack)
+  const filtros = { busca: '', tarefa: '', rat: '', tecnico: '', data: '', status: '' }
 
   const osNo = (n) => n == null ? '—' : String(n).padStart(5, '0')
 
@@ -44,12 +44,18 @@
   function view(r) {
     const t = r.tarefa || {}
     const tecs = tecnicosDe(r)
+    const pc = t.pedido_compra || ''
+    const orc = (t.orcamento_id && orcNo[t.orcamento_id] != null) ? String(orcNo[t.orcamento_id]) : ''
+    const rno = t.numero != null ? osNo(t.numero) + (r.rat_seq != null ? '/' + pad(r.rat_seq) : '') : ''
+    // haystack da busca livre: nº, cliente, técnicos, PC, orçamento, orientação, status
+    // E TUDO que está descrito na RAT (respostas em JSON). Tudo minúsculo, calculado 1x por carga.
+    const hay = [osNo(t.numero), rno, r.cliente_nome, tecs.join(' '), t.orientacao, pc, orc,
+      labelStatus[t.status] || '', r.respostas ? JSON.stringify(r.respostas) : ''].join(' ').toLowerCase()
     return {
       id: r.id, seq: r.rat_seq, dia: diaBR(r.data_tarefa),
       tarefaId: t.id || null, numero: t.numero, status: t.status || '',
       cliente: r.cliente_nome || '—', tecnicos: tecs, tecnico: tecs.join(', ') || '—',
-      pc: t.pedido_compra || '', orcamento: (t.orcamento_id && orcNo[t.orcamento_id] != null) ? String(orcNo[t.orcamento_id]) : '',
-      orientacao: t.orientacao || '',
+      pc, orcamento: orc, orientacao: t.orientacao || '', hay,
     }
   }
   const ratNo = (v) => v.numero != null ? osNo(v.numero) + (v.seq != null ? '/' + pad(v.seq) : '') : '—'
@@ -103,7 +109,7 @@
     document.getElementById('rc-title').textContent = `${MONTHS[ym.m]} de ${ym.y}`
     document.getElementById('rc-grid').innerHTML = '<div class="rc-empty" style="grid-column:1/-1">Carregando…</div>'
     const { data, error } = await sb().from('rats')
-      .select('id,rat_seq,data_tarefa,tecnico_nome,cliente_nome,tarefa:tarefas(id,numero,status,pedido_compra,orcamento_id,orientacao)')
+      .select('id,rat_seq,data_tarefa,tecnico_nome,cliente_nome,respostas,tarefa:tarefas(id,numero,status,pedido_compra,orcamento_id,orientacao)')
       .gte('data_tarefa', start).lt('data_tarefa', end)
       .order('data_tarefa', { ascending: true })
     if (error) { document.getElementById('rc-grid').innerHTML = `<div class="rc-empty" style="grid-column:1/-1;color:var(--re)">Erro ao carregar: ${esc(error.message)}</div>`; return }
@@ -118,19 +124,18 @@
     const oids = [...new Set(rats.map(r => r.tarefa && r.tarefa.orcamento_id).filter(Boolean))]
     orcNo = {}
     if (oids.length) { const { data: os } = await sb().from('orcamentos').select('id,numero').in('id', oids); for (const o of (os || [])) orcNo[o.id] = o.numero }
+    vistas = rats.map(view)   // calcula views + haystack 1x por carga de mês
     render()
   }
 
   function passaFiltro(v) {
     const f = filtros, has = (campo, termo) => String(campo || '').toLowerCase().includes(termo.toLowerCase())
+    if (f.busca && !v.hay.includes(f.busca.toLowerCase())) return false   // busca livre em tudo (incl. respostas)
     if (f.tarefa) { const d = f.tarefa.replace(/\D/g, ''); if (!d || !String(v.numero == null ? '' : v.numero).includes(d)) return false }
     if (f.rat && !has(ratNo(v), f.rat)) return false
     if (f.tecnico && !v.tecnicos.includes(f.tecnico)) return false
     if (f.data && v.dia !== f.data) return false
-    if (f.orientacao && !has(v.orientacao, f.orientacao)) return false
-    if (f.orcamento && !has(v.orcamento, f.orcamento)) return false
     if (f.status && v.status !== f.status) return false
-    if (f.pc && !has(v.pc, f.pc)) return false
     return true
   }
 
@@ -159,9 +164,8 @@
   }
 
   function render() {
-    const views = rats.map(view)
-    popularSelects(views)
-    const filtered = views.filter(passaFiltro)
+    popularSelects(vistas)
+    const filtered = vistas.filter(passaFiltro)
     document.getElementById('rc-count').textContent = `${filtered.length} RAT${filtered.length === 1 ? '' : 's'} em ${MONTHS[ym.m]}`
     const byDay = {}
     filtered.forEach(v => { if (v.dia) (byDay[v.dia] = byDay[v.dia] || []).push(v) })
@@ -191,7 +195,7 @@
   }
 
   function abrir(ratId) {
-    const v = rats.map(view).find(x => x.id === ratId); if (!v) return
+    const v = vistas.find(x => x.id === ratId); if (!v) return
     if (v.tarefaId) location.href = `tarefa.html?t=${encodeURIComponent(v.tarefaId)}&aba=rats&rat=${encodeURIComponent(v.id)}`
     else location.href = `rat.html?id=${encodeURIComponent(v.id)}`   // RAT sem tarefa: cai no detalhe da RAT
   }

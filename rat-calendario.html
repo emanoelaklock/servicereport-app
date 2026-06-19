@@ -76,16 +76,17 @@
     <div class="scrollarea">
       <div class="rc-wrap">
         <div class="rc-filtros">
-          <div class="rc-fh">Filtros <span class="mut">· mesmos campos da consulta de tarefas</span></div>
+          <div class="rc-fh">Filtros <span class="mut">· busca no conteúdo das RATs do mês</span></div>
+          <div style="margin-bottom:12px">
+            <label>Buscar nas RATs</label>
+            <input id="rcf-busca" placeholder="Busca em tudo: cliente, técnico, nº, PC, orçamento, orientação e o que está descrito na RAT…">
+          </div>
           <div class="rc-grid4">
             <div><label>Nº da tarefa</label><input id="rcf-tarefa" placeholder="04741"></div>
             <div><label>Nº da RAT</label><input id="rcf-rat" placeholder="04741/01"></div>
             <div><label>Técnico responsável</label><select id="rcf-tecnico"></select></div>
             <div><label>Data</label><input id="rcf-data" type="date"></div>
-            <div><label>Orientação</label><input id="rcf-orientacao" placeholder="Ex.: passagem de cabo"></div>
-            <div><label>Orçamento</label><input id="rcf-orcamento" placeholder="Nº do orçamento"></div>
             <div><label>Status</label><select id="rcf-status"></select></div>
-            <div><label>PC (pedido de compra)</label><input id="rcf-pc" placeholder="PC-2026-0123"></div>
           </div>
           <div class="rc-fact">
             <button class="btn btn-sm" id="rcf-limpar">Limpar</button>
