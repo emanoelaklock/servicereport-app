@@ -30,7 +30,7 @@ function renderSidebar(paginaAtiva) {
 
   <div class="ngrp">Execução</div>
   ${item('tarefas', 'tarefa.html', 'Tarefas', 'green')}
-  ${item('rat', 'rat-calendario.html', 'RAT', 'blue')}
+  ${item('rat', 'rat-calendario.html', 'RAT', 'pink')}
   ${item('jornada', 'jornada.html', 'Jornada', 'purple')}
   ${item('deslocamentos', 'deslocamentos.html', 'Deslocamentos', 'orange')}
 
