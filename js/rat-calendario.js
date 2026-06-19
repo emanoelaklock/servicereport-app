@@ -36,7 +36,7 @@
 
   let ym = null
   let corStatus = {}, labelStatus = {}   // chave -> cor / label (tabela status_tarefa)
-  let rats = [], orcNo = {}, tecNomes = {}, ratTecMap = {}, vistas = []   // tecNomes: id->nome · ratTecMap: rat_id->[tecnico_id] · vistas: views do mês (com haystack)
+  let rats = [], orcNo = {}, tecNomes = {}, ratTecMap = {}, vistas = [], clientesMes = []   // clientesMes: combobox de Cliente
   const filtros = { busca: '', cliente: '', tecnicos: [], status: '', tarefa: '', rat: '', de: '', ate: '' }
 
   const osNo = (n) => n == null ? '—' : String(n).padStart(5, '0')
@@ -114,6 +114,24 @@
       advT.setAttribute('aria-expanded', String(abrir))
     }
     document.getElementById('rc-mback').onclick = (e) => { if (e.target.id === 'rc-mback' || e.target.id === 'rc-modal-x') fecharModal() }
+    // combobox de Cliente: dropdown que filtra conforme digita; clique escolhe
+    const cin = document.getElementById('rcf-cliente'), clist = document.getElementById('rcf-cliente-list')
+    const abrirCombo = () => {
+      const termo = cin.value.trim().toLowerCase()
+      const opts = clientesMes.filter(c => !termo || c.toLowerCase().includes(termo)).slice(0, 60)
+      clist.innerHTML = opts.length
+        ? opts.map(c => `<div class="rc-combo-opt" data-c="${esc(c)}">${esc(c)}</div>`).join('')
+        : '<div class="rc-combo-empty">Nenhum cliente neste mês</div>'
+      clist.hidden = false
+    }
+    cin.addEventListener('focus', abrirCombo)
+    cin.addEventListener('input', abrirCombo)
+    clist.addEventListener('mousedown', (e) => {   // mousedown vem antes do blur
+      const o = e.target.closest('.rc-combo-opt'); if (!o) return
+      e.preventDefault(); cin.value = o.dataset.c; clist.hidden = true
+    })
+    cin.addEventListener('blur', () => setTimeout(() => { clist.hidden = true }, 130))
+    cin.addEventListener('keydown', (e) => { if (e.key === 'Escape') clist.hidden = true })
   }
 
   function renderLegenda() {
@@ -170,13 +188,8 @@
         : '<span style="font-size:12px;color:var(--tx2)">Sem técnicos neste mês</span>'
       box.dataset.k = key
     }
-    // autocomplete do Cliente: clientes presentes no mês
-    const dl = document.getElementById('rcf-cliente-list')
-    if (dl) {
-      const clientes = [...new Set(views.map(v => v.cliente).filter(c => c && c !== '—'))].sort((a, b) => a.localeCompare(b))
-      const ck = clientes.join('|')
-      if (dl.dataset.k !== ck) { dl.innerHTML = clientes.map(c => `<option value="${esc(c)}"></option>`).join(''); dl.dataset.k = ck }
-    }
+    // clientes presentes no mês — alimentam o combobox de Cliente
+    clientesMes = [...new Set(views.map(v => v.cliente).filter(c => c && c !== '—'))].sort((a, b) => a.localeCompare(b))
     const selS = document.getElementById('rcf-status')
     if (!selS.dataset.ready) {
       selS.innerHTML = '<option value="">Todos</option>' + Object.keys(corStatus).map(ch => `<option value="${esc(ch)}">${esc(labelStatus[ch] || ch)}</option>`).join('')

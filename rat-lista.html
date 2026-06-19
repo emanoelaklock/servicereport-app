@@ -1,0 +1,125 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>RAT — Lista · Service Report</title>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="css/theme.css">
+<link rel="stylesheet" href="css/design-system-admin.css">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="js/utils.js"></script>
+<script src="js/supabase-client.js"></script>
+<script src="js/auth.js"></script>
+<script src="js/sidebar.js"></script>
+<script src="js/rat-lista.js"></script>
+<style>
+  .rl-wrap{padding:20px 24px 28px;display:flex;flex-direction:column;gap:16px}
+  /* topo: cards-botão de visão (Calendário/Lista) + barra de filtro enxuta ao lado */
+  .rc-top{display:flex;gap:14px;align-items:stretch;flex-wrap:wrap}
+  .vcards{display:flex;gap:10px;flex:none}
+  .vcard{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:7px;width:104px;border:1px solid var(--line);background:var(--card);border-radius:14px;cursor:pointer;text-decoration:none;color:var(--tx2);font-size:13px;font-weight:700;box-shadow:0 1px 3px rgba(20,28,46,.06);transition:color .12s,background .12s,box-shadow .12s,border-color .12s}
+  .vcard svg{width:24px;height:24px;fill:none;stroke:currentColor;stroke-width:1.9;stroke-linecap:round;stroke-linejoin:round}
+  .vcard:hover{color:var(--tx)}
+  .vcard.on{background:var(--ac);color:#fff;border-color:var(--ac);box-shadow:0 8px 18px rgba(30,138,224,.28)}
+  .rc-fbar{flex:1;min-width:340px;background:var(--card);border:1px solid var(--line);border-radius:14px;padding:13px 15px;display:flex;flex-direction:column;gap:11px}
+  .rc-frow{display:flex;gap:11px;flex-wrap:wrap}
+  .rc-fg{display:flex;flex-direction:column}
+  .rc-fg.cli{width:230px}
+  .rc-fg.busca{flex:1;min-width:200px}
+  .rc-ffoot{display:flex;align-items:center;gap:12px}
+  .rc-ffoot .sp{flex:1}
+  .rc-grid4{display:grid;grid-template-columns:repeat(4,1fr);gap:12px}
+  .rc-fbar label,.rc-adv label{display:block;font-size:11px;font-weight:600;color:var(--tx2);margin-bottom:5px}
+  .rc-fbar input,.rc-adv input,.rc-adv select{width:100%;font:inherit;font-size:13px;color:var(--tx);background:#fff;border:1px solid var(--bd2);border-radius:9px;padding:8px 10px;outline:none}
+  .rc-adv-toggle{border:none;background:transparent;color:var(--ac);font:inherit;font-size:12.5px;font-weight:700;cursor:pointer;display:inline-flex;align-items:center;gap:5px;padding:4px 2px}
+  .rc-adv-toggle svg{width:15px;height:15px;fill:none;stroke:currentColor;stroke-width:2.2;stroke-linecap:round;stroke-linejoin:round;transition:transform .15s}
+  .rc-adv-toggle[aria-expanded="true"] svg{transform:rotate(180deg)}
+  .rc-adv{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:15px}
+  .rc-adv[hidden]{display:none}
+  .rc-combo{position:relative}
+  .rc-combo-list{position:absolute;top:100%;left:0;right:0;z-index:30;background:#fff;border:1px solid var(--bd2);border-radius:9px;margin-top:4px;max-height:240px;overflow:auto;box-shadow:0 8px 24px rgba(20,28,46,.14)}
+  .rc-combo-list[hidden]{display:none}
+  .rc-combo-opt{padding:8px 11px;font-size:13px;cursor:pointer;color:var(--tx);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .rc-combo-opt:hover{background:var(--acl)}
+  .rc-combo-empty{padding:8px 11px;font-size:12px;color:var(--tx2)}
+  /* lista de resultados */
+  .rl-head{display:flex;align-items:center;gap:10px;margin:2px 2px 0}
+  .rl-count{font-size:12.5px;font-weight:600;color:var(--tx2)}
+  .rl-list{display:flex;flex-direction:column;gap:8px}
+  .rl-row{display:block;width:100%;text-align:left;background:var(--card);border:1px solid var(--line);border-left:4px solid var(--bd2);border-radius:12px;padding:12px 15px;cursor:pointer;font-family:inherit;transition:box-shadow .12s,transform .12s}
+  .rl-row:hover{box-shadow:0 4px 14px rgba(20,28,46,.10);transform:translateY(-1px)}
+  .rl-top{display:flex;align-items:center;gap:10px}
+  .rl-no{font-size:14px;font-weight:800;font-variant-numeric:tabular-nums}
+  .rl-cli{font-size:14px;font-weight:700;color:var(--tx)}
+  .rl-pill{margin-left:auto;font-size:11px;font-weight:700;padding:3px 10px;border-radius:999px;white-space:nowrap}
+  .rl-meta{font-size:12px;color:var(--tx2);font-weight:500;margin-top:3px}
+  .rl-ori{font-size:12px;color:var(--tx2);margin-top:5px;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;line-height:1.35}
+  .rl-empty{padding:48px;text-align:center;color:var(--tx2);font-size:13px;background:var(--card);border:1px solid var(--line);border-radius:14px}
+  .rl-more{align-self:center;margin-top:6px}
+  .rc-badge-sync{display:inline-flex;align-items:center;gap:6px;background:var(--exec-bg);color:var(--exec-fg);font-size:12px;font-weight:600;padding:7px 13px;border-radius:999px}
+  .rc-badge-sync i{width:7px;height:7px;border-radius:50%;background:var(--exec-m)}
+</style>
+</head>
+<body class="tec-admin">
+
+<div id="sidebar-container"></div>
+
+<div class="main">
+  <div id="app-screen" style="display:none">
+    <div class="topbar"><h1>RAT</h1>
+      <div style="margin-left:auto;display:flex;align-items:center;gap:12px">
+        <span class="rc-badge-sync"><i></i>Leitura</span>
+      </div>
+    </div>
+    <div class="scrollarea">
+      <div class="rl-wrap">
+        <div class="rc-top">
+          <div class="vcards">
+            <a href="rat-calendario.html" class="vcard"><svg viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="17" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/></svg>Calendário</a>
+            <a href="rat-lista.html" class="vcard on"><svg viewBox="0 0 24 24"><path d="M8 6h13M8 12h13M8 18h13M3 6h.01M3 12h.01M3 18h.01"/></svg>Lista</a>
+          </div>
+          <div class="rc-fbar">
+            <div class="rc-frow">
+              <div class="rc-fg cli"><label>Cliente</label><div class="rc-combo"><input id="rlf-cliente" autocomplete="off" placeholder="Comece a digitar…"><div class="rc-combo-list" id="rlf-cliente-list" hidden></div></div></div>
+              <div class="rc-fg busca"><label>Busca geral <span class="mut" style="font-weight:500;color:var(--tx2)">· no banco todo</span></label><input id="rlf-busca" placeholder="Técnico, nº, PC, orçamento, texto da RAT…"></div>
+            </div>
+            <div class="rc-ffoot">
+              <button type="button" class="rc-adv-toggle" id="rlf-adv-toggle" aria-expanded="false">Filtros avançados <svg viewBox="0 0 24 24"><path d="m6 9 6 6 6-6"/></svg></button>
+              <span class="sp"></span>
+              <button class="btn btn-ghost" id="rlf-limpar">Limpar</button>
+              <button class="btn btn-primary" id="rlf-buscar">Buscar</button>
+            </div>
+          </div>
+        </div>
+        <div class="rc-adv" id="rlf-adv" hidden>
+          <div class="rc-grid4">
+            <div><label>Técnico responsável</label><select id="rlf-tecnico"></select></div>
+            <div><label>Status</label><select id="rlf-status"></select></div>
+            <div><label>Período — de</label><input id="rlf-de" type="date"></div>
+            <div><label>Período — até</label><input id="rlf-ate" type="date"></div>
+          </div>
+        </div>
+
+        <div class="rl-head"><span class="rl-count" id="rl-count"></span></div>
+        <div class="rl-list" id="rl-list"></div>
+        <button class="btn btn-ghost rl-more" id="rl-more" style="display:none">Carregar mais</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="tc" id="tc"></div>
+
+<script>
+  window.PAGE_ALLOWED = ['admin', 'gestor_axis', 'comercial']
+  async function onPostLogin() {
+    renderSidebar('rat')
+    await RatListaApp.init()
+  }
+  renderSidebar('rat')
+  initAuth()
+</script>
+</body>
+</html>
