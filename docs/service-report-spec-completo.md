@@ -179,12 +179,21 @@ A **OS interna = a Tarefa**. É o nível "trabalho"; tem 1 ou várias RATs (uma 
 ### Status da OS — dois eixos
 
 **Status durável:**
-`Aguardando execução` (se houver data, a tela mostra "Agendada p/ DD/MM" — a data é um campo, não um status) · `Em execução` · `Concluída` · `Concluída com pendência` · `Devolvida` (admin retornou ao técnico) · `Aprovada p/ faturamento` (gerou OS no Omie "a Faturar") · `Faturada`.
+`Aguardando execução` (se houver data, a tela mostra "Agendada p/ DD/MM" — a data é um campo, não um status) · `Em execução` · `Em pausa` (interrompido **sem previsão** — ver abaixo) · `Concluída` · `Concluída com pendência` · `Devolvida` (admin retornou ao técnico) · `Aprovada p/ faturamento` (gerou OS no Omie "a Faturar") · `Faturada`. *(O mapa é configurável em `status_tarefa`; existe ainda `Em Espera (Produtos)`.)*
 
 **Atividade atual do técnico** (só quando "Em execução", vem da RAT do dia):
 `Trabalhando` · `Em pausa` · `Em almoço`.
 
-Os dois eixos podem colorir o card. Pausa/almoço são estados **momentâneos** da RAT do dia, não se misturam com o ciclo de vida da OS.
+Os dois eixos podem colorir o card. Pausa/almoço **do dia** são estados **momentâneos** da RAT, não se misturam com o ciclo de vida da OS.
+
+**`Em pausa` — status durável (≠ pausa do dia)** *(implementado 19/06; migrações 0068/0069/0070).* Distingue **continuidade imediata** ("Em execução · Atendimento continua", volta amanhã) de **interrompido sem previsão** de retorno ("vou voltar depois pra terminar"). **Não confundir** com a pausa momentânea de almoço/café (eixo de atividade acima), que **não** muda o status durável.
+- **Cor:** teal `#0FA3A3` (fora da paleta de marca — decisão de produto; pílula com contraste via `corTextoLegivel`).
+- **Transições automáticas** (trigger `rat_inicia_tarefa` no banco, `INSERT`/`UPDATE` — cobre offline, acerta no sync):
+  - RAT encerrada com **"Volta amanhã? = Não" + "vou voltar depois pra terminar"** → Tarefa **Em execução → Em pausa** (só dispara na RAT mais recente; nunca rebaixa status terminal/admin). O handoff **"o que falta / o que levar" segue obrigatório**.
+  - **Nova RAT** numa Tarefa em pausa → **Em pausa → Em execução** (retomada; resolve o caso do técnico offline que abre RAT nova).
+  - **"Volta amanhã? = Sim"** → permanece **Em execução** (sem mudança).
+- **Campo "Pendência do atendimento"** na pausa do mesmo dia (`Houve pausa? = Sim`): texto **opcional** (campo de config do formulário) pra anotar o que ficou pendente; **não** flipa o status durável.
+- **Fora do escopo (Parte B, futuro):** auto-encerramento da pausa na virada do dia (00:00).
 
 ### Regras de RAT dentro da OS
 - **1 RAT por OS por dia** — não abre duas RATs pra mesma OS no mesmo dia. É na RAT do dia que se registra pausa, almoço, etc.
@@ -483,7 +492,7 @@ O **técnico nunca escolhe a modalidade** — ela é **derivada** (do contrato/o
 **Base / banco**
 - **Reestruturação dois níveis FEITA:** `tarefas` (pai, a OS) + `rats` (filhas, `rats.tarefa_id`). Numeração pelo servidor; exibição `#04744/01`.
 - Slice-1 completo: clientes, produtos, tipos_servico, formulario_modelos, tarefas, rats, relatorio_fotos, materiais, sync_eventos, sync_log, view de conciliação, RLS por papel, bucket de anexos.
-- **Trigger:** Tarefa entra em *Em execução* ao receber a primeira RAT (§7).
+- **Trigger:** Tarefa entra em *Em execução* ao receber a primeira RAT; também faz *Em execução ↔ Em pausa* (RAT "volto depois" → Em pausa; nova RAT → Em execução) — `rat_inicia_tarefa`, INSERT/UPDATE (§7).
 - Papel `comercial` liberado; papel sincronizado com o Portal (`portal_acessos`); gestão de usuários **removida do SR** (centralizada no Portal); foto/cargo vindos do Portal.
 - **Preço de venda do Omie** em `produtos.preco_venda` (sync paginado; ~1.715 produtos).
 
