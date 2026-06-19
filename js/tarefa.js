@@ -686,9 +686,41 @@ const TarefaApp = (() => {
     renderLinhas()
   }
 
+  // Ordenação da Conciliação por clique no cabeçalho (null = ordem padrão de carregarLinhas)
+  let ccOrd = null, ccDir = 'asc'
+  const ccVal = (l, campo) => {
+    switch (campo) {
+      case 'descricao': return normStr(l.descricao || '')
+      case 'unidade': return normStr(l.unidade || '')
+      case 'orcada': return Number(l.qtd_orcada) || 0
+      case 'levada': return Number(l.qtd_levada) || 0
+      case 'utilizada': return Number(l.qtd_utilizada) || 0
+      case 'devolvida': return Number(l.qtd_devolvida) || 0
+      case 'situacao': return normStr(SIT[l.situacao] ? SIT[l.situacao].t : (l.situacao || ''))
+      case 'preco': return Number(l.preco_unitario) || 0
+      case 'subtotal': return (Number(l.qtd_utilizada) || 0) * (Number(l.preco_unitario) || 0)
+      default: return 0
+    }
+  }
+
   function renderLinhas() {
     const tb = document.getElementById('cc-tbody')
     const posExec = tarefaPosExec(cur && cur.id)
+    // cabeçalho clicável (ordena) — religa a cada render e atualiza a seta da coluna ativa
+    const tbl = tb.closest('table')
+    if (tbl) tbl.querySelectorAll('th[data-ord]').forEach(th => {
+      th.onclick = () => {
+        const k = th.dataset.ord
+        if (ccOrd === k) ccDir = (ccDir === 'asc' ? 'desc' : 'asc')
+        else { ccOrd = k; ccDir = (k === 'descricao' || k === 'unidade' || k === 'situacao') ? 'asc' : 'desc' }
+        renderLinhas()
+      }
+      const ar = th.querySelector('.ord-ar'); if (ar) ar.textContent = (ccOrd === th.dataset.ord) ? (ccDir === 'asc' ? ' ▲' : ' ▼') : ''
+    })
+    if (ccOrd) {
+      const dir = ccDir === 'asc' ? 1 : -1
+      linhas.sort((a, b) => { const va = ccVal(a, ccOrd), vb = ccVal(b, ccOrd); if (va < vb) return -dir; if (va > vb) return dir; return normStr(a.descricao || '').localeCompare(normStr(b.descricao || '')) })
+    }
     if (!linhas.length) {
       tb.innerHTML = '<tr><td colspan="10" class="cc-empty">Sem produtos nesta tarefa. Adicione abaixo.</td></tr>'
     } else {

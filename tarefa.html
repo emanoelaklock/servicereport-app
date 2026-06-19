@@ -128,7 +128,9 @@
   /* Tabela de produtos (conciliação) — ver docs/mockups/mockup-tarefa.html */
   .cc-table{width:100%;border-collapse:collapse;font-size:13px;font-variant-numeric:tabular-nums}
   /* colunas numéricas em caixa: cabeçalho e caixa CENTRALIZADOS na coluna (alinham sempre) */
-  .cc-table th{font-size:11px;letter-spacing:normal;text-transform:none;color:var(--tx3);padding:0 12px 10px;border-bottom:1px solid var(--bd);text-align:center;white-space:nowrap}
+  .cc-table th{font-size:11px;letter-spacing:normal;text-transform:none;color:var(--tx3);padding:14px 12px;border-bottom:1px solid var(--bd);text-align:center;white-space:nowrap;background:#FAFBFD}
+  .cc-table th.th-ord{cursor:pointer;user-select:none}
+  .cc-table th.th-ord:hover{color:var(--tx)}
   .cc-table th.l{text-align:left}
   .cc-table td{padding:10px 12px;border-bottom:1px solid var(--sur2);vertical-align:middle;text-align:center}
   .cc-table td.l{text-align:left}
@@ -433,7 +435,7 @@
           </div>
           <table class="cc-table">
             <thead><tr>
-              <th class="c" style="width:34px"><input type="checkbox" id="cc-check-all" title="Selecionar todos"></th><th class="l">Produto</th><th class="c">Un.</th><th>Orçada</th><th>Disponibilizada</th><th>Utilizada</th><th>Devolvida</th><th class="c">Situação</th><th>Valor unit.</th><th>Subtotal</th>
+              <th class="c" style="width:34px"><input type="checkbox" id="cc-check-all" title="Selecionar todos"></th><th class="l th-ord" data-ord="descricao">Produto<span class="ord-ar"></span></th><th class="c th-ord" data-ord="unidade">Un.<span class="ord-ar"></span></th><th class="th-ord" data-ord="orcada">Orçada<span class="ord-ar"></span></th><th class="th-ord" data-ord="levada">Disponibilizada<span class="ord-ar"></span></th><th class="th-ord" data-ord="utilizada">Utilizada<span class="ord-ar"></span></th><th class="th-ord" data-ord="devolvida">Devolvida<span class="ord-ar"></span></th><th class="c th-ord" data-ord="situacao">Situação<span class="ord-ar"></span></th><th class="th-ord" data-ord="preco">Valor unit.<span class="ord-ar"></span></th><th class="th-ord" data-ord="subtotal">Subtotal<span class="ord-ar"></span></th>
             </tr></thead>
             <tbody id="cc-tbody"></tbody>
           </table>

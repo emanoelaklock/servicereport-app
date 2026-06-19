@@ -19,6 +19,19 @@ const DeslocApp = (() => {
   const horaBR = (iso) => iso ? _fmtHoraBR.format(new Date(iso)) : '—'
   const diaFull = (s) => s ? String(s).split('-').reverse().join('/') : '—'
   const hm5 = (s) => s ? String(s).slice(0, 5) : '—'
+  // Ordenação por clique no cabeçalho (client-side, sobre os registros carregados)
+  let dOrd = null, dDir = 'asc'
+  const saidaDe = (d) => d.saida_em || ((trechosDe(d).find(t => t.saida_em) || {}).saida_em) || ''
+  const chegadaDe = (d) => { const ts = trechosDe(d); if (ts.length) return ts.every(t => t.chegada_em) ? (ts[ts.length - 1].chegada_em || '') : ''; return d.chegada_em || '' }
+  const dVal = (d, campo) => {
+    switch (campo) {
+      case 'cliente': return tcase(cliNomes[d.cliente_id] || '')
+      case 'veiculo': { const ts = trechosDe(d); const vs = ts.length ? [...new Set(ts.map(t => t.veiculo_id).filter(Boolean))].map(veicLbl) : [veicLbl(d.veiculo_id)]; return (vs[0] || '').toLowerCase() }
+      case 'saida': return saidaDe(d)
+      case 'chegada': return chegadaDe(d)
+      default: return ''
+    }
+  }
   const toLocalInput = (iso) => { if (!iso) return ''; const d = new Date(iso); const p = n => String(n).padStart(2, '0'); return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}T${p(d.getHours())}:${p(d.getMinutes())}` }
   const inputToISO = (v) => v ? new Date(v).toISOString() : null
   const veicLbl = (id) => veic[id] || '—'
@@ -196,6 +209,10 @@ const DeslocApp = (() => {
     if (fDe) lst = lst.filter(d => diaRef(d) >= fDe)
     if (fAte) lst = lst.filter(d => { const x = diaRef(d); return x && x <= fAte })
 
+    if (dOrd) {
+      const dir = dDir === 'asc' ? 1 : -1
+      lst = lst.slice().sort((a, b) => { const va = dVal(a, dOrd), vb = dVal(b, dOrd); const ea = (va === '' || va == null), eb = (vb === '' || vb == null); if (ea !== eb) return ea ? 1 : -1; if (va < vb) return -dir; if (va > vb) return dir; return 0 })
+    }
     document.getElementById('d-count').textContent = `${lst.length} de ${rows.length} registro(s)`
     const tb = document.getElementById('d-tbody')
     if (!lst.length) { tb.innerHTML = '<tr><td colspan="8" class="d-empty">Nenhum deslocamento para o filtro.</td></tr>'; return }
@@ -251,6 +268,12 @@ const DeslocApp = (() => {
     tb.querySelectorAll('[data-del]').forEach(b => b.onclick = () => excluir(b.dataset.del))
     // clicar na LINHA abre o detalhe (só leitura); clique nos botões de Ação não dispara
     tb.querySelectorAll('tr.row-click').forEach(tr => { tr.onclick = (e) => { if (e.target.closest('.d-act')) return; abrirDetalhe(tr.dataset.det) } })
+    // cabeçalho clicável (ordena)
+    const tbl = tb.closest('table')
+    if (tbl) tbl.querySelectorAll('th[data-ord]').forEach(th => {
+      th.onclick = () => { const k = th.dataset.ord; if (dOrd === k) dDir = (dDir === 'asc' ? 'desc' : 'asc'); else { dOrd = k; dDir = (k === 'cliente' || k === 'veiculo') ? 'asc' : 'desc' } render() }
+      const ar = th.querySelector('.ord-ar'); if (ar) ar.textContent = (dOrd === th.dataset.ord) ? (dDir === 'asc' ? ' ▲' : ' ▼') : ''
+    })
   }
 
   // ───────────────────── Editar / Excluir (admin) ─────────────────────
