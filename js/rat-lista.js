@@ -10,6 +10,7 @@
   const sb = () => getSupabase()
   const PAGE = 50
   const filtros = { busca: '', cliente: '', tecnico: '', status: '', de: '', ate: '' }
+  let rlOrd = 'dia_rat', rlDir = 'desc'   // ordenação por clique no cabeçalho (no servidor)
   let corStatus = {}, labelStatus = {}, clientes = [], offset = 0, total = 0
   const osNo = (n) => n == null ? '—' : String(n).padStart(5, '0')
   const corDe = (st) => corStatus[st] || '#48506A'
@@ -61,7 +62,13 @@
 
   function buscar() { carregarPagina(true) }
 
-  const TABELA = '<table class="cc-list"><thead><tr><th>Nº</th><th>Cliente</th><th>Status</th><th>Técnico</th><th>Data</th></tr></thead><tbody id="rl-list"></tbody></table>'
+  const TABELA = '<table class="cc-list"><thead><tr>'
+    + '<th class="th-ord" data-ord="tarefa_numero">Nº<span class="ord-ar"></span></th>'
+    + '<th class="th-ord" data-ord="cliente_nome">Cliente<span class="ord-ar"></span></th>'
+    + '<th class="th-ord" data-ord="tarefa_status">Status<span class="ord-ar"></span></th>'
+    + '<th class="th-ord" data-ord="colaboradores">Técnico<span class="ord-ar"></span></th>'
+    + '<th class="th-ord" data-ord="dia_rat">Data<span class="ord-ar"></span></th>'
+    + '</tr></thead><tbody id="rl-list"></tbody></table>'
 
   async function carregarPagina(reset) {
     const panel = document.getElementById('rl-panel'), more = document.getElementById('rl-more')
@@ -74,7 +81,7 @@
     if (f.status) q = q.eq('tarefa_status', f.status)
     if (f.de) q = q.gte('dia_rat', f.de)
     if (f.ate) q = q.lte('dia_rat', f.ate)
-    q = q.order('dia_rat', { ascending: false, nullsFirst: false }).range(offset, offset + PAGE - 1)
+    q = q.order(rlOrd, { ascending: rlDir === 'asc', nullsFirst: false }).range(offset, offset + PAGE - 1)
     const { data, count, error } = await q
     if (error) { panel.innerHTML = `<div class="rl-empty" style="color:var(--re)">Erro ao buscar: ${esc(error.message)}</div>`; more.style.display = 'none'; return }
     total = count == null ? (data || []).length : count
@@ -89,6 +96,16 @@
     }
     document.getElementById('rl-count').textContent = total ? `${total} RAT${total === 1 ? '' : 's'} encontrada${total === 1 ? '' : 's'}${offset < total ? ` · mostrando ${offset}` : ''}` : ''
     more.style.display = offset < total ? '' : 'none'
+    // cabeçalho clicável (ordena no servidor; re-busca da 1ª página)
+    panel.querySelectorAll('th[data-ord]').forEach(th => {
+      th.onclick = () => {
+        const k = th.dataset.ord
+        if (rlOrd === k) rlDir = (rlDir === 'asc' ? 'desc' : 'asc')
+        else { rlOrd = k; rlDir = (k === 'cliente_nome' || k === 'colaboradores' || k === 'tarefa_status') ? 'asc' : 'desc' }
+        buscar()
+      }
+      const ar = th.querySelector('.ord-ar'); if (ar) ar.textContent = (rlOrd === th.dataset.ord) ? (rlDir === 'asc' ? ' ▲' : ' ▼') : ''
+    })
   }
 
   function rowHTML(r) {
