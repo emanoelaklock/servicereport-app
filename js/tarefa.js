@@ -361,7 +361,10 @@ const TarefaApp = (() => {
         const tec = tids.length ? esc(tids.map(id => tecNomes[id] || '—').join(', ')) : `<button class="pill pill-warn" data-atrib="${esc(t.id)}" style="cursor:pointer;border:none">atribuir</button>`
         return `<tr class="row-click" data-id="${esc(t.id)}">
           <td class="cc-num">${osNo(t.numero)}</td>
-          <td>${esc(cliNomes[t.cliente_id] || '—')}</td>
+          <td>
+            <div class="cc-cli">${esc(cliNomes[t.cliente_id] || '—')}</div>
+            ${t.orientacao ? `<div class="cc-ori" title="${esc(t.orientacao)}">${esc(t.orientacao)}</div>` : ''}
+          </td>
           <td><span class="st-pill" style="${statusStyleAttr(t.status)}">${esc(statusLabel(t.status))}</span>${(t.faturado && t.status !== 'faturada') ? ' <span class="pill pill-fat">Faturada</span>' : ''}</td>
           <td>${tec}</td>
           <td>${t.data_agendada ? dmy(t.data_agendada) : '<span class="st">—</span>'}</td>
