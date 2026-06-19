@@ -26,11 +26,11 @@ function renderSidebar(paginaAtiva) {
   <div class="brand"><div class="mk">SR</div><div><div class="nm">Service Report</div><div class="sb">Atendimento técnico</div></div></div>
 
   <div class="ngrp">Painel</div>
-  ${item('painel', 'painel.html', 'Painel', 'blue')}
+  ${item('painel', 'painel.html', 'Painel', 'pink')}
 
   <div class="ngrp">Execução</div>
   ${item('tarefas', 'tarefa.html', 'Tarefas', 'green')}
-  ${item('rat', 'rat-calendario.html', 'RAT', 'pink')}
+  ${item('rat', 'rat-calendario.html', 'RAT', 'blue')}
   ${item('jornada', 'jornada.html', 'Jornada', 'purple')}
   ${item('deslocamentos', 'deslocamentos.html', 'Deslocamentos', 'orange')}
 
