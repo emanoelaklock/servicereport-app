@@ -73,6 +73,7 @@ const TarefaApp = (() => {
     ok:            { t: 'OK',               cls: 's-ok' },
     devolver:      { t: 'Devolver',         cls: 's-dev' },
     sem_orcada:    { t: 'Fora da proposta', cls: 's-fora' },
+    sem_orcamento: { t: 'Sem orçamento',    cls: 's-semorc' },   // tarefa SEM proposta: usado vira pendência NEUTRA (não "fora da proposta")
     falta_estoque: { t: 'Faltou levar',     cls: 's-falta' },
     acima_orcado:  { t: 'Acima do orçado',  cls: 's-acima' },
   }
@@ -317,7 +318,7 @@ const TarefaApp = (() => {
     for (const r of vc || []) {
       // divergência só conta pós-execução (antes, material em campo é normal); fora da proposta sempre
       const pe = POS_EXEC.includes(((tarefas || []).find(x => x.id === r.tarefa_id) || {}).status)
-      if (r.situacao && r.situacao !== 'ok' && !r.revisado && (pe || r.situacao === 'sem_orcada')) divPorTarefa[r.tarefa_id] = (divPorTarefa[r.tarefa_id] || 0) + 1
+      if (r.situacao && r.situacao !== 'ok' && !r.revisado && (pe || r.situacao === 'sem_orcada' || r.situacao === 'sem_orcamento')) divPorTarefa[r.tarefa_id] = (divPorTarefa[r.tarefa_id] || 0) + 1
       const txt = [r.descricao, r.codigo_produto].filter(Boolean).join(' ')
       if (txt) matsPorTarefa[r.tarefa_id] = (matsPorTarefa[r.tarefa_id] || '') + ' ' + txt
     }
@@ -685,7 +686,7 @@ const TarefaApp = (() => {
         const sub = util * preco
         const cSub = `<td>${box(money(sub), 'money' + (sub === 0 ? ' zero' : ''))}</td>`
         // pendência (badge + Revisar) só pós-execução; antes, material levado está "Em campo"
-        const pend = l.situacao !== 'ok' && (posExec || l.situacao === 'sem_orcada')
+        const pend = l.situacao !== 'ok' && (posExec || l.situacao === 'sem_orcada' || l.situacao === 'sem_orcamento')
         const badgeTxt = !pend
           ? (l.situacao === 'ok' ? sit.t : 'Em campo')
           : ((l.situacao === 'devolver' && dev > 0) ? `Devolver ${qtd(dev)}` : sit.t)
@@ -755,7 +756,7 @@ const TarefaApp = (() => {
       custoUtil   += (Number(l.qtd_utilizada) || 0) * p
       const d = Number(l.qtd_devolvida) || 0
       if (d > 0) { devItens++; devValor += d * p }
-      if (l.situacao !== 'ok' && (posExec || l.situacao === 'sem_orcada')) { div++; if (!l.revisado) aRevisar++ }
+      if (l.situacao !== 'ok' && (posExec || l.situacao === 'sem_orcada' || l.situacao === 'sem_orcamento')) { div++; if (!l.revisado) aRevisar++ }
     }
     const delta = custoUtil - custoOrcado
     const dcls = delta > 0 ? 'up' : (delta < 0 ? 'down' : 'flat')
@@ -1258,7 +1259,7 @@ const TarefaApp = (() => {
     let devItens = 0, aRevisar = 0, foraN = 0, prodAtencao = 0
     for (const l of (linhas || [])) {
       const dev = posExec && (Number(l.qtd_devolvida) || 0) > 0
-      const rev = !!(l.situacao && l.situacao !== 'ok' && !l.revisado && (posExec || l.situacao === 'sem_orcada'))
+      const rev = !!(l.situacao && l.situacao !== 'ok' && !l.revisado && (posExec || l.situacao === 'sem_orcada' || l.situacao === 'sem_orcamento'))
       if (dev) devItens++
       if (rev) aRevisar++
       if (l.situacao === 'sem_orcada') foraN++
