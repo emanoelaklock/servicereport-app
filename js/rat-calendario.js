@@ -30,7 +30,7 @@
   let ym = null
   let corStatus = {}, labelStatus = {}   // chave -> cor / label (tabela status_tarefa)
   let rats = [], orcNo = {}, tecNomes = {}, ratTecMap = {}, vistas = []   // tecNomes: id->nome · ratTecMap: rat_id->[tecnico_id] · vistas: views do mês (com haystack)
-  const filtros = { busca: '', tarefa: '', rat: '', tecnico: '', data: '', status: '' }
+  const filtros = { busca: '', tecnico: '', status: '', tarefa: '', rat: '', de: '', ate: '', pc: '', orcamento: '', orientacao: '' }
 
   const osNo = (n) => n == null ? '—' : String(n).padStart(5, '0')
 
@@ -84,16 +84,21 @@
       ym = { y: Number(new Intl.DateTimeFormat('en-CA', { timeZone: TZ, year: 'numeric' }).format(new Date())), m: Number(new Intl.DateTimeFormat('en-CA', { timeZone: TZ, month: '2-digit' }).format(new Date())) - 1 }
       carregarMes()
     }
-    const F = { 'rcf-tarefa': 'tarefa', 'rcf-rat': 'rat', 'rcf-tecnico': 'tecnico', 'rcf-data': 'data', 'rcf-orientacao': 'orientacao', 'rcf-orcamento': 'orcamento', 'rcf-status': 'status', 'rcf-pc': 'pc' }
-    for (const [id, key] of Object.entries(F)) {
-      const el = document.getElementById(id); if (!el) continue
-      const ev = (el.tagName === 'SELECT' || el.type === 'date') ? 'change' : 'input'
-      el.addEventListener(ev, () => { filtros[key] = el.value.trim(); render() })
-    }
+    // BUSCA EXPLÍCITA: nada dispara ao digitar; só ao clicar "Buscar" (ou Enter no campo de busca).
+    const CAMPOS = { 'rcf-busca': 'busca', 'rcf-tecnico': 'tecnico', 'rcf-status': 'status', 'rcf-tarefa': 'tarefa', 'rcf-rat': 'rat', 'rcf-de': 'de', 'rcf-ate': 'ate', 'rcf-pc': 'pc', 'rcf-orcamento': 'orcamento', 'rcf-orientacao': 'orientacao' }
+    const aplicar = () => { for (const [id, k] of Object.entries(CAMPOS)) { const el = document.getElementById(id); if (el) filtros[k] = el.value.trim() } render() }
+    document.getElementById('rcf-buscar').onclick = aplicar
+    document.getElementById('rcf-busca').addEventListener('keydown', e => { if (e.key === 'Enter') { e.preventDefault(); aplicar() } })
     document.getElementById('rcf-limpar').onclick = () => {
+      for (const id of Object.keys(CAMPOS)) { const el = document.getElementById(id); if (el) el.value = '' }
       Object.keys(filtros).forEach(k => filtros[k] = '')
-      for (const id of Object.keys(F)) { const el = document.getElementById(id); if (el) el.value = '' }
       render()
+    }
+    const advT = document.getElementById('rcf-adv-toggle'), adv = document.getElementById('rcf-adv')
+    advT.onclick = () => {
+      const abrir = adv.hasAttribute('hidden')
+      if (abrir) adv.removeAttribute('hidden'); else adv.setAttribute('hidden', '')
+      advT.setAttribute('aria-expanded', String(abrir))
     }
     document.getElementById('rc-mback').onclick = (e) => { if (e.target.id === 'rc-mback' || e.target.id === 'rc-modal-x') fecharModal() }
   }
@@ -130,12 +135,16 @@
 
   function passaFiltro(v) {
     const f = filtros, has = (campo, termo) => String(campo || '').toLowerCase().includes(termo.toLowerCase())
-    if (f.busca && !v.hay.includes(f.busca.toLowerCase())) return false   // busca livre em tudo (incl. respostas)
+    if (f.busca && !v.hay.includes(f.busca.toLowerCase())) return false   // busca livre em tudo (inclui CLIENTE + respostas)
+    if (f.tecnico && !v.tecnicos.includes(f.tecnico)) return false
+    if (f.status && v.status !== f.status) return false
     if (f.tarefa) { const d = f.tarefa.replace(/\D/g, ''); if (!d || !String(v.numero == null ? '' : v.numero).includes(d)) return false }
     if (f.rat && !has(ratNo(v), f.rat)) return false
-    if (f.tecnico && !v.tecnicos.includes(f.tecnico)) return false
-    if (f.data && v.dia !== f.data) return false
-    if (f.status && v.status !== f.status) return false
+    if (f.de && (!v.dia || v.dia < f.de)) return false      // período (de/até): compara datas YYYY-MM-DD (sem tz)
+    if (f.ate && (!v.dia || v.dia > f.ate)) return false
+    if (f.pc && !has(v.pc, f.pc)) return false
+    if (f.orcamento && !has(v.orcamento, f.orcamento)) return false
+    if (f.orientacao && !has(v.orientacao, f.orientacao)) return false
     return true
   }
 

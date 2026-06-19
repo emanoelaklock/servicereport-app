@@ -24,6 +24,10 @@
   .rc-filtros label{display:block;font-size:11px;font-weight:600;color:var(--tx2);margin-bottom:5px}
   .rc-filtros input,.rc-filtros select{width:100%;font:inherit;font-size:13px;color:var(--tx);background:#fff;border:1px solid var(--bd2);border-radius:9px;padding:8px 10px;outline:none}
   .rc-fact{display:flex;justify-content:flex-end;gap:10px;margin-top:14px}
+  .rc-adv-toggle{margin-top:8px;border:none;background:transparent;color:var(--ac);font:inherit;font-size:12.5px;font-weight:700;cursor:pointer;display:inline-flex;align-items:center;gap:5px;padding:4px 2px}
+  .rc-adv-toggle svg{width:15px;height:15px;fill:none;stroke:currentColor;stroke-width:2.2;stroke-linecap:round;stroke-linejoin:round;transition:transform .15s}
+  .rc-adv-toggle[aria-expanded="true"] svg{transform:rotate(180deg)}
+  .rc-adv{margin-top:12px}
   .rc-cal{background:var(--card);border:1px solid var(--line);border-radius:14px;overflow:hidden}
   .rc-toolbar{display:flex;align-items:center;gap:12px;padding:14px 18px;border-bottom:1px solid var(--line);flex-wrap:wrap}
   .rc-nav{width:34px;height:34px;border:1px solid var(--bd2);border-radius:9px;background:#fff;color:var(--tx);display:inline-grid;place-items:center;cursor:pointer}
@@ -76,20 +80,32 @@
     <div class="scrollarea">
       <div class="rc-wrap">
         <div class="rc-filtros">
-          <div class="rc-fh">Filtros <span class="mut">· busca no conteúdo das RATs do mês</span></div>
+          <div class="rc-fh">Filtros <span class="mut">· busca no conteúdo das RATs do mês — clique em Buscar</span></div>
+          <!-- principais (sempre visíveis) -->
           <div style="margin-bottom:12px">
             <label>Buscar nas RATs</label>
             <input id="rcf-busca" placeholder="Busca em tudo: cliente, técnico, nº, PC, orçamento, orientação e o que está descrito na RAT…">
           </div>
           <div class="rc-grid4">
-            <div><label>Nº da tarefa</label><input id="rcf-tarefa" placeholder="04741"></div>
-            <div><label>Nº da RAT</label><input id="rcf-rat" placeholder="04741/01"></div>
             <div><label>Técnico responsável</label><select id="rcf-tecnico"></select></div>
-            <div><label>Data</label><input id="rcf-data" type="date"></div>
             <div><label>Status</label><select id="rcf-status"></select></div>
           </div>
+          <button type="button" class="rc-adv-toggle" id="rcf-adv-toggle" aria-expanded="false">Filtros avançados <svg viewBox="0 0 24 24"><path d="m6 9 6 6 6-6"/></svg></button>
+          <!-- avançados (escondidos) -->
+          <div class="rc-adv" id="rcf-adv" hidden>
+            <div class="rc-grid4">
+              <div><label>Nº da tarefa</label><input id="rcf-tarefa" placeholder="04741"></div>
+              <div><label>Nº da RAT</label><input id="rcf-rat" placeholder="04741/01"></div>
+              <div><label>Período — de</label><input id="rcf-de" type="date"></div>
+              <div><label>Período — até</label><input id="rcf-ate" type="date"></div>
+              <div><label>PC (pedido de compra)</label><input id="rcf-pc" placeholder="PC-2026-0123"></div>
+              <div><label>Orçamento</label><input id="rcf-orcamento" placeholder="Nº do orçamento"></div>
+              <div><label>Orientação</label><input id="rcf-orientacao" placeholder="Ex.: passagem de cabo"></div>
+            </div>
+          </div>
           <div class="rc-fact">
-            <button class="btn btn-sm" id="rcf-limpar">Limpar</button>
+            <button class="btn btn-ghost" id="rcf-limpar">Limpar</button>
+            <button class="btn btn-primary" id="rcf-buscar">Buscar</button>
           </div>
         </div>
 
