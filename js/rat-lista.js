@@ -19,7 +19,7 @@
     const [st, us, cl] = await Promise.all([
       sb().from('status_tarefa').select('chave,label,cor,ordem,ativo').order('ordem'),
       sb().rpc('sr_usuarios'),
-      sb().from('clientes').select('nome').order('nome'),
+      sb().from('clientes').select('nome').eq('oculto', false).order('nome'),   // só Empresas visíveis (mesma regra de Tarefas/Orçamentos), não o catálogo Omie oculto
     ])
     corStatus = {}; labelStatus = {}
     for (const s of (st.data || [])) { corStatus[s.chave] = s.cor; labelStatus[s.chave] = s.label }
