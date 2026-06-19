@@ -170,6 +170,13 @@
         : '<span style="font-size:12px;color:var(--tx2)">Sem técnicos neste mês</span>'
       box.dataset.k = key
     }
+    // autocomplete do Cliente: clientes presentes no mês
+    const dl = document.getElementById('rcf-cliente-list')
+    if (dl) {
+      const clientes = [...new Set(views.map(v => v.cliente).filter(c => c && c !== '—'))].sort((a, b) => a.localeCompare(b))
+      const ck = clientes.join('|')
+      if (dl.dataset.k !== ck) { dl.innerHTML = clientes.map(c => `<option value="${esc(c)}"></option>`).join(''); dl.dataset.k = ck }
+    }
     const selS = document.getElementById('rcf-status')
     if (!selS.dataset.ready) {
       selS.innerHTML = '<option value="">Todos</option>' + Object.keys(corStatus).map(ch => `<option value="${esc(ch)}">${esc(labelStatus[ch] || ch)}</option>`).join('')
