@@ -40,7 +40,7 @@ const TarefaApp = (() => {
   }
   const statusLabel = (k) => (STATUS[k] && STATUS[k].label) || k || '—'
   const statusCor = (k) => (STATUS[k] && STATUS[k].cor) || '#48506A'
-  const statusStyleAttr = (k) => `background:${statusCor(k)}1A;color:${statusCor(k)}`
+  const statusStyleAttr = (k) => `background:${statusCor(k)}1A;color:${corTextoLegivel(statusCor(k))}`
   const statusAtivos = () => Object.values(STATUS).filter(s => s.ativo).sort((a, b) => a.ordem - b.ordem)
   // Opções <option> dos status ativos + garante a opção do status atual (mesmo inativo).
   function statusOptionsHTML(atual) {
@@ -50,7 +50,7 @@ const TarefaApp = (() => {
   }
   const setStatusBadge = (s) => {
     const b = document.getElementById('cc-badge'); if (b) { b.textContent = statusLabel(s); b.className = 'ed-badge'; b.style.cssText = statusStyleAttr(s) }
-    const h = document.getElementById('cc-hd-status'); if (h) { h.textContent = statusLabel(s); h.style.color = statusCor(s) }
+    const h = document.getElementById('cc-hd-status'); if (h) { h.textContent = statusLabel(s); h.style.color = corTextoLegivel(statusCor(s)) }
   }
   const iniciais = (n) => String(n || '').trim().split(/\s+/).slice(0, 2).map(w => w[0] || '').join('').toUpperCase() || '—'
   function renderHeader(t) {
@@ -173,6 +173,7 @@ const TarefaApp = (() => {
     if (f) document.getElementById('f-status').value = f
     await carregarTarefas()
     const tid = params.get('t')
+    focoRatId = params.get('rat') || null   // atalho do calendário de RATs
     if (tid && tarefas.some(x => x.id === tid)) await abrirTarefa(tid, params.get('aba'))
     else { mostrar('lista'); renderLista() }
   }
@@ -882,7 +883,7 @@ const TarefaApp = (() => {
     for (const r of rats) dets.push(await RatView.loadDetalhe(r))
     box.innerHTML = dets.map(d => {
       const r = d.r
-      return `<div class="rat-open">
+      return `<div class="rat-open" data-rat-id="${esc(r.id)}">
         <div class="rat-open-h">
           <div><b>RAT ${cur && cur.numero != null ? osNo(cur.numero) + (r.rat_seq != null ? '/' + String(r.rat_seq).padStart(2, '0') : '') : ''} · ${fdt(r.data_tarefa, { withTime: true })}</b> · ${esc(r.tecnico_nome || '—')} · ${RatView.fmtMin(RatView.tempoRat(r))}</div>
           <div style="display:flex;align-items:center;gap:10px">
@@ -897,6 +898,15 @@ const TarefaApp = (() => {
       </div>`
     }).join('')
     box.querySelectorAll('[data-encerrar]').forEach(b => b.onclick = () => encerrarRat(b.dataset.encerrar))
+    if (focoRatId) {   // veio de ?rat= (calendário): rola até a RAT e destaca por ~2,6s
+      const alvo = box.querySelector(`[data-rat-id="${CSS.escape(focoRatId)}"]`)
+      if (alvo) {
+        alvo.scrollIntoView({ behavior: 'smooth', block: 'center' })
+        alvo.style.transition = 'box-shadow .3s'; alvo.style.boxShadow = '0 0 0 3px var(--ac)'
+        setTimeout(() => { alvo.style.boxShadow = '' }, 2600)
+      }
+      focoRatId = null
+    }
   }
 
   // Encerra (conclui) uma RAT presa "em andamento" — destrava a tarefa quando o técnico
@@ -914,7 +924,7 @@ const TarefaApp = (() => {
     await carregarRats()   // recarrega RATs + atualiza a faixa Situação/abas
   }
 
-  let ratMulti = false, ratList = []
+  let ratMulti = false, ratList = [], focoRatId = null   // ?rat= (atalho do calendário): rola/destaca a RAT certa na aba RATs
   function toggleRatBtns(multi) {
     const show = (id, v) => { document.getElementById(id).style.display = v ? '' : 'none' }
     show('rat-editar', !multi && !ratEdit)
