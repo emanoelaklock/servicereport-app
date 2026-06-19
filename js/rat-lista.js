@@ -43,8 +43,6 @@
       Object.keys(filtros).forEach(k => filtros[k] = '')
       buscar()
     }
-    const advT = document.getElementById('rlf-adv-toggle'), adv = document.getElementById('rlf-adv')
-    advT.onclick = () => { const ab = adv.hasAttribute('hidden'); if (ab) adv.removeAttribute('hidden'); else adv.setAttribute('hidden', ''); advT.setAttribute('aria-expanded', String(ab)) }
     document.getElementById('rl-more').onclick = () => carregarPagina(false)
     // combobox de Cliente (todos os clientes)
     const cin = document.getElementById('rlf-cliente'), clist = document.getElementById('rlf-cliente-list')
