@@ -177,6 +177,26 @@ const TarefaApp = (() => {
     focoRatId = params.get('rat') || null   // atalho do calendário de RATs
     if (tid && tarefas.some(x => x.id === tid)) await abrirTarefa(tid, params.get('aba'))
     else { mostrar('lista'); renderLista() }
+    iniciarRealtimeLista()
+  }
+
+  // Realtime: quando o status de uma Tarefa muda no servidor (ex.: técnico pausou → "Em Pausa"),
+  // a lista se atualiza sozinha. Só recarrega na LISTA (não atrapalha quem edita uma tarefa).
+  // Fallback (sem realtime): foco da janela e a cada 2 min.
+  let recListaT = null
+  function iniciarRealtimeLista() {
+    const recarregaLista = () => {
+      if (cur || document.hidden) return
+      clearTimeout(recListaT); recListaT = setTimeout(() => { carregarTarefas().then(renderLista) }, 500)
+    }
+    document.addEventListener('visibilitychange', recarregaLista)
+    window.addEventListener('focus', recarregaLista)
+    setInterval(recarregaLista, 120000)
+    try {
+      sb().channel('adm-tarefas')
+        .on('postgres_changes', { event: '*', schema: 'public', table: 'tarefas' }, recarregaLista)
+        .subscribe()
+    } catch (e) { /* sem realtime → fica o foco/intervalo */ }
   }
 
   function bind() {

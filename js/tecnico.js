@@ -1942,7 +1942,7 @@
     organizarCamposForm()   // ordem cronológica + almoço no modal
     const sc = cont.querySelector('canvas.sig-pad')
     if (sc) { sig = initSignature(sc); sig.resize() }
-    const onFormChange = (e) => { aplicarEspelhos(e); atualizarTempo(); aplicarCondicionais(); atualizarResumoAlmoco(); atualizarBadgeDesloc(); atualizarProgresso(); if (timersRender) timersRender(); const w = e.target.closest && e.target.closest('[data-field]'); if (w) w.classList.remove('campo-erro'); agendarAutosave() }
+    const onFormChange = (e) => { aplicarEspelhos(e); atualizarTempo(); aplicarCondicionais(); atualizarResumoAlmoco(); atualizarBadgeDesloc(); atualizarProgresso(); if (timersRender) timersRender(); const w = e.target.closest && e.target.closest('[data-field]'); if (w) w.classList.remove('campo-erro'); agendarAutosave(); const cid = e.target && e.target.getAttribute && e.target.getAttribute('data-campo'); if (cid === 'pausa' || cid === 'pausa_inicio' || cid === 'pausa_termino') agendarPersistPausa() }
     cont.oninput = onFormChange
     cont.onchange = onFormChange
     const dCont = document.getElementById('desloc-campos')
@@ -3021,6 +3021,33 @@
         })
       } catch (e) { /* autosave é melhor-esforço */ }
     }, 700)
+  }
+
+  // ── Pausa em TEMPO REAL: ao iniciar/encerrar a pausa (ou editar os horários dela), salva a
+  // RAT como em_andamento e SINCRONIZA na hora — assim o servidor recebe a pausa aberta e o
+  // trigger 0072 coloca a Tarefa em "Em Pausa" pro admin acompanhar (e volta ao retomar).
+  // Diferente do autosave (que só toca rascunho e não sobe): aqui empurra pro servidor.
+  let persistPausaT = null
+  function agendarPersistPausa() {
+    if (!cur || !cur.client_uuid) return
+    clearTimeout(persistPausaT)
+    persistPausaT = setTimeout(() => { persistirPausaSync().catch(() => {}) }, 700)
+  }
+  async function persistirPausaSync() {
+    if (!cur || !cur.client_uuid) return
+    const cliId = (document.getElementById('f-cliente') || {}).value || null
+    const cli = ref.clientes.find(c => c.id === cliId)
+    const { respostas } = coletarRespostas()
+    if (usoProd) respostas.uso_produtos = usoProd
+    await D().salvarRat(cur.client_uuid, {
+      tarefa_id: cur.tarefa_id || null, tarefa_numero: cur.tarefa_numero || null,
+      cliente_id: cliId, cliente_nome: (cli && cli.nome) || null,
+      formulario_id: cur.formulario_id || null, tecnico_id: tecnico.id, tecnico_nome: tecnico.nome,
+      status: 'em_andamento', atendimento_executado: true,
+      tempo_trabalhado: calcTempo(), respostas, uso_produtos: usoProd || null,
+    })
+    await D().definirStatus(cur.client_uuid, D().STATUS.SALVO_LOCAL, 'pausa (status em tempo real)')
+    if (window.SyncEngine && navigator.onLine) SyncEngine.syncAll()
   }
 
   function coletarRespostas() {
