@@ -168,6 +168,77 @@
     await carregarRef()
     await limparRascunhosVazios()
     await restaurarTela()
+    // Pausa esquecida que cruzou a meia-noite: checa ao abrir e quando o app volta do 2º plano.
+    document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible') checarPausaEsquecida() })
+    await checarPausaEsquecida()
+  }
+
+  // ── Parte B: pausa esquecida que cruza a meia-noite (checagem ao reabrir o app) ──
+  // RAT local AINDA ABERTA (em_andamento) com pausa em aberto (início sem término) de um dia
+  // ANTERIOR. Comparação em America/Sao_Paulo por STRING 'YYYY-MM-DD' (nunca new Date('só-data'),
+  // que erra em UTC). 100% local (IndexedDB) → funciona offline. Aviso OBRIGATÓRIO (sem fechar).
+  const _fmtDiaBR = new Intl.DateTimeFormat('en-CA', { timeZone: 'America/Sao_Paulo', year: 'numeric', month: '2-digit', day: '2-digit' })
+  const hojeBR = () => _fmtDiaBR.format(new Date())
+  const diaBR = (iso) => iso ? _fmtDiaBR.format(new Date(iso)) : null   // iso é instante completo → seguro
+  const diaDaRat = (r) => (r.respostas && r.respostas.data) || diaBR(r.criado_em) || hojeBR()
+  const pausaAberta = (r) => { const s = r.respostas || {}; return s.pausa === 'Sim' && !!s.pausa_inicio && !s.pausa_termino }
+  let _resolvendoPausaEsq = false
+
+  async function checarPausaEsquecida() {
+    if (_resolvendoPausaEsq) return
+    let pend = []
+    try {
+      const hoje = hojeBR()
+      const rats = await D().listarRats()
+      // só RAT do DIA AINDA ABERTO (em_andamento) com pausa em aberto e dia < hoje (BR)
+      pend = (rats || []).filter(r => r.status === 'em_andamento' && pausaAberta(r) && diaDaRat(r) < hoje)
+    } catch (e) { return }   // melhor-esforço: nunca trava a abertura do app
+    if (!pend.length) return
+    _resolvendoPausaEsq = true
+    try {
+      for (const r of pend) {                       // uma de cada vez, em sequência
+        const escolha = await mostrarModalPausaEsq(r)
+        await aplicarResolucaoPausa(r.client_uuid, escolha)
+      }
+    } finally { _resolvendoPausaEsq = false }
+    if (window.SyncEngine && navigator.onLine) SyncEngine.syncAll()
+    mostrar('home'); await renderHome()
+  }
+
+  function mostrarModalPausaEsq(rat) {
+    return new Promise((resolve) => {
+      const no = rat.tarefa_numero != null ? '#' + String(rat.tarefa_numero).padStart(5, '0') : 'avulsa'
+      const dia = (diaDaRat(rat) || '').split('-').reverse().join('/')
+      const info = document.getElementById('pe-info')
+      if (info) info.innerHTML = `RAT <b>${esc(no)}</b> · ${esc(rat.cliente_nome || '—')} · dia <b>${esc(dia)}</b>`
+      const m = document.getElementById('modal-pausa-esq')
+      const bV = document.getElementById('pe-volto'), bT = document.getElementById('pe-terminei')
+      const fechar = (escolha) => { bV.onclick = null; bT.onclick = null; m.classList.remove('open'); resolve(escolha) }
+      bV.onclick = () => fechar('volto')
+      bT.onclick = () => fechar('terminei')
+      m.classList.add('open')
+    })
+  }
+
+  // Resolve relendo o estado FRESCO (a RAT pode ter sido fechada por sync/pull no meio) — evita
+  // falso/duplo. Espelha o ramo 'registrado' do salvar(); descarta o cronômetro da pausa.
+  async function aplicarResolucaoPausa(client_uuid, escolha) {
+    const fresh = await D().obterRat(client_uuid)
+    if (!fresh || fresh.status !== 'em_andamento' || !pausaAberta(fresh)) return
+    const rs = { ...(fresh.respostas || {}) }
+    const pend = (rs.pausa_pendencia || '').trim()
+    // descarta a pausa (término esquecido — não inventa horário)
+    delete rs.pausa_inicio; delete rs.pausa_termino; delete rs.pausa_motivo; delete rs.pausa_pendencia
+    rs.pausa = 'Não'
+    if (escolha === 'volto') {                       // (a) não terminei → Tarefa vai pra Em Pausa (trigger 0069)
+      rs.volta_amanha = 'Não'; rs.passagem_motivo = 'volto_depois'
+      rs.passagem_falta = pend || 'Atendimento interrompido — pausa não encerrada no dia anterior'
+      rs.passagem_levar = null                       // não obrigatório neste caso automático
+    } else {                                         // (b) já terminei → encerra SÓ o dia; Tarefa segue Em Execução
+      rs.volta_amanha = 'Sim'; rs.passagem_motivo = null; rs.passagem_falta = null; rs.passagem_levar = null
+    }
+    await D().salvarRat(client_uuid, { status: 'registrado', atendimento_executado: true, respostas: rs })
+    await D().definirStatus(client_uuid, D().STATUS.SALVO_LOCAL, escolha === 'volto' ? 'pausa esquecida: volto depois' : 'pausa esquecida: dia concluído')
   }
 
   // Varredura na abertura: remove rascunhos órfãos (abertos e abandonados sem nenhum
