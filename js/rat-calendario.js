@@ -182,7 +182,7 @@
     const titulo = `Tarefa ${osNo(v.numero)} · ${v.cliente} · ${v.tecnico}` + (v.orientacao ? `\n\nOrientação: ${v.orientacao}` : '')
     return `<button class="rc-chip" data-rat="${esc(v.id)}" title="${esc(titulo)}"
       style="background:${cor}1A;border-left:3px solid ${cor}">
-      <span class="l1"><span class="dot" style="background:${cor}"></span><span class="task" style="color:${cor}">Nº ${esc(osNo(v.numero))}</span></span>
+      <span class="task" style="color:${cor}">Nº ${esc(osNo(v.numero))}</span>
       <span class="cli">${esc(v.cliente)}</span>
       <span class="tec">${esc(v.tecnico)}</span>
       ${v.orientacao ? `<span class="ori">${esc(v.orientacao)}</span>` : ''}
