@@ -493,8 +493,17 @@ const DeslocApp = (() => {
     document.getElementById('vm-back').classList.add('open')
   }
   function fecharViagem() { document.getElementById('vm-back').classList.remove('open'); vmCur = null; carregar() }
+  // origem de cada trecho (a partir do 2º) = destino do anterior, quando vazia (não sobrescreve edição)
+  function vmSincronizarOrigens() {
+    const T = vmCur && vmCur.trechos; if (!T) return
+    const labelDest = (tr) => { const d = (tr && tr.destino) || ''; if (d) return d; const l = vmLocais.find(x => x.id === (tr && tr.destino_local_id)); return l ? l.nome : '' }
+    for (let i = 1; i < T.length; i++) {
+      if (!T[i].origem || !String(T[i].origem).trim()) T[i].origem = labelDest(T[i - 1])
+    }
+  }
   function renderVmTrechos() {
     const box = document.getElementById('vm-trechos'); if (!box || !vmCur) return
+    vmSincronizarOrigens()
     box.innerHTML = vmCur.trechos.map((t, i) => {
       const aboard = new Set(t.tecnicos)
       const pool = tecArr.filter(u => aboard.has(u.id)).length ? tecArr.filter(u => aboard.has(u.id)) : tecArr

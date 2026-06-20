@@ -1232,6 +1232,17 @@
     return t
   }
 
+  // Rótulo do destino de um trecho p/ preencher a origem do próximo (texto/cidade; senão o Local).
+  const destinoLabelTrecho = (tr) => { const d = (tr && tr.destino) || ''; if (d) return d; const l = localDe(tr && tr.destino_local_id); return l ? l.nome : '' }
+  // Cada trecho (a partir do 2º) herda a origem = destino do anterior, SÓ se a origem estiver vazia
+  // (não sobrescreve edição manual). Corrige o par ida→volta do pernoite e dados antigos.
+  function sincronizarOrigens() {
+    const T = dlCur && dlCur.trechos; if (!T) return
+    for (let i = 1; i < T.length; i++) {
+      if (!T[i].origem || !String(T[i].origem).trim()) T[i].origem = destinoLabelTrecho(T[i - 1])
+    }
+  }
+
   function bindDesloc() {
     document.getElementById('desloc-novo').onclick = abrirDeslocNova
     document.getElementById('dl-x').onclick = fecharDesloc
@@ -1424,6 +1435,7 @@
 
   function renderTrechos() {
     const box = document.getElementById('dl-trechos'); if (!box || !dlCur) return
+    sincronizarOrigens()   // origem de cada trecho = destino do anterior (quando vazia)
     const partes = []
     dlCur.trechos.forEach((t, i) => {
       const loc = localDe(t.destino_local_id)
