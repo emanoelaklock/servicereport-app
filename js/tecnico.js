@@ -1240,6 +1240,7 @@
     const T = dlCur && dlCur.trechos; if (!T) return
     for (let i = 1; i < T.length; i++) {
       if (!T[i].origem || !String(T[i].origem).trim()) T[i].origem = destinoLabelTrecho(T[i - 1])
+      if (!T[i].tecnicos || !T[i].tecnicos.length) T[i].tecnicos = [...(T[i - 1].tecnicos || [])]   // herda os Técnicos a bordo
     }
   }
 
