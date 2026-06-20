@@ -99,11 +99,14 @@ const DeslocApp = (() => {
         .subscribe()
     } catch (e) { /* sem realtime, ficam o foco e o intervalo */ }
     await carregar()
+    // deep-link do calendário: ?editar=<id> abre o editor da viagem direto
+    const editId = new URLSearchParams(location.search).get('editar')
+    if (editId && rows.find(x => x.id === editId)) editar(editId)
   }
 
   async function carregar() {
     const { data, error } = await sb().from('deslocamentos')
-      .select('id,sentido,cliente_id,origem,destino,origem_cidade,origem_uf,destino_cidade,destino_uf,motivo,observacoes,saida_em,chegada_em,veiculo_id,saida_lat,saida_lng,chegada_lat,chegada_lng,criado_em,deslocamento_tecnicos(tecnico_id),deslocamento_trechos(id,ordem,origem,destino,destino_local_id,destino_cliente_id,tarefa_id,almoco_inicio,almoco_fim,data,saida_em,chegada_em,saida_lat,saida_lng,saida_precisao,chegada_lat,chegada_lng,chegada_precisao,veiculo_id,nota_transporte,espelho_legado,cliente_locais(nome,cidade,uf),trecho_tecnicos(tecnico_id),trecho_direcao(id,tecnico_id,hora_de,hora_ate)),deslocamento_almocos(tecnico_id,dia,inicio,fim),deslocamento_tarefas(tarefa_id,tarefas(numero,status,cliente_id))')
+      .select('id,sentido,cliente_id,origem,destino,origem_cidade,origem_uf,destino_cidade,destino_uf,motivo,observacoes,saida_em,chegada_em,veiculo_id,saida_lat,saida_lng,chegada_lat,chegada_lng,criado_em,revisado,revisado_em,deslocamento_tecnicos(tecnico_id),deslocamento_trechos(id,ordem,origem,destino,destino_local_id,destino_cliente_id,tarefa_id,almoco_inicio,almoco_fim,data,saida_em,chegada_em,saida_lat,saida_lng,saida_precisao,chegada_lat,chegada_lng,chegada_precisao,veiculo_id,nota_transporte,espelho_legado,cliente_locais(nome,cidade,uf),trecho_tecnicos(tecnico_id),trecho_direcao(id,tecnico_id,hora_de,hora_ate)),deslocamento_almocos(tecnico_id,dia,inicio,fim),deslocamento_tarefas(tarefa_id,tarefas(numero,status,cliente_id))')
       .order('criado_em', { ascending: false }).limit(300)
     if (error) { toast('Erro: ' + error.message, 'err'); return }
     rows = data || []
@@ -243,7 +246,7 @@ const DeslocApp = (() => {
           ? clisVisita.map(id => `<div${id === d.cliente_id ? ' style="font-weight:700"' : ''}>${esc(cliNomes[id] || '—')}</div>`).join('')
           : esc(cliNomes[d.cliente_id] || '—')
         return `<tr class="row-click" data-det="${esc(d.id)}">
-          <td><div class="vtipo">Viagem · ${ts.length} trecho${ts.length > 1 ? 's' : ''}</div>${periodo ? `<div class="vper">${esc(periodo)}</div>` : ''}${(() => { const tv = tempoViagemMin(ts); return tv.temTempo ? `<div class="vper">Tempo: <b>${fmtHm(tv.total)}</b>${tv.aberto ? '…' : ''}${tv.almoco ? ' (− refeição)' : ''}</div>` : '' })()}${(() => { const refs = (d.deslocamento_tarefas || []).map(x => x.tarefas ? `Tarefa Nº ${String(x.tarefas.numero).padStart(5, '0')}` : null).filter(Boolean); return refs.length ? `<div class="vper">Ref.: ${esc(refs.join(' · '))}</div>` : '' })()}<div style="margin-top:5px">${st}</div></td>
+          <td><div class="vtipo">Viagem · ${ts.length} trecho${ts.length > 1 ? 's' : ''}</div>${periodo ? `<div class="vper">${esc(periodo)}</div>` : ''}${(() => { const tv = tempoViagemMin(ts); return tv.temTempo ? `<div class="vper">Tempo: <b>${fmtHm(tv.total)}</b>${tv.aberto ? '…' : ''}${tv.almoco ? ' (− refeição)' : ''}</div>` : '' })()}${(() => { const refs = (d.deslocamento_tarefas || []).map(x => x.tarefas ? `Tarefa Nº ${String(x.tarefas.numero).padStart(5, '0')}` : null).filter(Boolean); return refs.length ? `<div class="vper">Ref.: ${esc(refs.join(' · '))}</div>` : '' })()}<div style="margin-top:5px">${st}${d.revisado ? ' <span class="d-rev">✓ Revisado</span>' : ''}</div></td>
           <td>${cliCell}</td>
           <td>${esc(fmtLugar(prim.origem) || '—')} → ${esc(destinoLbl(ult))}${detalhe}</td>
           <td>${veics.length ? veics.map(esc).join('<br>') : (semVeic.length ? `<span class="dim">${esc(semVeic.join(', '))}</span>` : '—')}</td>
@@ -686,10 +689,17 @@ const DeslocApp = (() => {
     for (let i = 0; i < vmCur.trechos.length; i++) {
       const t = vmCur.trechos[i]
       if (t.veiculo_id && !(t.motoristas || []).length) return toast(`Trecho ${i + 1}: veículo da empresa exige a direção preenchida.`, 'err')
+      // horários coerentes: chegada ≥ saída (o tempo do trecho é faturável). Madrugada já é tratada no editor.
+      if (t.saida_em && t.chegada_em && new Date(t.chegada_em).getTime() < new Date(t.saida_em).getTime()) {
+        return toast(`Trecho ${i + 1}: a chegada não pode ser antes da saída.`, 'err')
+      }
     }
+    // edição mexe em dado de faturamento → confirma antes de gravar
+    if (!confirm('Salvar as alterações desta viagem?\n\nSe a viagem estava revisada, a revisão será desfeita (o dado mudou e precisa ser conferido de novo).')) return
     // cliente "principal" do registro = o do primeiro trecho com cliente (derivado)
     vmCur.cliente_id = (vmCur.trechos.find(t => t.destino_cliente_id) || {}).destino_cliente_id || null
-    const up = await sb().from('deslocamentos').update({ cliente_id: vmCur.cliente_id, observacoes: vmCur.observacoes || null }).eq('id', vmCur.id)
+    // editar DESFAZ a revisão: o dado mudou, precisa ser conferido novamente
+    const up = await sb().from('deslocamentos').update({ cliente_id: vmCur.cliente_id, observacoes: vmCur.observacoes || null, revisado: false, revisado_em: null, revisado_por: null }).eq('id', vmCur.id)
     if (up.error) return toast('Erro ao salvar: ' + up.error.message, 'err')
     // substituição completa dos trechos (cascade limpa a-bordo/direção) — preserva GPS capturado
     const del = await sb().from('deslocamento_trechos').delete().eq('deslocamento_id', vmCur.id)
