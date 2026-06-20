@@ -382,6 +382,39 @@
   const setCur = (k, v) => { if (v) localStorage.setItem('sr_pull_' + k, v) }
   let pulling = false
 
+  // Hidrata os TRECHOS dos deslocamentos vindos no pull: o pai (servidor) não traz `trechos`
+  // (moram em deslocamento_trechos), então sem isto o app desenharia a viagem como trajeto
+  // legado vazio. Busca em 1 query batched (só os ids do delta) e monta o formato local — o
+  // MESMO que o app usa ao abrir uma viagem (tecnicos/motoristas/GPS/almoço). Espelho_legado fora.
+  async function hidratarTrechosPull(sb, rows) {
+    const ids = rows.map(r => r.id).filter(Boolean)
+    if (!ids.length) return
+    const hh = (s) => s ? String(s).slice(0, 5) : null
+    const { data: ts, error } = await sb.from('deslocamento_trechos')
+      .select('id,deslocamento_id,ordem,origem,destino,destino_local_id,destino_cliente_id,tarefa_id,data,saida_em,chegada_em,saida_lat,saida_lng,saida_precisao,chegada_lat,chegada_lng,chegada_precisao,veiculo_id,nota_transporte,almoco_inicio,almoco_fim,espelho_legado,trecho_tecnicos(tecnico_id),trecho_direcao(tecnico_id,hora_de,hora_ate)')
+      .in('deslocamento_id', ids)
+    if (error) { console.warn('[pull] trechos', error.message); return }
+    const byD = {}
+    for (const t of (ts || [])) { if (t.espelho_legado) continue; (byD[t.deslocamento_id] = byD[t.deslocamento_id] || []).push(t) }
+    for (const r of rows) {
+      const lst = (byD[r.id] || []).sort((a, b) => a.ordem - b.ordem)
+      if (!lst.length) continue   // sem trechos = trajeto legado de verdade (deixa como está)
+      r.trechos = lst.map(t => ({
+        id: t.id, origem: t.origem || '', destino: t.destino || '',
+        destino_local_id: t.destino_local_id || null, destino_cliente_id: t.destino_cliente_id || null,
+        tarefa_id: t.tarefa_id || null, data: t.data || null,
+        saida_em: t.saida_em || null, chegada_em: t.chegada_em || null,
+        saida_lat: t.saida_lat ?? null, saida_lng: t.saida_lng ?? null, saida_precisao: t.saida_precisao ?? null,
+        chegada_lat: t.chegada_lat ?? null, chegada_lng: t.chegada_lng ?? null, chegada_precisao: t.chegada_precisao ?? null,
+        veiculo_id: t.veiculo_id || null, sem_veiculo: !t.veiculo_id && !!t.nota_transporte, nota_transporte: t.nota_transporte || null,
+        almoco_inicio: hh(t.almoco_inicio), almoco_fim: hh(t.almoco_fim),
+        tecnicos: (t.trecho_tecnicos || []).map(x => x.tecnico_id),
+        motoristas: (t.trecho_direcao || []).map(m => ({ tecnico_id: m.tecnico_id, hora_de: hh(m.hora_de), hora_ate: hh(m.hora_ate) })),
+      }))
+      r.tarefas = [...new Set(lst.map(t => t.tarefa_id).filter(Boolean))]
+    }
+  }
+
   async function pullChanges() {
     if (pulling || !navigator.onLine) return { applied: 0, removed: 0 }
     const sb = getSupabase(); if (!sb) return { applied: 0, removed: 0 }
@@ -393,6 +426,7 @@
         const { data, error } = await sb.from(tabela).select('*').gt('atualizado_em', c)
           .order('atualizado_em', { ascending: true }).limit(500)
         if (error) { console.warn('[pull]', tabela, error.message); continue }
+        if (tabela === 'deslocamentos') await hidratarTrechosPull(sb, data || [])   // hidrata os trechos da viagem
         let max = c
         for (const row of (data || [])) {
           if (await D().aplicarDoServidor(m.store, row)) { applied++; changed = true }
@@ -419,6 +453,22 @@
     return { applied, removed }
   }
 
+  // Auto-reparo: deslocamentos que ficaram como "esqueleto" (puxados antes da hidratação:
+  // confirmados, sentido 'outro', sem origem/destino e sem trechos) são re-hidratados a partir
+  // do servidor. Conserta as viagens antigas sem depender de novo atualizado_em.
+  async function repararDeslocViagens() {
+    if (!navigator.onLine) return 0
+    const sb = getSupabase(); if (!sb) return 0
+    const all = await D().listarDeslocamentos()
+    const esqueletos = all.filter(d => !Array.isArray(d.trechos) && d.sentido === 'outro'
+      && !d.origem && !d.destino && d.sync_status === D().STATUS.CONFIRMADO && !d.tombstoned)
+    if (!esqueletos.length) return 0
+    await hidratarTrechosPull(sb, esqueletos)
+    let n = 0
+    for (const d of esqueletos) { if (Array.isArray(d.trechos) && await D().aplicarDoServidor('deslocamentos', d)) n++ }
+    return n
+  }
+
   // ───────────────────── Realtime (sinal → reconcilia) ─────────────────────
   let rtChannel = null, pullTimer = null
   const agendarPull = () => { clearTimeout(pullTimer); pullTimer = setTimeout(() => pullChanges(), 400) }
@@ -442,5 +492,5 @@
     if (navigator.onLine) { syncAll(); startRealtime() }
   }
 
-  window.SyncEngine = { syncAll, pullChanges, enviarRat, enviarPreorc, enviarSegmento, enviarDeslocamento, enviarTarefaLocal, start }
+  window.SyncEngine = { syncAll, pullChanges, repararDeslocViagens, enviarRat, enviarPreorc, enviarSegmento, enviarDeslocamento, enviarTarefaLocal, start }
 })()

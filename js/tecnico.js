@@ -1782,6 +1782,8 @@
   async function renderDesloc() {
     const box = document.getElementById('desloc-lista')
     if (window.SyncEngine) SyncEngine.pullChanges()   // reconcilia c/ servidor (edições/exclusões); re-renderiza via onSyncChanged
+    // auto-reparo de viagens que ficaram como "esqueleto" sem trechos (puxadas antes da hidratação)
+    try { if (window.SyncEngine && await SyncEngine.repararDeslocViagens()) { /* re-render abaixo já pega o reparo */ } } catch (e) { /* online só */ }
     const lst = await D().listarDeslocamentos()   // offline-first (este aparelho)
     if (!lst.length) { box.innerHTML = '<div class="prod-empty" style="padding:24px 0;text-align:center;color:var(--t-muted)">Nenhuma viagem ainda. Toque em <b>+ Nova viagem</b>.</div>'; return }
     const veicLbl = (id) => { const v = ref.veiculos.find(x => x.id === id); return v ? `${v.modelo || ''} (${v.placa || ''})` : '—' }
