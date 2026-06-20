@@ -500,6 +500,7 @@ const DeslocApp = (() => {
     vmTarEmbed = {}
     for (const x of (d.deslocamento_tarefas || [])) if (x.tarefas) vmTarEmbed[x.tarefa_id] = { id: x.tarefa_id, ...x.tarefas }
     document.getElementById('vm-id').value = d.id
+    const vmRev = document.getElementById('vm-revisado'); if (vmRev) vmRev.checked = !!d.revisado   // estado atual da revisão; o admin marca/desmarca aqui mesmo
     await Promise.all([vmCarregarLocais(), vmCarregarTarefas()])
     renderVmTrechos()
     document.getElementById('vm-back').classList.add('open')
@@ -706,11 +707,16 @@ const DeslocApp = (() => {
       }
     }
     // edição mexe em dado de faturamento → confirma antes de gravar
-    if (!confirm('Salvar as alterações desta viagem?\n\nSe a viagem estava revisada, a revisão será desfeita (o dado mudou e precisa ser conferido de novo).')) return
+    if (!confirm('Salvar as alterações desta viagem?')) return
     // cliente "principal" do registro = o do primeiro trecho com cliente (derivado)
     vmCur.cliente_id = (vmCur.trechos.find(t => t.destino_cliente_id) || {}).destino_cliente_id || null
-    // editar DESFAZ a revisão: o dado mudou, precisa ser conferido novamente
-    const up = await sb().from('deslocamentos').update({ cliente_id: vmCur.cliente_id, observacoes: vmCur.observacoes || null, revisado: false, revisado_em: null, revisado_por: null }).eq('id', vmCur.id)
+    // a revisão é controlada pelo checkbox do editor (o admin confere e marca aqui mesmo)
+    const revMarcado = !!(document.getElementById('vm-revisado') || {}).checked
+    const { data: { user } } = await sb().auth.getUser()
+    const revPatch = revMarcado
+      ? { revisado: true, revisado_em: new Date().toISOString(), revisado_por: (user && user.id) || null }
+      : { revisado: false, revisado_em: null, revisado_por: null }
+    const up = await sb().from('deslocamentos').update({ cliente_id: vmCur.cliente_id, observacoes: vmCur.observacoes || null, ...revPatch }).eq('id', vmCur.id)
     if (up.error) return toast('Erro ao salvar: ' + up.error.message, 'err')
     // substituição completa dos trechos (cascade limpa a-bordo/direção) — preserva GPS capturado
     const del = await sb().from('deslocamento_trechos').delete().eq('deslocamento_id', vmCur.id)
