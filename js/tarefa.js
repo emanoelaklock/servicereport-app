@@ -26,7 +26,7 @@ const TarefaApp = (() => {
 
   const RAT_SIT = { em_andamento: 'Em andamento', registrado: 'Registrada', concluida: 'Concluída', concluida_pendencia: 'Concluída c/ pendência', improdutiva: 'Visita improdutiva' }
   const ratSit = (s) => RAT_SIT[s] || s || '—'
-  const PANES = ['dados', 'equip', 'anexos', 'rats', 'material', 'fat']
+  const PANES = ['dados', 'equip', 'anexos', 'rats', 'desloc', 'material', 'fat']
   // Cresce o textarea para caber todo o conteúdo (sem barra de rolagem).
   const autoGrow = (el) => { if (!el) return; el.style.height = 'auto'; el.style.height = (el.scrollHeight + 2) + 'px' }
 
@@ -972,6 +972,65 @@ const TarefaApp = (() => {
     document.getElementById('cc-add-prod').value = ''
   }
 
+  // ───────────────────── Deslocamentos vinculados (só leitura aqui; editar abre a página de Deslocamentos) ─────────────────────
+  let deslocMaps = null
+  async function deslocLabels() {
+    if (deslocMaps) return deslocMaps
+    const [us, vc, cl, og] = await Promise.all([
+      sb().rpc('sr_usuarios'),
+      sb().from('veiculos').select('id,modelo,placa'),
+      sb().from('clientes').select('id,nome'),
+      sb().from('org_config').select('base_cidade').eq('id', 1).maybeSingle(),
+    ])
+    const tec = {}, veic = {}, cli = {}
+    for (const u of (us.data || [])) tec[u.id] = u.nome
+    for (const v of (vc.data || [])) veic[v.id] = `${v.modelo || ''} (${v.placa || ''})`
+    for (const c of (cl.data || [])) cli[c.id] = c.nome
+    deslocMaps = { tec, veic, cli, base: (og.data && og.data.base_cidade) || '' }
+    return deslocMaps
+  }
+  async function carregarDeslocamentos() {
+    const box = document.getElementById('cc-desloc-list'); if (!box || !cur || !cur.id) return
+    box.innerHTML = '<span class="cc-empty-sm">Carregando…</span>'
+    const m = await deslocLabels()
+    const { data: links, error: le } = await sb().from('deslocamento_tarefas').select('deslocamento_id').eq('tarefa_id', cur.id)
+    if (le) { box.innerHTML = '<span class="cc-empty-sm" style="color:var(--re)">Erro ao carregar — recarregue a página.</span>'; return }
+    const ids = [...new Set((links || []).map(x => x.deslocamento_id).filter(Boolean))]
+    if (!ids.length) { box.innerHTML = '<span class="cc-empty-sm">Nenhum deslocamento (pernoite) vinculado a esta tarefa.</span>'; return }
+    const { data, error } = await sb().from('deslocamentos')
+      .select('id,revisado,deslocamento_trechos(id,ordem,origem,destino,destino_cliente_id,data,saida_em,chegada_em,veiculo_id,nota_transporte,espelho_legado,trecho_tecnicos(tecnico_id))')
+      .in('id', ids)
+    if (error) { box.innerHTML = '<span class="cc-empty-sm" style="color:var(--re)">Erro ao carregar — recarregue a página.</span>'; return }
+    renderDeslocamentos(data || [], m, box)
+  }
+  function renderDeslocamentos(rows, m, box) {
+    const tcase = (s) => String(s || '').toLowerCase().replace(/(^|[\s\-'])\p{L}/gu, c => c.toUpperCase())
+    const fmtLugar = (v) => { const x = String(v || '').match(/^(.+)\/([A-Za-z]{2})$/); return x ? `${tcase(x[1].trim())}/${x[2].toUpperCase()}` : (v || '') }
+    const baseC = (m.base || '').trim().toLowerCase()
+    const ehBase = (t) => !!baseC && String(t || '').toLowerCase().includes(baseC)   // base (org_config) = Traders
+    const oLbl = (v) => ehBase(v) ? 'Traders' : (fmtLugar(v) || '—')
+    const dLbl = (t) => { if (ehBase(t.destino)) return 'Traders'; const cli = t.destino_cliente_id ? (m.cli[t.destino_cliente_id] || '') : ''; const txt = fmtLugar(t.destino) || ''; return cli ? `${cli}${txt ? ' · ' + txt : ''}` : (txt || '—') }
+    const diaT = (t) => { const d = t && t.data; return (typeof d === 'string' && /^\d{4}-\d{2}-\d{2}/.test(d)) ? d.slice(0, 10) : null }
+    const dd = (iso) => iso ? iso.slice(8, 10) + '/' + iso.slice(5, 7) : ''
+    box.innerHTML = rows.map(d => {
+      const ts = (d.deslocamento_trechos || []).filter(t => !t.espelho_legado).slice().sort((a, b) => (a.ordem || 0) - (b.ordem || 0))
+      const prim = ts[0] || {}, ult = ts[ts.length - 1] || {}
+      const datas = [...new Set(ts.map(diaT).filter(Boolean))].sort()
+      const periodo = datas.length ? `${dd(datas[0])}${datas[datas.length - 1] !== datas[0] ? ' → ' + dd(datas[datas.length - 1]) : ''}` : ''
+      const veics = []   // veículo herda do trecho anterior quando vazio (mesma regra do calendário)
+      let lastV = ''
+      for (const t of ts) { if (t.veiculo_id) lastV = m.veic[t.veiculo_id]; if (lastV && !veics.includes(lastV)) veics.push(lastV) }
+      const tecs = [...new Set(ts.flatMap(t => (t.trecho_tecnicos || []).map(x => x.tecnico_id)))].map(id => m.tec[id]).filter(Boolean)
+      const detalhe = ts.map(t => `<div class="dd-leg">${t.ordem}. ${esc(oLbl(t.origem))} → ${esc(dLbl(t))}${diaT(t) ? ' · ' + dd(diaT(t)) : ''}</div>`).join('')
+      return `<button class="cc-desloc-item" data-id="${esc(d.id)}">
+        <div class="dd-top"><span class="dd-rota">${esc(oLbl(prim.origem))} → ${esc(dLbl(ult))}</span><span class="dd-rev ${d.revisado ? 'on' : ''}">${d.revisado ? '✓ Revisado' : 'A revisar'}</span></div>
+        <div class="dd-meta">${periodo ? esc(periodo) + ' · ' : ''}${veics.length ? esc(veics.join(', ')) : '<span class="dim">sem veículo</span>'}${tecs.length ? ' · ' + esc(tecs.join(', ')) : ''}</div>
+        ${detalhe}
+      </button>`
+    }).join('')
+    box.querySelectorAll('.cc-desloc-item').forEach(b => b.onclick = () => { location.href = `deslocamentos.html?editar=${encodeURIComponent(b.dataset.id)}` })
+  }
+
   // ───────────────────── RATs da tarefa ─────────────────────
   const abrirModal = (id) => document.getElementById(id).classList.add('open')
   const fecharModal = (id) => document.getElementById(id).classList.remove('open')
@@ -1502,6 +1561,7 @@ const TarefaApp = (() => {
     document.querySelectorAll('#cc-tabs .tab').forEach(b => b.classList.toggle('on', b.dataset.pane === key))
     document.querySelectorAll('#view-detalhe .cc-pane').forEach(p => p.classList.toggle('on', p.dataset.pane === key))
     if (key === 'dados') { autoGrow(document.getElementById('cc-d-orientacao')); autoGrow(document.getElementById('cc-d-obs')) }
+    if (key === 'desloc') carregarDeslocamentos()
     if (cur && cur.id) history.replaceState(null, '', `tarefa.html?t=${encodeURIComponent(cur.id)}&aba=${key}`)
   }
 
