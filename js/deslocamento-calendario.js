@@ -1,10 +1,12 @@
 /* ═══════════════════════════════════════════════
    Service Report — deslocamento-calendario.js  (portal admin)
-   Calendário MENSAL de viagens (deslocamento) — MESMO esqueleto do rat-calendario.
+   Calendário MENSAL de viagens (deslocamento) — esqueleto do rat-calendario.
    · Carrega só as viagens do MÊS visível (filtro pela DATA dos trechos); troca de mês refaz.
-   · Agrupa por dia em America/Sao_Paulo (Intl, sem off-by-one). 1 chip por viagem, no dia de INÍCIO.
-   · Cor por estado: azul (em curso) · verde (finalizada, falta revisar) · cinza (revisado).
-   · Clique → detalhe (só leitura) + Editar (deep-link p/ o editor da lista) + Marcar revisado.
+   · Fuso America/Sao_Paulo (Intl, sem off-by-one).
+   · UM chip por TRECHO, no dia do trecho — rota (origem→destino) · técnico · veículo.
+     A base (org_config) aparece como "Traders". Cor por estado da VIAGEM: azul (em curso) ·
+     verde (finalizada, falta revisar) · cinza (revisado).
+   · Clicar num trecho → detalhe da VIAGEM (só leitura) + Editar (deep-link) + Marcar revisado.
    Exposto como window.DeslocCalApp.
 ═══════════════════════════════════════════════ */
 (function () {
@@ -19,7 +21,6 @@
   const hojeBR = () => fmtBR.format(new Date())
   const firstDow = (y, m) => new Date(Date.UTC(y, m, 1)).getUTCDay()
   const daysInMonth = (y, m) => new Date(Date.UTC(y, m + 1, 0)).getUTCDate()
-  // limites do mês como datas YYYY-MM-DD (filtro pela coluna `data` do trecho)
   function boundsMes(y, m) {
     const ny = m === 11 ? y + 1 : y, nm = m === 11 ? 0 : m + 1
     return { startD: `${y}-${pad(m + 1)}-01`, endD: `${ny}-${pad(nm + 1)}-01` }
@@ -29,29 +30,32 @@
   const diaTrecho = (t) => { const d = t && t.data; if (typeof d === 'string' && /^\d{4}-\d{2}-\d{2}/.test(d)) return d.slice(0, 10); return diaBR(t && t.saida_em) }
 
   let ym = null
-  let tecNomes = {}, veicLblMap = {}, cliNomes = {}, viagens = [], vistas = [], clientesMes = []
+  let tecNomes = {}, veicLblMap = {}, cliNomes = {}, baseCidade = '', viagens = [], chips = [], clientesMes = []
   const filtros = { busca: '', cliente: '', revisao: '' }
   const COR = { em_curso: '#1E8AE0', falta_revisar: '#179A47', revisado: '#9CA3AF' }
   const veicLbl = (id) => veicLblMap[id] || ''
-
-  // destino "humano" do trecho: cliente · local/cidade · texto
+  // destino "Joinville" (base) = Traders
+  const ehBase = (txt) => { const c = baseCidade.trim().toLowerCase(); return !!c && String(txt || '').toLowerCase().includes(c) }
+  const origemLbl = (t) => ehBase(t.origem) ? 'Traders' : (fmtLugar(t.origem) || '—')
   function destinoLbl(t) {
+    if (ehBase(t.destino)) return 'Traders'
     const cli = t.destino_cliente_id ? (cliNomes[t.destino_cliente_id] || '') : ''
     const txt = fmtLugar(t.destino) || ''
-    if (cli) return `${cli}${txt ? ' · ' + txt : ''}`
-    return txt || '—'
+    return cli ? `${cli}${txt ? ' · ' + txt : ''}` : (txt || '—')
   }
   const trechosDe = (d) => (d.deslocamento_trechos || []).filter(t => !t.espelho_legado).slice().sort((a, b) => (a.ordem || 0) - (b.ordem || 0))
 
   async function init() {
-    const [us, vc, cl] = await Promise.all([
+    const [us, vc, cl, og] = await Promise.all([
       sb().rpc('sr_usuarios'),
       sb().from('veiculos').select('id,modelo,placa'),
       sb().from('clientes').select('id,nome'),
+      sb().from('org_config').select('base_cidade').eq('id', 1).maybeSingle(),
     ])
     tecNomes = {}; for (const u of (us.data || [])) tecNomes[u.id] = u.nome
     veicLblMap = {}; for (const v of (vc.data || [])) veicLblMap[v.id] = `${v.modelo || ''} (${v.placa || ''})`
     cliNomes = {}; for (const c of (cl.data || [])) cliNomes[c.id] = c.nome
+    baseCidade = (og.data && og.data.base_cidade) || ''
     const y = Number(new Intl.DateTimeFormat('en-CA', { timeZone: TZ, year: 'numeric' }).format(new Date()))
     const m = Number(new Intl.DateTimeFormat('en-CA', { timeZone: TZ, month: '2-digit' }).format(new Date())) - 1
     ym = { y, m }
@@ -79,7 +83,6 @@
     document.getElementById('rc-mback').onclick = (e) => { if (e.target.id === 'rc-mback' || e.target.id === 'rc-modal-x') document.getElementById('rc-mback').classList.remove('open') }
     document.getElementById('det-x').onclick = fecharDet
     document.getElementById('det-fechar').onclick = fecharDet
-    // combobox de Cliente
     const cin = document.getElementById('dcf-cliente'), clist = document.getElementById('dcf-cliente-list')
     const abrirCombo = () => {
       const termo = cin.value.trim().toLowerCase()
@@ -94,72 +97,82 @@
     cin.addEventListener('keydown', (e) => { if (e.key === 'Escape') clist.hidden = true })
   }
 
+  // metadados da VIAGEM (estado, clientes, busca) — compartilhados por todos os trechos dela
+  function metaViagem(d) {
+    const ts = trechosDe(d)
+    const fechada = ts.length && ts.every(t => t.chegada_em)
+    const estado = d.revisado ? 'revisado' : (fechada ? 'falta_revisar' : 'em_curso')
+    const cliIds = [...new Set([...ts.map(t => t.destino_cliente_id).filter(Boolean), ...(d.cliente_id ? [d.cliente_id] : [])])]
+    const clientes = cliIds.map(id => cliNomes[id]).filter(Boolean)
+    const tecnicosViagem = [...new Set(ts.flatMap(t => (t.trecho_tecnicos || []).map(x => x.tecnico_id)))].map(id => tecNomes[id]).filter(Boolean)
+    const tarefas = (d.deslocamento_tarefas || []).map(x => x.tarefas).filter(Boolean)
+    const hay = [clientes.join(' '), tecnicosViagem.join(' '),
+      [...new Set(ts.map(t => t.veiculo_id).filter(Boolean))].map(veicLbl).join(' '),
+      tarefas.map(t => 'tarefa ' + String(t.numero || '').padStart(5, '0')).join(' ')].join(' ').toLowerCase()
+    return { estado, clientes, hay }
+  }
+
   async function carregarMes() {
     const { startD, endD } = boundsMes(ym.y, ym.m)
     document.getElementById('rc-title').textContent = `${MONTHS[ym.m]} de ${ym.y}`
     document.getElementById('rc-grid').innerHTML = '<div class="rc-empty" style="grid-column:1/-1">Carregando…</div>'
-    // ids das viagens com algum trecho no mês
     const { data: tr, error: te } = await sb().from('deslocamento_trechos').select('deslocamento_id').gte('data', startD).lt('data', endD)
     if (te) { document.getElementById('rc-grid').innerHTML = `<div class="rc-empty" style="grid-column:1/-1;color:var(--re)">Erro ao carregar: ${esc(te.message)}</div>`; return }
     const ids = [...new Set((tr || []).map(x => x.deslocamento_id).filter(Boolean))]
-    if (!ids.length) { viagens = []; vistas = []; render(); return }
+    if (!ids.length) { viagens = []; chips = []; render(); return }
     const { data, error } = await sb().from('deslocamentos')
       .select('id,cliente_id,revisado,revisado_em,deslocamento_trechos(id,ordem,origem,destino,destino_local_id,destino_cliente_id,tarefa_id,data,saida_em,chegada_em,veiculo_id,nota_transporte,espelho_legado,trecho_tecnicos(tecnico_id)),deslocamento_tarefas(tarefa_id,tarefas(numero))')
       .in('id', ids)
     if (error) { document.getElementById('rc-grid').innerHTML = `<div class="rc-empty" style="grid-column:1/-1;color:var(--re)">Erro ao carregar: ${esc(error.message)}</div>`; return }
     viagens = data || []
-    vistas = viagens.map(view).filter(v => v.dia && v.dia >= startD && v.dia < endD)   // 1 chip no dia de INÍCIO, só se cair no mês
+    // UM chip por TRECHO, no dia do trecho (dentro do mês)
+    chips = []
+    for (const d of viagens) {
+      const meta = metaViagem(d)
+      for (const t of trechosDe(d)) {
+        const dia = diaTrecho(t)
+        if (!dia || dia < startD || dia >= endD) continue
+        const tecsT = (t.trecho_tecnicos || []).map(x => tecNomes[x.tecnico_id]).filter(Boolean)
+        const veicT = t.veiculo_id ? veicLbl(t.veiculo_id) : (t.nota_transporte || '')
+        const rota = `${origemLbl(t)} → ${destinoLbl(t)}`
+        chips.push({
+          viagemId: d.id, dia, rota, tecnico: tecsT.join(', ') || '—',
+          veiculo: veicT || '—', estado: meta.estado, revisado: !!d.revisado, clientes: meta.clientes,
+          hay: (rota + ' ' + meta.hay).toLowerCase(),
+        })
+      }
+    }
     render()
   }
 
-  function view(d) {
-    const ts = trechosDe(d)
-    const prim = ts[0] || {}, ult = ts[ts.length - 1] || {}
-    const dia = ts.map(diaTrecho).filter(Boolean).sort()[0] || null   // dia de início
-    const tecIds = [...new Set(ts.flatMap(t => (t.trecho_tecnicos || []).map(x => x.tecnico_id)))]
-    const tecnicos = tecIds.map(id => tecNomes[id]).filter(Boolean)
-    const veics = [...new Set(ts.map(t => t.veiculo_id).filter(Boolean))].map(veicLbl).filter(Boolean)
-    const rota = `${fmtLugar(prim.origem) || '—'} → ${destinoLbl(ult)}`
-    const emViagem = ts.some(t => t.saida_em) && !ts.every(t => t.chegada_em)
-    const fechada = ts.length && ts.every(t => t.chegada_em)
-    const estado = d.revisado ? 'revisado' : (fechada ? 'falta_revisar' : 'em_curso')
-    const cliIds = [...new Set([...ts.map(t => t.destino_cliente_id).filter(Boolean), ...(d.cliente_id ? [d.cliente_id] : [])])]
-    const clientes = cliIds.map(id => cliNomes[id]).filter(Boolean)
-    const tarefas = (d.deslocamento_tarefas || []).map(x => x.tarefas).filter(Boolean)
-    const hay = [rota, tecnicos.join(' '), veics.join(' '), clientes.join(' '),
-      tarefas.map(t => 'tarefa ' + String(t.numero || '').padStart(5, '0')).join(' ')].join(' ').toLowerCase()
-    return { id: d.id, dia, rota, tecnico: tecnicos.join(', ') || '—', veiculo: veics.join(', ') || '—',
-      estado, revisado: !!d.revisado, cliente: clientes.join(' · ') || '—', clientes, tarefas, ts, hay }
-  }
-
-  function passaFiltro(v) {
+  function passaFiltro(c) {
     const f = filtros
-    if (f.busca && !v.hay.includes(f.busca.toLowerCase())) return false
-    if (f.cliente && !v.clientes.some(c => c.toLowerCase().includes(f.cliente.toLowerCase()))) return false
-    if (f.revisao === 'revisado' && !v.revisado) return false
-    if (f.revisao === 'a_revisar' && v.revisado) return false
+    if (f.busca && !c.hay.includes(f.busca.toLowerCase())) return false
+    if (f.cliente && !c.clientes.some(x => x.toLowerCase().includes(f.cliente.toLowerCase()))) return false
+    if (f.revisao === 'revisado' && !c.revisado) return false
+    if (f.revisao === 'a_revisar' && c.revisado) return false
     return true
   }
 
-  function popularClientes(views) { clientesMes = [...new Set(views.flatMap(v => v.clientes))].filter(Boolean).sort((a, b) => a.localeCompare(b)) }
-
-  function chipHTML(v) {
-    const cor = COR[v.estado] || '#48506A'
-    const titulo = `${v.rota}\n${v.tecnico}${v.veiculo !== '—' ? ' · ' + v.veiculo : ''}`
-    return `<button class="rc-chip" data-id="${esc(v.id)}" title="${esc(titulo)}" style="background:${cor}1A;border-left:3px solid ${cor}">
-      <span class="task" style="color:${corTextoLegivel(cor)}">${esc(v.rota)}</span>
-      <span class="cli">${esc(v.tecnico)}</span>
-      <span class="tec">${esc(v.veiculo)}</span>
+  function chipHTML(c) {
+    const cor = COR[c.estado] || '#48506A'
+    const titulo = `${c.rota}\n${c.tecnico}${c.veiculo !== '—' ? ' · ' + c.veiculo : ''}`
+    return `<button class="rc-chip" data-id="${esc(c.viagemId)}" title="${esc(titulo)}" style="background:${cor}1A;border-left:3px solid ${cor}">
+      <span class="task" style="color:${corTextoLegivel(cor)}">${esc(c.rota)}</span>
+      <span class="cli">${esc(c.tecnico)}</span>
+      <span class="tec">${esc(c.veiculo)}</span>
     </button>`
   }
 
   function render() {
-    popularClientes(vistas)
-    const filtered = vistas.filter(passaFiltro)
-    const aRevisar = filtered.filter(v => v.estado === 'falta_revisar').length
-    document.getElementById('rc-count').textContent = `${filtered.length} viagem${filtered.length === 1 ? '' : 's'} em ${MONTHS[ym.m]}${aRevisar ? ` · ${aRevisar} a revisar` : ''}`
+    clientesMes = [...new Set(chips.flatMap(c => c.clientes))].filter(Boolean).sort((a, b) => a.localeCompare(b))
+    const filtered = chips.filter(passaFiltro)
+    const viagensFiltradas = new Set(filtered.map(c => c.viagemId))
+    const aRevisar = new Set(filtered.filter(c => c.estado === 'falta_revisar').map(c => c.viagemId)).size
+    const nv = viagensFiltradas.size
+    document.getElementById('rc-count').textContent = `${nv} viagem${nv === 1 ? '' : 's'} em ${MONTHS[ym.m]}${aRevisar ? ` · ${aRevisar} a revisar` : ''}`
     const byDay = {}
-    filtered.forEach(v => { if (v.dia) (byDay[v.dia] = byDay[v.dia] || []).push(v) })
+    filtered.forEach(c => { if (c.dia) (byDay[c.dia] = byDay[c.dia] || []).push(c) })
     const fdow = firstDow(ym.y, ym.m), dim = daysInMonth(ym.y, ym.m), hoje = hojeBR()
     const cells = []
     for (let i = 0; i < fdow; i++) cells.push('<div class="rc-cell rc-out"></div>')
@@ -182,32 +195,34 @@
 
   function abrirModalDia(dia, list) {
     const [y, m, d] = dia.split('-')
-    document.getElementById('rc-modal-t').textContent = `${Number(d)} de ${MONTHS[Number(m) - 1]} · ${list.length} viagem${list.length === 1 ? '' : 's'}`
+    document.getElementById('rc-modal-t').textContent = `${Number(d)} de ${MONTHS[Number(m) - 1]} · ${list.length} trecho${list.length === 1 ? '' : 's'}`
     const body = document.getElementById('rc-modal-body')
     body.innerHTML = list.map(chipHTML).join('')
     body.querySelectorAll('.rc-chip').forEach(b => b.onclick = () => { document.getElementById('rc-mback').classList.remove('open'); abrirDet(b.dataset.id) })
     document.getElementById('rc-mback').classList.add('open')
   }
 
-  // ───────── Detalhe (SÓ LEITURA) ─────────
-  let detId = null
-  function fecharDet() { document.getElementById('det-back').classList.remove('open'); detId = null }
-  function abrirDet(id) {
-    const v = vistas.find(x => x.id === id) || viagens.map(view).find(x => x.id === id)
-    if (!v) return
-    detId = id
+  // ───────── Detalhe da VIAGEM (SÓ LEITURA) ─────────
+  function fecharDet() { document.getElementById('det-back').classList.remove('open') }
+  function abrirDet(viagemId) {
+    const d = viagens.find(x => x.id === viagemId); if (!d) return
+    const ts = trechosDe(d)
+    const meta = metaViagem(d)
     const kv = (k, vv) => `<div class="det-kv"><span class="k">${esc(k)}</span><span class="v">${vv}</span></div>`
-    const refs = v.tarefas.map(t => 'Tarefa Nº ' + String(t.numero || '').padStart(5, '0')).join(' · ')
-    let sec = `<div class="det-sec"><h4>Viagem · ${v.ts.length} trecho${v.ts.length > 1 ? 's' : ''}</h4>
-      ${kv('Revisão', `<span class="rev-pill${v.revisado ? ' on' : ''}">${v.revisado ? '✓ Revisado' : 'A revisar'}</span>`)}
-      ${kv('Cliente/obra', esc(v.cliente))}
-      ${v.veiculo !== '—' ? kv('Veículo(s)', esc(v.veiculo)) : ''}
+    const tecnicos = [...new Set(ts.flatMap(t => (t.trecho_tecnicos || []).map(x => x.tecnico_id)))].map(id => tecNomes[id]).filter(Boolean).join(', ') || '—'
+    const veics = [...new Set(ts.map(t => t.veiculo_id).filter(Boolean))].map(veicLbl).filter(Boolean).join(' · ') || '—'
+    const refs = (d.deslocamento_tarefas || []).map(x => x.tarefas ? 'Tarefa Nº ' + String(x.tarefas.numero || '').padStart(5, '0') : null).filter(Boolean).join(' · ')
+    let sec = `<div class="det-sec"><h4>Viagem · ${ts.length} trecho${ts.length > 1 ? 's' : ''}</h4>
+      ${kv('Revisão', `<span class="rev-pill${d.revisado ? ' on' : ''}">${d.revisado ? '✓ Revisado' : 'A revisar'}</span>`)}
+      ${kv('Cliente/obra', esc(meta.clientes.join(' · ') || '—'))}
+      ${veics !== '—' ? kv('Veículo(s)', esc(veics)) : ''}
       ${refs ? kv('Ref. Tarefa', esc(refs)) : ''}</div>`
-    sec += `<div class="det-sec"><h4>Técnicos a bordo</h4><div class="v">${esc(v.tecnico)}</div></div>`
-    sec += `<div class="det-sec"><h4>Trechos</h4>` + v.ts.map(t => {
+    sec += `<div class="det-sec"><h4>Técnicos a bordo</h4><div class="v">${esc(tecnicos)}</div></div>`
+    sec += `<div class="det-sec"><h4>Trechos</h4>` + ts.map(t => {
       const tecs = (t.trecho_tecnicos || []).map(x => esc(tecNomes[x.tecnico_id] || '—')).join(' · ')
       const veicT = t.veiculo_id ? esc(veicLbl(t.veiculo_id)) : (t.nota_transporte ? `<span class="dim">sem veículo (${esc(t.nota_transporte)})</span>` : '—')
-      return `<div class="det-leg"><div class="lh">${t.ordem}. ${esc(fmtLugar(t.origem) || '—')} → ${esc(destinoLbl(t))}</div>
+      const volta = ehBase(t.destino) ? ' · <span class="dim">Volta</span>' : ''
+      return `<div class="det-leg"><div class="lh">${t.ordem}. ${esc(origemLbl(t))} → ${esc(destinoLbl(t))}${volta}</div>
         ${kv('Data', esc(diaTrecho(t) ? diaTrecho(t).split('-').reverse().join('/') : '—'))}
         ${kv('Saída', esc(horaBR(t.saida_em)))}
         ${kv('Chegada', esc(horaBR(t.chegada_em)))}
@@ -215,25 +230,22 @@
         ${tecs ? kv('A bordo', tecs) : ''}</div>`
     }).join('') + `</div>`
     document.getElementById('det-body').innerHTML = sec
-    document.getElementById('det-editar').onclick = () => { location.href = `deslocamentos.html?editar=${encodeURIComponent(id)}` }
+    document.getElementById('det-editar').onclick = () => { location.href = `deslocamentos.html?editar=${encodeURIComponent(viagemId)}` }
     const bRev = document.getElementById('det-revisar')
-    bRev.textContent = v.revisado ? 'Desfazer revisão' : 'Marcar como revisado'
-    bRev.onclick = () => marcarRevisado(id, !v.revisado)
+    bRev.textContent = d.revisado ? 'Desfazer revisão' : 'Marcar como revisado'
+    bRev.onclick = () => marcarRevisado(viagemId, !d.revisado)
     document.getElementById('det-back').classList.add('open')
   }
 
   async function marcarRevisado(id, novo) {
     const { data: { user } } = await sb().auth.getUser()
-    const patch = novo
-      ? { revisado: true, revisado_em: new Date().toISOString(), revisado_por: (user && user.id) || null }
-      : { revisado: false, revisado_em: null, revisado_por: null }
+    const patch = novo ? { revisado: true, revisado_em: new Date().toISOString(), revisado_por: (user && user.id) || null } : { revisado: false, revisado_em: null, revisado_por: null }
     const up = await sb().from('deslocamentos').update(patch).eq('id', id)
     if (up.error) { toast('Erro ao salvar revisão: ' + up.error.message, 'err'); return }
     toast(novo ? 'Viagem marcada como revisada.' : 'Revisão desfeita.', 'ok')
-    const d = viagens.find(x => x.id === id); if (d) { d.revisado = novo; d.revisado_em = patch.revisado_em }
-    vistas = viagens.map(view).filter(v => v.dia)
+    const d = viagens.find(x => x.id === id); if (d) d.revisado = novo
     fecharDet()
-    render()
+    carregarMes()
   }
 
   window.DeslocCalApp = { init }
