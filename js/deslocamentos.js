@@ -499,6 +499,7 @@ const DeslocApp = (() => {
     const labelDest = (tr) => { const d = (tr && tr.destino) || ''; if (d) return d; const l = vmLocais.find(x => x.id === (tr && tr.destino_local_id)); return l ? l.nome : '' }
     for (let i = 1; i < T.length; i++) {
       if (!T[i].origem || !String(T[i].origem).trim()) T[i].origem = labelDest(T[i - 1])
+      if (!T[i].tecnicos || !T[i].tecnicos.length) T[i].tecnicos = [...(T[i - 1].tecnicos || [])]   // herda os técnicos a bordo
     }
   }
   function renderVmTrechos() {
