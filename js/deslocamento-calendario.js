@@ -129,11 +129,13 @@
     chips = []
     for (const d of viagens) {
       const meta = metaViagem(d)
+      let lastVeic = ''   // veículo herda do trecho anterior quando o trecho não tem (e sem nota de transporte)
       for (const t of trechosDe(d)) {
+        if (t.veiculo_id) lastVeic = veicLbl(t.veiculo_id)
         const dia = diaTrecho(t)
         if (!dia || dia < startD || dia >= endD) continue
         const tecsT = (t.trecho_tecnicos || []).map(x => tecNomes[x.tecnico_id]).filter(Boolean)
-        const veicT = t.veiculo_id ? veicLbl(t.veiculo_id) : (t.nota_transporte || '')
+        const veicT = t.veiculo_id ? veicLbl(t.veiculo_id) : (t.nota_transporte || lastVeic || '')
         const rota = `${origemLbl(t)} → ${destinoLbl(t)}`
         chips.push({
           viagemId: d.id, dia, rota, tecnico: tecsT.join(', ') || '—',
@@ -218,9 +220,11 @@
       ${veics !== '—' ? kv('Veículo(s)', esc(veics)) : ''}
       ${refs ? kv('Ref. Tarefa', esc(refs)) : ''}</div>`
     sec += `<div class="det-sec"><h4>Técnicos a bordo</h4><div class="v">${esc(tecnicos)}</div></div>`
+    let lastV = ''   // veículo herda do trecho anterior quando o trecho não tem (e sem nota)
     sec += `<div class="det-sec"><h4>Trechos</h4>` + ts.map(t => {
+      if (t.veiculo_id) lastV = veicLbl(t.veiculo_id)
       const tecs = (t.trecho_tecnicos || []).map(x => esc(tecNomes[x.tecnico_id] || '—')).join(' · ')
-      const veicT = t.veiculo_id ? esc(veicLbl(t.veiculo_id)) : (t.nota_transporte ? `<span class="dim">sem veículo (${esc(t.nota_transporte)})</span>` : '—')
+      const veicT = t.veiculo_id ? esc(veicLbl(t.veiculo_id)) : (t.nota_transporte ? `<span class="dim">sem veículo (${esc(t.nota_transporte)})</span>` : (lastV ? `${esc(lastV)} <span class="dim">(herdado)</span>` : '—'))
       const volta = ehBase(t.destino) ? ' · <span class="dim">Volta</span>' : ''
       return `<div class="det-leg"><div class="lh">${t.ordem}. ${esc(origemLbl(t))} → ${esc(destinoLbl(t))}${volta}</div>
         ${kv('Data', esc(diaTrecho(t) ? diaTrecho(t).split('-').reverse().join('/') : '—'))}

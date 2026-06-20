@@ -512,6 +512,8 @@ const DeslocApp = (() => {
     for (let i = 1; i < T.length; i++) {
       if (!T[i].origem || !String(T[i].origem).trim()) T[i].origem = labelDest(T[i - 1])
       if (!T[i].tecnicos || !T[i].tecnicos.length) T[i].tecnicos = [...(T[i - 1].tecnicos || [])]   // herda os técnicos a bordo
+      // herda o veículo do trecho anterior quando vazio (e sem nota de transporte: carona/avião)
+      if (!T[i].veiculo_id && !String(T[i].nota_transporte || '').trim()) T[i].veiculo_id = T[i - 1].veiculo_id || null
     }
   }
   function renderVmTrechos() {
