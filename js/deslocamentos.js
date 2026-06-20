@@ -6,8 +6,10 @@
 ═══════════════════════════════════════════════ */
 const DeslocApp = (() => {
   const sb = () => getSupabase()
-  let tecNomes = {}, cliNomes = {}, veic = {}, rows = []
+  let tecNomes = {}, cliNomes = {}, veic = {}, rows = [], baseCidade = ''
   let tecArr = [], cliArr = [], veicArr = []
+  // destino "Joinville" (base, de org_config) = Traders
+  const ehBase = (txt) => { const c = baseCidade.trim().toLowerCase(); return !!c && String(txt || '').toLowerCase().includes(c) }
   const SENT = { ida: 'Ida', volta: 'Volta', outro: 'Outro' }
   const dt = (iso) => iso ? new Date(iso).toLocaleString('pt-BR', { day: '2-digit', month: '2-digit', year: '2-digit', hour: '2-digit', minute: '2-digit' }) : '—'
   // Exibição em fuso BR (America/Sao_Paulo): saida_em/chegada_em são timestamptz (instante
@@ -50,11 +52,13 @@ const DeslocApp = (() => {
   }
 
   async function init() {
-    const [tec, cli, vc] = await Promise.all([
+    const [tec, cli, vc, og] = await Promise.all([
       sb().rpc('sr_usuarios'),   // usuários do SR (papel vindo do Portal); filtra técnicos abaixo
       sb().from('clientes').select('id,nome,endereco,oculto,sync_omie'),
       sb().from('veiculos').select('id,modelo,placa'),
+      sb().from('org_config').select('base_cidade').eq('id', 1).maybeSingle(),
     ])
+    baseCidade = (og.data && og.data.base_cidade) || ''
     if (tec.data) tec.data = tec.data.filter(u => u.role === 'tecnico_campo' && u.ativo)
     // visível = mesma regra da tela Empresas (esconde só as "excluídas")
     const visivel = (c) => (c.oculto === false || c.oculto == null) || (c.sync_omie == null || c.sync_omie !== false)
@@ -114,8 +118,10 @@ const DeslocApp = (() => {
   }
   // trechos do modelo novo (espelho_legado é cópia de registro antigo — fica de fora)
   const trechosDe = (d) => ((d.deslocamento_trechos || []).filter(t => !t.espelho_legado)).sort((a, b) => a.ordem - b.ordem)
-  // destino explícito: cliente do trecho na frente ("BENTELER · Porto Real/RJ")
+  const origemLbl = (v) => ehBase(v) ? 'Traders' : (fmtLugar(v) || '—')   // base = Traders
+  // destino explícito: cliente do trecho na frente ("BENTELER · Porto Real/RJ"); base = Traders
   const destinoLbl = (t) => {
+    if (ehBase(t.destino)) return 'Traders'
     const cli = t.destino_cliente_id ? (cliNomes[t.destino_cliente_id] || '') : ''
     if (t.cliente_locais) {
       const cidade = t.cliente_locais.cidade ? fmtLugar([t.cliente_locais.cidade, t.cliente_locais.uf].filter(Boolean).join('/')) : ''
@@ -163,7 +169,10 @@ const DeslocApp = (() => {
     for (const d of rows) {
       const ts = trechosDe(d)
       if (!ts.length) continue
-      const emAndamento = ts.some(t => t.saida_em) && !ts.every(t => t.chegada_em)
+      // saiu mas não chegou em todos = em viagem; PORÉM se a volta à base (Joinville=Traders) já
+      // saiu, considera de volta (não fica "fora"), mesmo sem marcar a chegada.
+      const voltaIniciada = ts.some(t => ehBase(t.destino) && t.saida_em)
+      const emAndamento = ts.some(t => t.saida_em) && !ts.every(t => t.chegada_em) && !voltaIniciada
       if (!emAndamento) continue
       const desde = (ts.find(t => t.saida_em) || {}).saida_em
       for (const x of (d.deslocamento_tecnicos || [])) if (!foraMap[x.tecnico_id]) foraMap[x.tecnico_id] = { d, desde }
@@ -233,7 +242,7 @@ const DeslocApp = (() => {
         const semVeic = [...new Set(ts.filter(t => !t.veiculo_id && t.nota_transporte).map(t => t.nota_transporte))]
         const datas = ts.map(t => t.data).filter(Boolean).sort()
         const periodo = datas.length ? `${dia2(datas[0])}${datas[datas.length - 1] !== datas[0] ? ' → ' + dia2(datas[datas.length - 1]) : ''}` : ''
-        const detalhe = ts.map(t => `<div class="dim" style="font-size:11px">${t.ordem}. ${esc(fmtLugar(t.origem) || '—')} → ${esc(destinoLbl(t))}${t.data ? ' · ' + dia2(t.data) : ''}</div>`).join('')
+        const detalhe = ts.map(t => `<div class="dim" style="font-size:11px">${t.ordem}. ${esc(origemLbl(t.origem))} → ${esc(destinoLbl(t))}${t.data ? ' · ' + dia2(t.data) : ''}</div>`).join('')
         const saida = (ts.find(t => t.saida_em) || {}).saida_em
         const emViagem = ts.some(t => t.saida_em) && !ts.every(t => t.chegada_em)
         const fechada = ts.every(t => t.chegada_em)
@@ -248,7 +257,7 @@ const DeslocApp = (() => {
         return `<tr class="row-click" data-det="${esc(d.id)}">
           <td><div class="vtipo">Viagem · ${ts.length} trecho${ts.length > 1 ? 's' : ''}</div>${periodo ? `<div class="vper">${esc(periodo)}</div>` : ''}${(() => { const tv = tempoViagemMin(ts); return tv.temTempo ? `<div class="vper">Tempo: <b>${fmtHm(tv.total)}</b>${tv.aberto ? '…' : ''}${tv.almoco ? ' (− refeição)' : ''}</div>` : '' })()}${(() => { const refs = (d.deslocamento_tarefas || []).map(x => x.tarefas ? `Tarefa Nº ${String(x.tarefas.numero).padStart(5, '0')}` : null).filter(Boolean); return refs.length ? `<div class="vper">Ref.: ${esc(refs.join(' · '))}</div>` : '' })()}<div style="margin-top:5px">${st}${d.revisado ? ' <span class="d-rev">✓ Revisado</span>' : ''}</div></td>
           <td>${cliCell}</td>
-          <td>${esc(fmtLugar(prim.origem) || '—')} → ${esc(destinoLbl(ult))}${detalhe}</td>
+          <td>${esc(origemLbl(prim.origem))} → ${esc(destinoLbl(ult))}${detalhe}</td>
           <td>${veics.length ? veics.map(esc).join('<br>') : (semVeic.length ? `<span class="dim">${esc(semVeic.join(', '))}</span>` : '—')}</td>
           <td>${chips}</td>
           <td>${saida ? dt(saida) : '<span class="dim">não iniciada</span>'}</td>
@@ -373,7 +382,7 @@ const DeslocApp = (() => {
         const dir = (t.trecho_direcao || []).map(m => `${esc(tecNomes[m.tecnico_id] || '—')}${(m.hora_de || m.hora_ate) ? ` (${esc(hm5(m.hora_de))}–${esc(hm5(m.hora_ate))})` : ''}`).join(' · ')
         const tecs = (t.trecho_tecnicos || []).map(x => esc(tecNomes[x.tecnico_id] || '—')).join(' · ')
         const veicT = t.veiculo_id ? esc(veicLbl(t.veiculo_id)) : (t.nota_transporte ? `<span class="dim">sem veículo (${esc(t.nota_transporte)})</span>` : '—')
-        return `<div class="det-leg"><div class="lh">${t.ordem}. ${esc(fmtLugar(t.origem) || '—')} → ${esc(destinoLbl(t))}</div>
+        return `<div class="det-leg"><div class="lh">${t.ordem}. ${esc(origemLbl(t.origem))} → ${esc(destinoLbl(t))}</div>
           ${kv('Data', esc(diaFull(t.data)))}
           ${kv('Saída', esc(horaBR(t.saida_em)))}
           ${kv('Chegada', esc(horaBR(t.chegada_em)))}
