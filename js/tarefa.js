@@ -29,6 +29,16 @@ const TarefaApp = (() => {
   const PANES = ['dados', 'equip', 'anexos', 'rats', 'desloc', 'material', 'fat']
   const urlTarefa = (id, aba) => `tarefa.html?t=${encodeURIComponent(id)}${aba ? '&aba=' + aba : ''}`
   const SVG_NEWTAB = '<svg viewBox="0 0 24 24"><path d="M14 3h7v7M21 3l-9 9M19 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V7a2 2 0 0 1 2-2h6"/></svg>'
+  // Data própria da RAT (campo respostas.data 'YYYY-MM-DD') — NÃO a data/hora da OS (data_tarefa).
+  // Formata via new Date(y,m,d) local p/ evitar o new Date('YYYY-MM-DD') UTC que voltaria 1 dia.
+  function fmtDataRat(r) {
+    const s = r && r.respostas && r.respostas.data
+    if (typeof s === 'string' && /^\d{4}-\d{2}-\d{2}/.test(s)) {
+      const [y, m, d] = s.slice(0, 10).split('-').map(Number)
+      return new Date(y, m - 1, d).toLocaleDateString('pt-BR', { day: '2-digit', month: 'short', year: 'numeric' })
+    }
+    return fdt(r.data_tarefa, { withTime: true })   // RAT sem data própria: cai na data/hora da tarefa
+  }
   // Cresce o textarea para caber todo o conteúdo (sem barra de rolagem).
   const autoGrow = (el) => { if (!el) return; el.style.height = 'auto'; el.style.height = (el.scrollHeight + 2) + 'px' }
 
@@ -1064,7 +1074,7 @@ const TarefaApp = (() => {
       const r = d.r
       return `<div class="rat-open" data-rat-id="${esc(r.id)}">
         <div class="rat-open-h">
-          <div><b>RAT ${cur && cur.numero != null ? osNo(cur.numero) + (r.rat_seq != null ? '/' + String(r.rat_seq).padStart(2, '0') : '') : ''} · ${fdt(r.data_tarefa, { withTime: true })}</b> · ${esc(r.tecnico_nome || '—')} · ${RatView.fmtMin(RatView.tempoRat(r))}</div>
+          <div><b>RAT ${cur && cur.numero != null ? osNo(cur.numero) + (r.rat_seq != null ? '/' + String(r.rat_seq).padStart(2, '0') : '') : ''} · ${esc(fmtDataRat(r))}</b> · ${esc(r.tecnico_nome || '—')} · ${RatView.fmtMin(RatView.tempoRat(r))}</div>
           <div style="display:flex;align-items:center;gap:10px">
             ${ratNaoEncerrada(r)
               ? `<span class="ri-sit" style="color:#B7791F;font-weight:700" title="O técnico iniciou o atendimento e não encerrou">⚠ Não encerrada · ${esc(diasTxt(diasAberta(r)))}</span>`
