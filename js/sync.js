@@ -241,6 +241,14 @@
   async function enviarDeslocamento(d) {
     const sb = getSupabase()
     const { data: { user } } = await sb.auth.getUser()
+    // A viagem pertence a quem a CRIOU (RLS desloc_tecnico_own: só criado_por grava).
+    // Quem está só "a bordo" (não criou) NÃO pode gravar a viagem do colega — tentar o upsert
+    // dá 403 em loop e trava a sincronização. Como o app de campo apenas consome essa viagem
+    // (a versão canônica é do criador e chega pelo pull), marca confirmado e sai.
+    if (d.criado_por && user && d.criado_por !== user.id) {
+      await D().marcarDeslocamentoStatus(d.id, D().STATUS.CONFIRMADO)
+      return
+    }
     if (Array.isArray(d.trechos)) return enviarViagem(sb, d, (user && user.id) || d.criado_por)
     const up = await sb.from('deslocamentos').upsert({
       id: d.id, sentido: d.sentido || 'ida', veiculo_id: d.veiculo_id || null, cliente_id: d.cliente_id || null,
