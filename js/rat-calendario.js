@@ -197,16 +197,18 @@
     }
   }
 
+  const urlRat = (v) => v.tarefaId ? `tarefa.html?t=${encodeURIComponent(v.tarefaId)}&aba=rats&rat=${encodeURIComponent(v.id)}` : `rat.html?id=${encodeURIComponent(v.id)}`
   function chipHTML(v) {
     const cor = corDe(v.status)
     const titulo = `RAT ${ratNo(v)} · ${v.cliente} · ${v.tecnico}` + (v.orientacao ? `\n\nOrientação: ${v.orientacao}` : '')
-    return `<button class="rc-chip" data-rat="${esc(v.id)}" title="${esc(titulo)}"
+    // link real: clique normal abre na mesma aba; ctrl/⌘/botão-do-meio/direito abrem em nova aba
+    return `<a class="rc-chip" href="${urlRat(v)}" data-rat="${esc(v.id)}" title="${esc(titulo)}"
       style="background:${cor}1A;border-left:3px solid ${cor}">
       <span class="task" style="color:${corTextoLegivel(cor)}">Nº ${esc(ratNo(v))}</span>
       <span class="cli">${esc(v.cliente)}</span>
       <span class="tec">${esc(v.tecnico)}</span>
       ${v.orientacao ? `<span class="ori">${esc(v.orientacao)}</span>` : ''}
-    </button>`
+    </a>`
   }
 
   function render() {
@@ -236,14 +238,7 @@
     while (cells.length % 7 !== 0) cells.push('<div class="rc-cell rc-out"></div>')
     const grid = document.getElementById('rc-grid')
     grid.innerHTML = cells.join('')
-    grid.querySelectorAll('.rc-chip').forEach(b => b.onclick = () => abrir(b.dataset.rat))
     grid.querySelectorAll('.rc-more').forEach(b => b.onclick = () => abrirModal(b.dataset.dia, byDay[b.dataset.dia] || []))
-  }
-
-  function abrir(ratId) {
-    const v = vistas.find(x => x.id === ratId); if (!v) return
-    if (v.tarefaId) location.href = `tarefa.html?t=${encodeURIComponent(v.tarefaId)}&aba=rats&rat=${encodeURIComponent(v.id)}`
-    else location.href = `rat.html?id=${encodeURIComponent(v.id)}`   // RAT sem tarefa: cai no detalhe da RAT
   }
 
   function abrirModal(dia, list) {
@@ -251,7 +246,6 @@
     document.getElementById('rc-modal-t').textContent = `${Number(d)} de ${MONTHS[Number(m) - 1]} · ${list.length} RAT${list.length === 1 ? '' : 's'}`
     const body = document.getElementById('rc-modal-body')
     body.innerHTML = list.map(chipHTML).join('')
-    body.querySelectorAll('.rc-chip').forEach(b => b.onclick = () => abrir(b.dataset.rat))
     document.getElementById('rc-mback').classList.add('open')
   }
   function fecharModal() { document.getElementById('rc-mback').classList.remove('open') }

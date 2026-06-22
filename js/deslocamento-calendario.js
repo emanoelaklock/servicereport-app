@@ -159,11 +159,12 @@
   function chipHTML(c) {
     const cor = COR[c.estado] || '#48506A'
     const titulo = `${c.rota}\n${c.tecnico}${c.veiculo !== '—' ? ' · ' + c.veiculo : ''}`
-    return `<button class="rc-chip" data-id="${esc(c.viagemId)}" title="${esc(titulo)}" style="background:${cor}1A;border-left:3px solid ${cor}">
+    // link real p/ o editor: clique normal abre o detalhe (modal); ctrl/⌘/meio/direito abrem o editor em nova aba
+    return `<a class="rc-chip" href="deslocamentos.html?editar=${encodeURIComponent(c.viagemId)}" data-id="${esc(c.viagemId)}" title="${esc(titulo)}" style="background:${cor}1A;border-left:3px solid ${cor}">
       <span class="task" style="color:${corTextoLegivel(cor)}">${esc(c.rota)}</span>
       <span class="cli">${esc(c.tecnico)}</span>
       <span class="tec">${esc(c.veiculo)}</span>
-    </button>`
+    </a>`
   }
 
   function render() {
@@ -191,7 +192,7 @@
     while (cells.length % 7 !== 0) cells.push('<div class="rc-cell rc-out"></div>')
     const grid = document.getElementById('rc-grid')
     grid.innerHTML = cells.join('')
-    grid.querySelectorAll('.rc-chip').forEach(b => b.onclick = () => abrirDet(b.dataset.id))
+    grid.querySelectorAll('.rc-chip').forEach(b => b.onclick = (e) => { if (e.metaKey || e.ctrlKey) return; e.preventDefault(); abrirDet(b.dataset.id) })
     grid.querySelectorAll('.rc-more').forEach(b => b.onclick = () => abrirModalDia(b.dataset.dia, byDay[b.dataset.dia] || []))
   }
 
@@ -200,7 +201,7 @@
     document.getElementById('rc-modal-t').textContent = `${Number(d)} de ${MONTHS[Number(m) - 1]} · ${list.length} trecho${list.length === 1 ? '' : 's'}`
     const body = document.getElementById('rc-modal-body')
     body.innerHTML = list.map(chipHTML).join('')
-    body.querySelectorAll('.rc-chip').forEach(b => b.onclick = () => { document.getElementById('rc-mback').classList.remove('open'); abrirDet(b.dataset.id) })
+    body.querySelectorAll('.rc-chip').forEach(b => b.onclick = (e) => { if (e.metaKey || e.ctrlKey) return; e.preventDefault(); document.getElementById('rc-mback').classList.remove('open'); abrirDet(b.dataset.id) })
     document.getElementById('rc-mback').classList.add('open')
   }
 
