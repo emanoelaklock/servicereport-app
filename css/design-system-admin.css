@@ -127,6 +127,12 @@
 /* opacity:1 vence o .acts{opacity:0} do theme.css (lá é padrão de hover em linha de tabela) */
 .hd .acts{display:flex;align-items:center;gap:9px;padding-left:18px;border-left:1px solid var(--line);opacity:1;}
 
+/* "Abrir em nova aba" nas linhas das listas (Tarefas, RATs) — link real target=_blank */
+.row-newtab{display:inline-flex;align-items:center;justify-content:center;color:var(--tx3);border-radius:6px;padding:4px;text-decoration:none;transition:background .12s,color .12s;flex:none;}
+.row-newtab:hover{background:var(--sur2,#eef2f8);color:var(--ac);}
+.row-newtab svg{width:15px;height:15px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round;}
+.cc-num .row-newtab{margin-right:6px;vertical-align:middle;}
+
 /* ---------- SITUAÇÃO (radar de 6) ---------- */
 .situacao{display:grid;grid-template-columns:repeat(6,1fr);gap:12px;}
 .scard{border-radius:14px;padding:15px;border:1px solid transparent;}
