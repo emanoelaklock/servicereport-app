@@ -92,7 +92,7 @@
     } else {
       const tbody = document.getElementById('rl-list')
       tbody.insertAdjacentHTML('beforeend', rows.map(rowHTML).join(''))
-      tbody.querySelectorAll('.row-click[data-novo]').forEach(el => { el.removeAttribute('data-novo'); el.onclick = () => abrir(el.dataset.rat, el.dataset.tarefa) })
+      tbody.querySelectorAll('.row-click[data-novo]').forEach(el => { el.removeAttribute('data-novo'); el.onclick = (e) => { if (e.target.closest('a')) return; if (e.metaKey || e.ctrlKey) { window.open(urlRat(el.dataset.rat, el.dataset.tarefa), '_blank', 'noopener'); return } abrir(el.dataset.rat, el.dataset.tarefa) } })
     }
     document.getElementById('rl-count').textContent = total ? `${total} RAT${total === 1 ? '' : 's'} encontrada${total === 1 ? '' : 's'}${offset < total ? ` · mostrando ${offset}` : ''}` : ''
     more.style.display = offset < total ? '' : 'none'
@@ -108,12 +108,15 @@
     })
   }
 
+  const urlRat = (ratId, tarefaId) => tarefaId ? `tarefa.html?t=${encodeURIComponent(tarefaId)}&aba=rats&rat=${encodeURIComponent(ratId)}` : `rat.html?id=${encodeURIComponent(ratId)}`
+  const SVG_NEWTAB = '<svg viewBox="0 0 24 24"><path d="M14 3h7v7M21 3l-9 9M19 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V7a2 2 0 0 1 2-2h6"/></svg>'
+
   function rowHTML(r) {
     const cor = corDe(r.tarefa_status)
     const ratNo = r.tarefa_numero != null ? osNo(r.tarefa_numero) + (r.rat_seq != null ? '/' + String(r.rat_seq).padStart(2, '0') : '') : '—'
     const sub = [r.pedido_compra ? 'PC ' + esc(r.pedido_compra) : '', r.orcamento_numero ? 'Orç ' + esc(r.orcamento_numero) : ''].filter(Boolean).join(' · ')
     return `<tr class="row-click" data-novo data-rat="${esc(r.id)}" data-tarefa="${esc(r.tarefa_id || '')}">
-      <td class="cc-num">${esc(ratNo)}</td>
+      <td class="cc-num"><a class="row-newtab" href="${urlRat(r.id, r.tarefa_id)}" target="_blank" rel="noopener" title="Abrir em nova aba">${SVG_NEWTAB}</a>${esc(ratNo)}</td>
       <td>
         <div class="cc-cli">${esc(r.cliente_nome || '—')}</div>
         ${sub ? `<div class="rl-sub">${sub}</div>` : ''}
@@ -125,10 +128,7 @@
     </tr>`
   }
 
-  function abrir(ratId, tarefaId) {
-    if (tarefaId) location.href = `tarefa.html?t=${encodeURIComponent(tarefaId)}&aba=rats&rat=${encodeURIComponent(ratId)}`
-    else location.href = `rat.html?id=${encodeURIComponent(ratId)}`
-  }
+  function abrir(ratId, tarefaId) { location.href = urlRat(ratId, tarefaId) }
 
   window.RatListaApp = { init }
 })()

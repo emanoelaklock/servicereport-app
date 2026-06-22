@@ -27,6 +27,8 @@ const TarefaApp = (() => {
   const RAT_SIT = { em_andamento: 'Em andamento', registrado: 'Registrada', concluida: 'Concluída', concluida_pendencia: 'Concluída c/ pendência', improdutiva: 'Visita improdutiva' }
   const ratSit = (s) => RAT_SIT[s] || s || '—'
   const PANES = ['dados', 'equip', 'anexos', 'rats', 'desloc', 'material', 'fat']
+  const urlTarefa = (id, aba) => `tarefa.html?t=${encodeURIComponent(id)}${aba ? '&aba=' + aba : ''}`
+  const SVG_NEWTAB = '<svg viewBox="0 0 24 24"><path d="M14 3h7v7M21 3l-9 9M19 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V7a2 2 0 0 1 2-2h6"/></svg>'
   // Cresce o textarea para caber todo o conteúdo (sem barra de rolagem).
   const autoGrow = (el) => { if (!el) return; el.style.height = 'auto'; el.style.height = (el.scrollHeight + 2) + 'px' }
 
@@ -417,12 +419,13 @@ const TarefaApp = (() => {
           <td>${t.data_agendada ? dmy(t.data_agendada) : '<span class="st">—</span>'}</td>
           <td>${concil}</td>
           <td><div class="acts" style="opacity:1">
+            <a class="row-newtab" href="${urlTarefa(t.id)}" target="_blank" rel="noopener" title="Abrir em nova aba">${SVG_NEWTAB}</a>
             <button class="ab ab-v" data-edit="${esc(t.id)}">Editar</button>
             <button class="ab ab-d" data-del="${esc(t.id)}">Excluir</button>
           </div></td>
         </tr>`
       }).join('')}</tbody></table></div>`
-    box.querySelectorAll('.row-click').forEach(tr => tr.onclick = (e) => { if (e.target.closest('.acts')) return; abrirTarefa(tr.dataset.id) })
+    box.querySelectorAll('.row-click').forEach(tr => tr.onclick = (e) => { if (e.target.closest('.acts')) return; if (e.metaKey || e.ctrlKey) { window.open(urlTarefa(tr.dataset.id), '_blank', 'noopener'); return } abrirTarefa(tr.dataset.id) })
     box.querySelectorAll('[data-edit]').forEach(b => b.onclick = (e) => { e.stopPropagation(); abrirTarefa(b.dataset.edit) })
     box.querySelectorAll('[data-del]').forEach(b => b.onclick = (e) => { e.stopPropagation(); excluirTarefaLista(b.dataset.del) })
     box.querySelectorAll('[data-atrib]').forEach(b => b.onclick = (e) => { e.stopPropagation(); abrirTarefa(b.dataset.atrib, 'dados') })
