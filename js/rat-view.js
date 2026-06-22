@@ -142,7 +142,7 @@ window.RatView = (function () {
     const tf = r.tarefa || {}
     h += `<div class="rd-sec"><div class="rd-sec-t">Dados da OS</div><div class="rd-grid">
       <div class="rd-f"><label>Nº da OS</label><div class="v">${tarefaNo ? '#' + tarefaNo : '—'}</div></div>
-      <div class="rd-f"><label>Data / Hora</label><div class="v">${fdt(r.data_tarefa, { withTime: true })}</div></div>
+      <div class="rd-f"><label>Data / Hora da Tarefa</label><div class="v">${fdt(r.data_tarefa, { withTime: true })}</div></div>
       <div class="rd-f"><label>Tipo de tarefa</label><div class="v">${esc(tipoNomeRat(r))}</div></div>
       <div class="rd-f"><label>Duração</label><div class="v">${fmtMin(tempoRat(r))}</div></div>
       ${(r.checkin_lat != null && r.checkin_lng != null) ? `<div class="rd-f"><label>Local (GPS)</label><div class="v"><a href="https://www.google.com/maps?q=${r.checkin_lat},${r.checkin_lng}" target="_blank" rel="noopener">📍 ver no mapa</a>${r.checkin_precisao ? ` <span class="dim">(±${Math.round(r.checkin_precisao)} m)</span>` : ''}</div></div>` : ''}
