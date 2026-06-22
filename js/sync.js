@@ -70,8 +70,25 @@
     payload.tecnico_id = uid
     payload.sync_status = 'confirmado'
     if (assinatura_url) payload.assinatura_url = assinatura_url
-    const ups = await sb.from('rats').upsert(payload, { onConflict: 'client_uuid' }).select('id,recebido_em').single()
-    if (ups.error) throw ups.error
+    const upsertRat = () => sb.from('rats').upsert(payload, { onConflict: 'client_uuid' }).select('id,recebido_em').single()
+    let ups = await upsertRat()
+    if (ups.error) {
+      // FK rats_tarefa_id_fkey: a Tarefa-pai não existe no servidor (excluída no portal, ou tarefa
+      // local que não subiu) → a RAT ficaria presa em erro pra sempre. Para NÃO perder o trabalho
+      // do técnico, recria uma Tarefa mínima a partir dos dados da própria RAT (criar_tarefa_app é
+      // idempotente e SECURITY DEFINER) e reenvia a RAT uma vez. O admin vê a Tarefa e trata.
+      const fk = ups.error.code === '23503' || /tarefa_id_fkey|foreign key/i.test(ups.error.message || '')
+      if (fk && payload.tarefa_id && payload.cliente_id) {
+        const cr = await sb.rpc('criar_tarefa_app', {
+          p_id: payload.tarefa_id, p_cliente_id: payload.cliente_id,
+          p_status: null, p_tipo_servico_id: payload.tipo_servico_id || null, p_orientacao: null,
+          p_data_agendada: (rat.respostas && rat.respostas.data) || (payload.data_tarefa ? String(payload.data_tarefa).slice(0, 10) : null),
+          p_tecnicos: uid ? [uid] : [],
+        })
+        if (!cr.error) ups = await upsertRat()
+      }
+      if (ups.error) throw ups.error
+    }
     const tarefaId = ups.data.id
 
     // 4) relatorio_fotos (idempotente: id = id local da foto)
