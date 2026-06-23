@@ -209,6 +209,12 @@ A tela inicial do app é a **agenda do dia**:
 - **Fila (tarefas abertas)** — quando ele **não tem tarefa atribuída**, vê as tarefas abertas e pode **pegar uma da fila** (vira responsável / abre a RAT do dia).
 Cada item mostra o estado (aguardando · em execução · atendimento continua) e leva direto pra "RAT de hoje".
 
+**Notificações push ao técnico (campo).** O técnico trabalha com o app fechado e não sabe quando entra serviço pra ele — por isso o portal o avisa por push (Web Push via `notify-push`). Dois gatilhos, disparados pelo portal no momento em que o admin salva a Tarefa, **endereçados só aos técnicos atribuídos** (responsável + co-responsáveis):
+
+- **Atribuição → "Nova tarefa atribuída"** · corpo `Cliente · Data · Orientação` (orientação truncada se longa). Dispara quando um técnico **passa a ser atribuído** à Tarefa — na criação **ou** numa edição posterior (reatribuição). **Anti-spam:** só os técnicos **recém-atribuídos** recebem (diferença de conjunto); re-salvar com os mesmos técnicos não notifica. Tarefa que entra na **fila sem responsável não dispara** — só quando vira de alguém.
+- **Reagendamento → "Tarefa reagendada"** · corpo `Cliente · nova data`. Dispara quando um técnico **que já estava atribuído** continua atribuído **e a `data_agendada` muda**. **Anti-spam:** **só a mudança de data** dispara; mudar orientação, pedido de compra, status ou qualquer outro campo **não** notifica.
+- Os dois conjuntos (recém-atribuídos × já-eram) são **disjuntos** → ninguém recebe dois pushes no mesmo save. O push **não** chega ao usuário que disparou (o próprio admin). Fuso da data em `America/Sao_Paulo`, formatado das partes da string (sem `new Date`, evita o erro F1/UTC). Tocar o push **abre o app** (deep-link pra Tarefa específica fica pra depois).
+
 ### Criação de Tarefa em campo (emergencial)
 
 Tanto o escritório quanto o **técnico em campo** podem criar Tarefa (serviço corretivo que surge na hora). No app: cliente (lista cacheada) + título/descrição + local opcional; nasce com `client_uuid`, **origem "Avulso/Sem orçamento"**, e o servidor atribui o número oficial no sync. Funciona offline. Duas criações da "mesma" tarefa por engano viram duas Tarefas → **admin junta depois** (não dá pra deduplicar automático; é raro).
@@ -220,7 +226,7 @@ Atividade que leva vários dias (ex.: serviço de ~10 dias). Trata-se com o mode
 - **Uma Tarefa = o serviço inteiro** (guarda-chuva); **uma RAT por dia trabalhado** (filha), numeradas 04750/1 … 04750/N. Cada RAT diária é o **diário do dia**: trabalho feito, tempo por técnico, material usado, fotos.
 - **O dia fecha, a Tarefa não.** Concluir a RAT do dia fecha **o dia**; a Tarefa permanece "Em execução" até o último dia (dois eixos de status). A Tarefa só é concluída de propósito, no encerramento (com/sem pendência) — o técnico nunca encerra o serviço sem querer ao fechar o atendimento do dia.
 - **Encerrar a RAT ≠ concluir o serviço — níveis diferentes, nunca no mesmo botão.** Encerrar é **da RAT** (rotina diária); concluir é **da Tarefa** (deliberado, uma vez). Separar evita encerrar um serviço de vários dias sem querer.
-- **Encerrar a RAT (na RAT):** o modal **aparece automaticamente** ao encerrar a **última atividade cronológica do dia** — fim da execução, ou fim do deslocamento de volta se houver (não é um passo manual avulso). Fecha a RAT → "registrado ✓"; a Tarefa fica **automaticamente "Atendimento continua"**. Em pernoite não há volta no dia → fecha no fim da execução (a volta é o artefato Deslocamento separado).
+- **Encerrar a RAT (na RAT):** o modal **aparece automaticamente** ao encerrar a **última atividade cronológica do dia** — fim da execução, ou fim do deslocamento de volta se houver (não é um passo manual avulso). Fecha a RAT → "registrado ✓" — **rótulo na tela: "Atendimento Realizado"** (renomeado em 06/26; antes "Registrada", que os técnicos achavam que indicava algo faltando. **Só o texto mudou**: o valor interno segue `registrado` e nenhuma lógica compara o rótulo). A Tarefa fica **automaticamente "Atendimento continua"**. Em pernoite não há volta no dia → fecha no fim da execução (a volta é o artefato Deslocamento separado).
 - **Trocar de tarefa no meio do dia (A inacabada → B):** o técnico **pausa a execução de A** (cronômetro dele em A para; a RAT-A fica "Em execução · pausada", **não** encerrada) e **abre/retoma B** (cronômetro em B começa). Pode alternar quantas vezes precisar e manter **várias RATs em andamento no dia** (uma por tarefa). Volta pra A → retoma (novo trecho). Encerra a RAT-A só ao terminar A no dia; se sair sem encerrar, o app **varre no fim do dia** ("RAT 04750/A ainda aberta — encerrar?"). Usa os timers reabríveis que já existem.
 - **Participação como TRECHOS (não par único):** pra o vai-e-volta entre tarefas computar certo (sem dobrar horas), a participação de cada técnico é uma **lista de trechos** (artefato · início · fim) — pausar/trocar fecha um trecho, retomar abre outro. Horas do técnico = Σ trechos − almoço único. É a **jornada contínua (§10.1) surgindo incrementalmente**. *(Ajusta o modelo do pacote §8: participação vira tabela-filha de trechos, não duas colunas inicio/fim.)*
 - **Concluir o serviço (na Tarefa):** ação **deliberada e separada**, no nível da Tarefa (com/sem pendência), feita uma vez quando o trabalho realmente termina (pelo técnico em campo ou pelo admin); dispara o **documento consolidado**. **"Concluída" fica reservada ao serviço** — o dia nunca exibe "concluída". Botões na Tarefa: "RAT de hoje" (primário) e "Concluir serviço" (secundário). Referência visual: `docs/mockups/mockup-tarefa-multidia-app.html`.
@@ -263,7 +269,8 @@ Referência visual: `docs/mockups/mockup-admin-tarefa-completa.html`. É o **hub
 
 - **Cabeçalho rico:** nome do cliente, subtítulo (tipo), `Tarefa Nº` com copiar, **status geral**, data agendada, **responsável principal** (avatar), e ações **Exportar (PDF)** + menu.
 - **Faixa "Situação da tarefa"** — radar de 6 mini-status que mostra a saúde inteira num relance, com cor: **Dados** (Preenchido) · **RATs** · **Produtos** (ex.: "95 m a devolver") · **Fora da proposta** (nº de itens) · **Faturamento** · **Anexos**. Verde = ok · âmbar = pendência · vermelho = fora da proposta.
-- **Abas com indicador:** ✓ no que está ok e **contador** no que pede atenção (ex.: Produtos ② · Faturamento ①). Abas: Dados · RATs · Produtos · Equipamentos · Faturamento · Anexos · **Histórico**.
+- **Abas com indicador:** ✓ no que está ok e **contador** no que pede atenção (ex.: Produtos ② · Faturamento ①). Abas: Dados · RATs · **Deslocamento** · Produtos · Equipamentos · Faturamento · Anexos · **Histórico**.
+  - **Aba "Deslocamento" (06/26):** lista as viagens/deslocamentos vinculados à tarefa e abre o **editor** (`deslocamentos.html?editar=`) — o admin revisa ali mesmo (inclusive marcar **"Revisado"** por um checkbox no rodapé do editor, com carimbo de quem/quando).
 - **Resumo operacional** (coluna lateral) — apoio à decisão, tudo de dado real: **Horas registradas** (Σ das RATs) · **Valor utilizado** (conciliação) · **A devolver** · **Itens fora da proposta**.
 - **Próxima ação recomendada** — motor de regras simples sobre os gates de faturamento:
   - RAT não confirmada → "aguardar sincronização";
@@ -273,6 +280,12 @@ Referência visual: `docs/mockups/mockup-admin-tarefa-completa.html`. É o **hub
 - **Linha do tempo da tarefa** — trilha de eventos (criada → responsáveis → RAT → produtos → pendência → concluída). É a leitura da **trilha de auditoria (`sync_eventos`, §12)**, não um dado novo.
 - "Dados da tarefa" no radar usa **"Preenchido"** (não "Concluído" — dados não concluem).
 - Em tela menor, as duas colunas, a faixa de situação e a timeline **empilham**.
+- **Abrir em nova aba (06/26):** nas listas e calendários do portal (Tarefas, RATs, Deslocamentos) dá pra abrir um item em **nova aba** — ícone dedicado e **Ctrl/Cmd-clique** no chip/linha (os chips viraram links nativos). O **título do top bar** no detalhe mostra **`Tarefa Nº NNNNN`** (não só "Tarefa").
+- **Ordenação por cabeçalho (06/26):** clicar no cabeçalho de qualquer coluna ordena a tabela (em todas as listas do portal).
+
+**Visões de RAT e Deslocamento no portal (06/26).** Além da aba dentro da Tarefa, o portal tem páginas próprias:
+- **RATs** — alterna **Calendário** (visão mensal, agrupa pela **data da RAT**) e **Lista** (busca no banco inteiro). Filtros: cliente (combobox), técnicos (multi, mostra co-responsáveis), busca livre. O chip mostra o **Nº da RAT** `{tarefa}/{seq}`. Atalho direto pra aba RATs da Tarefa.
+- **Deslocamentos** — **Calendário** com **1 chip por TRECHO** no dia do trecho (origem→destino; a **base** Joinville aparece como "Traders"); clicar na linha/chip abre o **detalhe (leitura)** ou o editor. Conferência: alerta de **"deslocamento de ida sem volta"** no dia.
 
 ---
 
@@ -371,7 +384,7 @@ Coração do sistema. Conciliação **interna** (não depende do Omie).
 
 **Visibilidade do técnico:** vê *orçada* e *levada* (leitura), edita só *utilizada*. **Não vê preço** (ver §10).
 
-**Terminologia no app do técnico (11/06):** nos textos visíveis, "Levado"/"Comigo" virou **"Disponível"** (o conceito/coluna interna continua *levada*).
+**Terminologia no app do técnico (11/06):** nos textos visíveis, "Levado"/"Comigo" virou **"Disponível"** (o conceito/coluna interna continua *levada*). **Nas telas do admin (06/26)** a coluna "Levada" aparece como **"Disponibilizada"** — mesmo conceito/valor, só rótulo.
 
 ### Duas conciliações (não uma)
 - **Orçado × Utilizado** → custo/faturamento (usou mais/menos do que foi vendido).
@@ -472,6 +485,9 @@ O **técnico nunca escolhe a modalidade** — ela é **derivada** (do contrato/o
 
 - **Offline / accountability:** cada artefato de campo tem `client_uuid` (idempotência) e `sync_status` (`rascunho → salvo_local → na_fila → enviando → confirmado | erro`). Só vira **confirmado** depois que o **servidor** carimba o recebimento (trigger). `sync_eventos` = trilha de auditoria imutável (device_id + timestamps). O ACK do servidor é a verdade — resolve o "salvei mas não chegou".
 - **Trabalho não-sincronizado nunca é apagado sozinho.** Deletar artefato de campo ainda não enviado (pendente/erro) é **sempre ação humana explícita**. Caso da **RAT órfã** (local, não sincronizada, cuja Tarefa foi excluída → recebeu tombstone): o `pullChanges` **não** a remove de propósito; ela é **rotulada "Tarefa removida — não será enviada"** (com o motivo) e o técnico apaga pelo **🗑**. Auto-limpeza só é permitida para órfãs **totalmente vazias** (sem dado a perder). Protege contra exclusão acidental da Tarefa pelo admin levar junto o trabalho de campo do técnico.
+- **Sync resiliente — a fila não trava por um item (06/26):**
+  - **RAT com tarefa-pai ausente no servidor** (FK `rats_tarefa_id_fkey`): em vez de erro em loop, o envio **recria a Tarefa mínima** a partir dos dados da própria RAT (`cliente_id`, data, tipo de serviço, via `criar_tarefa_app`) e **reenvia uma vez**. Diferente da RAT órfã *local* acima (lá a Tarefa foi excluída de propósito → tombstone; aqui a RAT é válida e a pai é reconstituída).
+  - **Não empurrar artefato de outro técnico:** uma viagem/deslocamento **colaborativo** cujo `criado_por` é outro técnico **não é re-enviada** pelo aparelho que não a criou (marca como confirmado localmente e segue) — corrige o **403 RLS em loop** (a regra só deixa o dono escrever).
 - **PDF:** serviço único, reusado (pré-orçamento, orçamento, RAT).
 - **E-mail ao finalizar:** seletivo — pré-orçamento → comercial@tsrv; RAT concluída → adm@tsrv; **orçamento não dispara e-mail**.
 - **Preço escondido do técnico = no nível dos dados, não só na tela.** Se só ocultar no visual, o preço vai junto no que o app baixa (legível via DevTools). O app do técnico deve **ler de uma fonte sem as colunas de preço** (view sem preço, ou consulta que não seleciona esses campos) — o valor nunca chega ao aparelho.
@@ -485,7 +501,7 @@ O **técnico nunca escolhe a modalidade** — ela é **derivada** (do contrato/o
 
 ## 13. Estado atual da construção
 
-*Atualizado em 12/06/2026.*
+*Atualizado em 22/06/2026.*
 
 ### Concluído
 
@@ -508,13 +524,18 @@ O **técnico nunca escolhe a modalidade** — ela é **derivada** (do contrato/o
 - Responsáveis em **chips** (avatar + nome + papel real + ×) com "+ Adicionar".
 - Relatório da RAT (`rat.html`) e **PDF da RAT** na paleta do design system.
 - **"Melhorar escrita" (IA)** nas textareas do desktop (ver §12).
+- **Visões de RAT e Deslocamento (06/26):** RATs em **Calendário + Lista** global (busca, cliente, técnicos, agrupa pela data da RAT); **Calendário de Deslocamentos** (1 chip por trecho, base = "Traders") + detalhe leitura + alerta "ida sem volta"; **aba Deslocamento** na Tarefa + marcar **Revisado** no editor (§7).
+- **Navegação (06/26):** abrir Tarefa/RAT/Deslocamento em **nova aba** (ícone + Ctrl/Cmd-clique); **ordenação por clique no cabeçalho** em todas as listas; top bar do detalhe mostra `Tarefa Nº NNNNN`.
+- **Push ao técnico (06/26):** `notify-push` estendida — **"Nova tarefa atribuída"** e **"Tarefa reagendada"** pros técnicos atribuídos (§7, Home do técnico); a do encerramento da RAT pro admin virou **"Atendimento realizado"**.
 
 **App do técnico (PWA)**
 - Home em hub + OS para hoje + Agenda + Pré-orçamento + **Deslocamento/pernoite** (§4.1) — implementados.
 - **Formulário da RAT reorganizado** (§8.1): card de contexto + grid 2×2 de registros, modais coloridos, Sim/Não semânticos, técnicos em modal fullscreen, indicador de progresso para concluir, **timers reabríveis** (atendimento/almoço/pausa/ida/retorno).
 - Pacote UX: autosave, catálogo offline, banners de sync, fotos, dark mode, correções iOS (inputs date/time), anti-RAT-órfã. Ditado por voz **removido** (travava iOS/PWA).
 - Emojis → **ícones SVG**; terminologia "Disponível" (§9); **sem R$** nas telas do técnico.
-- Service worker na casa da **v300**; produção no Vercel (`servicereport-app.vercel.app`).
+- **Sync resiliente (06/26):** RAT com tarefa-pai ausente **recria a pai e reenvia**; aparelho **não re-empurra** viagem de outro técnico (corrige 403 RLS) — ver §12.
+- **Push de campo (06/26):** recebe "Nova tarefa atribuída" / "Tarefa reagendada" mesmo com o app fechado (§7).
+- Service worker na casa da **v451**; produção no Vercel (`servicereport-app.vercel.app`).
 
 ### Pendente (próximos passos)
 
