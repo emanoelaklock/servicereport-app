@@ -57,18 +57,24 @@ var sbadge = (s, opts = {}) => {
 /* ─── Data absoluta em pt-BR ─────────────────────────────── */
 /* opts.withTime = true  →  inclui hora */
 /* opts.withYear = false →  omite ano */
+// PORTAL: sempre no fuso do escritório (America/Sao_Paulo), independente da máquina do admin.
+// Data-só ('AAAA-MM-DD') é construída como data local (sem fuso) p/ não escorregar 1 dia;
+// timestamptz é convertido pro fuso fixo. (utils.js é só do portal — o app usa o fuso do aparelho.)
+var TZ_BR = 'America/Sao_Paulo'
 var fdt = (iso, opts = {}) => {
   if (!iso) return '—'
-  const d = new Date(iso)
+  const md = String(iso).match(/^(\d{4})-(\d{2})-(\d{2})$/)   // data-só, sem hora
+  const d = md ? new Date(+md[1], +md[2] - 1, +md[3]) : new Date(iso)
   if (isNaN(d)) return '—'
   const dateOpts = {
     day: '2-digit',
     month: opts.numeric ? '2-digit' : 'short',
     year: opts.withYear === false ? undefined : 'numeric',
   }
+  if (!md) dateOpts.timeZone = TZ_BR
   const base = d.toLocaleDateString('pt-BR', dateOpts)
   if (opts.withTime) {
-    const hm = d.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })
+    const hm = d.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit', timeZone: TZ_BR })
     return base + ' ' + hm
   }
   return base
@@ -84,7 +90,7 @@ var fdata = iso => {
   if (df === 0) return '<span style="color:var(--gr);font-size:12px">Hoje</span>'
   if (df === 1) return '<span style="color:var(--am);font-size:12px">Ontem</span>'
   if (df < 7)  return `<span class="dim">${df}d atrás</span>`
-  return `<span class="dim">${d.toLocaleDateString('pt-BR', { day: '2-digit', month: 'short' })}</span>`
+  return `<span class="dim">${d.toLocaleDateString('pt-BR', { day: '2-digit', month: 'short', timeZone: TZ_BR })}</span>`
 }
 
 /* ─── String formatada ou traço ──────────────────────────── */
