@@ -1,30 +1,12 @@
 /* ═══════════════════════════════════════════════
    Service Report — painel.js
-   Painel diário (back-office): contadores + últimas RATs.
+   Painel diário (back-office): tarefas pendentes de execução.
    Dependências: utils.js, supabase-client.js, auth.js (toast).
    Exposto como window.PainelApp.
 ═══════════════════════════════════════════════ */
 (function () {
-  const set = (id, v) => { const el = document.getElementById(id); if (el) el.textContent = (v == null ? '—' : v) }
-
   async function init() {
-    const sb = getSupabase()
-    const hoje = new Date(); hoje.setHours(0, 0, 0, 0)
-    const isoHoje = hoje.toISOString()
-    const cont = (q) => q.then(r => r.error ? '—' : r.count)
-
-    const [hojeC, pendC, fatC, fatHojeC, svC] = await Promise.all([
-      cont(sb.from('rats').select('*', { count: 'exact', head: true }).gte('data_tarefa', isoHoje)),
-      cont(sb.from('rats').select('*', { count: 'exact', head: true }).eq('status', 'Concluído com Pendências')),
-      cont(sb.from('rats').select('*', { count: 'exact', head: true }).eq('faturado', false).eq('relatorio_completo', true)),
-      cont(sb.from('rats').select('*', { count: 'exact', head: true }).eq('faturado', true).gte('data_faturamento', isoHoje)),
-      cont(sb.from('vw_alerta_desloc_sem_volta').select('*', { count: 'exact', head: true })),   // conferência (leitura): dias técnico×dia com ida sem volta
-    ])
-    set('kpi-hoje', hojeC); set('kpi-pend', pendC); set('kpi-faturar', fatC); set('kpi-fat-hoje', fatHojeC); set('kpi-sem-volta', svC)
-    // conferência: o cartão só aparece quando há dias a verificar (>0). 0 ou '—' (erro/RLS) = escondido (sem ruído)
-    const svCard = document.getElementById('kpi-sem-volta-card'); if (svCard) svCard.style.display = (typeof svC === 'number' && svC > 0) ? '' : 'none'
-
-    await carregarPendExec(sb)
+    await carregarPendExec(getSupabase())
   }
 
   // Tarefas aguardando execução (pendentes de execução) — cards Nº / Cliente / Orientação.

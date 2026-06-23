@@ -17,6 +17,7 @@
 <style>
   .kpi{cursor:pointer;transition:transform .12s ease}
   .kpi:hover{transform:translateY(-2px)}
+  .pe-title{font-size:28px;font-weight:800;letter-spacing:-.5px;margin:6px 0 18px;color:#1a2030}
   .pe-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(340px,1fr));gap:16px;margin-bottom:26px}
   .pe-card{border:1px solid #DDE2EC;border-left:7px solid #98A0B2;border-radius:16px;padding:20px 22px;cursor:pointer;transition:transform .12s ease,box-shadow .12s ease;box-shadow:0 2px 8px rgba(20,30,60,.08)}
   .pe-card:hover{transform:translateY(-3px);box-shadow:0 10px 24px rgba(20,30,60,.16)}
@@ -47,30 +48,7 @@
   <div id="app-screen" style="display:none">
     <div class="topbar"><h1>Painel diário</h1></div>
     <div class="scrollarea">
-      <div class="kpis">
-        <div class="kpi k-blue" onclick="location.href='tarefa.html'">
-          <div class="ic"><svg viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="17" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/></svg></div>
-          <div class="lab">Tarefas hoje</div><div class="n" id="kpi-hoje">—</div><div class="sub">RATs com data de hoje</div>
-        </div>
-        <div class="kpi k-amber" onclick="location.href='tarefa.html?f=concluida_pendencia'">
-          <div class="ic"><svg viewBox="0 0 24 24"><path d="M10.3 3.9 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0Z"/><path d="M12 9v4M12 17h.01"/></svg></div>
-          <div class="lab">Concluídas c/ pendência</div><div class="n" id="kpi-pend">—</div><div class="sub">serviço com pendência</div>
-        </div>
-        <div class="kpi k-purple" onclick="location.href='tarefa.html?f=a_faturar'">
-          <div class="ic"><svg viewBox="0 0 24 24"><path d="M14 3v4a1 1 0 0 0 1 1h4"/><path d="M17 21H7a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h7l5 5v11a2 2 0 0 1-2 2Z"/></svg></div>
-          <div class="lab">A faturar</div><div class="n" id="kpi-faturar">—</div><div class="sub">completas não faturadas</div>
-        </div>
-        <div class="kpi k-green">
-          <div class="ic"><svg viewBox="0 0 24 24"><path d="M21 11.5a9 9 0 1 1-5.3-8.2"/><path d="m9 11 3 3L22 4"/></svg></div>
-          <div class="lab">Faturadas hoje</div><div class="n" id="kpi-fat-hoje">—</div><div class="sub">com nota lançada hoje</div>
-        </div>
-        <div class="kpi k-amber" id="kpi-sem-volta-card" style="display:none" onclick="location.href='jornada.html#desloc-sem-volta'" title="Conferência — abre a lista na Jornada">
-          <div class="ic"><svg viewBox="0 0 24 24"><path d="M10.3 3.9 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0Z"/><path d="M12 9v4M12 17h.01"/></svg></div>
-          <div class="lab">Deslocamento sem volta</div><div class="n" id="kpi-sem-volta">—</div><div class="sub">dias a verificar na jornada</div>
-        </div>
-      </div>
-
-      <div class="sec-lab" id="pend-exec-lab">Tarefas pendentes de execução</div>
+      <h2 class="pe-title" id="pend-exec-lab">Tarefas pendentes de execução</h2>
       <div class="pe-grid" id="pend-exec"></div>
     </div>
   </div>
