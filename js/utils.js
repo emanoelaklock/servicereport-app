@@ -63,7 +63,7 @@ var fdt = (iso, opts = {}) => {
   if (isNaN(d)) return '—'
   const dateOpts = {
     day: '2-digit',
-    month: 'short',
+    month: opts.numeric ? '2-digit' : 'short',
     year: opts.withYear === false ? undefined : 'numeric',
   }
   const base = d.toLocaleDateString('pt-BR', dateOpts)
