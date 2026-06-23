@@ -11,7 +11,7 @@ const DeslocApp = (() => {
   // destino "Joinville" (base, de org_config) = Traders
   const ehBase = (txt) => { const c = baseCidade.trim().toLowerCase(); return !!c && String(txt || '').toLowerCase().includes(c) }
   const SENT = { ida: 'Ida', volta: 'Volta', outro: 'Outro' }
-  const dt = (iso) => iso ? new Date(iso).toLocaleString('pt-BR', { day: '2-digit', month: '2-digit', year: '2-digit', hour: '2-digit', minute: '2-digit' }) : '—'
+  const dt = (iso) => iso ? new Date(iso).toLocaleString('pt-BR', { day: '2-digit', month: '2-digit', year: '2-digit', hour: '2-digit', minute: '2-digit', timeZone: 'America/Sao_Paulo' }) : '—'
   // Exibição em fuso BR (America/Sao_Paulo): saida_em/chegada_em são timestamptz (instante
   // completo → new Date é seguro); a `data` do trecho é só-data 'YYYY-MM-DD' e NUNCA passa por
   // new Date (split de string evita o off-by-one UTC, o F1).

@@ -24,10 +24,15 @@ const JornadaApp = (() => {
       sb().rpc('sr_usuarios'),   // usuários do SR (papel vindo do Portal); filtra técnicos abaixo
       sb().from('clientes').select('id,nome'),
     ])
-    if (tec.data) tec.data = tec.data.filter(u => u.role === 'tecnico_campo' && u.ativo)
-    document.getElementById('j-tec').innerHTML = (tec.data || []).map(t => `<option value="${esc(t.id)}">${esc(t.nome || '(sem nome)')}</option>`).join('')
+    const todosUsuarios = tec.data || []
+    // Nomes: TODOS os usuários do SR — RATs/deslocamentos podem ter participantes que não são
+    // "tecnico_campo" no papel do Portal (ex.: um admin que também vai a campo, como o Arian),
+    // e o nome deles precisa resolver na tabela do dia (senão aparece "—").
+    todosUsuarios.forEach(t => { tecNomes[t.id] = t.nome })
     ;(cli.data || []).forEach(c => { cliNomes[c.id] = c.nome })
-    ;(tec.data || []).forEach(t => { tecNomes[t.id] = t.nome })
+    // Dropdown de filtro: técnicos de campo ativos.
+    const tecsCampo = todosUsuarios.filter(u => u.role === 'tecnico_campo' && u.ativo)
+    document.getElementById('j-tec').innerHTML = tecsCampo.map(t => `<option value="${esc(t.id)}">${esc(t.nome || '(sem nome)')}</option>`).join('')
     document.getElementById('j-data').value = hoje()
     document.getElementById('j-tec').onchange = carregar
     document.getElementById('j-data').onchange = () => { carregar(); carregarHorasDia() }
@@ -131,7 +136,7 @@ const JornadaApp = (() => {
   // ───────────────────── Pernoites (período) ─────────────────────
   const diaLocal = (iso) => { const x = new Date(iso); return new Date(x.getFullYear(), x.getMonth(), x.getDate()) }
   const calNoites = (aIso, bIso) => Math.max(0, Math.round((diaLocal(bIso) - diaLocal(aIso)) / 86400000))
-  const dDMA = (iso) => iso ? new Date(iso).toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit', year: '2-digit' }) : '—'
+  const dDMA = (iso) => iso ? new Date(iso).toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit', year: '2-digit', timeZone: 'America/Sao_Paulo' }) : '—'
 
   async function carregarPernoites() {
     const de = document.getElementById('p-de').value, ate = document.getElementById('p-ate').value
