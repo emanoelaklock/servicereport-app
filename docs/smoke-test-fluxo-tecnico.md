@@ -23,7 +23,7 @@
 - [ ] **B2** Em **Situação**, deixe o checkbox **"Não consegui executar"** **desmarcado** (= execução). No rodapé aparecem **"Salvar e continuar"** + **"Encerrar a RAT do dia"**.
 - [ ] **B2b** (salvar parcial) Tocar **"Salvar e continuar"** → toast "RAT salva no aparelho"; a RAT fica **"Em andamento"** e segue editável (sem exigir obrigatórios nem checkpoint).
 - [ ] **B3** Tocar **"Encerrar a RAT do dia"** → surge o checkpoint **"Volta amanhã?"**; responder **Sim** e tocar **"Encerrar a RAT do dia"** de novo → toast **"RAT do dia registrada"**; volta pra lista.
-- [ ] **B4** A RAT aparece como **"Registrada"** (não "Concluída"); a **Tarefa continua "Em execução / Atendimento continua"** (não concluída).
+- [ ] **B4** A RAT aparece como **"Atendimento Realizado"** (não "Concluída"); a **Tarefa continua "Em execução / Atendimento continua"** (não concluída).
 - [ ] **B5** Admin recebe push **"RAT registrada"** (tarefa · cliente).
 
 ## C. Concluir o SERVIÇO na Tarefa (passo 2 de 2)

@@ -36,7 +36,7 @@ Deno.serve(async (req: Request) => {
       // retrocompat com clientes em cache antigo, mas encerrar a RAT não conclui o serviço.
       const { data: admins } = await admin.from('usuarios').select('id').in('role', ['admin', 'gestor_axis']).eq('ativo', true)
       targets = (admins || []).map((a: any) => a.id)
-      titulo = 'RAT registrada'
+      titulo = 'Atendimento realizado'
       msg = body.texto || ('Tarefa Nº ' + (body.numero || '') + ' — ' + (body.cliente || '')).trim()
       url = 'tarefa.html' + (body.tarefa_id ? ('?t=' + body.tarefa_id) : '')
     } else if (tipo === 'rat_improdutiva') {

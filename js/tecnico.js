@@ -34,7 +34,7 @@
     aprovada_faturamento: { t: 'Aprovada p/ faturamento', c: 's-done' },
     faturada: { t: 'Faturada', c: 's-done' },
   }
-  const RAT_SIT_LABEL = { em_andamento: 'Em andamento', registrado: 'Registrada', concluida: 'Concluída', concluida_pendencia: 'Concluída c/ pendência', improdutiva: 'Visita improdutiva' }
+  const RAT_SIT_LABEL = { em_andamento: 'Em andamento', registrado: 'Atendimento Realizado', concluida: 'Concluída', concluida_pendencia: 'Concluída c/ pendência', improdutiva: 'Visita improdutiva' }
   const ratSit = (s) => RAT_SIT_LABEL[s] || s || '—'
   // Motivos da visita improdutiva (chave salva → rótulo). 'outro' usa texto livre.
   const MOTIVO_IMPRODUTIVA = {
@@ -3225,7 +3225,7 @@
       assinatura_local,
     })
     await D().definirStatus(cur.client_uuid, D().STATUS.SALVO_LOCAL, 'salvo pelo técnico')
-    toast(emExecucao ? 'RAT salva no aparelho.' : 'RAT do dia registrada.', 'ok')
+    toast(emExecucao ? 'RAT salva no aparelho.' : 'Atendimento do dia realizado.', 'ok')
     // Avisa admin/gestor quando a RAT do dia é encerrada (registrada), se online.
     if (!emExecucao && navigator.onLine && window.notificarPush) {
       notificarPush('rat_registrada', { numero: cur.tarefa_numero, cliente: cli?.nome, tarefa_id: cur.tarefa_id })
