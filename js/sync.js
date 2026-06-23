@@ -257,16 +257,26 @@
 
   async function enviarDeslocamento(d) {
     const sb = getSupabase()
-    const { data: { user } } = await sb.auth.getUser()
-    // A viagem pertence a quem a CRIOU (RLS desloc_tecnico_own: só criado_por grava).
-    // Quem está só "a bordo" (não criou) NÃO pode gravar a viagem do colega — tentar o upsert
-    // dá 403 em loop e trava a sincronização. Como o app de campo apenas consome essa viagem
-    // (a versão canônica é do criador e chega pelo pull), marca confirmado e sai.
-    if (d.criado_por && user && d.criado_por !== user.id) {
+    // Modelo novo (viagem com trechos): a escrita passa pela Edge Function `viagem-merge`.
+    // O RLS de `deslocamentos` só deixa o criador gravar; a função (service role) deixa QUALQUER
+    // um a bordo finalizar e mescla por união (preenche vazio, marca conflito quando as horas
+    // divergem, preserva criado_por). Só marca confirmado quando a função confirma de verdade —
+    // nada de "✓ sincronizado" sobre algo que não subiu.
+    if (Array.isArray(d.trechos)) {
+      const { data, error } = await sb.functions.invoke('viagem-merge', { body: { trip: d } })
+      if (error) {
+        // 403 = não está a bordo desta viagem: para de reenviar (a versão canônica chega pelo
+        // pull) e evita o loop de permissão. Demais erros sobem e ficam pendentes p/ nova tentativa.
+        if (error.context && error.context.status === 403) { await D().marcarDeslocamentoStatus(d.id, D().STATUS.CONFIRMADO); return }
+        throw error
+      }
+      if (data && data.error) throw new Error(data.error)
       await D().marcarDeslocamentoStatus(d.id, D().STATUS.CONFIRMADO)
       return
     }
-    if (Array.isArray(d.trechos)) return enviarViagem(sb, d, (user && user.id) || d.criado_por)
+    // Modelo legado (1 registro = 1 trajeto): só o criador grava (RLS). Mantido p/ dados antigos.
+    const { data: { user } } = await sb.auth.getUser()
+    if (d.criado_por && user && d.criado_por !== user.id) { await D().marcarDeslocamentoStatus(d.id, D().STATUS.CONFIRMADO); return }
     const up = await sb.from('deslocamentos').upsert({
       id: d.id, sentido: d.sentido || 'ida', veiculo_id: d.veiculo_id || null, cliente_id: d.cliente_id || null,
       origem: d.origem || null, destino: d.destino || null,
@@ -281,66 +291,6 @@
     if (tecs.length) {
       const it = await sb.from('deslocamento_tecnicos').upsert(tecs.map(tid => ({ deslocamento_id: d.id, tecnico_id: tid })), { onConflict: 'deslocamento_id,tecnico_id' })
       if (it.error) throw it.error
-    }
-    await D().marcarDeslocamentoStatus(d.id, D().STATUS.CONFIRMADO)
-  }
-
-  // Modelo novo: viagem (pai) + trechos + a-bordo/direção por trecho + almoço na estrada.
-  // saida_em do PAI fica nula de propósito — o trigger-espelho de compatibilidade
-  // (app antigo, 1 registro = 1 perna) só age sobre pais com saida_em preenchida.
-  async function enviarViagem(sb, d, criadoPor) {
-    const up = await sb.from('deslocamentos').upsert({
-      id: d.id, sentido: 'outro', cliente_id: d.cliente_id || null,
-      motivo: d.motivo || null, observacoes: d.observacoes || null, criado_por: criadoPor,
-    }, { onConflict: 'id' })
-    if (up.error) throw up.error
-    // trechos: substituição completa (cascade limpa a-bordo/direção)
-    const del = await sb.from('deslocamento_trechos').delete().eq('deslocamento_id', d.id)
-    if (del.error) throw del.error
-    const trechos = (d.trechos || []).map((t, i) => ({
-      id: t.id, deslocamento_id: d.id, ordem: i + 1,
-      origem: t.origem || null, destino: t.destino || null, destino_local_id: t.destino_local_id || null,
-      destino_cliente_id: t.destino_cliente_id || null, tarefa_id: t.tarefa_id || null,
-      almoco_inicio: t.almoco_inicio || null, almoco_fim: t.almoco_fim || null,
-      data: t.data || null, saida_em: t.saida_em || null, chegada_em: t.chegada_em || null,
-      saida_lat: t.saida_lat ?? null, saida_lng: t.saida_lng ?? null, saida_precisao: t.saida_precisao ?? null,
-      chegada_lat: t.chegada_lat ?? null, chegada_lng: t.chegada_lng ?? null, chegada_precisao: t.chegada_precisao ?? null,
-      veiculo_id: t.veiculo_id || null, nota_transporte: t.nota_transporte || null,
-    }))
-    if (trechos.length) {
-      const it = await sb.from('deslocamento_trechos').insert(trechos)
-      if (it.error) throw it.error
-      const aboard = [], dirs = []
-      for (const t of (d.trechos || [])) {
-        for (const tid of (t.tecnicos || [])) aboard.push({ trecho_id: t.id, tecnico_id: tid })
-        for (const m of (t.motoristas || [])) dirs.push({ trecho_id: t.id, tecnico_id: m.tecnico_id, hora_de: m.hora_de || null, hora_ate: m.hora_ate || null })
-      }
-      if (aboard.length) { const r = await sb.from('trecho_tecnicos').insert(aboard); if (r.error) throw r.error }
-      if (dirs.length) { const r = await sb.from('trecho_direcao').insert(dirs); if (r.error) throw r.error }
-    }
-    // união a bordo no pai: dá leitura da viagem a quem participa (RLS) e serve o admin
-    const delT = await sb.from('deslocamento_tecnicos').delete().eq('deslocamento_id', d.id)
-    if (delT.error) throw delT.error
-    const uni = [...new Set((d.trechos || []).flatMap(t => t.tecnicos || []))]
-    if (uni.length) {
-      const r = await sb.from('deslocamento_tecnicos').upsert(uni.map(tid => ({ deslocamento_id: d.id, tecnico_id: tid })), { onConflict: 'deslocamento_id,tecnico_id' })
-      if (r.error) throw r.error
-    }
-    // tarefas referenciadas (em aberto, dos clientes do destino)
-    const delTar = await sb.from('deslocamento_tarefas').delete().eq('deslocamento_id', d.id)
-    if (delTar.error) throw delTar.error
-    if ((d.tarefas || []).length) {
-      const r = await sb.from('deslocamento_tarefas').insert(d.tarefas.map(tid => ({ deslocamento_id: d.id, tarefa_id: tid })))
-      if (r.error) throw r.error
-    }
-    // almoço na estrada por pessoa/dia → o servidor materializa em `almocos` (com dedup)
-    const delA = await sb.from('deslocamento_almocos').delete().eq('deslocamento_id', d.id)
-    if (delA.error) throw delA.error
-    if ((d.almocos || []).length) {
-      const r = await sb.from('deslocamento_almocos').insert(d.almocos.map(a => ({
-        deslocamento_id: d.id, tecnico_id: a.tecnico_id, dia: a.dia, inicio: a.inicio, fim: a.fim,
-      })))
-      if (r.error) throw r.error
     }
     await D().marcarDeslocamentoStatus(d.id, D().STATUS.CONFIRMADO)
   }
