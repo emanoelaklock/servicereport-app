@@ -2,7 +2,7 @@
 
 > Documento vivo. Reúne tudo que foi desenhado até aqui. Serve de referência única para a construção (Claude Code) e para revisão do time. Ao lembrar de algo novo, acrescenta-se aqui — não precisa segurar nada de cabeça.
 >
-> **Última atualização: 12/06/2026** (incorpora o trabalho de 09–11/06: re-skin do admin, reorganização da RAT do técnico, timers reabríveis, IA "Melhorar escrita", pernoite, paleta oficial — **+ decisões de design de 12/06:** tempo por técnico + Tangerino (§8) · Remessa/Container (§9) · decimais com teto na Tarefa (§9) · Viagem como referência futura (§4.1)).
+> **Última atualização: 23/06/2026** (incorpora o trabalho de 09–11/06: re-skin do admin, reorganização da RAT do técnico, timers reabríveis, IA "Melhorar escrita", pernoite, paleta oficial — **+ decisões de design de 12/06:** tempo por técnico + Tangerino (§8) · Remessa/Container (§9) · decimais com teto na Tarefa (§9) · Viagem como referência futura (§4.1) — **+ junho/26:** push de atribuição/reagendamento, telas de RAT/Deslocamento no portal, rótulo "Atendimento Realizado", sync resiliente, e **finalização colaborativa da viagem** — qualquer um a bordo finaliza, merge por união com conflito marcado pro admin (§4.1 / §12)).
 
 ---
 
