@@ -7,7 +7,13 @@
 ═══════════════════════════════════════════════ */
 const JornadaApp = (() => {
   const sb = () => getSupabase()
-  let cliNomes = {}, tecNomes = {}
+  let cliNomes = {}, tecNomes = {}, tecFotos = {}
+  // Avatar com FOTO do Portal (mesmo componente das RATs/Tarefas/Deslocamentos); iniciais como fallback.
+  const avHtml = (tid) => {
+    const foto = (typeof avatarUrl === 'function') ? avatarUrl(tecFotos[tid]) : ''
+    if (foto) return `<img src="${esc(foto)}" alt="">`
+    return esc((tecNomes[tid] || '—').trim().split(/\s+/).slice(0, 2).map(p => p[0] || '').join('').toUpperCase())
+  }
 
   const SEG_META = {
     trabalho: { ic: '🔧', lb: 'Trabalho' }, pausa: { ic: '⏸️', lb: 'Pausa' },
@@ -28,7 +34,7 @@ const JornadaApp = (() => {
     // Nomes: TODOS os usuários do SR — RATs/deslocamentos podem ter participantes que não são
     // "tecnico_campo" no papel do Portal (ex.: um admin que também vai a campo, como o Arian),
     // e o nome deles precisa resolver na tabela do dia (senão aparece "—").
-    todosUsuarios.forEach(t => { tecNomes[t.id] = t.nome })
+    todosUsuarios.forEach(t => { tecNomes[t.id] = t.nome; tecFotos[t.id] = t.foto_url })
     ;(cli.data || []).forEach(c => { cliNomes[c.id] = c.nome })
     // Dropdown de filtro: técnicos de campo ativos.
     const tecsCampo = todosUsuarios.filter(u => u.role === 'tecnico_campo' && u.ativo)
@@ -123,9 +129,8 @@ const JornadaApp = (() => {
         const ai = tMin(alm.inicio), af = tMin(alm.fim)
         for (const u of uni) tot -= Math.max(0, Math.min(u[1], af) - Math.max(u[0], ai))
       }
-      const ini2 = (tecNomes[tid] || '—').trim().split(/\s+/).slice(0, 2).map(x => x[0] || '').join('').toUpperCase()
       return `<tr>
-        <td><span class="hd-tec"><span class="av">${esc(ini2)}</span><span class="nm">${esc(tecNomes[tid] || '—')}</span></span></td>
+        <td><span class="hd-tec"><span class="av">${avHtml(tid)}</span><span class="nm">${esc(tecNomes[tid] || '—')}</span></span></td>
         <td>${chips}</td>
         <td>${lunch}</td>
         <td style="text-align:right"><span class="hd-hrs">${String(Math.floor(tot / 60)).padStart(2, '0')}h${String(tot % 60).padStart(2, '0')}</span></td>
