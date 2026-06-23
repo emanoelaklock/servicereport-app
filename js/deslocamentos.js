@@ -110,7 +110,7 @@ const DeslocApp = (() => {
 
   async function carregar() {
     const { data, error } = await sb().from('deslocamentos')
-      .select('id,sentido,cliente_id,origem,destino,origem_cidade,origem_uf,destino_cidade,destino_uf,motivo,observacoes,saida_em,chegada_em,veiculo_id,saida_lat,saida_lng,chegada_lat,chegada_lng,criado_em,revisado,revisado_em,deslocamento_tecnicos(tecnico_id),deslocamento_trechos(id,ordem,origem,destino,destino_local_id,destino_cliente_id,tarefa_id,almoco_inicio,almoco_fim,data,saida_em,chegada_em,saida_lat,saida_lng,saida_precisao,chegada_lat,chegada_lng,chegada_precisao,veiculo_id,nota_transporte,espelho_legado,cliente_locais(nome,cidade,uf),trecho_tecnicos(tecnico_id),trecho_direcao(id,tecnico_id,hora_de,hora_ate)),deslocamento_almocos(tecnico_id,dia,inicio,fim),deslocamento_tarefas(tarefa_id,tarefas(numero,status,cliente_id))')
+      .select('id,sentido,cliente_id,origem,destino,origem_cidade,origem_uf,destino_cidade,destino_uf,motivo,observacoes,saida_em,chegada_em,veiculo_id,saida_lat,saida_lng,chegada_lat,chegada_lng,criado_em,revisado,revisado_em,conflito,deslocamento_tecnicos(tecnico_id),deslocamento_trechos(id,ordem,origem,destino,destino_local_id,destino_cliente_id,tarefa_id,almoco_inicio,almoco_fim,data,saida_em,chegada_em,saida_lat,saida_lng,saida_precisao,chegada_lat,chegada_lng,chegada_precisao,veiculo_id,nota_transporte,espelho_legado,cliente_locais(nome,cidade,uf),trecho_tecnicos(tecnico_id),trecho_direcao(id,tecnico_id,hora_de,hora_ate)),deslocamento_almocos(tecnico_id,dia,inicio,fim),deslocamento_tarefas(tarefa_id,tarefas(numero,status,cliente_id))')
       .order('criado_em', { ascending: false }).limit(300)
     if (error) { toast('Erro: ' + error.message, 'err'); return }
     rows = data || []
@@ -255,7 +255,7 @@ const DeslocApp = (() => {
           ? clisVisita.map(id => `<div${id === d.cliente_id ? ' style="font-weight:700"' : ''}>${esc(cliNomes[id] || '—')}</div>`).join('')
           : esc(cliNomes[d.cliente_id] || '—')
         return `<tr class="row-click" data-det="${esc(d.id)}">
-          <td><div class="vtipo">Viagem · ${ts.length} trecho${ts.length > 1 ? 's' : ''}</div>${periodo ? `<div class="vper">${esc(periodo)}</div>` : ''}${(() => { const tv = tempoViagemMin(ts); return tv.temTempo ? `<div class="vper">Tempo: <b>${fmtHm(tv.total)}</b>${tv.aberto ? '…' : ''}${tv.almoco ? ' (− refeição)' : ''}</div>` : '' })()}${(() => { const refs = (d.deslocamento_tarefas || []).map(x => x.tarefas ? `Tarefa Nº ${String(x.tarefas.numero).padStart(5, '0')}` : null).filter(Boolean); return refs.length ? `<div class="vper">Ref.: ${esc(refs.join(' · '))}</div>` : '' })()}<div style="margin-top:5px">${st}${d.revisado ? ' <span class="d-rev">✓ Revisado</span>' : ''}</div></td>
+          <td><div class="vtipo">Viagem · ${ts.length} trecho${ts.length > 1 ? 's' : ''}</div>${periodo ? `<div class="vper">${esc(periodo)}</div>` : ''}${(() => { const tv = tempoViagemMin(ts); return tv.temTempo ? `<div class="vper">Tempo: <b>${fmtHm(tv.total)}</b>${tv.aberto ? '…' : ''}${tv.almoco ? ' (− refeição)' : ''}</div>` : '' })()}${(() => { const refs = (d.deslocamento_tarefas || []).map(x => x.tarefas ? `Tarefa Nº ${String(x.tarefas.numero).padStart(5, '0')}` : null).filter(Boolean); return refs.length ? `<div class="vper">Ref.: ${esc(refs.join(' · '))}</div>` : '' })()}<div style="margin-top:5px">${st}${(Array.isArray(d.conflito) && d.conflito.length) ? ' <span class="d-conf">⚠ conflito — revisar</span>' : ''}${d.revisado ? ' <span class="d-rev">✓ Revisado</span>' : ''}</div></td>
           <td>${cliCell}</td>
           <td>${esc(origemLbl(prim.origem))} → ${esc(destinoLbl(ult))}${detalhe}</td>
           <td>${veics.length ? veics.map(esc).join('<br>') : (semVeic.length ? `<span class="dim">${esc(semVeic.join(', '))}</span>` : '—')}</td>
@@ -403,6 +403,22 @@ const DeslocApp = (() => {
         ${d.motivo ? kv('Motivo', esc(d.motivo)) : ''}
         ${maps ? kv('Mapa', maps) : ''}</div>`
       sec += `<div class="det-sec"><h4>Técnicos a bordo</h4>${aBordo}</div>`
+    }
+    if (Array.isArray(d.conflito) && d.conflito.length) {
+      const campoLbl = { saida_em: 'Saída', chegada_em: 'Chegada', almoco_inicio: 'Início da refeição', almoco_fim: 'Fim da refeição', trecho_removido: 'Trecho removido' }
+      const fmtVal = (campo, v) => {
+        if (v == null) return '—'
+        if (campo === 'trecho_removido') return `saída ${horaBR(v.saida_em)} · chegada ${horaBR(v.chegada_em)}`
+        if (campo === 'almoco_inicio' || campo === 'almoco_fim') return hm5(v)
+        return horaBR(v)
+      }
+      sec += `<div class="det-sec"><h4>⚠ Conflito de finalização</h4>
+        <div class="dim" style="margin-bottom:6px">Dois aparelhos lançaram valores diferentes pra mesma hora. Mantivemos o que já estava no sistema; confira e ajuste se preciso.</div>` +
+        d.conflito.map(c => `<div class="det-leg"><div class="lh">Trecho ${esc(String(c.trecho_ordem))} · ${esc(campoLbl[c.campo] || c.campo)}</div>
+          ${kv('No sistema', esc(fmtVal(c.campo, c.servidor)))}
+          ${c.recebido != null ? kv('Tentaram gravar', esc(fmtVal(c.campo, c.recebido))) : ''}
+          ${c.por ? kv('Por', esc(tecNomes[c.por] || '—')) : ''}
+          ${c.em ? kv('Quando', esc(dtBR(c.em))) : ''}</div>`).join('') + `</div>`
     }
     document.getElementById('det-body').innerHTML = sec
     document.getElementById('det-back').classList.add('open')
