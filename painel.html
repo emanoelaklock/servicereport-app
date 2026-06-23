@@ -17,6 +17,13 @@
 <style>
   .kpi{cursor:pointer;transition:transform .12s ease}
   .kpi:hover{transform:translateY(-2px)}
+  .pe-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:12px;margin-bottom:22px}
+  .pe-card{background:#fff;border:1px solid #E6E8EE;border-left:3px solid #1E8AE0;border-radius:12px;padding:13px 15px;cursor:pointer;transition:transform .12s ease,box-shadow .12s ease}
+  .pe-card:hover{transform:translateY(-2px);box-shadow:0 4px 14px rgba(20,30,60,.07)}
+  .pe-no{font-size:11.5px;font-weight:800;color:#1E8AE0;letter-spacing:.3px;font-variant-numeric:tabular-nums}
+  .pe-cli{font-weight:700;font-size:15px;margin:3px 0 6px;letter-spacing:-.2px}
+  .pe-ori{font-size:12.5px;color:#48506A;line-height:1.45;white-space:pre-wrap;display:-webkit-box;-webkit-line-clamp:5;-webkit-box-orient:vertical;overflow:hidden}
+  .pe-empty{color:#8A90A2;font-size:13px;padding:4px 2px}
 </style>
 </head>
 <body class="tec-admin">
@@ -49,6 +56,9 @@
           <div class="lab">Deslocamento sem volta</div><div class="n" id="kpi-sem-volta">—</div><div class="sub">dias a verificar na jornada</div>
         </div>
       </div>
+
+      <div class="sec-lab" id="pend-exec-lab">Tarefas pendentes de execução</div>
+      <div class="pe-grid" id="pend-exec"></div>
 
       <div class="sec-lab">Últimas RATs</div>
       <div class="listpanel"><div id="recentes"></div></div>
