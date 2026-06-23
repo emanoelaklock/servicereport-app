@@ -1564,7 +1564,7 @@ const TarefaApp = (() => {
   function mostrar(sec) {
     document.getElementById('view-lista').style.display = sec === 'lista' ? 'block' : 'none'
     document.getElementById('view-detalhe').style.display = sec === 'detalhe' ? 'block' : 'none'
-    document.getElementById('topbar-title').textContent = sec === 'detalhe' ? 'Tarefa' : 'Tarefas'
+    document.getElementById('topbar-title').textContent = sec === 'detalhe' ? (cur && cur.numero != null ? `Tarefa Nº ${osNo(cur.numero)}` : 'Tarefa') : 'Tarefas'
     if (sec !== 'detalhe') { const dn = document.getElementById('cc-docno'); if (dn) dn.textContent = '' }
   }
 
