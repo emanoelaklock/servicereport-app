@@ -5,18 +5,6 @@
    Exposto como window.PainelApp.
 ═══════════════════════════════════════════════ */
 (function () {
-  const SYNC_BADGE = {
-    confirmado: { cls: 'b-done', txt: 'Confirmado' },
-    enviando:   { cls: 'b-info', txt: 'Enviando' },
-    na_fila:    { cls: 'b-info', txt: 'Na fila' },
-    salvo_local:{ cls: 'b-warn', txt: 'Local' },
-    erro:       { cls: 'b-pend', txt: 'Erro' },
-    rascunho:   { cls: 'b-warn', txt: 'Rascunho' },
-  }
-  function syncBadge(s) {
-    const b = SYNC_BADGE[s] || { cls: 'b-info', txt: s || '—' }
-    return `<span class="badge ${b.cls}"><i></i>${esc(b.txt)}</span>`
-  }
   const set = (id, v) => { const el = document.getElementById(id); if (el) el.textContent = (v == null ? '—' : v) }
 
   async function init() {
@@ -35,11 +23,6 @@
     set('kpi-hoje', hojeC); set('kpi-pend', pendC); set('kpi-faturar', fatC); set('kpi-fat-hoje', fatHojeC); set('kpi-sem-volta', svC)
     // conferência: o cartão só aparece quando há dias a verificar (>0). 0 ou '—' (erro/RLS) = escondido (sem ruído)
     const svCard = document.getElementById('kpi-sem-volta-card'); if (svCard) svCard.style.display = (typeof svC === 'number' && svC > 0) ? '' : 'none'
-
-    const { data, error } = await sb.from('rats')
-      .select('id,cliente_nome,data_tarefa,sync_status,relatorio_completo,faturado')
-      .order('data_tarefa', { ascending: false, nullsFirst: false }).limit(8)
-    renderRecentes(error ? [] : (data || []))
 
     await carregarPendExec(sb)
   }
@@ -68,26 +51,6 @@
         <div class="pe-cli">${esc(cli[t.cliente_id] || '—')}</div>
         <div class="pe-ori">${esc(t.orientacao || 'Sem orientação')}</div>
       </div>`).join('')
-  }
-
-  function renderRecentes(rows) {
-    const box = document.getElementById('recentes')
-    if (!box) return
-    if (!rows.length) { box.innerHTML = '<div class="lrow"><span class="dim">Nenhuma RAT ainda.</span></div>'; return }
-    box.innerHTML = rows.map(r => {
-      const edge = r.faturado ? 'e-done' : (r.relatorio_completo ? 'e-info' : 'e-warn')
-      const comp = r.relatorio_completo
-        ? '<span class="badge b-done"><i></i>Completo</span>'
-        : '<span class="badge b-warn"><i></i>Pendente</span>'
-      return `
-      <div class="lrow">
-        <span class="ed ${edge}"></span>
-        <span class="cli">${esc(r.cliente_nome || '—')}</span>
-        ${comp}
-        ${syncBadge(r.sync_status)}
-        <span class="dt">${fdt(r.data_tarefa, { withTime: true })}</span>
-      </div>`
-    }).join('')
   }
 
   window.PainelApp = { init }
