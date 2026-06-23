@@ -96,6 +96,12 @@ const TarefaApp = (() => {
   const dmy = (iso) => { if (!iso) return '—'; const m = String(iso).match(/(\d{4})-(\d{2})-(\d{2})/); return m ? `${m[3]}/${m[2]}/${m[1]}` : '—' }
   const unid = (l) => l.unidade ? ` <span class="u">${esc(l.unidade)}</span>` : ''
   const osNo = (n) => n != null ? String(n).padStart(5, '0') : '—'
+  // Corpo dos pushes de tarefa. data-only "YYYY-MM-DD" → "16/jun" SEM new Date (evita F1/UTC).
+  const MES_ABREV = ['jan', 'fev', 'mar', 'abr', 'mai', 'jun', 'jul', 'ago', 'set', 'out', 'nov', 'dez']
+  const dataCurta = (iso) => { const p = iso ? String(iso).slice(0, 10).split('-') : []; const m = Number(p[1]); return (p.length === 3 && m >= 1 && m <= 12) ? `${Number(p[2])}/${MES_ABREV[m - 1]}` : '' }
+  const truncOri = (s) => { s = (s || '').replace(/\s+/g, ' ').trim(); return s.length > 80 ? s.slice(0, 79) + '…' : s }
+  const pushAtribTexto = (cli, dataIso, ori) => [cli, dataCurta(dataIso), truncOri(ori)].filter(Boolean).join(' · ')
+  const pushReagendTexto = (cli, dataIso) => [cli, dataCurta(dataIso)].filter(Boolean).join(' · ')
   const equipLabel = (e) => `${e.modelo || e.tipo || 'Equipamento'}${e.serial ? ' · S/N ' + e.serial : ''}${e.part_number ? ' · PN ' + e.part_number : ''}`
   const fmtSize = (n) => { n = Number(n) || 0; return n < 1024 ? n + ' B' : n < 1048576 ? (n / 1024).toFixed(0) + ' KB' : (n / 1048576).toFixed(1) + ' MB' }
   const getTecnicosChecked = () => [...respSel]
@@ -569,7 +575,7 @@ const TarefaApp = (() => {
         if (insT.error) toast('Tarefa criada, mas falhou ao atribuir técnicos: ' + insT.error.message, 'err')
       }
       toast(`Tarefa Nº ${osNo(ins.data.numero)} criada.`, 'ok')
-      if (tecIdsN.length && window.notificarPush) notificarPush('tarefa_atribuida', { tecnicos: tecIdsN, numero: ins.data.numero, cliente: cliNomes[cliId] || '' })
+      if (tecIdsN.length && window.notificarPush) notificarPush('tarefa_atribuida', { tecnicos: tecIdsN, numero: ins.data.numero, cliente: cliNomes[cliId] || '', tarefa_id: ins.data.id, texto: pushAtribTexto(cliNomes[cliId] || '', patch.data_agendada, patch.orientacao) })
       await carregarTarefas()
       return abrirTarefa(ins.data.id, 'dados')
     }
@@ -584,8 +590,11 @@ const TarefaApp = (() => {
     // sincroniza técnicos (N:N) por DIFERENÇA — evita ruído na auditoria (sem delete-all)
     const tecIds = getTecnicosChecked()
     const tecAntes = tecPorTarefa[cur.id] || []
-    const tecNovos = tecIds.filter(id => !tecAntes.includes(id))     // recém-atribuídos (notifica push)
+    const tecNovos = tecIds.filter(id => !tecAntes.includes(id))     // recém-atribuídos (push "Nova tarefa atribuída")
     const tecRemov = tecAntes.filter(id => !tecIds.includes(id))     // removidos
+    const tecJaEram = tecIds.filter(id => tecAntes.includes(id))     // continuam atribuídos (push "Tarefa reagendada" se a data mudar)
+    // data_agendada ANTES deste save (cache ainda não recebeu o patch — Object.assign acontece adiante)
+    const dataAntes = (tarefas.find(x => x.id === cur.id) || {}).data_agendada || null
     if (tecRemov.length) {
       const del = await sb().from('tarefa_tecnicos').delete().eq('tarefa_id', cur.id).in('tecnico_id', tecRemov)
       if (del.error) return toast('Erro ao salvar técnicos: ' + del.error.message, 'err')
@@ -606,7 +615,10 @@ const TarefaApp = (() => {
     const t = tarefas.find(x => x.id === cur.id)
     if (t) Object.assign(t, patch)
     document.getElementById('cc-d-hint').textContent = tecIds.length ? '' : 'Atribua um ou mais técnicos e agende para a Tarefa aparecer no app do técnico.'
-    if (tecNovos.length && window.notificarPush) notificarPush('tarefa_atribuida', { tecnicos: tecNovos, numero: cur.numero, cliente: cur.cliente_nome })
+    if (tecNovos.length && window.notificarPush) notificarPush('tarefa_atribuida', { tecnicos: tecNovos, numero: cur.numero, cliente: cur.cliente_nome, tarefa_id: cur.id, texto: pushAtribTexto(cur.cliente_nome, patch.data_agendada, patch.orientacao) })
+    // Reagendamento: técnico que JÁ era atribuído + a DATA mudou (e há nova data). Só a data dispara (anti-spam).
+    const dataMudou = (dataAntes || null) !== (patch.data_agendada || null)
+    if (tecJaEram.length && dataMudou && patch.data_agendada && window.notificarPush) notificarPush('tarefa_reagendada', { tecnicos: tecJaEram, numero: cur.numero, cliente: cur.cliente_nome, tarefa_id: cur.id, texto: pushReagendTexto(cur.cliente_nome, patch.data_agendada) })
     renderHeader(t || tarefas.find(x => x.id === cur.id) || {})
     renderSituacao()
     carregarTimeline()

@@ -31,6 +31,12 @@ Deno.serve(async (req: Request) => {
       titulo = 'Nova tarefa atribuída'
       msg = body.texto || ('Tarefa Nº ' + (body.numero || '') + ' — ' + (body.cliente || '')).trim()
       url = 'tecnico.html'
+    } else if (tipo === 'tarefa_reagendada') {
+      // Mesma tarefa, nova data, técnico que já estava atribuído. Destinatários vêm do portal.
+      targets = (body.tecnicos || []).filter(Boolean)
+      titulo = 'Tarefa reagendada'
+      msg = body.texto || ('Tarefa Nº ' + (body.numero || '') + ' — ' + (body.cliente || '')).trim()
+      url = 'tecnico.html'
     } else if (tipo === 'rat_registrada' || tipo === 'rat_concluida') {
       // rat_registrada = RAT do dia encerrada (registrada). 'rat_concluida' segue aceito por
       // retrocompat com clientes em cache antigo, mas encerrar a RAT não conclui o serviço.
