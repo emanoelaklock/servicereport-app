@@ -100,7 +100,7 @@ const RatPage = (() => {
   // atendimento, então a tarefa não progride. RLS: tarefas_admin_all permite o update.
   async function encerrar() {
     const r = det.r
-    if (!confirm('Encerrar esta RAT em andamento e marcá-la como Registrada (fecha o dia)?\n\nSe precisar acertar os horários/tempo, use "Editar" antes. Encerrar a RAT não conclui o serviço — isso é feito na Tarefa.')) return
+    if (!confirm('Encerrar esta RAT em andamento e marcá-la como Atendimento Realizado (fecha o dia)?\n\nSe precisar acertar os horários/tempo, use "Editar" antes. Encerrar a RAT não conclui o serviço — isso é feito na Tarefa.')) return
     const upd = { status: 'registrado' }
     const tm = RatView.tempoRat(r)            // recalcula o tempo se já houver início e término
     if (tm != null) upd.tempo_trabalhado = tm
@@ -108,7 +108,7 @@ const RatPage = (() => {
     if (error) return toast('Erro ao encerrar: ' + error.message, 'err')
     det.r.status = 'registrado'; if (tm != null) det.r.tempo_trabalhado = tm
     renderHero(); render()
-    toast('RAT registrada (dia encerrado).', 'ok')
+    toast('Atendimento realizado (dia encerrado).', 'ok')
   }
 
   async function salvar() {
