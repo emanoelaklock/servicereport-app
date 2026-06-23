@@ -28,6 +28,8 @@ window.RatView = (function () {
 
   const fmtMin = (t) => (t == null) ? '—' : `${Math.floor(t / 60)}h ${String(t % 60).padStart(2, '0')}min`
   const escMulti = (s) => esc(String(s == null ? '' : s)).replace(/\n/g, '<br>')
+  // Data ISO (AAAA-MM-DD) → DD/MM/AAAA por split de string (sem new Date, evita off-by-one UTC).
+  const fmtDataBR = (s) => { const m = String(s == null ? '' : s).match(/^(\d{4})-(\d{2})-(\d{2})/); return m ? `${m[3]}/${m[2]}/${m[1]}` : esc(String(s == null ? '' : s)) }
   const tipoNomeRat = (r) => (r.tarefa && r.tarefa.tipo && r.tarefa.tipo.nome) || (r.tipos_servico && r.tipos_servico.nome) || '—'
 
   const STATUS = {
@@ -188,7 +190,7 @@ window.RatView = (function () {
             : `<div class="rd-long">${escMulti(val) || '—'}</div>`) + `</div>`)
       } else {
         grid.push(`<div class="rd-f"><label>${esc(c.label)}</label>` +
-          (edit ? editInput(c, val) : `<div class="v">${escMulti(val) || '—'}</div>`) + `</div>`)
+          (edit ? editInput(c, val) : `<div class="v">${(c.tipo === 'data' ? fmtDataBR(val) : escMulti(val)) || '—'}</div>`) + `</div>`)
       }
     }
     if (grid.length) h += `<div class="rd-sec"><div class="rd-sec-t">RAT — dados do atendimento</div><div class="rd-grid">${grid.join('')}</div></div>`
