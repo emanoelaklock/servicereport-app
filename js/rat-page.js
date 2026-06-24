@@ -15,6 +15,8 @@ const RatPage = (() => {
   let ratTecsOrig = []       // técnicos originais (do banco) — base do diff
   let prodDel = new Set()    // ids de materiais marcados p/ remover
   let prodAdd = []           // produtos adicionados no editor { uid, produto_id, codigo, descricao, quantidade, preco }
+  let fotoDel = new Set()    // ids de fotos marcadas p/ remover
+  let fotoAdd = []           // fotos adicionadas { uid, path, legenda } (já subidas no storage)
   let histLista = []         // rat_edicoes carregadas
   let pendentes = []         // alterações aguardando o motivo
   let buscaT = null
@@ -56,7 +58,7 @@ const RatPage = (() => {
     const { data } = await sb().from('rats').select(RatView.RAT_SELECT).eq('id', ratId).single()
     if (data) det = await RatView.loadDetalhe(data)
     await carregarAux()
-    prodDel = new Set(); prodAdd = []
+    prodDel = new Set(); prodAdd = []; fotoDel = new Set(); fotoAdd = []
     renderHero(); render(); carregarHistorico()
   }
 
@@ -94,8 +96,8 @@ const RatPage = (() => {
   function barra(show) { document.getElementById('rp-actions').style.display = show ? '' : 'none' }
 
   function bind() {
-    document.getElementById('rp-editar').onclick = () => { editMode = true; prodDel = new Set(); prodAdd = []; render() }
-    document.getElementById('rp-cancelar').onclick = async () => { editMode = false; await carregarAux(); prodDel = new Set(); prodAdd = []; render() }
+    document.getElementById('rp-editar').onclick = () => { editMode = true; prodDel = new Set(); prodAdd = []; fotoDel = new Set(); fotoAdd = []; render() }
+    document.getElementById('rp-cancelar').onclick = async () => { editMode = false; await carregarAux(); prodDel = new Set(); prodAdd = []; fotoDel = new Set(); fotoAdd = []; render() }
     document.getElementById('rp-salvar').onclick = salvar
     document.getElementById('mot-x').onclick = fecharMotivo
     document.getElementById('mot-cancelar').onclick = fecharMotivo
@@ -115,7 +117,7 @@ const RatPage = (() => {
   function render() {
     const corpo = RatView.buildReportBody(det, editMode, { noHeader: true, adminEdit: editMode })
     document.getElementById('rp-body').innerHTML = (editMode ? tecnicosEditorHTML() : '') + corpo
-    if (editMode) { bindTecEditor(); bindProdEditor() }
+    if (editMode) { bindTecEditor(); bindProdEditor(); bindFotoEditor() }
     const show = (id, v) => { document.getElementById(id).style.display = v ? '' : 'none' }
     show('rp-editar', !editMode && souAdmin)
     show('rp-salvar', editMode)
@@ -187,6 +189,29 @@ const RatPage = (() => {
     if (tb) { tb.insertAdjacentHTML('beforeend', `<tr data-newrow="${esc(uid)}"><td>${esc(p.codigo || '')} · ${esc(p.descricao || '')}</td><td class="num"><input class="rd-qtd" data-newqtd="${esc(uid)}" type="number" step="any" min="0" value="1"></td><td class="num">${(Number(p.preco_venda) || 0).toFixed(2)}</td><td class="num">—</td><td class="num"><button type="button" class="rd-matdel" data-newdel="${esc(uid)}" title="Remover">×</button></td></tr>`); bindProdEditor() }
   }
 
+  // ── Editor de FOTOS (adicionar via upload / remover / legenda) ──
+  function bindFotoEditor() {
+    const body = document.getElementById('rp-body')
+    body.querySelectorAll('[data-fotodel]').forEach(b => b.onclick = () => {
+      const id = b.dataset.fotodel, fig = body.querySelector(`[data-fotorow="${id}"]`)
+      if (fotoDel.has(id)) { fotoDel.delete(id); if (fig) fig.style.opacity = '' } else { fotoDel.add(id); if (fig) fig.style.opacity = '.4' }
+    })
+    body.querySelectorAll('[data-newfotodel]').forEach(b => b.onclick = () => { fotoAdd = fotoAdd.filter(p => p.uid !== b.dataset.newfotodel); const fig = body.querySelector(`[data-fotonew="${b.dataset.newfotodel}"]`); if (fig) fig.remove() })
+    const inp = document.getElementById('rd-fotoinput')
+    if (inp) inp.onchange = async () => { for (const f of Array.from(inp.files)) await subirFoto(f); inp.value = '' }
+  }
+  async function subirFoto(file) {
+    const ext = (file.name.split('.').pop() || 'jpg').toLowerCase().replace(/[^a-z0-9]/g, '') || 'jpg'
+    const path = `rats/${ratId}/adm-${Date.now()}-${Math.round(Math.random() * 1e6)}.${ext}`
+    const { error } = await sb().storage.from('rat-anexos').upload(path, file, { upsert: false, contentType: file.type || 'image/jpeg' })
+    if (error) return toast('Erro ao subir foto: ' + error.message, 'err')
+    const uid = 'f' + Date.now() + '_' + fotoAdd.length
+    fotoAdd.push({ uid, path, legenda: '' })
+    const cont = document.getElementById('rd-fotos'); const prev = URL.createObjectURL(file)
+    if (cont) cont.insertAdjacentHTML('beforeend', `<figure class="det-foto" data-fotonew="${esc(uid)}"><img src="${prev}" alt=""><button type="button" class="rd-fotodel" data-newfotodel="${esc(uid)}" title="Remover">×</button><input class="rd-fotonewleg" data-fotonewleg="${esc(uid)}" placeholder="legenda"></figure>`)
+    bindFotoEditor()
+  }
+
   // ── Salvar: monta o diff, pede o MOTIVO e envia pela Edge Function rat-editar ──
   function salvar() {
     const alt = coletarAlteracoes()
@@ -214,6 +239,18 @@ const RatPage = (() => {
     const orT = new Set(ratTecsOrig.map(x => x.tecnico_id)), atT = new Set(ratTecs.map(x => x.tecnico_id))
     for (const id of atT) if (!orT.has(id)) alt.push({ alvo: 'tecnico', operacao: 'insert', chave: id })
     for (const id of orT) if (!atT.has(id)) alt.push({ alvo: 'tecnico', operacao: 'delete', chave: id })
+    // fotos existentes: remover ou mudar legenda
+    for (const f of (det.fotos || [])) {
+      if (!f.id) continue
+      if (fotoDel.has(f.id)) { alt.push({ alvo: 'foto', operacao: 'delete', chave: f.id }); continue }
+      const lEl = cont.querySelector(`[data-fotoleg="${f.id}"]`)
+      if (lEl && (lEl.value || '') !== (f.legenda || '')) alt.push({ alvo: 'foto', operacao: 'update', chave: f.id, valor_novo: { legenda: lEl.value } })
+    }
+    // fotos adicionadas (já subidas no storage; manda o path + legenda)
+    for (const p of fotoAdd) {
+      const lEl = cont.querySelector(`[data-fotonewleg="${p.uid}"]`)
+      alt.push({ alvo: 'foto', operacao: 'insert', valor_novo: { url: p.path, legenda: lEl ? lEl.value : '' } })
+    }
     return alt
   }
   function abrirMotivo(alt) {

@@ -232,9 +232,16 @@ window.RatView = (function () {
         + `</div>`
     }
 
-    if (fotos && fotos.length) {
-      h += `<div class="rd-sec"><div class="rd-sec-t">Fotos</div><div class="det-fotos">` +
-        fotos.map(f => `<figure class="det-foto"><a href="${f.url}" target="_blank"><img src="${f.url}" alt=""></a>${f.legenda ? `<figcaption>${esc(f.legenda)}</figcaption>` : ''}</figure>`).join('') + `</div></div>`
+    if ((fotos && fotos.length) || adminEdit) {
+      h += `<div class="rd-sec"><div class="rd-sec-t">Fotos</div><div class="det-fotos" id="rd-fotos">` +
+        (fotos || []).map(f => `<figure class="det-foto" data-fotorow="${esc(f.id)}">
+          <a href="${f.url}" target="_blank"><img src="${f.url}" alt=""></a>
+          ${adminEdit
+            ? `<button type="button" class="rd-fotodel" data-fotodel="${esc(f.id)}" title="Remover">×</button><input class="rd-fotoleg" data-fotoleg="${esc(f.id)}" value="${esc(f.legenda || '')}" placeholder="legenda">`
+            : (f.legenda ? `<figcaption>${esc(f.legenda)}</figcaption>` : '')}
+        </figure>`).join('') + `</div>` +
+        (adminEdit ? `<label class="rd-fotoadd">+ Adicionar foto<input type="file" id="rd-fotoinput" accept="image/*" multiple hidden></label>` : '') +
+        `</div>`
     }
     if (sigUrl) h += `<div class="rd-sec"><div class="rd-sec-t">Assinatura</div><img class="det-sig" src="${sigUrl}" alt=""></div>`
     h += `</div>`
@@ -259,13 +266,13 @@ window.RatView = (function () {
       const qtd = Number(m.quantidade) || 0
       return { id: m.id, descricao: m.descricao, codigo: m.codigo_produto, quantidade: qtd, preco, subtotal: qtd * preco }
     })
-    const { data: fotosRaw } = await sb.from('relatorio_fotos').select('url,legenda').eq('rat_id', r.id)
+    const { data: fotosRaw } = await sb.from('relatorio_fotos').select('id,url,legenda').eq('rat_id', r.id)
     const comUrl = (fotosRaw || []).filter(f => f.url)
     let fotos = []
     if (comUrl.length) {
-      const legPorPath = {}; comUrl.forEach(f => { legPorPath[f.url] = f.legenda })
+      const meta = {}; comUrl.forEach(f => { meta[f.url] = { id: f.id, legenda: f.legenda } })
       const { data: signed } = await sb.storage.from('rat-anexos').createSignedUrls(comUrl.map(f => f.url), 3600)
-      fotos = (signed || []).filter(s => s.signedUrl).map(s => ({ url: s.signedUrl, legenda: legPorPath[s.path] || '' }))
+      fotos = (signed || []).filter(s => s.signedUrl).map(s => ({ id: (meta[s.path] || {}).id, path: s.path, url: s.signedUrl, legenda: (meta[s.path] || {}).legenda || '' }))
     }
     let sigUrl = null
     if (r.assinatura_url) {
