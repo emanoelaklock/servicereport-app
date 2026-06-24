@@ -987,7 +987,11 @@
     const t = document.getElementById('ft-title'); if (t) t.textContent = TITLES[secao] || 'Service Report'
     const b = document.getElementById('btn-voltar'); if (b) b.style.display = (secao === 'home') ? 'none' : 'block'
     try { sessionStorage.setItem('sr_tec_screen', SCREEN_PARENT[secao] || secao) } catch (e) { /* sem storage */ }
-    if (secao === 'home') renderHome()
+    if (secao === 'home') {
+      renderHome()
+      // voltou pra home = momento natural de ociosidade → deixa o auto-update tentar trocar a versão
+      if (typeof window.srTentarUpdate === 'function') { try { window.srTentarUpdate() } catch (e) { /* nada */ } }
+    }
   }
   // Resumo do herói da home (apresentação) — lê dados já em memória/IndexedDB, sem novas chamadas Supabase.
   async function updateHomeResumo() {
@@ -3020,8 +3024,10 @@
   // Só age sobre RASCUNHO (não altera RAT já salva/enviada sem um Salvar explícito).
   // respostas vazio grava null para manter a regra de "rascunho vazio" do descarte.
   let autosaveT = null
+  let autosavePend = false   // RAT com gravação em debounce ainda não persistida → trava o auto-reload
   function agendarAutosave() {
     if (!cur || !cur.client_uuid) return
+    autosavePend = true
     clearTimeout(autosaveT)
     autosaveT = setTimeout(async () => {
       try {
@@ -3036,6 +3042,7 @@
           uso_produtos: usoProd || null,
         })
       } catch (e) { /* autosave é melhor-esforço */ }
+      finally { autosavePend = false }   // sempre limpa (inclusive nos early-returns) — não trava p/ sempre
     }, 700)
   }
 
@@ -3044,10 +3051,12 @@
   // trigger 0072 coloca a Tarefa em "Em Pausa" pro admin acompanhar (e volta ao retomar).
   // Diferente do autosave (que só toca rascunho e não sobe): aqui empurra pro servidor.
   let persistPausaT = null
+  let pausaPend = false   // persistência de pausa em debounce ainda não concluída → trava o auto-reload
   function agendarPersistPausa() {
     if (!cur || !cur.client_uuid) return
+    pausaPend = true
     clearTimeout(persistPausaT)
-    persistPausaT = setTimeout(() => { persistirPausaSync().catch(() => {}) }, 700)
+    persistPausaT = setTimeout(() => { persistirPausaSync().catch(() => {}).finally(() => { pausaPend = false }) }, 700)
   }
   async function persistirPausaSync() {
     if (!cur || !cur.client_uuid) return
@@ -3522,5 +3531,19 @@
     else await renderLista()
   }
 
-  window.TecnicoApp = { init, refresh }
+  // Fonte da verdade do auto-reload: só TRUE quando o app está 100% ocioso na HOME.
+  // Na dúvida, FALSE. Bloqueia se: fora da home; RAT aberta (cur); deslocamento/viagem em
+  // edição (dlCur, em memória até salvar); gravação em debounce (autosave/pausa); ou qualquer
+  // modal aberto. Garante a regra inviolável: dado não-salvo do técnico nunca se perde no reload.
+  function podeRecarregar() {
+    try {
+      if (screen !== 'home') return false
+      if (cur || dlCur) return false
+      if (autosavePend || pausaPend) return false
+      if (document.querySelector('.modal.open')) return false
+      return true
+    } catch (e) { return false }
+  }
+
+  window.TecnicoApp = { init, refresh, podeRecarregar }
 })()
