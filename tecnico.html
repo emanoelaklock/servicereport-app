@@ -1239,7 +1239,8 @@ try{if(localStorage.getItem('sr_dark')==='1')document.documentElement.classList.
   document.getElementById('net-badge').onclick = () => { if (navigator.onLine && window.SyncEngine) { pintarRede('sync'); SyncEngine.syncAll() } }
   window.addEventListener('online', () => pintarRede())
   window.addEventListener('offline', () => pintarRede())
-  window.onSyncStart = () => pintarRede('sync')
+  let swSyncing = false   // sync em andamento → segura o auto-reload (defensivo; a fila é resumível)
+  window.onSyncStart = () => { swSyncing = true; pintarRede('sync') }
   pintarRede()   // estado inicial (cobre abrir o app já offline)
 
   // Modo escuro: toggle persistido no aparelho (classe aplicada cedo no <head>).
@@ -1270,9 +1271,11 @@ try{if(localStorage.getItem('sr_dark')==='1')document.documentElement.classList.
 
   // Atualiza a tela atual e o indicador quando uma rodada de sync termina.
   window.onSyncDone = ({ ok, fail }) => {
+    swSyncing = false
     pintarRede()
     if (typeof window.onSyncChanged === 'function') window.onSyncChanged()
     if (fail) toast(`${fail} item(ns) com erro de envio.`, 'err')
+    if (typeof window.srTentarUpdate === 'function') window.srTentarUpdate()   // sync acabou → reavalia troca
   }
 
   // Puxar para atualizar (sem recarregar a página): sincroniza e re-renderiza a tela atual.
@@ -1308,26 +1311,53 @@ try{if(localStorage.getItem('sr_dark')==='1')document.documentElement.classList.
 
   initAuth()
 
-  // PWA: registra o service worker (shell offline) + fluxo de atualização.
+  // PWA: registra o service worker (shell offline) + AUTO-UPDATE SEGURO.
+  // Regra inviolável: NUNCA recarrega com o técnico no meio de algo. A versão nova fica em
+  // espera (reg.waiting) e só troca quando o app está 100% ocioso na HOME
+  // (TecnicoApp.podeRecarregar()), online e sem sync rodando. Espera indefinida enquanto ocupado.
+  // A barra "Atualizar" continua como saída MANUAL (escolha explícita do técnico).
   if ('serviceWorker' in navigator) {
     let recarregando = false
+    let swReg = null
+    let updatePendente = false   // existe versão nova esperando (reg.waiting)
+    let swapIniciado = false     // já mandamos SKIP_WAITING desta versão (não repete → sem loop)
+
     navigator.serviceWorker.addEventListener('controllerchange', () => {
       if (recarregando) return
       recarregando = true
       location.reload()
     })
+
+    // Só troca quando TUDO está seguro; na dúvida, não faz nada (fica na versão velha).
+    function tentarUpdate() {
+      if (!updatePendente || swapIniciado || recarregando) return
+      if (!navigator.onLine || swSyncing) return
+      if (!(window.TecnicoApp && typeof TecnicoApp.podeRecarregar === 'function' && TecnicoApp.podeRecarregar())) return
+      const w = swReg && swReg.waiting
+      if (!w) return
+      swapIniciado = true
+      w.postMessage({ type: 'SKIP_WAITING' })   // ativa o SW novo → controllerchange → reload
+    }
+    window.srTentarUpdate = tentarUpdate
+
     window.addEventListener('load', async () => {
       try {
         const reg = await navigator.serviceWorker.register('service-worker.js')
-        const oferecer = () => { if (navigator.serviceWorker.controller) mostrarUpdate(reg) }
-        if (reg.waiting) oferecer()
+        swReg = reg
+        const detectou = () => {
+          if (!navigator.serviceWorker.controller) return   // 1ª instalação: não há versão a trocar
+          updatePendente = true
+          mostrarUpdate(reg)   // barra de fallback manual
+          tentarUpdate()       // se já estiver ocioso na home, troca na hora
+        }
+        if (reg.waiting) detectou()
         reg.addEventListener('updatefound', () => {
           const nw = reg.installing
-          if (nw) nw.addEventListener('statechange', () => { if (nw.state === 'installed') oferecer() })
+          if (nw) nw.addEventListener('statechange', () => { if (nw.state === 'installed') detectou() })
         })
-        // checa atualização periodicamente (a cada 30 min) e ao voltar o foco
-        setInterval(() => reg.update().catch(() => {}), 30 * 60 * 1000)
-        document.addEventListener('visibilitychange', () => { if (!document.hidden) reg.update().catch(() => {}) })
+        setInterval(() => reg.update().catch(() => {}), 30 * 60 * 1000)   // procura versão nova (online)
+        setInterval(tentarUpdate, 60 * 1000)                              // reavalia a ociosidade
+        document.addEventListener('visibilitychange', () => { if (!document.hidden) { reg.update().catch(() => {}); tentarUpdate() } })
       } catch (e) { console.warn('SW:', e) }
     })
   }
