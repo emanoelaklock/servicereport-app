@@ -100,6 +100,17 @@ window.RatView = (function () {
     const oks = c.cond.regras.map(rg => regraOk(rg, resp))
     return c.cond.logica === 'OU' ? oks.some(Boolean) : oks.every(Boolean)
   }
+  // Reavalia condicionais ao vivo no editor: lê os valores atuais dos inputs e mostra/esconde
+  // cada campo (ex.: almoço/pausa/deslocamento = "Sim" revela os horários de início/término).
+  function aplicarCondicionais(container, campos) {
+    if (!container || !Array.isArray(campos)) return
+    const resp = {}
+    container.querySelectorAll('[data-campo]').forEach(el => { resp[el.getAttribute('data-campo')] = el.value })
+    for (const c of campos) {
+      const wrap = container.querySelector(`[data-cwrap="${c.id}"]`)
+      if (wrap) wrap.style.display = campoVisivel(c, resp) ? '' : 'none'
+    }
+  }
 
   // Campo editável conforme o tipo (modo edição do admin).
   function editInput(c, val) {
@@ -181,15 +192,16 @@ window.RatView = (function () {
       const isLong = c.tipo === 'texto_longo'
       const val = resp[c.id]
       const vazio = val == null || String(val).trim() === ''
-      if (!campoVisivel(c, resp)) continue
-      if (!edit && vazio) continue
+      const vis = campoVisivel(c, resp)
+      if (!edit) { if (!vis || vazio) continue }          // leitura: esconde invisível/vazio
+      const hid = (edit && !vis) ? ' style="display:none"' : ''  // edição: renderiza tudo; condicional começa oculto e é revelado ao vivo
       if (isLong) {
-        longSecs.push(`<div class="rd-sec"><div class="rd-sec-t">${esc(c.label)}</div>` +
+        longSecs.push(`<div class="rd-sec" data-cwrap="${esc(c.id)}"${hid}><div class="rd-sec-t">${esc(c.label)}</div>` +
           (edit
             ? `<textarea class="rd-edit" data-campo="${esc(c.id)}" rows="5">${esc(String(val || ''))}</textarea>${typeof IA_BTN_HTML !== 'undefined' ? IA_BTN_HTML : ''}`
             : `<div class="rd-long">${escMulti(val) || '—'}</div>`) + `</div>`)
       } else {
-        grid.push(`<div class="rd-f"><label>${esc(c.label)}</label>` +
+        grid.push(`<div class="rd-f" data-cwrap="${esc(c.id)}"${hid}><label>${esc(c.label)}</label>` +
           (edit ? editInput(c, val) : `<div class="v">${(c.tipo === 'data' ? fmtDataBR(val) : escMulti(val)) || '—'}</div>`) + `</div>`)
       }
     }
@@ -439,7 +451,7 @@ window.RatView = (function () {
     @media print{ @page{size:A4;margin:0} body{margin:0;background:#fff} .sheet{box-shadow:none;margin:0;width:210mm;height:297mm;page-break-after:always} .sheet:last-child{page-break-after:auto} #raw{display:none} }`
 
   return {
-    RAT_SELECT, ensureForms, loadDetalhe, buildReportBody, coletarEdicao, salvarPrecos,
+    RAT_SELECT, ensureForms, loadDetalhe, buildReportBody, coletarEdicao, salvarPrecos, aplicarCondicionais,
     gerarPdf, calcTempoDe, tempoRat, fmtMin, tipoNomeRat, statusInfo,
   }
 })()

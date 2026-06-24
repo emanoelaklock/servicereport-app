@@ -119,7 +119,7 @@ const RatPage = (() => {
   function render() {
     const corpo = RatView.buildReportBody(det, editMode, { noHeader: true, adminEdit: editMode })
     document.getElementById('rp-body').innerHTML = (editMode ? tecnicosEditorHTML() : '') + corpo
-    if (editMode) { bindTecEditor(); bindProdEditor(); bindFotoEditor() }
+    if (editMode) { bindTecEditor(); bindProdEditor(); bindFotoEditor(); bindEditExtras() }
     const show = (id, v) => { document.getElementById(id).style.display = v ? '' : 'none' }
     show('rp-editar', !editMode && souAdmin)
     show('rp-salvar', editMode)
@@ -149,8 +149,8 @@ const RatPage = (() => {
   // ── Editor de TÉCNICOS (participantes) — só re-renderiza sua própria seção ──
   function tecEditorInner() {
     const atuais = ratTecs.map(t => usuarios.find(u => u.id === t.tecnico_id) || { id: t.tecnico_id, nome: nomeTec(t.tecnico_id) })
-    const disp = usuarios.filter(u => !ratTecs.some(t => t.tecnico_id === u.id)).sort((a, b) => (a.nome || '').localeCompare(b.nome || ''))
-    return `<div class="rd-sec-t">Técnicos a bordo</div>
+    const disp = usuarios.filter(u => u.role === 'tecnico_campo' && !ratTecs.some(t => t.tecnico_id === u.id)).sort((a, b) => (a.nome || '').localeCompare(b.nome || ''))
+    return `<div class="rd-sec-t">Técnicos responsáveis</div>
       <div class="rp-tecs">${atuais.length
         ? atuais.map(u => `<span class="rp-tec"><span class="rp-av">${avTec(u)}</span><span class="rp-tnm">${esc(u.nome)}</span><button type="button" class="rp-tecx" data-tecdel="${esc(u.id)}" title="Remover">×</button></span>`).join('')
         : '<span class="dim">Nenhum técnico — adicione abaixo.</span>'}</div>
@@ -162,6 +162,19 @@ const RatPage = (() => {
     const redo = () => { wrap.innerHTML = tecEditorInner(); bindTecEditor() }
     wrap.querySelectorAll('[data-tecdel]').forEach(b => b.onclick = () => { ratTecs = ratTecs.filter(t => t.tecnico_id !== b.dataset.tecdel); redo() })
     wrap.querySelectorAll('[data-tecadd]').forEach(b => b.onclick = () => { const id = b.dataset.tecadd; if (id && !ratTecs.some(t => t.tecnico_id === id)) { ratTecs.push({ tecnico_id: id, inicio: null, fim: null }); redo() } })
+  }
+
+  // ── Auto-ajuste das textareas + condicionais ao vivo (almoço/pausa/deslocamento → Sim) ──
+  function bindEditExtras() {
+    const body = document.getElementById('rp-body')
+    const grow = (ta) => { ta.style.height = 'auto'; ta.style.height = (ta.scrollHeight + 2) + 'px' }
+    body.querySelectorAll('textarea.rd-edit').forEach(ta => { grow(ta); ta.addEventListener('input', () => grow(ta)) })
+    const reapply = (clear) => {
+      RatView.aplicarCondicionais(body, det.campos)
+      if (clear) body.querySelectorAll('[data-cwrap]').forEach(w => { if (w.style.display === 'none') { const inp = w.querySelector('[data-campo]'); if (inp && inp.value) inp.value = '' } })
+    }
+    body.querySelectorAll('select[data-campo]').forEach(s => s.addEventListener('change', () => reapply(true)))
+    reapply(false)
   }
 
   // ── Editor de PRODUTOS (qty/remover/adicionar) ──
