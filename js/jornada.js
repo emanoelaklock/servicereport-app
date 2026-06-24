@@ -113,7 +113,13 @@ const JornadaApp = (() => {
       const ps = porTec[tid].slice().sort((a, b) => String(a.inicio || '') < String(b.inicio || '') ? -1 : 1)
       const chips = ps.map(p => {
         const faixa = `${String(p.inicio || '—').slice(0, 5)}–${String(p.fim || '…').slice(0, 5)}`
-        if (p.artefato_tipo === 'deslocamento') return `<a href="deslocamentos.html?editar=${encodeURIComponent(p.artefato_id)}" target="_blank" rel="noopener" class="hd-seg hd-desl" title="Abrir deslocamento"><i></i>Deslocamento · ${faixa}</a>`
+        if (p.artefato_tipo === 'deslocamento' || p.artefato_tipo === 'desloc_dia') {
+          // viagem/pernoite → abre o Deslocamento; deslocamento do dia (ida/retorno da RAT) → abre a RAT.
+          const ehDia = p.artefato_tipo === 'desloc_dia'
+          const href = ehDia ? `rat.html?id=${encodeURIComponent(p.artefato_id)}` : `deslocamentos.html?editar=${encodeURIComponent(p.artefato_id)}`
+          const lbl = ehDia ? `Deslocamento${p.referencia ? ' (' + esc(String(p.referencia).toLowerCase()) + ')' : ''}` : 'Deslocamento'
+          return `<a href="${href}" target="_blank" rel="noopener" class="hd-seg hd-desl" title="Abrir"><i></i>${lbl} · ${faixa}</a>`
+        }
         if (!(p.artefato_id in corRat)) corRat[p.artefato_id] = 'hd-rat' + (nc++ % 3)
         const ref = p.referencia ? `RAT ${esc(p.referencia)}${p.rat_seq != null ? '/' + String(p.rat_seq).padStart(2, '0') : ''}` : 'RAT'
         return `<a href="rat.html?id=${encodeURIComponent(p.artefato_id)}" target="_blank" rel="noopener" class="hd-seg ${corRat[p.artefato_id]}" title="Abrir RAT"><i></i>${ref} · ${faixa}${p.ajustado ? ' <span class="hd-aj">AJUSTADO</span>' : ''}</a>`
