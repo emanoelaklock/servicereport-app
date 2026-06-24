@@ -185,10 +185,12 @@ window.RatView = (function () {
     // Intervalos (almoço/pausa) saem da grade no modo leitura — viram a tabela "Pausas".
     const EXC_GRID = new Set(['almoco', 'almoco_inicio', 'almoco_termino', 'pausa', 'pausa_inicio', 'pausa_termino', 'pausa_motivo'])
     const grid = []
+    const pausasGrid = []   // almoço/pausa no modo edição → seção própria "Pausas e almoço"
     const longSecs = []
     for (const c of campos) {
       if (SKIP.has(c.tipo)) continue
-      if (!edit && EXC_GRID.has(c.id)) continue
+      const isExc = EXC_GRID.has(c.id)
+      if (!edit && isExc) continue
       const isLong = c.tipo === 'texto_longo'
       const val = resp[c.id]
       const vazio = val == null || String(val).trim() === ''
@@ -201,11 +203,13 @@ window.RatView = (function () {
             ? `<textarea class="rd-edit" data-campo="${esc(c.id)}" rows="5">${esc(String(val || ''))}</textarea>${typeof IA_BTN_HTML !== 'undefined' ? IA_BTN_HTML : ''}`
             : `<div class="rd-long">${escMulti(val) || '—'}</div>`) + `</div>`)
       } else {
-        grid.push(`<div class="rd-f" data-cwrap="${esc(c.id)}"${hid}><label>${esc(c.label)}</label>` +
-          (edit ? editInput(c, val) : `<div class="v">${(c.tipo === 'data' ? fmtDataBR(val) : escMulti(val)) || '—'}</div>`) + `</div>`)
+        const f = `<div class="rd-f" data-cwrap="${esc(c.id)}"${hid}><label>${esc(c.label)}</label>` +
+          (edit ? editInput(c, val) : `<div class="v">${(c.tipo === 'data' ? fmtDataBR(val) : escMulti(val)) || '—'}</div>`) + `</div>`
+        if (edit && isExc) pausasGrid.push(f); else grid.push(f)
       }
     }
     if (grid.length) h += `<div class="rd-sec"><div class="rd-sec-t">RAT — dados do atendimento</div><div class="rd-grid">${grid.join('')}</div></div>`
+    if (pausasGrid.length) h += `<div class="rd-sec"><div class="rd-sec-t">Pausas e almoço</div><div class="rd-grid">${pausasGrid.join('')}</div></div>`
     h += longSecs.join('')
 
     // Produtos com preço (editável no modo edição) + Resumo de Valores
