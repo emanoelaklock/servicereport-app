@@ -833,17 +833,58 @@
   }
 
   // Concluir o SERVIÇO (nível Tarefa, deliberado, uma vez) — separado de encerrar a RAT do dia.
-  async function concluirTarefa(comPendencia) {
+  async function concluirTarefa(comPendencia, skipConfirm) {
     if (!tarefaAberta) return
     if (!navigator.onLine) return toast('Sem conexão — conclua o serviço quando estiver online.', 'err')
     if (comPendencia) return abrirModalConcPend()
-    if (!confirm('Concluir o serviço desta tarefa?\n\nIsso fecha a Tarefa inteira (não só o dia). Se o trabalho continua, use "RAT de hoje".')) return
+    if (!skipConfirm && !confirm('Concluir o serviço desta tarefa?\n\nIsso fecha a Tarefa inteira (não só o dia). Se o trabalho continua, use "RAT de hoje".')) return
     const id = tarefaAberta.id
     const up = await getSupabase().from('tarefas').update({ status: 'concluida', pendencias: null }).eq('id', id)
     if (up.error) return toast('Erro ao concluir: ' + up.error.message, 'err')
     toast('Serviço concluído.', 'ok')
     await renderTarefas()
     await abrirTarefaDet(id)
+  }
+
+  // Modal guiado ao ENCERRAR a RAT do dia (handoff). Dois casos acionáveis:
+  //  'pausa'    → "Vou voltar depois": informa que a Tarefa foi pra EM PAUSA (volta a Em Execução
+  //               na próxima RAT). Botões: Ir para a Tarefa / Continuar na agenda.
+  //  'concluir' → "Terminei o serviço": ALERTA que encerrar a RAT não conclui o serviço e GUIA a
+  //               concluir a Tarefa agora (resolve o esquecimento — caso 4773/4774).
+  function fecharModalHandoff() { document.getElementById('modal-handoff').classList.remove('open') }
+  function abrirModalHandoff(tipo, tId) {
+    const ICO = {
+      pausa: '<svg viewBox="0 0 24 24"><path d="M9 5v14M15 5v14"/></svg>',
+      check: '<svg viewBox="0 0 24 24"><path d="M20 6 9 17l-5-5"/></svg>',
+      clip: '<svg viewBox="0 0 24 24"><rect x="8" y="3" width="8" height="4" rx="1"/><path d="M9 5H6a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7a2 2 0 0 0-2-2h-3"/></svg>',
+      info: '<svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 11v5M12 8h.01"/></svg>',
+    }
+    const box = document.getElementById('hf-box')
+    if (tipo === 'pausa') {
+      box.innerHTML = `
+        <div class="hf-ico hf-pausa">${ICO.pausa}</div>
+        <div class="hf-title">RAT finalizada!</div>
+        <p class="hf-sub">Você informou que não tem certeza se voltará amanhã para continuar.</p>
+        <div class="hf-card hf-card-pausa">${ICO.clip}<span>A Tarefa foi alterada para <b>EM PAUSA</b>.</span></div>
+        <div class="hf-info">${ICO.info}<span>Quando você abrir uma nova RAT desta Tarefa, o status volta para <b>EM EXECUÇÃO</b>.</span></div>
+        <div class="hf-foot">
+          <button class="btn btn-p" id="hf-ir">Ir para a Tarefa</button>
+          <button class="btn hf-ghost" id="hf-agenda">Continuar na agenda</button>
+        </div>`
+      document.getElementById('hf-ir').onclick = async () => { fecharModalHandoff(); await renderTarefas(); if (tId) await abrirTarefaDet(tId) }
+    } else {
+      box.innerHTML = `
+        <div class="hf-ico hf-done">${ICO.check}</div>
+        <div class="hf-title">RAT do dia encerrada</div>
+        <p class="hf-sub">Encerrar a RAT registra o dia, mas <b>não conclui o serviço</b>. Para concluir, vá até a Tarefa.</p>
+        <div class="hf-foot">
+          <button class="btn btn-g" id="hf-concluir">Concluir a Tarefa agora</button>
+          <button class="btn hf-ghost" id="hf-agenda">Continuar na agenda</button>
+        </div>`
+      document.getElementById('hf-concluir').onclick = async () => { fecharModalHandoff(); await renderTarefas(); if (tId) { await abrirTarefaDet(tId); concluirTarefa(false, true) } }
+    }
+    document.getElementById('hf-agenda').onclick = () => { fecharModalHandoff(); mostrar('home') }
+    document.getElementById('modal-handoff').classList.add('open')
   }
 
   // Modal: concluir com pendência (texto). A tarefa de retorno é decisão do admin no portal.
@@ -3234,17 +3275,20 @@
       assinatura_local,
     })
     await D().definirStatus(cur.client_uuid, D().STATUS.SALVO_LOCAL, 'salvo pelo técnico')
-    toast(emExecucao ? 'RAT salva no aparelho.' : 'Atendimento do dia realizado.', 'ok')
     // Avisa admin/gestor quando a RAT do dia é encerrada (registrada), se online.
     if (!emExecucao && navigator.onLine && window.notificarPush) {
       notificarPush('rat_registrada', { numero: cur.tarefa_numero, cliente: cli?.nome, tarefa_id: cur.tarefa_id })
     }
-    // "Terminei o serviço — vou concluir na Tarefa" → abre o detalhe da Tarefa (onde fica
-    // "Concluir serviço") em vez de "Minhas RATs". Sim / volto depois / em_andamento → lista.
-    const tarefaConcluir = (sit === 'registrado' && voltaAmanha === 'Não' && passMotivoVal() === 'terminei') ? cur.tarefa_id : null
+    // Handoff ao encerrar (volta amanhã = Não) → modal guiado:
+    //  volto_depois → Tarefa foi pra EM PAUSA (informa + leva à Tarefa).
+    //  terminei     → guia a CONCLUIR o serviço (encerrar a RAT não conclui — resolve 4773/4774).
+    //  Sim / em_andamento → sem modal, só toast (não encher de pop-up à toa).
+    const handoff = (sit === 'registrado' && voltaAmanha === 'Não') ? passMotivoVal() : null
+    const tId = cur.tarefa_id || null
     cur = null; sig = null; usoProd = null
-    if (tarefaConcluir) { await renderTarefas(); await abrirTarefaDet(tarefaConcluir) }
-    else { mostrar('lista'); await renderLista() }
+    if (handoff === 'volto_depois') { mostrar('home'); abrirModalHandoff('pausa', tId) }
+    else if (handoff === 'terminei') { mostrar('home'); abrirModalHandoff('concluir', tId) }
+    else { toast(emExecucao ? 'RAT salva no aparelho.' : 'Atendimento do dia realizado.', 'ok'); mostrar('lista'); await renderLista() }
     // Tenta sincronizar imediatamente se houver conexão (passo 5).
     if (window.SyncEngine && navigator.onLine) window.SyncEngine.syncAll()
   }
