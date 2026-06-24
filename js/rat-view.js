@@ -197,17 +197,21 @@ window.RatView = (function () {
     h += longSecs.join('')
 
     // Produtos com preço (editável no modo edição) + Resumo de Valores
-    if (mats && mats.length) {
-      const total = mats.reduce((s, m) => s + (Number(m.subtotal) || 0), 0)
+    const adminEdit = edit && opts && opts.adminEdit
+    if ((mats && mats.length) || adminEdit) {
+      const total = (mats || []).reduce((s, m) => s + (Number(m.subtotal) || 0), 0)
       h += `<div class="rd-sec"><div class="rd-sec-t">Produtos</div>
-        <table class="rd-prodtbl"><thead><tr><th>Produto</th><th class="num">Qtd</th><th class="num">Valor unit.</th><th class="num">Subtotal</th></tr></thead><tbody>` +
-        mats.map(m => `<tr>
+        <table class="rd-prodtbl"><thead><tr><th>Produto</th><th class="num">Qtd</th><th class="num">Valor unit.</th><th class="num">Subtotal</th>${adminEdit ? '<th></th>' : ''}</tr></thead><tbody id="rd-prodbody">` +
+        (mats || []).map(m => `<tr data-matrow="${esc(m.id)}">
           <td>${esc(m.descricao || m.codigo || '—')}</td>
-          <td class="num">${esc(String(m.quantidade))}</td>
+          <td class="num">${adminEdit ? `<input class="rd-qtd" data-matqtd="${esc(m.id)}" type="number" step="any" min="0" value="${m.quantidade}">` : esc(String(m.quantidade))}</td>
           <td class="num">${edit ? `<input class="rd-preco" data-mat="${esc(m.id)}" type="number" step="0.01" min="0" value="${m.preco}">` : money(m.preco)}</td>
           <td class="num">${money(m.subtotal)}</td>
+          ${adminEdit ? `<td class="num"><button type="button" class="rd-matdel" data-matdel="${esc(m.id)}" title="Remover">×</button></td>` : ''}
         </tr>`).join('') +
-        `</tbody></table><div class="rd-total">Total <b>${money(total)}</b></div></div>`
+        `</tbody></table>` +
+        (adminEdit ? `<div class="rd-addprod"><input id="rd-prodbusca" placeholder="+ Adicionar produto (código ou descrição)…" autocomplete="off"><div id="rd-prodres" class="rd-prodres" hidden></div></div>` : '') +
+        `<div class="rd-total">Total <b id="rd-prodtot">${money(total)}</b></div></div>`
     }
 
     // Pausas e almoço — no modo leitura aparece SEMPRE que respondido (Sim com horários vira

@@ -10,6 +10,24 @@ const RatPage = (() => {
   let editMode = false
   let tipos = []
   let ratId = null
+  let usuarios = []          // técnicos do SR (p/ adicionar à RAT)
+  let ratTecs = []           // participantes atuais (rat_tecnicos) — set de trabalho na edição
+  let ratTecsOrig = []       // técnicos originais (do banco) — base do diff
+  let prodDel = new Set()    // ids de materiais marcados p/ remover
+  let prodAdd = []           // produtos adicionados no editor { uid, produto_id, codigo, descricao, quantidade, preco }
+  let histLista = []         // rat_edicoes carregadas
+  let pendentes = []         // alterações aguardando o motivo
+  let buscaT = null
+  let souAdmin = false       // só admin edita (gestor vê o histórico, não edita)
+  const MOT_LABEL = { esquecimento_tecnico: 'Esquecimento do técnico', completacao: 'Completação', mudanca_processo: 'Mudança de processo', pedido_cliente: 'Pedido do cliente', outro: 'Outro' }
+
+  // Carrega auxiliares da edição (usuários p/ técnicos + participantes atuais).
+  async function carregarAux() {
+    try { const { data } = await sb().rpc('sr_usuarios'); usuarios = (data || []).filter(u => u.ativo) } catch (e) { usuarios = [] }
+    try { const { data } = await sb().from('rat_tecnicos').select('tecnico_id,inicio,fim').eq('rat_id', ratId); ratTecs = data || []; ratTecsOrig = (data || []).map(x => ({ ...x })) } catch (e) { ratTecs = []; ratTecsOrig = [] }
+    souAdmin = ((usuarios.find(u => u.id === user.id) || {}).role) === 'admin'
+  }
+  const nomeTec = (id) => { const u = usuarios.find(x => x.id === id); return u ? u.nome : (id || '—') }
 
   async function init() {
     ratId = new URLSearchParams(location.search).get('id')
@@ -26,9 +44,20 @@ const RatPage = (() => {
     document.title = `RAT ${det.r.cliente_nome || ''}${tarefaNo ? ' · ' + tarefaNo : ''}`.trim()
     document.getElementById('rp-title').textContent = `${det.r.cliente_nome || 'RAT'}${tarefaNo ? ' · Tarefa Nº ' + tarefaNo : ''}`
 
+    await carregarAux()
     bind()
     renderHero()
     render()
+    carregarHistorico()
+  }
+
+  // Re-carrega tudo após uma edição/restauração (mantém na tela).
+  async function recarregar() {
+    const { data } = await sb().from('rats').select(RatView.RAT_SELECT).eq('id', ratId).single()
+    if (data) det = await RatView.loadDetalhe(data)
+    await carregarAux()
+    prodDel = new Set(); prodAdd = []
+    renderHero(); render(); carregarHistorico()
   }
 
   // RAT "em andamento" de um dia anterior = o técnico não encerrou (não é travamento).
@@ -58,15 +87,18 @@ const RatPage = (() => {
         <span class="rp-chip"><i>Data</i>${fdt(r.data_tarefa, { numeric: true })}</span>
         <span class="rp-chip"><i>Tempo trabalhado</i>${RatView.fmtMin(RatView.tempoRat(r))}</span>
         ${stBadge}
+        ${r.ajustada_gestao ? '<span class="rp-pill" style="background:#FBE3EE;color:#A82A66" title="Esta RAT foi ajustada pela gestão (ver histórico)">Ajustada pela gestão</span>' : ''}
       </div>`
   }
 
   function barra(show) { document.getElementById('rp-actions').style.display = show ? '' : 'none' }
 
   function bind() {
-    document.getElementById('rp-editar').onclick = () => { editMode = true; render() }
-    document.getElementById('rp-cancelar').onclick = () => { editMode = false; render() }
+    document.getElementById('rp-editar').onclick = () => { editMode = true; prodDel = new Set(); prodAdd = []; render() }
+    document.getElementById('rp-cancelar').onclick = async () => { editMode = false; await carregarAux(); prodDel = new Set(); prodAdd = []; render() }
     document.getElementById('rp-salvar').onclick = salvar
+    document.getElementById('mot-x').onclick = fecharMotivo
+    document.getElementById('mot-cancelar').onclick = fecharMotivo
     document.getElementById('rp-pdf').onclick = () => {
       const t = det.r.tarefa && det.r.tarefa.numero != null ? String(det.r.tarefa.numero).padStart(5, '0') : ''
       RatView.gerarPdf([det], `RAT ${det.r.cliente_nome || ''} ${t}`.trim())
@@ -81,9 +113,11 @@ const RatPage = (() => {
   }
 
   function render() {
-    document.getElementById('rp-body').innerHTML = RatView.buildReportBody(det, editMode, { noHeader: true })
+    const corpo = RatView.buildReportBody(det, editMode, { noHeader: true, adminEdit: editMode })
+    document.getElementById('rp-body').innerHTML = (editMode ? tecnicosEditorHTML() : '') + corpo
+    if (editMode) { bindTecEditor(); bindProdEditor() }
     const show = (id, v) => { document.getElementById(id).style.display = v ? '' : 'none' }
-    show('rp-editar', !editMode)
+    show('rp-editar', !editMode && souAdmin)
     show('rp-salvar', editMode)
     show('rp-cancelar', editMode)
     show('rp-nova', !editMode)
@@ -108,16 +142,123 @@ const RatPage = (() => {
     toast('Atendimento realizado (dia encerrado).', 'ok')
   }
 
-  async function salvar() {
-    const { respostas, tempo, precos } = RatView.coletarEdicao(document.getElementById('rp-body'), det)
-    const upd = { respostas }; if (tempo != null) upd.tempo_trabalhado = tempo
-    const { error } = await sb().from('rats').update(upd).eq('id', det.r.id)
-    if (error) return toast('Erro ao salvar: ' + error.message, 'err')
-    await RatView.salvarPrecos(precos)
-    det.r.respostas = respostas; if (tempo != null) det.r.tempo_trabalhado = tempo
-    det = await RatView.loadDetalhe(det.r)   // recarrega produtos c/ novos preços/subtotais
-    editMode = false; renderHero(); render()
+  // ── Editor de TÉCNICOS (participantes) — só re-renderiza sua própria seção ──
+  function tecEditorInner() {
+    const disp = usuarios.filter(u => !ratTecs.some(t => t.tecnico_id === u.id))
+    return `<div class="rd-sec-t">Técnicos a bordo</div>
+      <div class="rp-tecs">${ratTecs.length ? ratTecs.map(t => `<span class="rp-tecchip">${esc(nomeTec(t.tecnico_id))}<button type="button" data-tecdel="${esc(t.tecnico_id)}" title="Remover">×</button></span>`).join('') : '<span class="dim">Nenhum técnico.</span>'}</div>
+      <div class="rp-tecadd"><select id="rp-tecsel"><option value="">+ Adicionar técnico…</option>${disp.map(u => `<option value="${esc(u.id)}">${esc(u.nome)}</option>`).join('')}</select></div>`
+  }
+  function tecnicosEditorHTML() { return `<div class="rd-sec" id="rp-tecedit">${tecEditorInner()}</div>` }
+  function bindTecEditor() {
+    const wrap = document.getElementById('rp-tecedit'); if (!wrap) return
+    const redo = () => { wrap.innerHTML = tecEditorInner(); bindTecEditor() }
+    wrap.querySelectorAll('[data-tecdel]').forEach(b => b.onclick = () => { ratTecs = ratTecs.filter(t => t.tecnico_id !== b.dataset.tecdel); redo() })
+    const sel = document.getElementById('rp-tecsel')
+    if (sel) sel.onchange = () => { const id = sel.value; if (id && !ratTecs.some(t => t.tecnico_id === id)) { ratTecs.push({ tecnico_id: id, inicio: null, fim: null }); redo() } }
+  }
+
+  // ── Editor de PRODUTOS (qty/remover/adicionar) ──
+  function bindProdEditor() {
+    const body = document.getElementById('rp-body')
+    body.querySelectorAll('[data-matdel]').forEach(b => b.onclick = () => {
+      const id = b.dataset.matdel, tr = body.querySelector(`[data-matrow="${id}"]`)
+      if (prodDel.has(id)) { prodDel.delete(id); if (tr) tr.style.opacity = '' }
+      else { prodDel.add(id); if (tr) tr.style.opacity = '.4' }
+    })
+    body.querySelectorAll('[data-newdel]').forEach(b => b.onclick = () => { prodAdd = prodAdd.filter(p => p.uid !== b.dataset.newdel); const tr = body.querySelector(`[data-newrow="${b.dataset.newdel}"]`); if (tr) tr.remove() })
+    const busca = document.getElementById('rd-prodbusca'), res = document.getElementById('rd-prodres')
+    if (busca && res) busca.oninput = () => {
+      clearTimeout(buscaT); const q = busca.value.trim()
+      if (q.length < 2) { res.hidden = true; return }
+      buscaT = setTimeout(async () => {
+        const { data } = await sb().from('produtos').select('id,codigo,descricao,preco_venda').or(`codigo.ilike.%${q}%,descricao.ilike.%${q}%`).limit(20)
+        const list = data || []
+        res.innerHTML = list.length ? list.map(p => `<div class="rd-prodopt" data-pid="${esc(p.id)}">${esc(p.codigo || '')} · ${esc(p.descricao || '')}</div>`).join('') : '<div class="rd-prodopt dim">Nada encontrado</div>'
+        res.hidden = false
+        res.querySelectorAll('[data-pid]').forEach(el => el.onclick = () => { const p = list.find(x => x.id === el.dataset.pid); if (p) addProduto(p); res.hidden = true; busca.value = '' })
+      }, 250)
+    }
+  }
+  function addProduto(p) {
+    const uid = 'n' + Date.now() + '_' + prodAdd.length
+    prodAdd.push({ uid, produto_id: p.id, codigo: p.codigo, descricao: p.descricao, preco: Number(p.preco_venda) || 0, quantidade: 1 })
+    const tb = document.getElementById('rd-prodbody')
+    if (tb) { tb.insertAdjacentHTML('beforeend', `<tr data-newrow="${esc(uid)}"><td>${esc(p.codigo || '')} · ${esc(p.descricao || '')}</td><td class="num"><input class="rd-qtd" data-newqtd="${esc(uid)}" type="number" step="any" min="0" value="1"></td><td class="num">${(Number(p.preco_venda) || 0).toFixed(2)}</td><td class="num">—</td><td class="num"><button type="button" class="rd-matdel" data-newdel="${esc(uid)}" title="Remover">×</button></td></tr>`); bindProdEditor() }
+  }
+
+  // ── Salvar: monta o diff, pede o MOTIVO e envia pela Edge Function rat-editar ──
+  function salvar() {
+    const alt = coletarAlteracoes()
+    if (!alt.length) { toast('Nada foi alterado.', 'info'); return }
+    abrirMotivo(alt)
+  }
+  function coletarAlteracoes() {
+    const cont = document.getElementById('rp-body'), alt = []
+    const { respostas } = RatView.coletarEdicao(cont, det), orig = det.r.respostas || {}
+    for (const k of Object.keys(respostas)) {
+      if (String(respostas[k] ?? '') !== String(orig[k] ?? '')) alt.push({ alvo: 'campo', operacao: 'update', campo: k, valor_novo: respostas[k] })
+    }
+    for (const m of (det.mats || [])) {
+      if (prodDel.has(m.id)) { alt.push({ alvo: 'produto', operacao: 'delete', chave: m.id }); continue }
+      const qEl = cont.querySelector(`[data-matqtd="${m.id}"]`), pEl = cont.querySelector(`[data-mat="${m.id}"]`)
+      const v = {}
+      if (qEl && Number(qEl.value) !== Number(m.quantidade)) v.quantidade = Number(qEl.value)
+      if (pEl && pEl.value !== '' && Number(pEl.value) !== Number(m.preco)) v.preco_unitario = Number(pEl.value)
+      if (Object.keys(v).length) alt.push({ alvo: 'produto', operacao: 'update', chave: m.id, valor_novo: v })
+    }
+    for (const p of prodAdd) {
+      const qEl = document.querySelector(`[data-newqtd="${p.uid}"]`)
+      alt.push({ alvo: 'produto', operacao: 'insert', valor_novo: { produto_id: p.produto_id || null, codigo_produto: p.codigo || null, descricao: p.descricao, quantidade: qEl ? Number(qEl.value) : (Number(p.quantidade) || 0), preco_unitario: p.preco ?? null } })
+    }
+    const orT = new Set(ratTecsOrig.map(x => x.tecnico_id)), atT = new Set(ratTecs.map(x => x.tecnico_id))
+    for (const id of atT) if (!orT.has(id)) alt.push({ alvo: 'tecnico', operacao: 'insert', chave: id })
+    for (const id of orT) if (!atT.has(id)) alt.push({ alvo: 'tecnico', operacao: 'delete', chave: id })
+    return alt
+  }
+  function abrirMotivo(alt) {
+    pendentes = alt
+    document.getElementById('mot-resumo').textContent = `${alt.length} alteração(ões) nesta RAT.`
+    document.getElementById('mot-sel').value = ''
+    document.getElementById('modal-motivo').classList.add('open')
+    document.getElementById('mot-confirmar').onclick = async () => {
+      const motivo = document.getElementById('mot-sel').value
+      if (!motivo) return toast('Escolha o motivo do ajuste.', 'err')
+      fecharMotivo()
+      await chamarEditar({ rat_id: ratId, motivo, alteracoes: pendentes })
+    }
+  }
+  function fecharMotivo() { document.getElementById('modal-motivo').classList.remove('open') }
+  async function chamarEditar(payload) {
+    const { data, error } = await sb().functions.invoke('rat-editar', { body: payload })
+    let msg = null
+    if (error) { msg = error.message; try { if (error.context) { const j = await error.context.json(); if (j?.error) msg = j.error } } catch (e) {} }
+    else if (data && data.error) msg = data.error
+    if (msg) return toast('Não foi possível salvar: ' + msg, 'err')
     toast('RAT atualizada.', 'ok')
+    editMode = false
+    await recarregar()
+  }
+
+  // ── Histórico de edições + Restaurar ──
+  async function carregarHistorico() {
+    const box = document.getElementById('rp-hist'); if (!box) return
+    const { data } = await sb().from('rat_edicoes').select('*').eq('rat_id', ratId).order('em', { ascending: false }).limit(100)
+    histLista = data || []
+    if (!histLista.length) { box.innerHTML = ''; return }
+    const alvoTxt = (e) => { const op = ({ insert: 'adicionou', delete: 'removeu', update: 'alterou', restore: 'restaurou' })[e.operacao] || e.operacao; const al = ({ campo: 'campo ' + (e.campo || ''), tecnico: 'técnico', produto: 'produto', foto: 'foto' })[e.alvo] || e.alvo; return op + ' ' + al }
+    const detVal = (e) => e.alvo === 'campo' ? ` · "${esc(String(e.valor_antigo ?? ''))}" → "${esc(String(e.valor_novo ?? ''))}"` : ''
+    box.innerHTML = `<div class="rd-sec"><div class="rd-sec-t">Histórico de edições (gestão)</div>` +
+      histLista.map(e => `<div class="rp-hrow">
+        <div class="rp-hmain"><b>${esc(alvoTxt(e))}</b> · ${esc(MOT_LABEL[e.motivo] || e.motivo)}<div class="rp-hsub">${esc(e.ator_nome || '—')} · ${fdt(e.em, { withTime: true })}${detVal(e)}</div></div>
+        ${e.operacao !== 'restore' ? `<button class="btn" data-restaurar="${esc(e.id)}">Restaurar</button>` : '<span class="dim">restaurado</span>'}
+      </div>`).join('') + `</div>`
+    box.querySelectorAll('[data-restaurar]').forEach(b => b.onclick = async () => {
+      if (!confirm('Restaurar esta alteração (volta ao valor anterior)?')) return
+      const { data: d2, error } = await sb().functions.invoke('rat-editar', { body: { restaurar_id: b.dataset.restaurar } })
+      if (error || (d2 && d2.error)) return toast('Erro ao restaurar.', 'err')
+      toast('Restaurado.', 'ok'); await recarregar()
+    })
   }
 
   async function excluir() {
