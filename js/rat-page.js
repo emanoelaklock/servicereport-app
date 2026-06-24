@@ -30,6 +30,8 @@ const RatPage = (() => {
     souAdmin = ((usuarios.find(u => u.id === user.id) || {}).role) === 'admin'
   }
   const nomeTec = (id) => { const u = usuarios.find(x => x.id === id); return u ? u.nome : (id || '—') }
+  // Avatar com foto do Portal (componente padrão); iniciais como fallback.
+  const avTec = (u) => { const f = (typeof avatarUrl === 'function') ? avatarUrl(u && u.foto_url) : ''; return f ? `<img src="${esc(f)}" alt="">` : esc(String((u && u.nome) || '—').trim().split(/\s+/).slice(0, 2).map(p => p[0] || '').join('').toUpperCase()) }
 
   async function init() {
     ratId = new URLSearchParams(location.search).get('id')
@@ -146,18 +148,20 @@ const RatPage = (() => {
 
   // ── Editor de TÉCNICOS (participantes) — só re-renderiza sua própria seção ──
   function tecEditorInner() {
-    const disp = usuarios.filter(u => !ratTecs.some(t => t.tecnico_id === u.id))
+    const atuais = ratTecs.map(t => usuarios.find(u => u.id === t.tecnico_id) || { id: t.tecnico_id, nome: nomeTec(t.tecnico_id) })
+    const disp = usuarios.filter(u => !ratTecs.some(t => t.tecnico_id === u.id)).sort((a, b) => (a.nome || '').localeCompare(b.nome || ''))
     return `<div class="rd-sec-t">Técnicos a bordo</div>
-      <div class="rp-tecs">${ratTecs.length ? ratTecs.map(t => `<span class="rp-tecchip">${esc(nomeTec(t.tecnico_id))}<button type="button" data-tecdel="${esc(t.tecnico_id)}" title="Remover">×</button></span>`).join('') : '<span class="dim">Nenhum técnico.</span>'}</div>
-      <div class="rp-tecadd"><select id="rp-tecsel"><option value="">+ Adicionar técnico…</option>${disp.map(u => `<option value="${esc(u.id)}">${esc(u.nome)}</option>`).join('')}</select></div>`
+      <div class="rp-tecs">${atuais.length
+        ? atuais.map(u => `<span class="rp-tec"><span class="rp-av">${avTec(u)}</span><span class="rp-tnm">${esc(u.nome)}</span><button type="button" class="rp-tecx" data-tecdel="${esc(u.id)}" title="Remover">×</button></span>`).join('')
+        : '<span class="dim">Nenhum técnico — adicione abaixo.</span>'}</div>
+      ${disp.length ? `<div class="rp-pick-l">Adicionar técnico:</div><div class="rp-tecpick">${disp.map(u => `<button type="button" class="rp-tecopt" data-tecadd="${esc(u.id)}"><span class="rp-av">${avTec(u)}</span><span class="rp-tnm">${esc(u.nome)}</span></button>`).join('')}</div>` : ''}`
   }
   function tecnicosEditorHTML() { return `<div class="rd-sec" id="rp-tecedit">${tecEditorInner()}</div>` }
   function bindTecEditor() {
     const wrap = document.getElementById('rp-tecedit'); if (!wrap) return
     const redo = () => { wrap.innerHTML = tecEditorInner(); bindTecEditor() }
     wrap.querySelectorAll('[data-tecdel]').forEach(b => b.onclick = () => { ratTecs = ratTecs.filter(t => t.tecnico_id !== b.dataset.tecdel); redo() })
-    const sel = document.getElementById('rp-tecsel')
-    if (sel) sel.onchange = () => { const id = sel.value; if (id && !ratTecs.some(t => t.tecnico_id === id)) { ratTecs.push({ tecnico_id: id, inicio: null, fim: null }); redo() } }
+    wrap.querySelectorAll('[data-tecadd]').forEach(b => b.onclick = () => { const id = b.dataset.tecadd; if (id && !ratTecs.some(t => t.tecnico_id === id)) { ratTecs.push({ tecnico_id: id, inicio: null, fim: null }); redo() } })
   }
 
   // ── Editor de PRODUTOS (qty/remover/adicionar) ──
