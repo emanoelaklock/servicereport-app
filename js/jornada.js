@@ -94,7 +94,7 @@ const JornadaApp = (() => {
     if (!dia) return
     const [parts, alms, confs] = await Promise.all([
       sb().from('vw_participacoes_dia').select('*').eq('dia', dia),
-      sb().from('almocos').select('tecnico_id,inicio,fim,origem,artefato_tipo').eq('dia', dia),
+      sb().from('almocos').select('tecnico_id,inicio,fim,origem,artefato_tipo,artefato_id').eq('dia', dia),
       sb().from('almoco_conflitos').select('tecnico_id,inicio,fim,artefato_tipo,motivo').eq('dia', dia),
     ])
     renderHorasDia(parts.data || [], alms.data || [], confs.data || [])
@@ -125,10 +125,22 @@ const JornadaApp = (() => {
         return `<a href="rat.html?id=${encodeURIComponent(p.artefato_id)}" target="_blank" rel="noopener" class="hd-seg ${corRat[p.artefato_id]}" title="Abrir RAT"><i></i>${ref} · ${faixa}${p.ajustado ? ' <span class="hd-aj">AJUSTADO</span>' : ''}</a>`
       }).join('')
       const alm = alms.find(a => a.tecnico_id === tid)
-      const origemLbl = alm && (alm.origem === 'ponto' ? 'ponto' : (alm.artefato_tipo === 'deslocamento' ? 'Deslocamento' : alm.artefato_tipo === 'rat' ? 'RAT' : 'manual'))
-      const lunch = alm
-        ? `<span class="hd-lunch${origemLbl === 'manual' ? ' man' : ''}">${String(alm.inicio).slice(0, 5)}–${String(alm.fim).slice(0, 5)} · ${origemLbl}</span>`
-        : '<span class="hd-lunch none">sem registro</span>'
+      let lunch
+      if (!alm) {
+        lunch = '<span class="hd-lunch none">sem registro</span>'
+      } else {
+        const faixaA = `${String(alm.inicio).slice(0, 5)}–${String(alm.fim).slice(0, 5)}`
+        if (alm.artefato_tipo === 'rat' && alm.artefato_id) {
+          // Almoço lançado numa RAT → mostra nº e cor da RAT (mesma cor da participação).
+          const rp = ps.find(p => p.artefato_id === alm.artefato_id && p.artefato_tipo === 'rat') || ps.find(p => p.artefato_id === alm.artefato_id)
+          const cor = corRat[alm.artefato_id] || 'hd-rat0'
+          const ref = rp && rp.referencia ? `RAT ${esc(rp.referencia)}${rp.rat_seq != null ? '/' + String(rp.rat_seq).padStart(2, '0') : ''}` : 'RAT'
+          lunch = `<a href="rat.html?id=${encodeURIComponent(alm.artefato_id)}" target="_blank" rel="noopener" class="hd-seg ${cor}" title="Almoço lançado nesta RAT"><i></i>${faixaA} · ${ref}</a>`
+        } else {
+          const origemLbl = alm.origem === 'ponto' ? 'ponto' : (alm.artefato_tipo === 'deslocamento' ? 'Deslocamento' : 'manual')
+          lunch = `<span class="hd-lunch${origemLbl === 'manual' ? ' man' : ''}">${faixaA} · ${origemLbl}</span>`
+        }
+      }
       const uni = uniaoMin(ps.map(p => [tMin(p.inicio), tMin(p.fim)]))
       let tot = uni.reduce((s, u) => s + (u[1] - u[0]), 0)
       if (alm) {
