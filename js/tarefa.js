@@ -262,7 +262,8 @@ const TarefaApp = (() => {
     document.getElementById('cc-baixar').onclick = () => exportarTarefa('download')
     document.getElementById('rat-x').onclick = () => fecharModal('modal-rat')
     document.getElementById('rat-fechar').onclick = () => fecharModal('modal-rat')
-    document.getElementById('rat-editar').onclick = ratEntrarEdicao
+    // Editor único e auditado: o "Editar" abre o rat.html (admin-only, com motivo/histórico/restore).
+    document.getElementById('rat-editar').onclick = () => { if (ratDet) window.open('rat.html?id=' + encodeURIComponent(ratDet.r.id), '_blank', 'noopener') }
     document.getElementById('rat-cancelar').onclick = ratCancelarEdicao
     document.getElementById('rat-salvar').onclick = ratSalvarEdicao
     document.getElementById('rat-pdf').onclick = ratPdf
