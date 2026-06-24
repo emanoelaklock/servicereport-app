@@ -60,13 +60,16 @@
       labelStatus[t.status] || '', r.respostas ? JSON.stringify(r.respostas) : ''].join(' ').toLowerCase()
     return {
       id: r.id, seq: r.rat_seq, dia: ratDia(r),
-      tarefaId: t.id || null, numero: t.numero, status: t.status || '',
+      tarefaId: t.id || null, numero: t.numero, status: t.status || '', ratStatus: r.status || '',
       cliente: r.cliente_nome || '—', tecnicos: tecs, tecnico: tecs.join(', ') || '—',
       pc, orcamento: orc, orientacao: t.orientacao || '', hay,
     }
   }
   const ratNo = (v) => v.numero != null ? osNo(v.numero) + (v.seq != null ? '/' + pad(v.seq) : '') : '—'
   const corDe = (status) => corStatus[status] || '#48506A'   // mesmo fallback do tarefa.js statusCor
+  // Situação da PRÓPRIA RAT (secundária — só no tooltip; a cor do chip segue o serviço/Tarefa).
+  const RAT_SIT_LABEL = { em_andamento: 'Em andamento', registrado: 'Atendimento Realizado', concluida: 'Concluída', concluida_pendencia: 'Concluída c/ pendência', improdutiva: 'Visita improdutiva' }
+  const ratSitLabel = (s) => RAT_SIT_LABEL[s] || s || '—'
 
   async function init() {
     const { data: st } = await sb().from('status_tarefa').select('chave,label,cor,ordem,ativo').order('ordem')
@@ -145,7 +148,7 @@
     document.getElementById('rc-title').textContent = `${MONTHS[ym.m]} de ${ym.y}`
     document.getElementById('rc-grid').innerHTML = '<div class="rc-empty" style="grid-column:1/-1">Carregando…</div>'
     const { data, error } = await sb().from('rats')
-      .select('id,rat_seq,data_tarefa,tecnico_nome,cliente_nome,respostas,tarefa:tarefas(id,numero,status,pedido_compra,orcamento_id,orientacao)')
+      .select('id,rat_seq,status,data_tarefa,tecnico_nome,cliente_nome,respostas,tarefa:tarefas(id,numero,status,pedido_compra,orcamento_id,orientacao)')
       .gte('data_tarefa', start).lt('data_tarefa', end)
       .order('data_tarefa', { ascending: true })
     if (error) { document.getElementById('rc-grid').innerHTML = `<div class="rc-empty" style="grid-column:1/-1;color:var(--re)">Erro ao carregar: ${esc(error.message)}</div>`; return }
@@ -200,7 +203,10 @@
   const urlRat = (v) => v.tarefaId ? `tarefa.html?t=${encodeURIComponent(v.tarefaId)}&aba=rats&rat=${encodeURIComponent(v.id)}` : `rat.html?id=${encodeURIComponent(v.id)}`
   function chipHTML(v) {
     const cor = corDe(v.status)
-    const titulo = `RAT ${ratNo(v)} · ${v.cliente} · ${v.tecnico}` + (v.orientacao ? `\n\nOrientação: ${v.orientacao}` : '')
+    const titulo = `RAT ${ratNo(v)} · ${v.cliente} · ${v.tecnico}`
+      + (v.ratStatus ? `\nAtendimento: ${ratSitLabel(v.ratStatus)}` : '')
+      + (v.status ? `\nServiço: ${labelStatus[v.status] || v.status}` : '')
+      + (v.orientacao ? `\n\nOrientação: ${v.orientacao}` : '')
     // link real: clique normal abre na mesma aba; ctrl/⌘/botão-do-meio/direito abrem em nova aba
     return `<a class="rc-chip" href="${urlRat(v)}" data-rat="${esc(v.id)}" title="${esc(titulo)}"
       style="background:${cor}1A;border-left:3px solid ${cor}">

@@ -13,6 +13,9 @@
   const filtros = { busca: '', cliente: '', tecnico: '', status: '', de: '', ate: '' }
   let rlOrd = 'dia_rat', rlDir = 'desc'   // ordenação por clique no cabeçalho (no servidor)
   let clientes = [], offset = 0, total = 0
+  let corTarefa = {}, labelTarefa = {}   // status do SERVIÇO (Tarefa) — selo secundário; cores da tabela status_tarefa
+  const servLabel = (s) => labelTarefa[s] || s || '—'
+  const servCor = (s) => corTarefa[s] || '#48506A'
   const osNo = (n) => n == null ? '—' : String(n).padStart(5, '0')
   // Coluna Status = situação da PRÓPRIA RAT (não da Tarefa). Rótulos/cores fixos do design system.
   const RAT_SIT = {
@@ -27,11 +30,14 @@
   const dmy = (s) => s ? String(s).slice(0, 10).split('-').reverse().join('/') : '—'
 
   async function init() {
-    const [us, cl] = await Promise.all([
+    const [us, cl, st] = await Promise.all([
       sb().rpc('sr_usuarios'),
       sb().from('clientes').select('nome').eq('oculto', false).order('nome'),   // só Empresas visíveis (mesma regra de Tarefas/Orçamentos), não o catálogo Omie oculto
+      sb().from('status_tarefa').select('chave,label,cor').order('ordem'),      // rótulos/cores do status do SERVIÇO (selo secundário)
     ])
     clientes = [...new Set((cl.data || []).map(c => c.nome).filter(Boolean))]
+    corTarefa = {}; labelTarefa = {}
+    for (const s of (st.data || [])) { corTarefa[s.chave] = s.cor; labelTarefa[s.chave] = s.label }
     // selects — filtro de Status pela situação da RAT
     document.getElementById('rlf-status').innerHTML = '<option value="">Todos</option>' +
       Object.keys(RAT_SIT).map(ch => `<option value="${esc(ch)}">${esc(RAT_SIT[ch].label)}</option>`).join('')
@@ -129,7 +135,7 @@
         ${sub ? `<div class="rl-sub">${sub}</div>` : ''}
         ${r.orientacao ? `<div class="cc-ori" title="${esc(r.orientacao)}">${esc(r.orientacao)}</div>` : ''}
       </td>
-      <td><span class="st-pill" style="background:${cor}1A;color:${corTextoLegivel(cor)}">${esc(ratLabel(r.rat_status))}</span></td>
+      <td><span class="st-pill" style="background:${cor}1A;color:${corTextoLegivel(cor)}">${esc(ratLabel(r.rat_status))}</span>${r.tarefa_status ? `<div class="rl-serv" title="Status do serviço (Tarefa)"><span class="rl-serv-dot" style="background:${servCor(r.tarefa_status)}"></span>Serviço: ${esc(servLabel(r.tarefa_status))}</div>` : ''}</td>
       <td>${esc(r.colaboradores || '—')}</td>
       <td>${dmy(r.dia_rat)}</td>
     </tr>`
