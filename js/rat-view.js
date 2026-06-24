@@ -210,6 +210,25 @@ window.RatView = (function () {
     }
     if (grid.length) h += `<div class="rd-sec"><div class="rd-sec-t">RAT — dados do atendimento</div><div class="rd-grid">${grid.join('')}</div></div>`
     if (pausasGrid.length) h += `<div class="rd-sec"><div class="rd-sec-t">Pausas e almoço</div><div class="rd-grid">${pausasGrid.join('')}</div></div>`
+
+    // Pausas e almoço — no modo leitura aparece SEMPRE que respondido (Sim com horários vira
+    // tabela; "Não" fica explícito, pra não dar impressão de campo faltando). Fica junto dos
+    // dados do atendimento (antes de Produtos), não lá embaixo.
+    if (!edit && ((resp.almoco != null && resp.almoco !== '') || (resp.pausa != null && resp.pausa !== ''))) {
+      const durStr = (a, b) => { const x = minutosDe(a), y = minutosDe(b); if (x == null || y == null) return '—'; let d = y - x; if (d < 0) d += 1440; return fmtMin(d) }
+      const pausas = []
+      if (resp.almoco === 'Sim' && (resp.almoco_inicio || resp.almoco_termino)) pausas.push({ ini: resp.almoco_inicio, fim: resp.almoco_termino, motivo: 'Almoço' })
+      if (resp.pausa === 'Sim' && (resp.pausa_inicio || resp.pausa_termino || resp.pausa_motivo)) pausas.push({ ini: resp.pausa_inicio, fim: resp.pausa_termino, motivo: resp.pausa_motivo || 'Pausa' })
+      const resumo = []
+      if (resp.almoco != null && resp.almoco !== '') resumo.push(`Almoço: <b>${esc(resp.almoco)}</b>`)
+      if (resp.pausa != null && resp.pausa !== '') resumo.push(`Pausa: <b>${esc(resp.pausa)}</b>`)
+      h += `<div class="rd-sec"><div class="rd-sec-t">Pausas e almoço</div>`
+        + (resumo.length ? `<div style="font-size:13px;line-height:1.6;color:#2b3447${pausas.length ? ';margin-bottom:10px' : ''}">${resumo.join(' · ')}</div>` : '')
+        + (pausas.length ? `<table class="rd-pausas"><thead><tr><th>Início</th><th>Fim</th><th>Tempo</th><th>Justificativa/Motivo</th></tr></thead><tbody>`
+            + pausas.map(p => `<tr><td>${esc(p.ini || '—')}</td><td>${esc(p.fim || '—')}</td><td>${durStr(p.ini, p.fim)}</td><td>${esc(p.motivo)}</td></tr>`).join('')
+            + `</tbody></table>` : '')
+        + `</div>`
+    }
     h += longSecs.join('')
 
     // Produtos com preço (editável no modo edição) + Resumo de Valores
@@ -228,24 +247,6 @@ window.RatView = (function () {
         `</tbody></table>` +
         (adminEdit ? `<div class="rd-addprod"><input id="rd-prodbusca" placeholder="+ Adicionar produto (código ou descrição)…" autocomplete="off"><div id="rd-prodres" class="rd-prodres" hidden></div></div>` : '') +
         `<div class="rd-total">Total <b id="rd-prodtot">${money(total)}</b></div></div>`
-    }
-
-    // Pausas e almoço — no modo leitura aparece SEMPRE que respondido (Sim com horários vira
-    // tabela; "Não" fica explícito, pra não dar impressão de campo faltando).
-    if (!edit && ((resp.almoco != null && resp.almoco !== '') || (resp.pausa != null && resp.pausa !== ''))) {
-      const durStr = (a, b) => { const x = minutosDe(a), y = minutosDe(b); if (x == null || y == null) return '—'; let d = y - x; if (d < 0) d += 1440; return fmtMin(d) }
-      const pausas = []
-      if (resp.almoco === 'Sim' && (resp.almoco_inicio || resp.almoco_termino)) pausas.push({ ini: resp.almoco_inicio, fim: resp.almoco_termino, motivo: 'Almoço' })
-      if (resp.pausa === 'Sim' && (resp.pausa_inicio || resp.pausa_termino || resp.pausa_motivo)) pausas.push({ ini: resp.pausa_inicio, fim: resp.pausa_termino, motivo: resp.pausa_motivo || 'Pausa' })
-      const resumo = []
-      if (resp.almoco != null && resp.almoco !== '') resumo.push(`Almoço: <b>${esc(resp.almoco)}</b>`)
-      if (resp.pausa != null && resp.pausa !== '') resumo.push(`Pausa: <b>${esc(resp.pausa)}</b>`)
-      h += `<div class="rd-sec"><div class="rd-sec-t">Pausas e almoço</div>`
-        + (resumo.length ? `<div style="font-size:13px;line-height:1.6;color:#2b3447${pausas.length ? ';margin-bottom:10px' : ''}">${resumo.join(' · ')}</div>` : '')
-        + (pausas.length ? `<table class="rd-pausas"><thead><tr><th>Início</th><th>Fim</th><th>Tempo</th><th>Justificativa/Motivo</th></tr></thead><tbody>`
-            + pausas.map(p => `<tr><td>${esc(p.ini || '—')}</td><td>${esc(p.fim || '—')}</td><td>${durStr(p.ini, p.fim)}</td><td>${esc(p.motivo)}</td></tr>`).join('')
-            + `</tbody></table>` : '')
-        + `</div>`
     }
 
     if ((fotos && fotos.length) || adminEdit) {
