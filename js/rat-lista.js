@@ -2,8 +2,9 @@
    Service Report — rat-lista.js
    Busca GLOBAL de RATs (banco todo) — aba "Lista" da seção RAT. Só leitura + atalho.
    Consulta a view vw_rats_busca no servidor (ilike na coluna `busca`, que inclui o
-   conteúdo do respostas) com filtros + paginação ("Carregar mais"). Cor do status =
-   status_tarefa (marca) com texto legível; clique abre a Tarefa na aba RATs com a RAT.
+   conteúdo do respostas) com filtros + paginação ("Carregar mais"). Coluna/filtro Status =
+   situação da PRÓPRIA RAT (rat_status: Atendimento Realizado, Em andamento, etc.), não da
+   Tarefa; clique abre a Tarefa na aba RATs com a RAT.
    Exposto como window.RatListaApp.
 ═══════════════════════════════════════════════ */
 (function () {
@@ -11,23 +12,29 @@
   const PAGE = 50
   const filtros = { busca: '', cliente: '', tecnico: '', status: '', de: '', ate: '' }
   let rlOrd = 'dia_rat', rlDir = 'desc'   // ordenação por clique no cabeçalho (no servidor)
-  let corStatus = {}, labelStatus = {}, clientes = [], offset = 0, total = 0
+  let clientes = [], offset = 0, total = 0
   const osNo = (n) => n == null ? '—' : String(n).padStart(5, '0')
-  const corDe = (st) => corStatus[st] || '#48506A'
+  // Coluna Status = situação da PRÓPRIA RAT (não da Tarefa). Rótulos/cores fixos do design system.
+  const RAT_SIT = {
+    em_andamento:        { label: 'Em andamento',           cor: '#1E8AE0' },
+    registrado:          { label: 'Atendimento Realizado',  cor: '#179A47' },
+    concluida:           { label: 'Concluída',              cor: '#179A47' },
+    concluida_pendencia: { label: 'Concluída c/ pendência', cor: '#F7B81E' },
+    improdutiva:         { label: 'Visita improdutiva',     cor: '#E5403A' },
+  }
+  const ratLabel = (s) => (RAT_SIT[s] && RAT_SIT[s].label) || s || '—'
+  const ratCor = (s) => (RAT_SIT[s] && RAT_SIT[s].cor) || '#48506A'
   const dmy = (s) => s ? String(s).slice(0, 10).split('-').reverse().join('/') : '—'
 
   async function init() {
-    const [st, us, cl] = await Promise.all([
-      sb().from('status_tarefa').select('chave,label,cor,ordem,ativo').order('ordem'),
+    const [us, cl] = await Promise.all([
       sb().rpc('sr_usuarios'),
       sb().from('clientes').select('nome').eq('oculto', false).order('nome'),   // só Empresas visíveis (mesma regra de Tarefas/Orçamentos), não o catálogo Omie oculto
     ])
-    corStatus = {}; labelStatus = {}
-    for (const s of (st.data || [])) { corStatus[s.chave] = s.cor; labelStatus[s.chave] = s.label }
     clientes = [...new Set((cl.data || []).map(c => c.nome).filter(Boolean))]
-    // selects
+    // selects — filtro de Status pela situação da RAT
     document.getElementById('rlf-status').innerHTML = '<option value="">Todos</option>' +
-      Object.keys(corStatus).map(ch => `<option value="${esc(ch)}">${esc(labelStatus[ch] || ch)}</option>`).join('')
+      Object.keys(RAT_SIT).map(ch => `<option value="${esc(ch)}">${esc(RAT_SIT[ch].label)}</option>`).join('')
     const tecs = (us.data || []).filter(u => u.role === 'tecnico_campo' && u.ativo).map(u => u.nome).filter(Boolean).sort((a, b) => a.localeCompare(b))
     document.getElementById('rlf-tecnico').innerHTML = '<option value="">Todos</option>' + tecs.map(t => `<option>${esc(t)}</option>`).join('')
     bind()
@@ -65,7 +72,7 @@
   const TABELA = '<table class="cc-list"><thead><tr>'
     + '<th class="th-ord" data-ord="tarefa_numero">Nº<span class="ord-ar"></span></th>'
     + '<th class="th-ord" data-ord="cliente_nome">Cliente<span class="ord-ar"></span></th>'
-    + '<th class="th-ord" data-ord="tarefa_status">Status<span class="ord-ar"></span></th>'
+    + '<th class="th-ord" data-ord="rat_status">Status<span class="ord-ar"></span></th>'
     + '<th class="th-ord" data-ord="colaboradores">Técnico<span class="ord-ar"></span></th>'
     + '<th class="th-ord" data-ord="dia_rat">Data<span class="ord-ar"></span></th>'
     + '</tr></thead><tbody id="rl-list"></tbody></table>'
@@ -78,7 +85,7 @@
     if (f.busca) q = q.ilike('busca', '%' + f.busca.toLowerCase() + '%')
     if (f.cliente) q = q.ilike('cliente_nome', '%' + f.cliente + '%')
     if (f.tecnico) q = q.ilike('colaboradores', '%' + f.tecnico + '%')
-    if (f.status) q = q.eq('tarefa_status', f.status)
+    if (f.status) q = q.eq('rat_status', f.status)
     if (f.de) q = q.gte('dia_rat', f.de)
     if (f.ate) q = q.lte('dia_rat', f.ate)
     q = q.order(rlOrd, { ascending: rlDir === 'asc', nullsFirst: false }).range(offset, offset + PAGE - 1)
@@ -101,7 +108,7 @@
       th.onclick = () => {
         const k = th.dataset.ord
         if (rlOrd === k) rlDir = (rlDir === 'asc' ? 'desc' : 'asc')
-        else { rlOrd = k; rlDir = (k === 'cliente_nome' || k === 'colaboradores' || k === 'tarefa_status') ? 'asc' : 'desc' }
+        else { rlOrd = k; rlDir = (k === 'cliente_nome' || k === 'colaboradores' || k === 'rat_status') ? 'asc' : 'desc' }
         buscar()
       }
       const ar = th.querySelector('.ord-ar'); if (ar) ar.textContent = (rlOrd === th.dataset.ord) ? (rlDir === 'asc' ? ' ▲' : ' ▼') : ''
@@ -112,7 +119,7 @@
   const SVG_NEWTAB = '<svg viewBox="0 0 24 24"><path d="M14 3h7v7M21 3l-9 9M19 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V7a2 2 0 0 1 2-2h6"/></svg>'
 
   function rowHTML(r) {
-    const cor = corDe(r.tarefa_status)
+    const cor = ratCor(r.rat_status)
     const ratNo = r.tarefa_numero != null ? osNo(r.tarefa_numero) + (r.rat_seq != null ? '/' + String(r.rat_seq).padStart(2, '0') : '') : '—'
     const sub = [r.pedido_compra ? 'PC ' + esc(r.pedido_compra) : '', r.orcamento_numero ? 'Orç ' + esc(r.orcamento_numero) : ''].filter(Boolean).join(' · ')
     return `<tr class="row-click" data-novo data-rat="${esc(r.id)}" data-tarefa="${esc(r.tarefa_id || '')}">
@@ -122,7 +129,7 @@
         ${sub ? `<div class="rl-sub">${sub}</div>` : ''}
         ${r.orientacao ? `<div class="cc-ori" title="${esc(r.orientacao)}">${esc(r.orientacao)}</div>` : ''}
       </td>
-      <td><span class="st-pill" style="background:${cor}1A;color:${corTextoLegivel(cor)}">${esc(labelStatus[r.tarefa_status] || r.tarefa_status || '—')}</span></td>
+      <td><span class="st-pill" style="background:${cor}1A;color:${corTextoLegivel(cor)}">${esc(ratLabel(r.rat_status))}</span></td>
       <td>${esc(r.colaboradores || '—')}</td>
       <td>${dmy(r.dia_rat)}</td>
     </tr>`
