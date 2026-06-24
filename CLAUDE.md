@@ -19,7 +19,7 @@ Regras do projeto que você (Claude Code) deve seguir em **toda** sessão. Leia 
 ## Design system (obrigatório)
 - CSS: `design-system-tecnico.css` (app de campo) e `design-system-admin.css` (portal). Não criar estilos soltos; usar as classes/tokens existentes.
 - Fonte **Manrope**.
-- Paleta (cor = significado): vermelho `#E5403A` (erro/pendência grave) · laranja `#F4861F` (deslocamento) · amarelo `#F7B81E` (pausa/atenção) · **verde `#179A47`** (ok/execução) · azul `#1E8AE0` (info) · roxo `#8E45B5`.
+- Paleta (cor = significado): vermelho `#E5403A` (erro/pendência grave) · laranja `#F4861F` (deslocamento) · amarelo `#F7B81E` (atenção/aviso) · **verde `#179A47`** (ok/execução) · azul `#1E8AE0` (info) · roxo `#8E45B5` · **rosa `#D63384`** (status "Em pausa" — swap da migração 0073 — e relatórios).
 - **Ícones sempre SVG de linha — nunca emoji.**
 - Avatares de pessoas usam o **componente com foto** já existente (foto do Portal).
 
@@ -53,5 +53,5 @@ Regras do projeto que você (Claude Code) deve seguir em **toda** sessão. Leia 
 
 ## Contexto útil
 - Orçamentos foram migrados pra um app próprio (**comercial-app**) — não estão mais no SR.
-- Edge Functions já no ar: `omie-sync`, `aprovar-orcamento`, `reabrir-orcamento`, `documentos` (PDF+Resend), `melhorar-texto` (IA, desktop-only), `manage-users`, `notify-push`, `orcamento-importar-fotos`.
+- Edge Functions já no ar: `omie-sync`, `aprovar-orcamento`, `reabrir-orcamento`, `documentos` (PDF+Resend), `melhorar-texto` (IA, desktop-only), `manage-users`, `portal-usuarios`, `notify-push`, `orcamento-importar-fotos`, `viagem-merge` (finalização colaborativa da viagem).
 - Pessoas: **Thaís** (gestão do SR/estoque), **Francisco** (almoxarifado).
