@@ -299,6 +299,7 @@ Cada RAT = uma visita/dia dentro de uma Tarefa. Offline-first.
 - **Numeração:** `numero_rat` **sequencial atribuído pelo servidor** (nunca pelo dispositivo — evita colisão offline/multi-dispositivo).
 - **Salvar rascunho** a qualquer momento (sem validação; status interno `em_andamento`).
 - **Encerrar a RAT do dia** → status `registrado` (**rótulo "Atendimento Realizado"**) **exige os campos obrigatórios preenchidos**. Encerrar fecha o **dia**, **não** conclui o serviço — "Concluída"/"Concluída c/ pendência" são ação **da Tarefa** (§7 e §8 "Duas pendências distintas"). `concluida*` em RAT é só **dado histórico**.
+- **Modal guiado ao encerrar (06/26):** ao encerrar a RAT do dia, o app pergunta o desfecho num modal acionável: **"Vou voltar depois"** → Tarefa vai a **Em pausa** + registra a passagem (o que falta/levar); **"Terminei o serviço"** → modal com botão **"Concluir a Tarefa agora"** (Concluída / c/ pendência), sem o técnico navegar até a Tarefa; **"Volta amanhã? Sim"** segue **sem modal**. Encerrar a RAT ≠ concluir o serviço (§8) — o modal só **guia** ao desfecho certo.
 - **Sem PDF/e-mail por dia:** a RAT diária é registro **interno** (§7, linha do "entregável consolidado"); o documento ao cliente sai no nível da Tarefa. *(O e-mail da RAT pro adm@tsrv está previsto em §12, mas ainda pendente — §13.)*
 - Campos do formulário são **configuráveis** (modelos por tipo de serviço).
 - **Numeração exibida** com separador `/`: ex. `#04744/01` (tarefa/sequência da RAT).
@@ -359,6 +360,20 @@ Em campo o nº de celulares **varia**, e **vários técnicos podem preencher a M
 - **Tempo é sempre por pessoa, mas login de cada técnico NÃO é obrigatório.** O padrão é **uma pessoa preencher a RAT pela equipe** — incluindo o horário de cada participante (chips "horário por técnico"). A participação de um técnico existe na RAT mesmo que ele nunca logue. Se *houver* um segundo aparelho e o próprio técnico ajustar o horário dele, esse ajuste **prevalece** sobre o que foi preenchido por outro — é regra de **desempate**, não exigência.
 
 Constraint `(tarefa, dia)` garante **uma RAT**; o que muda é que ela é **colaborativa**, não de dono único.
+
+### Edição de RAT pela gestão (admin) — auditoria, motivo e restauração (06/26)
+
+O técnico às vezes esquece algo (um técnico a bordo, um produto, uma foto) e já saiu pra outra tarefa; pedir correção trava a operação. Então o **admin pode editar/completar uma RAT preenchida** — com rastro.
+
+- **Editor único:** toda edição mora na página `rat.html` (admin). A aba RATs da Tarefa **não edita inline** — o botão **"Editar ↗"** abre o `rat.html` (evita dois caminhos de escrita).
+- **Só admin** (não gestor, não comercial), imposto no **servidor** pela Edge Function `rat-editar` (`app_role()='admin'` via `portal_acessos`; 403 pro resto) — não depende da UI.
+- **Edita:** todos os campos, **técnicos responsáveis** (add/remove, só perfil `tecnico_campo`), **produtos** (qty/adicionar do catálogo/remover) e **fotos** (upload/remover/legenda). Condicionais (almoço/pausa/deslocamento = Sim) revelam os horários ao vivo; textareas auto-ajustam; almoço/pausa em seção própria.
+- **Reflete ao vivo:** horas (Jornada) e conciliação recalculam das views; `tempo_trabalhado` é recalculado pela **mesma fórmula do §8.1** (espelha o app do técnico).
+- **Trava do faturado:** Tarefa com OS no Omie (`aprovada_faturamento`/`faturada`) → **bloqueia (409)** alterações **financeiras** (técnicos/produtos/horários); **não-financeiras** (serviço, observações, situação, fotos) seguem editáveis. Correção pós-fatura é fluxo do Omie, não edição silenciosa no SR.
+- **Motivo obrigatório, 1 por lote:** Esquecimento do técnico / Completação / Mudança de processo / Pedido do cliente / Outro — gravado igual em todas as alterações do save; base do índice de assertividade (§13 pendente).
+- **Auditoria não-adulterável:** cada alteração → linha em **`rat_edicoes`** (quem · quando · campo · anterior→novo · motivo). RLS **só de leitura** (admin/gestor); **nenhuma escrita** por cliente — só a Edge Function (service role) grava. Migração 0080.
+- **Restaurar:** histórico no detalhe da RAT com **Restaurar** por linha (alterar→volta, remover→re-insere, adicionar→remove); a restauração entra como novo registro (rastro nunca some). Selo **"Ajustada pela gestão"** no cabeçalho.
+- **Só portal (admin online):** não entra na fila offline; o app do técnico segue offline-first intacto — a RAT do técnico é a origem, o admin corrige por cima, com rastro.
 
 ### RAT improdutiva (visita sem execução)
 
@@ -490,6 +505,7 @@ O **técnico nunca escolhe a modalidade** — ela é **derivada** (do contrato/o
   - **RAT com tarefa-pai ausente no servidor** (FK `rats_tarefa_id_fkey`): em vez de erro em loop, o envio **recria a Tarefa mínima** a partir dos dados da própria RAT (`cliente_id`, data, tipo de serviço, via `criar_tarefa_app`) e **reenvia uma vez**. Diferente da RAT órfã *local* acima (lá a Tarefa foi excluída de propósito → tombstone; aqui a RAT é válida e a pai é reconstituída).
   - **Finalização colaborativa da viagem (06/26):** **qualquer técnico a bordo** pode lançar/finalizar a viagem (não só quem criou). O RLS de `deslocamentos` só deixa o criador gravar, então a escrita do modelo-novo (viagem com trechos) passa pela **Edge Function `viagem-merge`** (service role), que autoriza *a-bordo / criador / escritório* e **mescla por união**: preenche o que está vazio; em **horas** (saída/chegada/refeição) divergentes **mantém o valor do servidor e registra o conflito** em `deslocamentos.conflito` pro admin (selo "⚠ conflito — revisar" no portal) — nunca sobrescreve em silêncio; **`criado_por` é preservado** (a-bordo não vira dono). Só marca `confirmado` quando a função confirma de verdade — acaba o falso "✓ sincronizado". *(Substitui a regra anterior "não empurrar artefato de outro técnico", que marcava confirmado sem enviar e **descartava em silêncio** o lançamento do co-piloto — causa real de viagem que aparecia concluída no app e "em andamento" no portal.)* **403** (não está a bordo) ainda para de reenviar, sem loop. Caminho **legado** (1 registro = 1 trajeto) segue direto na tabela, só o criador.
 - **Fuso horário (06/26):** o banco guarda instantes em **timestamptz (UTC)**; a exibição é que define o fuso. **Portal (admin) = sempre `America/Sao_Paulo`** (fuso do escritório), independente da máquina de quem acessa — helpers `fdt`/`fdata`/`dt`/`dDMA` forçam o fuso; views que extraem hora/data de timestamptz usam `at time zone 'America/Sao_Paulo'` (ex.: `vw_participacoes_dia`). **App do técnico = fuso do aparelho** (ele está no Brasil; `isoNoDia`/`hhmmDe` fazem ida-e-volta no fuso local). **Data-só (`AAAA-MM-DD`)** nunca passa por `new Date` direto (split de string), pra não escorregar 1 dia. Sintoma que isso resolveu: admin numa máquina em -4 via tudo ~1h adiantado.
+- **Cuidado com `data_tarefa` (06/26):** é `timestamptz` guardado em **meia-noite UTC**; aplicar `at time zone 'America/Sao_Paulo'` + `::date` **nela** **derruba o dia** (23/06 00:00+00 → 22/06). Para o "dia da RAT" use `coalesce(respostas.data, data_tarefa::date)` (sem conversão de fuso) — padrão da `vw_participacoes_dia`. Corrigido em `vw_alerta_desloc_sem_volta`, `vw_rats_busca` e `rat_inicia_tarefa` (migrações 0081/0082) depois de gerar um alerta falso de "ida sem volta". Regra: `at time zone` só em colunas que são **instante real** (saída/chegada), nunca em data-só-meia-noite-UTC.
 - **Auto-update do app do técnico (06/26):** o app se atualiza **sozinho** quando há versão nova, mas com **trava absoluta**: NUNCA recarrega com o técnico no meio de algo. A versão nova fica em espera (`reg.waiting`) e só troca quando o app está **100% ocioso na home** — `TecnicoApp.podeRecarregar()` (fonte da verdade, **`false` na dúvida**): exige `screen==='home'`, sem RAT aberta (`cur`), sem deslocamento em edição (`dlCur`, que mora em memória até salvar), sem gravação em debounce (autosave da RAT / pausa) e sem nenhum modal aberto. Gates extras: **online** e **sem sync rodando**. Reavalia ao voltar pra home, no `visibilitychange`, ao fim de um sync e a cada 60 s; **espera indefinida** enquanto ocupado (melhor ficar na versão velha do que perder dado). Sem loop (`swapIniciado` 1×/versão + guard `recarregando`); **offline nunca recarrega**. A barra "Atualizar" continua como **saída manual** (escolha explícita). Regra inviolável: **dado não-salvo do técnico jamais se perde por causa de um auto-reload**. *(Só passa a valer a partir da 1ª versão que já roda esse código — na virada, o técnico toca "Atualizar" uma última vez.)*
 - **PDF:** serviço único, reusado (pré-orçamento, orçamento, RAT).
 - **E-mail ao finalizar:** seletivo — pré-orçamento → comercial@tsrv; RAT concluída → adm@tsrv; **orçamento não dispara e-mail**.
@@ -504,7 +520,7 @@ O **técnico nunca escolhe a modalidade** — ela é **derivada** (do contrato/o
 
 ## 13. Estado atual da construção
 
-*Atualizado em 23/06/2026.*
+*Atualizado em 24/06/2026.*
 
 ### Concluído
 
@@ -515,7 +531,7 @@ O **técnico nunca escolhe a modalidade** — ela é **derivada** (do contrato/o
 - Papel `comercial` liberado; papel sincronizado com o Portal (`portal_acessos`); gestão de usuários **removida do SR** (centralizada no Portal); foto/cargo vindos do Portal.
 - **Preço de venda do Omie** em `produtos.preco_venda` (sync paginado; ~1.715 produtos).
 
-**Edge functions no ar:** `omie-sync` (leitura Omie F1) · `aprovar-orcamento` (aprovado → gera Tarefa, só se houver serviço) · `reabrir-orcamento` (desfaz a aprovação removendo a Tarefa) · `documentos` (PDF + e-mail do pré-orçamento via Resend → comercial@tsrv) · `melhorar-texto` (IA, Claude Haiku) · `manage-users` · `portal-usuarios` · `notify-push` · `orcamento-importar-fotos` · `viagem-merge` (finalização colaborativa da viagem — §12).
+**Edge functions no ar:** `omie-sync` (leitura Omie F1) · `aprovar-orcamento` (aprovado → gera Tarefa, só se houver serviço) · `reabrir-orcamento` (desfaz a aprovação removendo a Tarefa) · `documentos` (PDF + e-mail do pré-orçamento via Resend → comercial@tsrv) · `melhorar-texto` (IA, Claude Haiku) · `manage-users` · `portal-usuarios` · `notify-push` · `orcamento-importar-fotos` · `viagem-merge` (finalização colaborativa da viagem — §12) · `rat-editar` (edição de RAT pela gestão, admin-only e auditada — §8).
 
 **Módulo comercial**
 - Pré-orçamento de campo (offline) e orçamento funcionando, com status/arquivamento.
@@ -540,7 +556,13 @@ O **técnico nunca escolhe a modalidade** — ela é **derivada** (do contrato/o
 - **Push de campo (06/26):** recebe "Nova tarefa atribuída" / "Tarefa reagendada" mesmo com o app fechado (§7).
 - **Auto-update seguro (06/26):** o app troca de versão **sozinho**, mas só com a **home ociosa** (nunca com RAT/deslocamento/modal aberto ou gravação pendente) — §12.
 - **Entregas de 23/06:** fuso padronizado no portal (America/Sao_Paulo) + correção da view da Jornada · Jornada mostra nome de todo participante + avatar com foto + chips de RAT/Deslocamento clicáveis · RAT com datas em DD/MM/AAAA · conciliação ignora material de qtd 0 (migração 0077) · **lista de RAT no portal mostra o status da própria RAT** (não o da Tarefa) · Painel focado em "Tarefas pendentes de execução" (cards) · datas/horas do portal sempre em fuso de Sao_Paulo.
-- Service worker na casa da **v465**; produção no Vercel (`servicereport-app.vercel.app`).
+- **Entregas de 24/06:**
+  - **Edição de RAT pela gestão** (§8 nova subseção): editor único `rat.html` (a Tarefa só linka **"Editar ↗"**), admin-only no servidor (`rat-editar`), **motivo obrigatório**, **auditoria `rat_edicoes` + Restaurar + selo "Ajustada pela gestão"**, trava do faturado. Migração 0080.
+  - Editor: produtos qty/adicionar/remover, técnicos com **avatar** (foto do Portal, só `tecnico_campo`), condicionais (almoço/pausa/deslocamento) reveladas ao vivo, textareas auto-ajustáveis, **"Pausas e almoço" em seção própria**.
+  - **Jornada:** soma o **deslocamento do dia** (ida/retorno) com **dedup por união** (migrações 0078/0079); chips "RAT Ida 4751/02" / "RAT Retorno 4752/01"; **chip de Almoço com nº e cor da RAT**.
+  - **Bug de fuso corrigido:** alerta "ida sem volta" usava `data_tarefa` (meia-noite UTC) + data agendada → alerta falso; agora usa a data real da RAT (migração 0081; idem `vw_rats_busca`/`rat_inicia_tarefa` na 0082 — §12).
+  - **Double-check:** corrigida a superrcontagem do tempo no caso **legado** da `rat-editar` (passou a espelhar a fórmula do §8.1).
+- Service worker na casa da **v481**; produção no Vercel (`servicereport-app.vercel.app`).
 
 ### Pendente (próximos passos)
 
@@ -553,8 +575,10 @@ O **técnico nunca escolhe a modalidade** — ela é **derivada** (do contrato/o
 7. **Tempo por técnico + integração Tangerino (§8)** — desenhado (casos Marcelo/Pablo; almoço por pessoa/dia puxado do ponto, 3 camadas). Pacote de transição pronto pra build; **passo zero: pedir o token de integração ao suporte do Tangerino**.
 8. **Remessa de material + estoque em campo/Container (§9)** — desenhado e validado com o almoxarifado; aguarda ok final + definição do papel do Yago. Mata a planilha semanal da WestRock.
 9. **Módulo "Viagem" (§4.1)** — desenho de referência registrado; **não construir** antes da jornada contínua (provável redundância).
-10. **Dedup do deslocamento do dia (evolução futura, sem necessidade hoje):** se um técnico fizer várias tarefas no mesmo dia, a ida/volta pode ser lançada em mais de uma RAT e contar dobrado (mesmo problema do almoço). Hoje raro (geralmente 1 serviço por ida) → **não construir**; retomar só se o dobro passar a incomodar, reusando a mecânica de "por pessoa/dia" do almoço.
+10. **Deslocamento do dia na Jornada — dedup por união (FEITO, 24/06):** a Jornada **soma** a ida/retorno do dia ao tempo do técnico (§8.1) via `vw_participacoes_dia`. O risco de **contar dobrado** (mesma ida lançada em 2 RATs do dia) é resolvido **naturalmente pela UNIÃO dos intervalos** (gaps-and-islands no consumidor): trechos idênticos contam **uma vez**, trechos diferentes somam. Validado (BMW/Benteler/Cosma). A mecânica "por pessoa/dia" do almoço fica de reserva caso surja um caso que a união não cubra.
 11. **Ideias estratégicas (cada uma é projeto próprio, futuro):** central de pendências do admin (unifica alertas: improdutiva, conflitos, devolução, contagem, faturamento) · GPS pontual no início/fim da execução (prova de presença, além do deslocamento) · checklist por tipo de serviço (preventiva padronizada) · histórico por local/equipamento (manutenção) · cockpit de fechamento do mês (horas + material + container + improdutivas prontos pra faturar).
+12. **Índice de assertividade do técnico (futuro):** a base já existe — `rat_edicoes` guarda **motivo** + `tarefa_id` e a RAT tem o titular (`rats.tecnico_id`). Falta o relatório que agrega "esquecimentos por técnico" (distinguindo **esquecimento** de completação/processo) pra medir a qualidade do preenchimento.
+13. **Revisão de segurança do banco (projeto próprio, testado):** endurecer as ~13 views `SECURITY DEFINER` (avaliar `security_invoker`), **revogar grants desnecessários do `anon`** (visibilidade no GraphQL/PostgREST), `function_search_path_mutable` e policies `rls always_true`. **Pré-existente** (não veio da edição de RAT; a `rat_edicoes` já está protegida por RLS) e **sem incidente conhecido** → não urgente, mas mexer às cegas quebra acesso (gente deixa de ver o que precisa): fazer **view por view, com teste**, separado de outras entregas.
 
 ---
 
