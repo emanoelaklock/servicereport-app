@@ -21,37 +21,31 @@
           background:#fff;border-bottom:1px solid var(--bd);padding:12px 20px;box-shadow:0 1px 6px rgba(20,30,55,.06)}
   .rp-title{font-size:15px;font-weight:700;color:var(--tx);flex:1;min-width:160px}
   .rp-actions{display:flex;gap:8px;flex-wrap:wrap}
-  .rp-doc{max-width:840px;margin:24px auto;background:#fff;border:1px solid var(--bd);border-radius:14px;
-          box-shadow:0 10px 30px rgba(20,30,55,.08);padding:26px 30px;overflow:hidden}
+  .rp-wrap{max-width:920px;margin:22px auto;padding:0 20px 40px;display:flex;flex-direction:column;gap:16px}
   .rp-msg{color:var(--tx3);font-size:14px;text-align:center;padding:40px 0}
 
-  /* Cabeçalho do documento */
-  .doc-band{display:flex;justify-content:space-between;align-items:flex-end;gap:12px;flex-wrap:wrap;
-            background:linear-gradient(105deg,#243456,#1E8AE0);color:#fff;margin:-26px -30px 0;padding:18px 30px}
-  .db-brand{font-size:19px;font-weight:800;letter-spacing:.05em}
-  .db-doc{font-size:12px;text-transform:none;letter-spacing:normal;opacity:.85;font-weight:600}
-  .doc-hero{padding:20px 0 18px;border-bottom:1px solid var(--bd)}
-  .dh-cli{font-size:23px;font-weight:800;color:var(--title);line-height:1.15}
-  .dh-sub{font-size:13.5px;color:var(--blue);font-weight:600;margin-top:3px}
-  .dh-chips{display:flex;flex-wrap:wrap;gap:8px;margin-top:15px;align-items:stretch}
-  .dh-chips .chip{display:inline-flex;flex-direction:column;gap:1px;background:var(--sur2);border:1px solid var(--bd);
-                  border-radius:9px;padding:6px 12px;font-size:13.5px;color:var(--tx);font-weight:600}
-  .dh-chips .chip i{font-style:normal;font-size:9.5px;text-transform:uppercase;letter-spacing:.05em;color:var(--tx3);font-weight:600}
-  .dh-chips .badge{display:inline-flex;align-items:center;padding:0 14px;border-radius:9px;font-size:12.5px;font-weight:700}
+  /* Cabeçalho — padrão do portal (card), sem faixa de documento */
+  #rp-hero{background:#fff;border:1px solid var(--bd);border-radius:14px;box-shadow:0 1px 3px rgba(20,30,55,.05);padding:20px 22px}
+  .rp-cli{font-size:23px;font-weight:800;color:var(--title);line-height:1.15;letter-spacing:-.3px}
+  .rp-sub{font-size:13.5px;color:var(--blue);font-weight:600;margin-top:3px}
+  .rp-chips{display:flex;flex-wrap:wrap;gap:8px;margin-top:16px;align-items:stretch}
+  .rp-chip{display:inline-flex;flex-direction:column;gap:1px;background:var(--sur2);border:1px solid var(--bd);
+           border-radius:10px;padding:7px 13px;font-size:13.5px;color:var(--tx);font-weight:700}
+  .rp-chip i{font-style:normal;font-size:9.5px;text-transform:uppercase;letter-spacing:.05em;color:var(--tx3);font-weight:600}
+  .rp-pill{display:inline-flex;align-items:center;padding:0 15px;border-radius:10px;font-size:12.5px;font-weight:700}
   .st-ok{background:#E3F6EC;color:#0E7A4F}
   .st-pend{background:#FDECEC;color:#C0241F}
   .st-run{background:#E7F1FC;color:#1565C0}
 
-  /* Detalhe da RAT — layout de relatório */
-  #rp-body .rd{font-size:13px;font-family:Inter,sans-serif}
-  #rp-body .rd *{font-family:Inter,sans-serif}
+  /* Detalhe da RAT — seções como painéis do portal (fonte Manrope herdada) */
+  #rp-body .rd{display:flex;flex-direction:column;gap:16px;font-size:13px}
   .rd-head{margin-bottom:6px}
   .rd-cli{font-size:20px;font-weight:700;color:var(--title);line-height:1.2}
   .rd-sub{font-size:13px;color:var(--blue);font-weight:600;margin-top:2px}
   .rd-meta{display:flex;flex-wrap:wrap;gap:3px 18px;margin-top:8px;font-size:12.5px;color:var(--tx)}
   .rd-meta b{color:var(--tx3);font-weight:500}
-  .rd-sec{margin-top:18px}
-  .rd-sec-t{font-size:13px;font-weight:700;text-transform:none;letter-spacing:normal;color:var(--title);border-bottom:1px solid var(--bd);padding-bottom:5px;margin-bottom:10px}
+  .rd-sec{background:#fff;border:1px solid var(--bd);border-radius:14px;box-shadow:0 1px 3px rgba(20,30,55,.05);padding:18px 20px;margin:0}
+  .rd-sec-t{font-size:14px;font-weight:800;letter-spacing:-.2px;color:var(--title);border-bottom:1px solid var(--bd);padding-bottom:8px;margin-bottom:12px}
   .rd-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:7px}
   .rd-f{background:var(--sur2);border:1px solid var(--bd);border-radius:7px;padding:6px 9px}
   .rd-f label{display:block;font-size:11px;text-transform:none;letter-spacing:normal;color:var(--muted);margin-bottom:1px}
@@ -98,19 +92,19 @@
 <div class="main">
 <div id="app-screen" style="display:none">
   <div class="rp-top">
-    <button class="btn" id="btn-voltar">← Voltar</button>
+    <button class="btn" id="btn-voltar"><svg viewBox="0 0 24 24"><path d="M19 12H5M12 19l-7-7 7-7"/></svg>Voltar</button>
     <span class="rp-title" id="rp-title">RAT</span>
     <span class="rp-actions" id="rp-actions">
-      <button class="btn btn-g" id="rp-encerrar" style="display:none">✓ Encerrar RAT</button>
-      <button class="btn" id="rp-editar">✎ Editar</button>
-      <button class="btn btn-g" id="rp-salvar" style="display:none">Salvar</button>
-      <button class="btn" id="rp-cancelar" style="display:none">Cancelar</button>
-      <button class="btn" id="rp-nova">↻ Nova tarefa da pendência</button>
-      <button class="btn" id="rp-pdf">⬇ Baixar PDF</button>
-      <button class="btn" id="rp-excluir" style="color:var(--re);border-color:var(--re)">🗑 Excluir</button>
+      <button class="btn btn-g" id="rp-encerrar" style="display:none"><svg viewBox="0 0 24 24"><path d="M21 11.5a9 9 0 1 1-5.3-8.2"/><path d="m9 11 3 3L22 4"/></svg>Encerrar RAT</button>
+      <button class="btn" id="rp-editar"><svg viewBox="0 0 24 24"><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg>Editar</button>
+      <button class="btn btn-g" id="rp-salvar" style="display:none"><svg viewBox="0 0 24 24"><path d="M20 6 9 17l-5-5"/></svg>Salvar</button>
+      <button class="btn" id="rp-cancelar" style="display:none"><svg viewBox="0 0 24 24"><path d="M18 6 6 18M6 6l12 12"/></svg>Cancelar</button>
+      <button class="btn" id="rp-nova"><svg viewBox="0 0 24 24"><path d="M14 3v4a1 1 0 0 0 1 1h4"/><path d="M17 21H7a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h7l5 5v11a2 2 0 0 1-2 2Z"/><path d="M12 11v6M9 14h6"/></svg>Nova tarefa da pendência</button>
+      <button class="btn" id="rp-pdf"><svg viewBox="0 0 24 24"><path d="M12 3v12m0 0 4-4m-4 4-4-4M5 21h14"/></svg>Baixar PDF</button>
+      <button class="btn" id="rp-excluir" style="color:var(--re);border-color:var(--re)"><svg viewBox="0 0 24 24"><path d="M3 6h18M8 6V4a1 1 0 0 1 1-1h6a1 1 0 0 1 1 1v2m4 0v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6"/></svg>Excluir</button>
     </span>
   </div>
-  <div class="rp-doc"><div id="rp-hero"></div><div id="rp-body"><p class="rp-msg">Carregando…</p></div></div>
+  <div class="rp-wrap"><div id="rp-hero"></div><div id="rp-body"><p class="rp-msg">Carregando…</p></div></div>
 </div>
 </div>
 

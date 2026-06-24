@@ -48,19 +48,16 @@ const RatPage = (() => {
     const st = RatView.statusInfo(r.status)
     const diasNE = diasNaoEncerrada(r)
     const stBadge = diasNE
-      ? `<span class="badge" style="background:#FEF3DA;color:#92670A;font-weight:700" title="O técnico iniciou o atendimento e não encerrou">⚠ Não encerrada · há ${diasNE} ${diasNE === 1 ? 'dia' : 'dias'}</span>`
-      : `<span class="badge ${st.cls}">${esc(st.label)}</span>`
+      ? `<span class="rp-pill" style="background:#FEF3DA;color:#92670A" title="O técnico iniciou o atendimento e não encerrou">Não encerrada · há ${diasNE} ${diasNE === 1 ? 'dia' : 'dias'}</span>`
+      : `<span class="rp-pill ${st.cls}">${esc(st.label)}</span>`
     document.getElementById('rp-hero').innerHTML = `
-      <div class="doc-band"><div class="db-brand">TRADERS SERVICE</div><div class="db-doc">Relatório de Atendimento Técnico</div></div>
-      <div class="doc-hero">
-        <div class="dh-cli">${esc(r.cliente_nome || '—')}</div>
-        <div class="dh-sub">${esc(RatView.tipoNomeRat(r))}${tarefaNo ? ' · Tarefa Nº ' + tarefaNo : ''}</div>
-        <div class="dh-chips">
-          <span class="chip"><i>Técnico</i>${esc(r.tecnico_nome || '—')}</span>
-          <span class="chip"><i>Data</i>${fdt(r.data_tarefa, { withTime: true })}</span>
-          <span class="chip"><i>Tempo trabalhado</i>${RatView.fmtMin(RatView.tempoRat(r))}</span>
-          ${stBadge}
-        </div>
+      <div class="rp-cli">${esc(r.cliente_nome || '—')}</div>
+      <div class="rp-sub">${esc(RatView.tipoNomeRat(r))}${tarefaNo ? ' · Tarefa Nº ' + tarefaNo : ''}</div>
+      <div class="rp-chips">
+        <span class="rp-chip"><i>Técnico</i>${esc(r.tecnico_nome || '—')}</span>
+        <span class="rp-chip"><i>Data</i>${fdt(r.data_tarefa, { numeric: true })}</span>
+        <span class="rp-chip"><i>Tempo trabalhado</i>${RatView.fmtMin(RatView.tempoRat(r))}</span>
+        ${stBadge}
       </div>`
   }
 
