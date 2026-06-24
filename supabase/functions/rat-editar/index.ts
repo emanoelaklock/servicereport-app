@@ -30,20 +30,31 @@ const TIME_FIELDS = ["hora_inicio", "hora_termino", "desloc_inicial_ida", "deslo
 
 const mm = (s: string | null) => { if (!s) return null; const p = String(s).slice(0, 5).split(":"); const h = +p[0], i = +p[1]; return (isNaN(h) || isNaN(i)) ? null : h * 60 + i }
 const dur = (a: string | null, b: string | null) => { const x = mm(a), y = mm(b); if (x == null || y == null) return 0; let d = y - x; if (d < 0) d += 1440; return d }
-// Tempo trabalhado (min) — execução + ida + retorno (que existiram) − almoço − pausa (§8.1).
-function calcTempo(r: Record<string, any>): number {
+// Tempo trabalhado (min) — ESPELHA rat-view.calcTempoDe (mesma regra do app do técnico).
+// NOVO: execução + ida + retorno (que existiram) − almoço − pausa.
+// LEGADO (só a chave `deslocamento`): janela única ida_inicial→retorno_final − almoço − pausa
+//   (a execução já está DENTRO da janela; NÃO somar exec por cima). Retorna null se não dá pra
+//   calcular (aí o chamador preserva o tempo_trabalhado atual).
+function calcTempo(r: Record<string, any>): number | null {
+  r = r || {}
   const alm = dur(r.almoco_inicio, r.almoco_termino), pau = dur(r.pausa_inicio, r.pausa_termino)
   const temNovo = (r.desloc_ida != null && r.desloc_ida !== "") || (r.desloc_retorno != null && r.desloc_retorno !== "")
-  let desloc = 0
   if (temNovo) {
+    const exec = (r.hora_inicio && r.hora_termino) ? dur(r.hora_inicio, r.hora_termino) : 0
     const ida = r.desloc_ida === "Sim" ? dur(r.desloc_inicial_ida, r.desloc_final_ida) : 0
     const ret = r.desloc_retorno === "Sim" ? dur(r.desloc_inicial_retorno, r.desloc_final_retorno) : 0
-    desloc = ida + ret
-  } else if (r.deslocamento === "Sim") {
-    desloc = dur(r.desloc_inicial_ida, r.desloc_final_retorno)
+    if (!r.hora_inicio && !ida && !ret) return null
+    const t = exec + ida + ret - alm - pau
+    return t < 0 ? 0 : t
   }
-  const exec = dur(r.hora_inicio, r.hora_termino)
-  return Math.max(0, exec + desloc - alm - pau)
+  let ini: string | null, fim: string | null
+  if (r.deslocamento === "Sim") { ini = r.desloc_inicial_ida; fim = r.desloc_final_retorno }
+  else { ini = r.hora_inicio; fim = r.hora_termino }
+  const a = mm(ini), b = mm(fim)
+  if (a == null || b == null) return null
+  let bruto = b - a; if (bruto < 0) bruto += 1440
+  const t = bruto - alm - pau
+  return t < 0 ? 0 : t
 }
 const ehFinanceira = (a: { alvo: string, campo?: string }) =>
   a.alvo === "tecnico" || a.alvo === "produto" || (a.alvo === "campo" && TIME_FIELDS.includes(a.campo || ""))
@@ -166,12 +177,13 @@ Deno.serve(async (req: Request) => {
       mexeuResp = true
     }
 
-    // grava respostas + tempo recalculado + marca de ajuste (uma vez)
+    // grava respostas + tempo recalculado + marca de ajuste (uma vez).
+    // tempo só é sobrescrito quando dá pra calcular (null = preserva o atual).
     if (mexeuResp) {
-      await admin.from("rats").update({
-        respostas, tempo_trabalhado: calcTempo(respostas),
-        ajustada_gestao: true, ajustada_por: uid, ajustada_em: new Date().toISOString(),
-      }).eq("id", ratId)
+      const tt = calcTempo(respostas)
+      const patch: any = { respostas, ajustada_gestao: true, ajustada_por: uid, ajustada_em: new Date().toISOString() }
+      if (tt != null) patch.tempo_trabalhado = tt
+      await admin.from("rats").update(patch).eq("id", ratId)
     } else {
       await admin.from("rats").update({ ajustada_gestao: true, ajustada_por: uid, ajustada_em: new Date().toISOString() }).eq("id", ratId)
     }
@@ -220,8 +232,8 @@ async function aplicarRestore(admin: any, ed: any) {
 // Recalcula tempo_trabalhado da RAT (após restore que mexa em respostas) e mantém a marca.
 async function recalcTempoEMarca(admin: any, ratId: string, uid: string) {
   const { data: r } = await admin.from("rats").select("respostas").eq("id", ratId).maybeSingle()
-  await admin.from("rats").update({
-    tempo_trabalhado: calcTempo((r?.respostas) || {}),
-    ajustada_gestao: true, ajustada_por: uid, ajustada_em: new Date().toISOString(),
-  }).eq("id", ratId)
+  const tt = calcTempo((r?.respostas) || {})
+  const patch: any = { ajustada_gestao: true, ajustada_por: uid, ajustada_em: new Date().toISOString() }
+  if (tt != null) patch.tempo_trabalhado = tt
+  await admin.from("rats").update(patch).eq("id", ratId)
 }
