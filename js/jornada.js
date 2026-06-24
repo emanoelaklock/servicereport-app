@@ -66,8 +66,9 @@ const JornadaApp = (() => {
     if (!rows.length) { box.innerHTML = '<div class="j-empty">Nenhum dia com deslocamento de ida sem volta a verificar.</div>'; return }
     box.innerHTML = rows.map(r => {
       const links = (r.rats || []).map(x => {
+        const num = x.numero != null ? ' ' + x.numero : ''
         const seq = x.rat_seq != null ? '/' + String(x.rat_seq).padStart(2, '0') : ''
-        return `<a href="rat.html?id=${encodeURIComponent(x.rat_id)}" target="_blank" rel="noopener">RAT${seq}${x.cliente ? ' · ' + esc(x.cliente) : ''} ↗</a>`
+        return `<a href="rat.html?id=${encodeURIComponent(x.rat_id)}" target="_blank" rel="noopener">RAT${num}${seq}${x.cliente ? ' · ' + esc(x.cliente) : ''} ↗</a>`
       }).join(' · ')
       return `<div class="hd-alert"><div>
         <div class="t">${esc(r.tecnico_nome || '—')} · ${dmyDia(r.dia)}</div>
