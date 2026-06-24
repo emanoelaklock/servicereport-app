@@ -188,7 +188,7 @@ A **OS interna = a Tarefa**. É o nível "trabalho"; tem 1 ou várias RATs (uma 
 Os dois eixos podem colorir o card. Pausa/almoço **do dia** são estados **momentâneos** da RAT, não se misturam com o ciclo de vida da OS.
 
 **`Em pausa` — status durável (≠ pausa do dia)** *(implementado 19/06; migrações 0068/0069/0070).* Distingue **continuidade imediata** ("Em execução · Atendimento continua", volta amanhã) de **interrompido sem previsão** de retorno ("vou voltar depois pra terminar"). **Não confundir** com a pausa momentânea de almoço/café (eixo de atividade acima), que **não** muda o status durável.
-- **Cor:** teal `#0FA3A3` (fora da paleta de marca — decisão de produto; pílula com contraste via `corTextoLegivel`).
+- **Cor:** rosa `#D63384` (decisão de produto; **swap da migração 0073** — o teal `#0FA3A3` que a pausa usava passou pro `Em Espera (Produtos)`; pílula com contraste via `corTextoLegivel`).
 - **Transições automáticas** (trigger `rat_inicia_tarefa` no banco, `INSERT`/`UPDATE` — cobre offline, acerta no sync):
   - RAT encerrada com **"Volta amanhã? = Não" + "vou voltar depois pra terminar"** → Tarefa **Em execução → Em pausa** (só dispara na RAT mais recente; nunca rebaixa status terminal/admin). O handoff **"o que falta / o que levar" segue obrigatório**.
   - **Nova RAT** numa Tarefa em pausa → **Em pausa → Em execução** (retomada; resolve o caso do técnico offline que abre RAT nova).
@@ -262,7 +262,7 @@ Abaixo do hub, a **Agenda de hoje**: lista das OS do dia com **cores por status/
 **Agenda** (tela separada): calendário (semana/mês), pontos nos dias que têm OS, e a lista filtrável — mostra **todas** as OS, não só hoje.
 
 **Cores por status (sistema visual):**
-`Aguardando execução` (cinza) · `Em execução` (verde) · `Em pausa` (âmbar) · `Em almoço` (azul) · `Concluída` (teal) · `Concluída c/ pendência` (vermelho).
+`Aguardando execução` (cinza) · `Em execução` (azul) · `Em pausa` (**rosa** `#D63384`) · `Em almoço` (azul — atividade do dia) · `Concluída` (verde) · `Concluída c/ pendência` (vermelho) · `Em Espera (Produtos)` (teal). *(As cores moram em `status_tarefa`, configuráveis em Configurações — valores atuais; o swap pausa→rosa veio da migração 0073.)*
 
 ### Tela de detalhe da Tarefa (back-office / admin)
 
@@ -297,9 +297,9 @@ Cada RAT = uma visita/dia dentro de uma Tarefa. Offline-first.
 - **Cabeçalho (nível Tarefa):** cliente, OS, tipo de tarefa, orientação/serviço solicitado.
 - **Corpo (nível RAT, preenchido pelo técnico):** deslocamento (Sim/Não + horários — "Não" esconde os campos de deslocamento) · início/fim · **almoço/pausa** (checkbox → início/fim) · serviço executado · observações · fotos (múltiplas, com legenda) · **materiais utilizados** · tempo trabalhado (calculado).
 - **Numeração:** `numero_rat` **sequencial atribuído pelo servidor** (nunca pelo dispositivo — evita colisão offline/multi-dispositivo).
-- **Salvar rascunho** a qualquer momento (sem validação; status "Em andamento").
-- **Concluir** (`Concluído` / `Concluído com pendência`) **exige todos os campos obrigatórios preenchidos** — vale para as duas opções. Sem isso, não conclui.
-- **Ao concluir:** gera **PDF** + dispara **e-mail para adm@tsrv.com.br**.
+- **Salvar rascunho** a qualquer momento (sem validação; status interno `em_andamento`).
+- **Encerrar a RAT do dia** → status `registrado` (**rótulo "Atendimento Realizado"**) **exige os campos obrigatórios preenchidos**. Encerrar fecha o **dia**, **não** conclui o serviço — "Concluída"/"Concluída c/ pendência" são ação **da Tarefa** (§7 e §8 "Duas pendências distintas"). `concluida*` em RAT é só **dado histórico**.
+- **Sem PDF/e-mail por dia:** a RAT diária é registro **interno** (§7, linha do "entregável consolidado"); o documento ao cliente sai no nível da Tarefa. *(O e-mail da RAT pro adm@tsrv está previsto em §12, mas ainda pendente — §13.)*
 - Campos do formulário são **configuráveis** (modelos por tipo de serviço).
 - **Numeração exibida** com separador `/`: ex. `#04744/01` (tarefa/sequência da RAT).
 
@@ -504,7 +504,7 @@ O **técnico nunca escolhe a modalidade** — ela é **derivada** (do contrato/o
 
 ## 13. Estado atual da construção
 
-*Atualizado em 22/06/2026.*
+*Atualizado em 23/06/2026.*
 
 ### Concluído
 
@@ -515,7 +515,7 @@ O **técnico nunca escolhe a modalidade** — ela é **derivada** (do contrato/o
 - Papel `comercial` liberado; papel sincronizado com o Portal (`portal_acessos`); gestão de usuários **removida do SR** (centralizada no Portal); foto/cargo vindos do Portal.
 - **Preço de venda do Omie** em `produtos.preco_venda` (sync paginado; ~1.715 produtos).
 
-**Edge functions no ar:** `omie-sync` (leitura Omie F1) · `aprovar-orcamento` (aprovado → gera Tarefa, só se houver serviço) · `reabrir-orcamento` (desfaz a aprovação removendo a Tarefa) · `documentos` (PDF + e-mail do pré-orçamento via Resend → comercial@tsrv) · `melhorar-texto` (IA, Claude Haiku) · `manage-users` · `notify-push` · `orcamento-importar-fotos`.
+**Edge functions no ar:** `omie-sync` (leitura Omie F1) · `aprovar-orcamento` (aprovado → gera Tarefa, só se houver serviço) · `reabrir-orcamento` (desfaz a aprovação removendo a Tarefa) · `documentos` (PDF + e-mail do pré-orçamento via Resend → comercial@tsrv) · `melhorar-texto` (IA, Claude Haiku) · `manage-users` · `portal-usuarios` · `notify-push` · `orcamento-importar-fotos` · `viagem-merge` (finalização colaborativa da viagem — §12).
 
 **Módulo comercial**
 - Pré-orçamento de campo (offline) e orçamento funcionando, com status/arquivamento.
@@ -536,9 +536,11 @@ O **técnico nunca escolhe a modalidade** — ela é **derivada** (do contrato/o
 - **Formulário da RAT reorganizado** (§8.1): card de contexto + grid 2×2 de registros, modais coloridos, Sim/Não semânticos, técnicos em modal fullscreen, indicador de progresso para concluir, **timers reabríveis** (atendimento/almoço/pausa/ida/retorno).
 - Pacote UX: autosave, catálogo offline, banners de sync, fotos, dark mode, correções iOS (inputs date/time), anti-RAT-órfã. Ditado por voz **removido** (travava iOS/PWA).
 - Emojis → **ícones SVG**; terminologia "Disponível" (§9); **sem R$** nas telas do técnico.
-- **Sync resiliente (06/26):** RAT com tarefa-pai ausente **recria a pai e reenvia**; aparelho **não re-empurra** viagem de outro técnico (corrige 403 RLS) — ver §12.
+- **Sync resiliente (06/26):** RAT com tarefa-pai ausente **recria a pai e reenvia**; **viagem com finalização colaborativa** — qualquer um a bordo finaliza via `viagem-merge` (merge por união + conflito pro admin), substituindo o antigo "não re-empurrar viagem de outro técnico" — ver §12.
 - **Push de campo (06/26):** recebe "Nova tarefa atribuída" / "Tarefa reagendada" mesmo com o app fechado (§7).
-- Service worker na casa da **v451**; produção no Vercel (`servicereport-app.vercel.app`).
+- **Auto-update seguro (06/26):** o app troca de versão **sozinho**, mas só com a **home ociosa** (nunca com RAT/deslocamento/modal aberto ou gravação pendente) — §12.
+- **Entregas de 23/06:** fuso padronizado no portal (America/Sao_Paulo) + correção da view da Jornada · Jornada mostra nome de todo participante + avatar com foto + chips de RAT/Deslocamento clicáveis · RAT com datas em DD/MM/AAAA · conciliação ignora material de qtd 0 (migração 0077) · **lista de RAT no portal mostra o status da própria RAT** (não o da Tarefa) · Painel focado em "Tarefas pendentes de execução" (cards) · datas/horas do portal sempre em fuso de Sao_Paulo.
+- Service worker na casa da **v465**; produção no Vercel (`servicereport-app.vercel.app`).
 
 ### Pendente (próximos passos)
 
