@@ -223,6 +223,21 @@ try{if(localStorage.getItem('sr_dark')==='1')document.documentElement.classList.
   #modal-fotos .photo{flex-direction:column;gap:8px;padding:20px 14px;border:1.6px solid #D9C4EA;background:#F6EFFA;color:#73328E;font-weight:800;border-radius:14px}
   #modal-fotos .photo svg{width:26px;height:26px;stroke:#73328E;stroke-width:1.8}
   html.dark #modal-fotos .photo{background:#241a2e;border-color:#4a3360;color:#cfa7e8}
+  /* Modal handoff (encerrar a RAT): Em pausa / guiar a concluir */
+  #modal-handoff .tm-box{max-width:380px;text-align:center}
+  #modal-handoff .hf-ico{width:64px;height:64px;border-radius:50%;display:grid;place-items:center;margin:22px auto 8px}
+  #modal-handoff .hf-ico svg{width:30px;height:30px;fill:none;stroke-width:2}
+  #modal-handoff .hf-pausa{background:#FBE3EE}#modal-handoff .hf-pausa svg{stroke:#D63384}
+  #modal-handoff .hf-done{background:#E6F6EC}#modal-handoff .hf-done svg{stroke:#179A47}
+  #modal-handoff .hf-title{font-size:19px;font-weight:800;color:var(--tx);margin:2px 0 4px}
+  #modal-handoff .hf-sub{font-size:14px;color:var(--tx2);line-height:1.5;padding:0 22px;margin:0 0 16px}
+  #modal-handoff .hf-card,#modal-handoff .hf-info{display:flex;gap:10px;align-items:flex-start;text-align:left;margin:0 20px 12px;padding:12px 14px;border-radius:12px;line-height:1.45}
+  #modal-handoff .hf-card{font-size:14px;font-weight:700}
+  #modal-handoff .hf-card svg,#modal-handoff .hf-info svg{width:22px;height:22px;flex:none;fill:none;stroke-width:2;margin-top:1px}
+  #modal-handoff .hf-card-pausa{background:#FBE3EE;color:#A82A66}#modal-handoff .hf-card-pausa svg{stroke:#D63384}
+  #modal-handoff .hf-info{background:var(--sur2);color:var(--tx2);font-size:13px}#modal-handoff .hf-info svg{stroke:#1E8AE0}
+  #modal-handoff .hf-foot{display:flex;flex-direction:column;gap:9px;padding:6px 20px 20px}
+  #modal-handoff .hf-ghost{background:none;border:none;color:var(--tx2);font-weight:700}
 
   /* ===== Pergunta Sim/Não (segmented) ===== */
   .segq{display:flex;gap:10px}
@@ -1022,6 +1037,9 @@ try{if(localStorage.getItem('sr_dark')==='1')document.documentElement.classList.
     </div>
   </div>
 </div>
+
+<!-- Handoff ao encerrar a RAT (Em pausa / guiar a concluir) — conteúdo montado no JS -->
+<div class="tm-back" id="modal-handoff"><div class="tm-box" id="hf-box"></div></div>
 
 <!-- Pausa esquecida que cruzou a meia-noite: aviso OBRIGATÓRIO ao reabrir (sem ✕/cancelar) -->
 <div class="tm-back" id="modal-pausa-esq">
