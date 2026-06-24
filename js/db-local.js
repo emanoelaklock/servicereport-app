@@ -257,6 +257,41 @@
     return tx([ST_MATERIAIS], 'readwrite', (t) => t.objectStore(ST_MATERIAIS).delete(id))
   }
 
+  // ── Hidratação dos filhos na DEVOLUÇÃO (descida) ──
+  // O pull traz a linha `rats`, mas material/foto moram em tabelas-filhas que NÃO entram no
+  // SYNC_MAP (sem atualizado_em). Quando o admin devolve a tarefa (ou completa a RAT), o técnico
+  // reabre e precisa ver tudo. Estas funções trazem os filhos do servidor pro store local.
+  // Merge por `id` (não apaga nada local) — usado só quando a RAT está sincronizada (sem trabalho
+  // local pendente), então o conjunto do servidor é a verdade.
+  async function hidratarMateriaisDaRat(client_uuid, serverMats) {
+    if (!Array.isArray(serverMats) || !serverMats.length) return
+    await tx([ST_MATERIAIS], 'readwrite', (t) => {
+      const s = t.objectStore(ST_MATERIAIS)
+      for (const m of serverMats) {
+        s.put({
+          id: m.id, rat_uuid: client_uuid,
+          produto_id: m.produto_id || null, codigo_produto: m.codigo_produto || null,
+          descricao: m.descricao || null, unidade: m.unidade || null,
+          quantidade: Number(m.quantidade) || 0,
+          qtd_levada: null, qtd_orcada: null, qtd_usada_tarefa: null,
+          criado_em: m.criado_em || agora(),
+        })
+      }
+    })
+  }
+  async function hidratarFotosDaRat(client_uuid, serverFotos) {
+    if (!Array.isArray(serverFotos) || !serverFotos.length) return
+    await tx([ST_FOTOS], 'readwrite', (t) => {
+      const s = t.objectStore(ST_FOTOS)
+      for (const f of serverFotos) {
+        s.put({
+          id: f.id, rat_uuid: client_uuid, blob: null, legenda: f.legenda || null,
+          url: f.signedUrl || f.url || null, enviada: 1, criado_em: f.criado_em || agora(),
+        })
+      }
+    })
+  }
+
   // ── Pré-orçamentos (artefato de campo, #4.2) ──
   // Mesma máquina de sync_status das RATs. Fotos reutilizam o store ST_FOTOS
   // (rat_uuid = client_uuid do pré-orçamento). Sem trilha de eventos (sync_eventos
@@ -549,6 +584,7 @@
     novoRat, salvarRat, obterRat, listarRats, definirStatus, removerRat,
     adicionarFoto, listarFotos, removerFoto, marcarFotoEnviada, fotosPendentes, atualizarLegendaFoto,
     adicionarMaterial, atualizarMaterial, listarMateriais, removerMaterial,
+    hidratarMateriaisDaRat, hidratarFotosDaRat,
     novoPreorc, salvarPreorc, obterPreorc, listarPreorc, definirStatusPreorc, removerPreorc,
     adicionarItemPreorc, listarItensPreorc, removerItemPreorc,
     listarEventos, marcarEventoEnviado,

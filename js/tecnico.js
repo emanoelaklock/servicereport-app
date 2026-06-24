@@ -1904,9 +1904,37 @@
     if (window.SyncEngine) SyncEngine.syncAll()
   }
 
+  // Reabrir RAT sincronizada (ex.: tarefa DEVOLVIDA pelo admin): material/foto moram em
+  // tabelas-filhas que não vêm no pull → traz do servidor pro local, senão a RAT reabre sem
+  // produto/foto. Só quando NÃO há trabalho local pendente (não clobbera edição em andamento).
+  const _PEND_LOCAL = new Set(['rascunho', 'salvo_local', 'na_fila', 'enviando', 'erro'])
+  async function hidratarFilhosDevolucao(rat) {
+    if (!navigator.onLine || _PEND_LOCAL.has(rat.sync_status)) return
+    try {
+      const sb = getSupabase(); if (!sb) return
+      let ratId = rat.id
+      if (!ratId) { const { data: rr } = await sb.from('rats').select('id').eq('client_uuid', rat.client_uuid).maybeSingle(); ratId = rr && rr.id }
+      if (!ratId) return
+      const [mres, fres] = await Promise.all([
+        sb.from('materiais').select('id,produto_id,codigo_produto,descricao,quantidade,criado_em').eq('rat_id', ratId).eq('origem', 'usado'),
+        sb.from('relatorio_fotos').select('id,url,legenda,criado_em').eq('rat_id', ratId),
+      ])
+      await D().hidratarMateriaisDaRat(rat.client_uuid, mres.data || [])
+      let fotos = fres.data || []
+      if (fotos.length) {
+        const paths = fotos.map(f => f.url).filter(Boolean)
+        const { data: signed } = await sb.storage.from('rat-anexos').createSignedUrls(paths, 3600)
+        const sig = {}; (signed || []).forEach(s => { if (s && s.signedUrl) sig[s.path] = s.signedUrl })
+        fotos = fotos.map(f => ({ ...f, signedUrl: sig[f.url] || null }))
+      }
+      await D().hidratarFotosDaRat(rat.client_uuid, fotos)
+    } catch (e) { /* melhor-esforço: se falhar, mostra o que houver local */ }
+  }
+
   async function abrirExistente(client_uuid) {
     const rat = await D().obterRat(client_uuid)
     if (!rat) return
+    await hidratarFilhosDevolucao(rat)   // devolução/admin: traz material+foto do servidor (não vêm no pull)
     cur = { client_uuid, campos: [], tarefa_id: rat.tarefa_id || null, tarefa_numero: rat.tarefa_numero || null }
     usoProd = rat.uso_produtos || (rat.respostas && rat.respostas.uso_produtos) || null
     const cb = document.getElementById('f-cliente-busca')
