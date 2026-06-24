@@ -117,7 +117,7 @@ const JornadaApp = (() => {
           // viagem/pernoite → abre o Deslocamento; deslocamento do dia (ida/retorno da RAT) → abre a RAT.
           const ehDia = p.artefato_tipo === 'desloc_dia'
           const href = ehDia ? `rat.html?id=${encodeURIComponent(p.artefato_id)}` : `deslocamentos.html?editar=${encodeURIComponent(p.artefato_id)}`
-          const lbl = ehDia ? `Deslocamento${p.referencia ? ' (' + esc(String(p.referencia).toLowerCase()) + ')' : ''}` : 'Deslocamento'
+          const lbl = ehDia ? `RAT ${esc(p.referencia || '')}${p.rat_seq != null ? '/' + String(p.rat_seq).padStart(2, '0') : ''}` : 'Deslocamento'
           return `<a href="${href}" target="_blank" rel="noopener" class="hd-seg hd-desl" title="Abrir"><i></i>${lbl} · ${faixa}</a>`
         }
         if (!(p.artefato_id in corRat)) corRat[p.artefato_id] = 'hd-rat' + (nc++ % 3)
