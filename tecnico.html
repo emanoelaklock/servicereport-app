@@ -79,6 +79,8 @@ try{if(localStorage.getItem('sr_dark')==='1')document.documentElement.classList.
 
   /* Tarefas (atribuídas) */
   .t-card{background:var(--sur);border:1px solid var(--bd);border-radius:12px;padding:13px 14px;margin-bottom:10px;box-shadow:var(--sh);cursor:pointer}
+  .t-busca{width:100%;box-sizing:border-box;margin-top:12px;padding:11px 13px;border:1px solid var(--bd);border-radius:10px;font:inherit;font-size:14px;background:var(--sur);color:var(--tx);outline:none}
+  .t-busca:focus{border-color:var(--blue,#1E8AE0)}
   .t-card:active{background:var(--sur2)}
   .t-card-top{display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:5px}
   .t-card-cli{font-weight:600;color:var(--tx);font-size:14px}
@@ -655,7 +657,9 @@ try{if(localStorage.getItem('sr_dark')==='1')document.documentElement.classList.
           <button class="btn btn-ghost" id="btn-tarefas-sync" title="Atualizar"><svg viewBox="0 0 24 24"><path d="M3 12a9 9 0 1 0 3-6.7L3 8"/><path d="M3 3v5h5"/></svg>Atualizar</button>
           <button class="btn btn-primary" id="btn-nova-tarefa">+ Nova tarefa</button>
         </div>
-        <div id="lista-tarefas" style="margin-top:14px"></div>
+        <input type="search" id="tarefas-busca" class="t-busca" placeholder="Buscar OS — nº, cliente, orientação…" autocomplete="off" enterkeyhint="search">
+        <div id="tarefas-busca-hint" class="dim" style="display:none;font-size:12px;margin:6px 2px 0"></div>
+        <div id="lista-tarefas" style="margin-top:12px"></div>
       </div>
 
       <!-- TAREFA (detalhe) -->
