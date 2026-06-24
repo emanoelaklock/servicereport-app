@@ -340,6 +340,7 @@
     document.getElementById('nav-os').onclick = async () => { mostrar('lista'); await renderLista() }
     document.getElementById('nav-tarefas').onclick = async () => { mostrar('tarefas'); await renderTarefas() }
     document.getElementById('btn-tarefas-sync').onclick = async () => { await renderTarefas(true) }
+    const tbq = document.getElementById('tarefas-busca'); if (tbq) tbq.oninput = () => agendarBuscaTarefas(tbq.value)
     document.getElementById('btn-nova-tarefa').onclick = () => abrirModalNovaTarefa(false)
     const hnt = document.getElementById('home-nova-tarefa'); if (hnt) hnt.onclick = () => abrirModalNovaTarefa(true)
     document.getElementById('nt-fechar').onclick = () => document.getElementById('modal-nt').classList.remove('open')
@@ -543,9 +544,14 @@
   async function carregarTarefas(force) {
     try {
       const sb = getSupabase()
+      // Janela offline de 14 dias: histórico antigo JÁ RESOLVIDO sai da lista padrão (cache enxuto),
+      // mas tarefa ativa/pendente OU sem data NUNCA some (o técnico ainda precisa dela). Histórico
+      // mais antigo é alcançável pela busca (3 meses, online). RLS (os_tecnico_sel) já escopa ao técnico.
+      const d14 = new Date(Date.now() - 14 * 86400000).toISOString().slice(0, 10)
       const { data, error } = await sb.from('tarefas')
         .select('id,numero,status,data_agendada,cliente_id,orientacao,observacoes,tipo_servico_id,local_servico,previsao_dias')
         .neq('status', 'faturada')
+        .or(`data_agendada.gte.${d14},data_agendada.is.null,status.in.(aguardando_execucao,em_execucao,em_pausa,devolvida)`)
         .order('data_agendada', { ascending: true, nullsFirst: false })
         .order('numero', { ascending: false })
       if (error) throw error
@@ -573,25 +579,71 @@
     return tarefas
   }
 
+  function cardTarefaHTML(t) {
+    const ag = t.data_agendada ? 'Agendada ' + fdt(t.data_agendada) : 'Sem data'
+    const metaNo = t._local ? '<b>Nova</b> · na fila ↑' : ('Nº <b>' + osNo(t.numero) + '</b>')
+    const sk = SKIN_STATUS[t.status]
+    const lc = sk === 'info' ? 'lc-info' : sk === 'done' ? 'lc-done' : sk === 'warn' ? 'lc-warn' : ''
+    const edge = sk ? `<span class="edge e-${sk}"></span>` : `<span class="edge" style="background:${stCor(t.status)}"></span>`
+    const badge = sk ? `<span class="badge b-${sk}">${esc(stLabel(t.status))}</span>` : `<span class="badge" style="background:${stCor(t.status)};color:#fff">${esc(stLabel(t.status))}</span>`
+    return `<div class="listcard ${lc}" data-id="${esc(t.id)}">${edge}
+        <div class="t"><span class="cli">${esc(cliNomeDe(t.cliente_id))}</span>${badge}</div>
+        <div class="meta">${metaNo} · ${esc(ag)}</div>
+      </div>`
+  }
+  function pintarTarefas(box, lista) {
+    box.innerHTML = lista.map(cardTarefaHTML).join('')
+    box.querySelectorAll('.listcard').forEach(el => el.onclick = () => abrirTarefaDet(el.dataset.id))
+  }
   async function renderTarefas(force) {
     const box = document.getElementById('lista-tarefas')
     if (box && !tarefas.length) box.innerHTML = '<p class="dim" style="padding:14px 2px">Carregando…</p>'
     await carregarTarefas(force)
     if (!box) return
+    const busca = document.getElementById('tarefas-busca')
+    if (busca && busca.value.trim()) return buscarTarefas(busca.value)   // preserva o resultado da busca após um refresh
+    const hint = document.getElementById('tarefas-busca-hint'); if (hint) hint.style.display = 'none'
     if (!tarefas.length) { box.innerHTML = '<p class="dim" style="padding:14px 2px">Nenhuma tarefa atribuída a você.</p>'; return }
-    box.innerHTML = tarefas.map(t => {
-      const ag = t.data_agendada ? 'Agendada ' + fdt(t.data_agendada) : 'Sem data'
-      const metaNo = t._local ? '<b>Nova</b> · na fila ↑' : ('Nº <b>' + osNo(t.numero) + '</b>')
-      const sk = SKIN_STATUS[t.status]
-      const lc = sk === 'info' ? 'lc-info' : sk === 'done' ? 'lc-done' : sk === 'warn' ? 'lc-warn' : ''
-      const edge = sk ? `<span class="edge e-${sk}"></span>` : `<span class="edge" style="background:${stCor(t.status)}"></span>`
-      const badge = sk ? `<span class="badge b-${sk}">${esc(stLabel(t.status))}</span>` : `<span class="badge" style="background:${stCor(t.status)};color:#fff">${esc(stLabel(t.status))}</span>`
-      return `<div class="listcard ${lc}" data-id="${esc(t.id)}">${edge}
-        <div class="t"><span class="cli">${esc(cliNomeDe(t.cliente_id))}</span>${badge}</div>
-        <div class="meta">${metaNo} · ${esc(ag)}</div>
-      </div>`
-    }).join('')
-    box.querySelectorAll('.listcard').forEach(el => el.onclick = () => abrirTarefaDet(el.dataset.id))
+    pintarTarefas(box, tarefas)
+  }
+
+  // Busca de OS. Online: 3 meses no servidor (SELECT na sessão do técnico → RLS os_tecnico_sel
+  // escopa a titular+co-responsável; sem service role). Offline: filtra o cache de 14 dias, c/ aviso.
+  const matchTarefa = (t, termo) => {
+    const hay = [cliNomeDe(t.cliente_id), osNo(t.numero), String(t.numero || ''), t.orientacao, t.local_servico, tipoNomeDe(t.tipo_servico_id)]
+      .filter(Boolean).join(' ').toLowerCase()
+    return hay.includes(termo)
+  }
+  let buscaTarTimer = null
+  function agendarBuscaTarefas(v) { clearTimeout(buscaTarTimer); buscaTarTimer = setTimeout(() => buscarTarefas(v), 250) }
+  async function buscarTarefas(termoRaw) {
+    const box = document.getElementById('lista-tarefas'), hint = document.getElementById('tarefas-busca-hint')
+    if (!box) return
+    const termo = (termoRaw || '').trim().toLowerCase()
+    if (!termo) { if (hint) hint.style.display = 'none'; pintarTarefas(box, tarefas || []); return }
+    if (!navigator.onLine) {
+      const res = (tarefas || []).filter(t => matchTarefa(t, termo))
+      pintarTarefas(box, res)
+      if (hint) { hint.style.display = ''; hint.textContent = `Offline — busca nos últimos 14 dias (${res.length}). Conecte pra buscar 3 meses.` }
+      return
+    }
+    try {
+      const sb = getSupabase()
+      const d90 = new Date(Date.now() - 90 * 86400000).toISOString().slice(0, 10)
+      const { data, error } = await sb.from('tarefas')
+        .select('id,numero,status,data_agendada,cliente_id,orientacao,local_servico,tipo_servico_id')
+        .neq('status', 'faturada')
+        .or(`data_agendada.gte.${d90},data_agendada.is.null`)
+        .order('numero', { ascending: false }).limit(300)
+      if (error) throw error
+      const res = (data || []).filter(t => matchTarefa(t, termo))
+      pintarTarefas(box, res)
+      if (hint) { hint.style.display = ''; hint.textContent = res.length ? `${res.length} resultado(s) nos últimos 3 meses.` : 'Nenhuma OS encontrada nos últimos 3 meses.' }
+    } catch (e) {
+      const res = (tarefas || []).filter(t => matchTarefa(t, termo))
+      pintarTarefas(box, res)
+      if (hint) { hint.style.display = ''; hint.textContent = `Sem servidor — mostrando dos últimos 14 dias (${res.length}).` }
+    }
   }
 
   // ───────────────────── Home — agenda do dia + fila ─────────────────────
