@@ -78,7 +78,8 @@
   const TABELA = '<table class="cc-list"><thead><tr>'
     + '<th class="th-ord" data-ord="tarefa_numero">Nº<span class="ord-ar"></span></th>'
     + '<th class="th-ord" data-ord="cliente_nome">Cliente<span class="ord-ar"></span></th>'
-    + '<th class="th-ord" data-ord="rat_status">Status<span class="ord-ar"></span></th>'
+    + '<th class="th-ord" data-ord="rat_status">Status RAT<span class="ord-ar"></span></th>'
+    + '<th class="th-ord" data-ord="tarefa_status">Status Tarefa<span class="ord-ar"></span></th>'
     + '<th class="th-ord" data-ord="colaboradores">Técnico<span class="ord-ar"></span></th>'
     + '<th class="th-ord" data-ord="dia_rat">Data<span class="ord-ar"></span></th>'
     + '</tr></thead><tbody id="rl-list"></tbody></table>'
@@ -114,7 +115,7 @@
       th.onclick = () => {
         const k = th.dataset.ord
         if (rlOrd === k) rlDir = (rlDir === 'asc' ? 'desc' : 'asc')
-        else { rlOrd = k; rlDir = (k === 'cliente_nome' || k === 'colaboradores' || k === 'rat_status') ? 'asc' : 'desc' }
+        else { rlOrd = k; rlDir = (k === 'cliente_nome' || k === 'colaboradores' || k === 'rat_status' || k === 'tarefa_status') ? 'asc' : 'desc' }
         buscar()
       }
       const ar = th.querySelector('.ord-ar'); if (ar) ar.textContent = (rlOrd === th.dataset.ord) ? (rlDir === 'asc' ? ' ▲' : ' ▼') : ''
@@ -135,7 +136,8 @@
         ${sub ? `<div class="rl-sub">${sub}</div>` : ''}
         ${r.orientacao ? `<div class="cc-ori" title="${esc(r.orientacao)}">${esc(r.orientacao)}</div>` : ''}
       </td>
-      <td><span class="st-pill" style="background:${cor}1A;color:${corTextoLegivel(cor)}">${esc(ratLabel(r.rat_status))}</span>${r.tarefa_status ? `<div class="rl-serv" title="Status do serviço (Tarefa)"><span class="rl-serv-dot" style="background:${servCor(r.tarefa_status)}"></span>Serviço: ${esc(servLabel(r.tarefa_status))}</div>` : ''}</td>
+      <td><span class="st-pill" style="background:${cor}1A;color:${corTextoLegivel(cor)}">${esc(ratLabel(r.rat_status))}</span></td>
+      <td>${r.tarefa_status ? `<span class="st-pill" style="background:${servCor(r.tarefa_status)}1A;color:${corTextoLegivel(servCor(r.tarefa_status))}">${esc(servLabel(r.tarefa_status))}</span>` : '<span class="rl-na">—</span>'}</td>
       <td>${esc(r.colaboradores || '—')}</td>
       <td>${dmy(r.dia_rat)}</td>
     </tr>`
