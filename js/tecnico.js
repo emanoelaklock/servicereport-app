@@ -3499,8 +3499,10 @@
     const handoff = (sit === 'registrado' && voltaAmanha === 'Não') ? passMotivoVal() : null
     const tId = cur.tarefa_id || null
     cur = null; sig = null; usoProd = null
-    if (handoff === 'volto_depois') { mostrar('home'); abrirModalHandoff('pausa', tId) }
-    else if (handoff === 'terminei') { mostrar('home'); abrirModalHandoff('concluir', tId) }
+    // Abre o handoff SOBRE o form (NÃO via mostrar('home') — isso dispararia o auto-update e
+    // recarregaria por cima do modal → tela branca). Os botões do modal fazem a navegação.
+    if (handoff === 'volto_depois') { abrirModalHandoff('pausa', tId) }
+    else if (handoff === 'terminei') { abrirModalHandoff('concluir', tId) }
     else { toast(emExecucao ? 'RAT salva no aparelho.' : 'Atendimento do dia realizado.', 'ok'); mostrar('lista'); await renderLista() }
     // Tenta sincronizar imediatamente se houver conexão (passo 5).
     if (window.SyncEngine && navigator.onLine) window.SyncEngine.syncAll()
@@ -3797,7 +3799,7 @@
       if (screen !== 'home') return false
       if (cur || dlCur) return false
       if (autosavePend || pausaPend) return false
-      if (document.querySelector('.modal.open')) return false
+      if (document.querySelector('.tm-back.open')) return false   // modal aberto (overlays do app são .tm-back)
       return true
     } catch (e) { return false }
   }
