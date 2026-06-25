@@ -3120,13 +3120,14 @@
         const v = Number(m.quantidade) || 0
         const daTarefa = lev > 0 || orc > 0
         const acima = daTarefa && v > lev
-        const refTxt = daTarefa
-          ? `Orçado ${orc > 0 ? fmtQtd(orc) : '—'} · Levado ${lev > 0 ? fmtQtd(lev) : '—'}`
-          : (m.codigo_produto ? esc(m.codigo_produto) : 'item avulso')
+        const un = m.unidade ? ' ' + esc(m.unidade) : ''
+        const refHtml = daTarefa
+          ? `<span class="chip c-orc">Orçado ${orc > 0 ? fmtQtd(orc) + un : '—'}</span><span class="chip c-lev">Levado ${lev > 0 ? fmtQtd(lev) + un : '—'}</span>`
+          : `<span class="pr-code">${m.codigo_produto ? esc(m.codigo_produto) : 'item avulso'}</span>`
         return `<div class="prod-row2">
           <div class="pr-main">
             <div class="pr-desc">${esc(m.descricao || m.codigo_produto || '—')}${m.unidade ? ` <span class="pr-un">${esc(m.unidade)}</span>` : ''}</div>
-            <div class="pr-sub">${refTxt}</div>
+            <div class="pr-sub">${refHtml}</div>
           </div>
           <div class="stp" data-mid="${esc(m.id)}">
             <button type="button" class="stp-m" aria-label="menos">−</button>
