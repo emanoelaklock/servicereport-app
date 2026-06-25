@@ -9,6 +9,20 @@
 <link rel="apple-touch-icon" href="assets/icon.svg">
 <script>/* modo escuro sem flash: aplica a classe antes do CSS renderizar */
 try{if(localStorage.getItem('sr_dark')==='1')document.documentElement.classList.add('dark')}catch(e){}</script>
+<script>/* Captador de erro VISÍVEL: em vez de tela branca, mostra o erro (diagnóstico de campo). */
+(function(){
+  function mostrarErro(txt){
+    try{
+      var b=document.getElementById('sr-erro-box');
+      if(!b){b=document.createElement('div');b.id='sr-erro-box';
+        b.style.cssText='position:fixed;left:8px;right:8px;bottom:8px;z-index:99999;background:#E5403A;color:#fff;border-radius:12px;padding:12px 14px;font:600 13px/1.45 system-ui,sans-serif;box-shadow:0 10px 30px rgba(0,0,0,.35);max-height:60vh;overflow:auto;white-space:pre-wrap;word-break:break-word';
+        document.body.appendChild(b);}
+      b.textContent='⚠ Erro no app (mostre esta tela ao suporte):\n\n'+txt;
+    }catch(e){}
+  }
+  window.addEventListener('error',function(e){ mostrarErro((e&&e.message?e.message:'erro')+'\n'+((e&&e.error&&e.error.stack)?e.error.stack:((e&&e.filename?e.filename:'')+':'+(e&&e.lineno?e.lineno:'')))); });
+  window.addEventListener('unhandledrejection',function(e){ var r=e&&e.reason; mostrarErro('Promise: '+((r&&r.stack)?r.stack:(r&&r.message?r.message:String(r)))); });
+})();</script>
 <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
 <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="css/theme.css">
