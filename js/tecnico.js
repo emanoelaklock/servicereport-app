@@ -433,6 +433,26 @@
     const pf = document.getElementById('po-foto-input')
     document.getElementById('po-btn-foto').onclick = () => pf.click()
     pf.onchange = () => poAddFotos(pf.files)
+    // Cards do pré-orçamento abrem modais PRÓPRIOS (curPo) — reusam o visual, não tocam na RAT.
+    const poOpen = (id) => { const m = document.getElementById(id); if (m) m.classList.add('open') }
+    ;[['po-card-prod', 'modal-po-prod'], ['po-card-fotos', 'modal-po-fotos'], ['po-card-desloc', 'modal-po-desloc'], ['po-card-pausa', 'modal-po-pausa']]
+      .forEach(([card, modal]) => { const c = document.getElementById(card); if (c) c.onclick = () => poOpen(modal) })
+    document.querySelectorAll('[data-poclose]').forEach(b => b.onclick = () => {
+      const m = document.getElementById(b.dataset.poclose); if (m) m.classList.remove('open')
+      atualizarCardsPo(); atualizarTempoPo()
+    })
+    // "Serviço a ser orçado": auto-bullets (mesmo comportamento do campo de serviço da RAT)
+    const poServ = document.getElementById('po-descricao')
+    if (poServ) {
+      poServ.addEventListener('focus', () => { if (!poServ.value.trim()) { poServ.value = '- '; poServ.dispatchEvent(new Event('input', { bubbles: true })) } })
+      poServ.addEventListener('keydown', (e) => {
+        if (e.key !== 'Enter') return
+        e.preventDefault()
+        const s = poServ.selectionStart, f = poServ.selectionEnd, v = poServ.value
+        poServ.value = v.slice(0, s) + '\n- ' + v.slice(f)
+        poServ.selectionStart = poServ.selectionEnd = s + 3
+      })
+    }
     // A fila (Home) depende de estado do servidor — responsável — que NÃO passa pelo SYNC_MAP de
     // RATs/deslocamentos; logo mudança feita no portal não dispara onSyncChanged. Enquanto a Home
     // estiver visível, atualizamos a fila por conta própria: ao reganhar foco, ao reconectar e a
@@ -3671,6 +3691,7 @@
     await poRefreshThumbs()
     await poRefreshItens()
     mostrar('preorc-form')
+    preencherLevantamentoPo(); atualizarCardsPo()
   }
 
   async function abrirPreorc(client_uuid) {
@@ -3692,13 +3713,14 @@
     await poRefreshThumbs()
     await poRefreshItens()
     mostrar('preorc-form')
+    preencherLevantamentoPo(); atualizarCardsPo()
   }
 
   function onDeslocPoChange() {
     const d = document.getElementById('po-desloc').value
     document.getElementById('po-bloco-sem').style.display = d === 'Não' ? 'block' : 'none'
     document.getElementById('po-bloco-com').style.display = d === 'Sim' ? 'block' : 'none'
-    atualizarTempoPo()
+    atualizarTempoPo(); atualizarCardsPo()
   }
   function calcTempoPo() {
     const v = (id) => { const e = document.getElementById(id); return e ? e.value : '' }
@@ -3713,6 +3735,28 @@
   }
   function atualizarTempoPo() {
     const el = document.getElementById('po-tempo'); if (el) el.value = fmtMin(calcTempoPo())
+  }
+  // Badge dos cards do pré-orçamento (mesmo visual da RAT: st-ok quando preenchido).
+  function setBadgePo(el, txt, ok) { if (el) { el.textContent = txt; el.className = 'st ' + (ok ? 'st-ok' : 'st-pend') } }
+  async function atualizarCardsPo() {
+    if (!curPo) return
+    try {
+      const itens = await D().listarItensPreorc(curPo.client_uuid)
+      const fotos = await D().listarFotos(curPo.client_uuid)
+      setBadgePo(document.getElementById('po-st-prod'), itens.length ? `${itens.length} ${itens.length > 1 ? 'itens' : 'item'}` : 'Nenhum', itens.length > 0)
+      setBadgePo(document.getElementById('po-st-fotos'), fotos.length ? `${fotos.length} ${fotos.length > 1 ? 'fotos' : 'foto'}` : 'Nenhuma', fotos.length > 0)
+    } catch (e) { /* offline/erro: mantém o badge */ }
+    const d = (document.getElementById('po-desloc') || {}).value || ''
+    setBadgePo(document.getElementById('po-st-desloc'), d || '—', !!d)
+    const tot = (Number((document.getElementById('po-almoco') || {}).value) || 0) + (Number((document.getElementById('po-pausa') || {}).value) || 0)
+    setBadgePo(document.getElementById('po-st-pausa'), tot ? `${tot} min` : 'Não', tot > 0)
+  }
+  // Data + técnico (logado, como na RAT) no card "O levantamento".
+  function preencherLevantamentoPo() {
+    const dEl = document.getElementById('po-lev-data')
+    if (dEl) dEl.textContent = hojeBR().split('-').reverse().join('/')
+    const tEl = document.getElementById('po-lev-tec')
+    if (tEl) { const nome = tecnico.nome || 'Técnico'; const ini = ((nome.trim()[0]) || '?').toUpperCase(); tEl.innerHTML = `<span class="av">${esc(ini)}</span><span>${esc(nome)}</span>` }
   }
 
   async function poAddFotos(fileList) {

@@ -134,6 +134,7 @@
 .tskin .fc-purple{border-left-color:var(--purple);} .tskin .fc-purple>.h{color:#6c2f96;}  .tskin .fc-purple>.h .hi{background:var(--purple);}
 .tskin .fc-orange{border-left-color:var(--orange);} .tskin .fc-orange>.h{color:#b85e0a;}  .tskin .fc-orange>.h .hi{background:var(--orange);}
 .tskin .fc-red{border-left-color:var(--red);}       .tskin .fc-red>.h{color:#c0362c;}     .tskin .fc-red>.h .hi{background:var(--red);}
+.tskin .fc-yellow{border-left-color:#F7B81E;}       .tskin .fc-yellow>.h{color:#9a7d1a;}  .tskin .fc-yellow>.h .hi{background:#F7B81E;}
 .tskin .field{margin-bottom:12px;} .tskin .field:last-child{margin-bottom:0;}
 .tskin .lab{display:block;font-size:12px;font-weight:600;color:#5b6270;margin-bottom:6px;}
 .tskin .req{color:var(--red);}
