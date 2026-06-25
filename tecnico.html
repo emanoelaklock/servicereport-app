@@ -659,7 +659,9 @@ try{if(localStorage.getItem('sr_dark')==='1')document.documentElement.classList.
           <h2 style="font-size:17px;font-weight:700;margin:0">Minhas RATs</h2>
           <button class="btn btn-ghost btn-auto" id="btn-sync" title="Sincronizar"><svg viewBox="0 0 24 24"><path d="M3 12a9 9 0 1 0 3-6.7L3 8"/><path d="M3 3v5h5"/></svg>Sincronizar</button>
         </div>
-        <div id="lista-rats"></div>
+        <input type="search" id="rats-busca" class="t-busca" placeholder="Buscar RAT — nº, cliente, status…" autocomplete="off" enterkeyhint="search" style="margin-top:0">
+        <div id="rats-busca-hint" class="dim" style="display:none;font-size:12px;margin:6px 2px 0"></div>
+        <div id="lista-rats" style="margin-top:12px"></div>
       </div>
 
       <!-- TAREFAS (atribuídas) -->
