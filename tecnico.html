@@ -518,6 +518,19 @@ try{if(localStorage.getItem('sr_dark')==='1')document.documentElement.classList.
   .ctx .ctx-devol-k{display:block;font-size:10px;font-weight:800;letter-spacing:.5px;text-transform:uppercase;color:#A82A22;margin-bottom:3px}
   html.dark .ctx .ctx-devol{background:#2e1513;border-color:#6a2a24;color:#f0b8b0}
   html.dark .ctx .tag{background:#1d2940;color:#9fc1ff}
+  /* PRÉ-ORÇAMENTO: contexto amarelo + meta do levantamento + modais próprios */
+  .ctx-po{border-left-color:#F7B81E}
+  .ctx-po .tag{background:#FCEFC7;color:#8a6d12}
+  html.dark .ctx-po .tag{background:#3a300f;color:#f0d98a}
+  .po-lev-meta{display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap;font-size:13px;color:var(--tx3)}
+  .po-lev-tec{display:flex;align-items:center;gap:7px;font-weight:600;color:var(--tx)}
+  .po-lev-tec .av{width:26px;height:26px;border-radius:50%;background:#1E8AE0;color:#fff;display:grid;place-items:center;font-size:11px;font-weight:800;overflow:hidden}
+  .po-lev-tec .av img{width:100%;height:100%;object-fit:cover}
+  .po-modal{max-width:440px;padding:16px}
+  .po-mh{display:flex;align-items:center;justify-content:space-between;font-size:15px;font-weight:800;color:var(--tx);margin-bottom:12px}
+  .po-mx{background:none;border:none;font-size:22px;line-height:1;color:var(--tx3);cursor:pointer;padding:0 4px}
+  .po-mfoot{margin-top:14px;display:flex;justify-content:flex-end}
+  .po-mfoot .btn{padding:10px 18px}
   .regs{display:grid;grid-template-columns:1fr 1fr;gap:10px}
   .reg{border:none;border-radius:16px;padding:12px;display:flex;flex-direction:column;gap:9px;cursor:pointer;font:inherit;text-align:left;color:#fff}
   .r-teal{background:var(--green,#179A47)}
@@ -882,81 +895,122 @@ try{if(localStorage.getItem('sr_dark')==='1')document.documentElement.classList.
 
       <!-- PRÉ-ORÇAMENTO: FORMULÁRIO FIXO -->
       <div id="view-preorc-form" class="tskin" style="display:none">
-        <div class="card">
-          <h2 id="preorc-titulo" style="font-size:17px;font-weight:700;margin-bottom:14px">Novo pré-orçamento</h2>
-
-          <div class="fg campo">
-            <label>Cliente <span style="color:var(--re)">*</span></label>
+        <!-- contexto AMARELO (pré-orçamento, não RAT) -->
+        <div class="ctx ctx-po">
+          <div class="row1"><span class="tag">PRÉ-ORÇAMENTO</span><span class="no" id="preorc-titulo"></span></div>
+          <div class="fg campo" style="margin:10px 0 0">
+            <label>Cliente <span class="req">*</span></label>
             <div class="ac">
               <input type="text" id="po-cliente-busca" placeholder="Buscar cliente…" autocomplete="off">
               <input type="hidden" id="po-cliente">
               <div class="ac-list" id="po-cliente-list"></div>
             </div>
           </div>
+        </div>
 
-          <div class="fg campo">
-            <label>Descrição do levantamento <span style="color:var(--re)">*</span></label>
-            <textarea class="ta-longo" id="po-descricao" placeholder="O que foi avaliado, escopo, condições do local…"></textarea>
-          </div>
+        <!-- registros do levantamento: mesmos cards da RAT -->
+        <div class="sec">Registros do levantamento</div>
+        <div class="regs">
+          <button type="button" class="reg r-teal" id="po-card-prod">
+            <span class="top"><span class="ic i-teal"><svg viewBox="0 0 24 24"><path d="M21 16V8l-9-5-9 5v8l9 5 9-5Z"/><path d="m3.3 7 8.7 5 8.7-5M12 22V12"/></svg></span><span class="lbl">Produtos necessários</span></span>
+            <span class="st st-pend" id="po-st-prod">Nenhum</span>
+          </button>
+          <button type="button" class="reg r-purple" id="po-card-fotos">
+            <span class="top"><span class="ic i-purple"><svg viewBox="0 0 24 24"><path d="M3 7h4l2-2h6l2 2h4v12H3z"/><circle cx="12" cy="13" r="3.2"/></svg></span><span class="lbl">Fotos</span></span>
+            <span class="st st-pend" id="po-st-fotos">Nenhuma</span>
+          </button>
+          <button type="button" class="reg r-orange" id="po-card-desloc">
+            <span class="top"><span class="ic i-orange"><svg viewBox="0 0 24 24"><path d="M3 17h2m14 0h2M5 17a2 2 0 1 0 4 0 2 2 0 0 0-4 0Zm10 0a2 2 0 1 0 4 0 2 2 0 0 0-4 0Z"/><path d="M5 17V8a1 1 0 0 1 1-1h8l4 4v6"/></svg></span><span class="lbl">Deslocamento</span></span>
+            <span class="st st-pend" id="po-st-desloc">—</span>
+          </button>
+          <button type="button" class="reg r-yellow" id="po-card-pausa">
+            <span class="top"><span class="ic i-yellow"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg></span><span class="lbl">Pausa/Almoço</span></span>
+            <span class="st st-pend" id="po-st-pausa">—</span>
+          </button>
+        </div>
 
-          <div class="fg campo">
-            <label>Produtos necessários</label>
-            <div class="prod-box">
-              <div class="prod-add">
-                <div class="ac">
-                  <input type="text" id="po-prod-busca" placeholder="Buscar produto…" autocomplete="off">
-                  <input type="hidden" id="po-prod-sel">
-                  <div class="ac-list" id="po-prod-ac-list"></div>
-                </div>
-                <input type="number" id="po-prod-qtd" inputmode="decimal" placeholder="Qtd" min="0" step="any">
-                <button type="button" class="btn btn-primary btn-auto" id="po-prod-add-btn" style="font-size:13px;padding:9px 13px">+ Add</button>
-              </div>
-              <div class="prod-list" id="po-prod-list"></div>
-            </div>
-          </div>
-
-          <div class="fg campo">
-            <label>Fotos</label>
-            <div class="foto-box">
-              <input type="file" accept="image/*" capture="environment" multiple id="po-foto-input" style="display:none">
-              <div class="photo" id="po-btn-foto"><svg viewBox="0 0 24 24"><path d="M3 7h4l2-2h6l2 2h4v12H3z"/><circle cx="12" cy="13" r="3.2"/></svg>Adicionar foto</div>
-              <div class="thumbs" id="po-thumbs" style="margin-top:10px"></div>
-            </div>
-          </div>
-
-          <!-- Bloco de controle de tempo (mesma lógica da RAT) -->
-          <div class="fg campo">
-            <label>Houve deslocamento?</label>
-            <select id="po-desloc">
-              <option value="">Selecione…</option>
-              <option value="Não">Não</option>
-              <option value="Sim">Sim</option>
-            </select>
-          </div>
-          <div id="po-bloco-sem" style="display:none">
-            <div class="fg campo"><label>Início</label><input type="time" id="po-hora-inicio"></div>
-            <div class="fg campo"><label>Término</label><input type="time" id="po-hora-termino"></div>
-          </div>
-          <div id="po-bloco-com" style="display:none">
-            <div class="fg campo"><label>Início do deslocamento (ida)</label><input type="time" id="po-ida"></div>
-            <div class="fg campo"><label>Fim do deslocamento (retorno)</label><input type="time" id="po-retorno"></div>
-          </div>
-          <div class="prod-add" style="grid-template-columns:1fr 1fr">
-            <div class="fg campo" style="margin-bottom:0"><label>Almoço (min)</label><input type="number" id="po-almoco" inputmode="numeric" min="0" placeholder="0"></div>
-            <div class="fg campo" style="margin-bottom:0"><label>Pausa (min)</label><input type="number" id="po-pausa" inputmode="numeric" min="0" placeholder="0"></div>
-          </div>
-
-          <div class="fg campo" style="margin-top:14px">
-            <label>Tempo trabalhado (calculado)</label>
-            <input type="text" id="po-tempo" readonly value="—" style="background:var(--sur2)">
-          </div>
-
-          <div class="foot">
-            <button class="btn btn-ghost" id="po-btn-cancelar">Cancelar</button>
-            <button class="btn btn-primary" id="po-btn-salvar">Concluir</button>
+        <!-- O LEVANTAMENTO (como "O atendimento" da RAT) -->
+        <div class="fcard fc-yellow">
+          <div class="h"><span class="hi"><svg viewBox="0 0 24 24"><path d="M4 6h16M4 12h16M4 18h10"/></svg></span>O levantamento</div>
+          <div class="po-lev-meta"><span id="po-lev-data" class="po-lev-data"></span><span id="po-lev-tec" class="po-lev-tec"></span></div>
+          <div class="fg campo" style="margin:12px 0 0">
+            <label>Serviço a ser orçado <span class="req">*</span></label>
+            <textarea class="ta-longo ta-servico" id="po-descricao" autocapitalize="sentences" placeholder="Descreva o serviço a ser orçado…"></textarea>
           </div>
         </div>
+
+        <!-- TEMPO (calculado, igual à RAT) -->
+        <div class="fcard fc-green">
+          <div class="h"><span class="hi"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg></span>Tempo</div>
+          <div class="calc">
+            <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>
+            <div><div class="k">Tempo da visita (calculado)</div><input class="v" id="po-tempo" readonly value="—" style="border:none;background:none;padding:0;font:inherit;width:auto;color:var(--tx)"></div>
+          </div>
+        </div>
+
+        <div class="foot">
+          <button class="btn btn-ghost" id="po-btn-cancelar">Cancelar</button>
+          <button class="btn btn-primary" id="po-btn-salvar">Enviar</button>
+        </div>
       </div>
+
+      <!-- Modais do PRÉ-ORÇAMENTO (próprios; reusam o visual, não tocam nos da RAT) -->
+      <div class="tm-back" id="modal-po-prod"><div class="tm-box po-modal">
+        <div class="po-mh"><span>Produtos necessários</span><button type="button" class="po-mx" data-poclose="modal-po-prod">×</button></div>
+        <div class="prod-box">
+          <div class="prod-add">
+            <div class="ac">
+              <input type="text" id="po-prod-busca" placeholder="Buscar produto…" autocomplete="off">
+              <input type="hidden" id="po-prod-sel">
+              <div class="ac-list" id="po-prod-ac-list"></div>
+            </div>
+            <input type="number" id="po-prod-qtd" inputmode="decimal" placeholder="Qtd" min="0" step="any">
+            <button type="button" class="btn btn-primary btn-auto" id="po-prod-add-btn" style="font-size:13px;padding:9px 13px">+ Add</button>
+          </div>
+          <div class="prod-list" id="po-prod-list"></div>
+        </div>
+        <div class="po-mfoot"><button type="button" class="btn btn-primary" data-poclose="modal-po-prod">Pronto</button></div>
+      </div></div>
+
+      <div class="tm-back" id="modal-po-fotos"><div class="tm-box po-modal">
+        <div class="po-mh"><span>Fotos</span><button type="button" class="po-mx" data-poclose="modal-po-fotos">×</button></div>
+        <div class="foto-box">
+          <input type="file" accept="image/*" capture="environment" multiple id="po-foto-input" style="display:none">
+          <div class="photo" id="po-btn-foto"><svg viewBox="0 0 24 24"><path d="M3 7h4l2-2h6l2 2h4v12H3z"/><circle cx="12" cy="13" r="3.2"/></svg>Adicionar foto</div>
+          <div class="thumbs" id="po-thumbs" style="margin-top:10px"></div>
+        </div>
+        <div class="po-mfoot"><button type="button" class="btn btn-primary" data-poclose="modal-po-fotos">Pronto</button></div>
+      </div></div>
+
+      <div class="tm-back" id="modal-po-desloc"><div class="tm-box po-modal">
+        <div class="po-mh"><span>Deslocamento</span><button type="button" class="po-mx" data-poclose="modal-po-desloc">×</button></div>
+        <div class="fg campo">
+          <label>Houve deslocamento?</label>
+          <select id="po-desloc">
+            <option value="">Selecione…</option>
+            <option value="Não">Não</option>
+            <option value="Sim">Sim</option>
+          </select>
+        </div>
+        <div id="po-bloco-sem" style="display:none">
+          <div class="fg campo"><label>Início da visita</label><input type="time" id="po-hora-inicio"></div>
+          <div class="fg campo"><label>Fim da visita</label><input type="time" id="po-hora-termino"></div>
+        </div>
+        <div id="po-bloco-com" style="display:none">
+          <div class="fg campo"><label>Início do deslocamento (ida)</label><input type="time" id="po-ida"></div>
+          <div class="fg campo"><label>Fim do deslocamento (retorno)</label><input type="time" id="po-retorno"></div>
+        </div>
+        <div class="po-mfoot"><button type="button" class="btn btn-primary" data-poclose="modal-po-desloc">Pronto</button></div>
+      </div></div>
+
+      <div class="tm-back" id="modal-po-pausa"><div class="tm-box po-modal">
+        <div class="po-mh"><span>Pausa / Almoço</span><button type="button" class="po-mx" data-poclose="modal-po-pausa">×</button></div>
+        <div class="prod-add" style="grid-template-columns:1fr 1fr">
+          <div class="fg campo" style="margin-bottom:0"><label>Almoço (min)</label><input type="number" id="po-almoco" inputmode="numeric" min="0" placeholder="0"></div>
+          <div class="fg campo" style="margin-bottom:0"><label>Pausa (min)</label><input type="number" id="po-pausa" inputmode="numeric" min="0" placeholder="0"></div>
+        </div>
+        <div class="po-mfoot"><button type="button" class="btn btn-primary" data-poclose="modal-po-pausa">Pronto</button></div>
+      </div></div>
 
     </div>
     <!-- Rodapé fixo: barra de navegação (telas principais) OU ações da RAT (no formulário) -->
