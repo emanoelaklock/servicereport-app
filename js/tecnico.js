@@ -1038,7 +1038,7 @@
         <p class="hf-sub">Encerrar a RAT registra o dia, mas <b>não conclui o serviço</b>. Para concluir, vá até a Tarefa.</p>
         <div class="hf-foot">
           <button class="btn btn-g" id="hf-concluir">Concluir a Tarefa agora</button>
-          <button class="btn hf-ghost" id="hf-agenda">Continuar na agenda</button>
+          <button class="btn hf-ghost" id="hf-agenda">Concluir Tarefa Depois</button>
         </div>`
       document.getElementById('hf-concluir').onclick = async () => { fecharModalHandoff(); await renderTarefas(); if (tId) { await abrirTarefaDet(tId); concluirTarefa(false, true) } }
     }
