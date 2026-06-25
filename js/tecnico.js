@@ -1087,6 +1087,26 @@
       // voltou pra home = momento natural de ociosidade → deixa o auto-update tentar trocar a versão
       if (typeof window.srTentarUpdate === 'function') { try { window.srTentarUpdate() } catch (e) { /* nada */ } }
     }
+    if (secao === 'form') { wireFootViewport(); requestAnimationFrame(pinFootViewport) }
+    else pinFootViewport()   // ao sair do form, devolve o rodapé ao fundo
+  }
+
+  // Rodapé da RAT colado ao fundo VISÍVEL. Bug clássico: com o teclado aberto, o position:fixed se
+  // descola da viewport e "sobe pro meio" (iOS/Android). A Visual Viewport API dá a altura realmente
+  // visível → erguemos o rodapé pra logo acima do teclado; sem teclado volta a bottom:0. O limiar de
+  // 120px evita falso-positivo da barra de URL (que é baixa; teclado é alto).
+  function pinFootViewport() {
+    const vv = window.visualViewport; const f = document.querySelector('#view-form .foot'); if (!f) return
+    if (!vv) { f.style.bottom = '0px'; return }
+    const gap = Math.round(window.innerHeight - vv.height - vv.offsetTop)
+    f.style.bottom = (gap > 120 ? gap : 0) + 'px'
+  }
+  let _vvWired = false
+  function wireFootViewport() {
+    if (_vvWired || !window.visualViewport) return
+    _vvWired = true
+    window.visualViewport.addEventListener('resize', pinFootViewport)
+    window.visualViewport.addEventListener('scroll', pinFootViewport)
   }
   // Resumo do herói da home (apresentação) — lê dados já em memória/IndexedDB, sem novas chamadas Supabase.
   async function updateHomeResumo() {
