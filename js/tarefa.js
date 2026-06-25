@@ -864,10 +864,10 @@ const TarefaApp = (() => {
         const cSub = `<td>${box(money(sub), 'money' + (sub === 0 ? ' zero' : ''))}</td>`
         // pendência (badge + Revisar) só pós-execução; antes, material levado está "Em campo"
         const pend = l.situacao !== 'ok' && (posExec || l.situacao === 'sem_orcada' || l.situacao === 'sem_orcamento')
+        const rev = !!l.revisado
         const badgeTxt = !pend
           ? (l.situacao === 'ok' ? sit.t : 'Em campo')
-          : ((l.situacao === 'devolver' && dev > 0) ? `Devolver ${qtd(dev)}` : sit.t)
-        const rev = !!l.revisado
+          : ((l.situacao === 'devolver' && dev > 0) ? `${rev ? 'Devolvido' : 'Devolver'} ${qtd(dev)}` : sit.t)
         const cSit = !pend
           ? `<td class="c"><span class="sit ${l.situacao === 'ok' ? sit.cls : ''}">${esc(badgeTxt)}</span></td>`
           : `<td class="c"><div class="cc-sit">
@@ -929,13 +929,14 @@ const TarefaApp = (() => {
     const box = document.getElementById('cc-stats')
     if (!linhas.length) { box.innerHTML = ''; return }
     const posExec = tarefaPosExec(cur && cur.id)
-    let custoOrcado = 0, custoUtil = 0, devValor = 0, devItens = 0, div = 0, aRevisar = 0
+    let custoOrcado = 0, custoUtil = 0, devValor = 0, devItens = 0, devFeitoItens = 0, div = 0, aRevisar = 0
     for (const l of linhas) {
       const p = Number(l.preco_unitario) || 0
       custoOrcado += (Number(l.qtd_orcada) || 0) * p
       custoUtil   += (Number(l.qtd_utilizada) || 0) * p
       const d = Number(l.qtd_devolvida) || 0
-      if (d > 0) { devItens++; devValor += d * p }
+      // Linha revisada = devolução conferida/feita → sai do "A devolver" (vira "já devolvido").
+      if (d > 0) { if (l.revisado) devFeitoItens++; else { devItens++; devValor += d * p } }
       if (l.situacao !== 'ok' && (posExec || l.situacao === 'sem_orcada' || l.situacao === 'sem_orcamento')) { div++; if (!l.revisado) aRevisar++ }
     }
     const delta = custoUtil - custoOrcado
@@ -945,7 +946,7 @@ const TarefaApp = (() => {
     box.innerHTML = `
       <div class="stat"><div class="k">Valor orçado</div><div class="v">${money(custoOrcado)}</div><div class="d flat">venda (do orçamento)</div></div>
       <div class="stat"><div class="k">Valor utilizado</div><div class="v">${money(custoUtil)}</div><div class="d ${dcls}">${dtxt}</div></div>
-      <div class="stat"><div class="k">A devolver ao estoque</div><div class="v">${money(devValor)}</div><div class="d flat">${devItens} item(ns)</div></div>
+      <div class="stat"><div class="k">A devolver ao estoque</div><div class="v">${money(devValor)}</div><div class="d flat">${devItens} item(ns)${devFeitoItens ? ` · ${devFeitoItens} já devolvido` : ''}</div></div>
       <div class="stat ${aRevisar ? 'warn' : ''}"><div class="k">A revisar</div><div class="v">${aRevisar}</div><div class="d flat">${div ? (aRevisar ? `${aRevisar} de ${div} divergência${div > 1 ? 's' : ''}` : 'tudo revisado') : 'tudo conciliado'}</div></div>`
   }
 
@@ -1524,7 +1525,7 @@ const TarefaApp = (() => {
     const posExec = POS_EXEC.includes(t.status)
     let devItens = 0, aRevisar = 0, foraN = 0, prodAtencao = 0
     for (const l of (linhas || [])) {
-      const dev = posExec && (Number(l.qtd_devolvida) || 0) > 0
+      const dev = posExec && (Number(l.qtd_devolvida) || 0) > 0 && !l.revisado   // revisado = já devolvido → não conta
       const rev = !!(l.situacao && l.situacao !== 'ok' && !l.revisado && (posExec || l.situacao === 'sem_orcada' || l.situacao === 'sem_orcamento'))
       if (dev) devItens++
       if (rev) aRevisar++
@@ -1598,7 +1599,7 @@ const TarefaApp = (() => {
       const p = Number(l.preco_unitario) || 0
       custoUtil += (Number(l.qtd_utilizada) || 0) * p
       const d = Number(l.qtd_devolvida) || 0
-      if (d > 0) devValor += d * p
+      if (d > 0 && !l.revisado) devValor += d * p   // revisado = já devolvido → não conta no "A devolver"
     }
     const totalMin = ((cur && cur.rats) || []).reduce((s, r) => s + (Number(RatView.tempoRat(r)) || 0), 0)
     let next
