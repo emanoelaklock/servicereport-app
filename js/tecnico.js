@@ -170,9 +170,40 @@
     }
   }
 
+  // Logout forçado (fim de dia / app fechado / sem sessão). Limpa marcas e volta pro login.
+  // Re-login exige internet (decisão: bloquear offline) — o login.html valida a sessão.
+  async function forcarLogout() {
+    try { localStorage.removeItem('sr_login_dia') } catch (e) { /* nada */ }
+    try { sessionStorage.removeItem('sr_app_alive') } catch (e) { /* nada */ }
+    try { await getSupabase().auth.signOut() } catch (e) { /* offline: segue mesmo assim */ }
+    location.href = 'login.html'
+  }
+  // Política de sessão do app do técnico (dispositivos compartilhados):
+  //  (1) app FECHADO desde o último uso → exige login (heartbeat sr_app_alive some ao fechar; sobrevive a reload);
+  //  (2) logout automático 1x/dia → na virada do dia (fuso de SP) exige login.
+  // Retorna false (e dispara logout) quando a sessão não pode continuar.
+  function verificarSessaoDia() {
+    if (!tecnico.id) return true   // sem sessão: o fluxo normal mostra o login
+    let vivo = null; try { vivo = sessionStorage.getItem('sr_app_alive') } catch (e) { /* nada */ }
+    if (!vivo) { forcarLogout(); return false }                 // (1) foi fechado
+    const hoje = hojeBR()
+    let dia = null; try { dia = localStorage.getItem('sr_login_dia') } catch (e) { /* nada */ }
+    if (!dia) { try { localStorage.setItem('sr_login_dia', hoje) } catch (e) { /* nada */ } }
+    else if (dia !== hoje) { forcarLogout(); return false }      // (2) virou o dia
+    try { sessionStorage.setItem('sr_app_alive', '1') } catch (e) { /* nada */ }
+    return true
+  }
+  // Vira o dia com o app ABERTO → desloga. Chamado por timer e ao voltar do 2º plano.
+  function checarVirouDia() {
+    if (!tecnico.id) return
+    let dia = null; try { dia = localStorage.getItem('sr_login_dia') } catch (e) { /* nada */ }
+    if (dia && dia !== hojeBR()) forcarLogout()
+  }
+
   async function init() {
     const { data: { user } } = await getSupabase().auth.getUser()
     tecnico.id = user?.id || null
+    if (!verificarSessaoDia()) return            // app fechado / virou o dia → exige login
     isolarPorUsuario(tecnico.id)   // ANTES de qualquer acesso a IndexedDB/cache
     const u = await getUserRole().catch(() => null)
     tecnico.nome = tcase(u?.nome || user?.email?.split('@')[0] || 'Técnico')
@@ -186,7 +217,8 @@
     await limparRascunhosVazios()
     await restaurarTela()
     // Pausa esquecida que cruzou a meia-noite: checa ao abrir e quando o app volta do 2º plano.
-    document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible') checarPausaEsquecida() })
+    document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible') { checarVirouDia(); checarPausaEsquecida() } })
+    setInterval(checarVirouDia, 5 * 60 * 1000)   // virada do dia com o app aberto → logout
     await checarPausaEsquecida()
   }
 
