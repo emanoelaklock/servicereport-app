@@ -729,6 +729,11 @@ const TarefaApp = (() => {
     linhas = error ? [] : (data || [])
     linhas.sort((a, b) => (a.situacao === 'ok' ? 1 : 0) - (b.situacao === 'ok' ? 1 : 0) || (a.descricao || '').localeCompare(b.descricao || ''))
     if (error) toast('Erro ao carregar conciliação: ' + error.message, 'err')
+    // Conflito de material colaborativo (2+ técnicos lançaram na mesma RAT) — não soma em silêncio.
+    try {
+      const { data: cf } = await sb().from('vw_rat_material_conflito').select('rat_id,em_conflito').eq('tarefa_id', cur.id).eq('em_conflito', true)
+      if (cur) cur.matConflitoRats = (cf || []).length
+    } catch (e) { if (cur) cur.matConflitoRats = 0 }
     renderLinhas()
   }
 
@@ -1469,6 +1474,7 @@ const TarefaApp = (() => {
       // pendência de Produtos = só divergências NÃO revisadas. "A devolver" de item já revisado
       // é informativo (segue no card/stat), mas não mantém o card em pendência.
       prodWarn: aRevisar > 0,
+      matConflito: !!(cur && cur.matConflitoRats), matConflitoRats: (cur && cur.matConflitoRats) || 0,
       fat: !!t.faturado, anx: ((cur && cur.anexos) || []).length, equipLen: ((cur && cur.equip) || []).length,
     }
   }
@@ -1491,7 +1497,7 @@ const TarefaApp = (() => {
             : e.ratEmAndHoje
               ? situCard('s-warn', SITU_ICO.rats, 'RATs', 'Em andamento', 'hoje')
               : situCard('s-ok', SITU_ICO.rats, 'RATs', 'Concluído'),
-      situCard(e.prodWarn ? 's-warn' : 's-ok', SITU_ICO.prod, 'Produtos', e.prodWarn ? 'Pendência' : 'OK', e.devItens ? `${e.devItens} a devolver` : ''),
+      situCard(e.matConflito ? 's-pend' : (e.prodWarn ? 's-warn' : 's-ok'), SITU_ICO.prod, 'Produtos', e.matConflito ? 'Conflito de material' : (e.prodWarn ? 'Pendência' : 'OK'), e.matConflito ? (e.matConflitoRats > 1 ? e.matConflitoRats + ' RATs' : 'resolver') : (e.devItens ? `${e.devItens} a devolver` : '')),
       situCard(e.foraN ? 's-pend' : 's-ok', SITU_ICO.fora, 'Fora da proposta', e.foraN ? `${e.foraN} ${e.foraN > 1 ? 'itens' : 'item'}` : 'OK'),
       situCard(e.fat ? 's-ok' : 's-warn', SITU_ICO.fat, 'Faturamento', e.fat ? 'Faturado' : 'Pendente'),
       situCard('s-ok', SITU_ICO.anx, 'Anexos', e.anx ? `${e.anx} ${e.anx > 1 ? 'arquivos' : 'arquivo'}` : 'Nenhum'),
@@ -1509,7 +1515,7 @@ const TarefaApp = (() => {
     const ind = {
       dados: e.dadosOk ? chk : '',
       rats: e.ratsLen === 0 ? '' : (e.ratNaoEncN ? cnt(e.ratNaoEncN, true) : (e.ratEmAnd ? cnt(e.ratsLen) : chk)),
-      material: e.prodLen === 0 ? '' : (e.prodWarn ? cnt(e.aRevisar) : chk),
+      material: e.prodLen === 0 ? '' : (e.matConflito ? cnt(e.matConflitoRats, true) : (e.prodWarn ? cnt(e.aRevisar) : chk)),
       fat: e.fat ? chk : '',
       equip: e.equipLen ? chk : '',
       anexos: e.anx ? chk : '',
@@ -1533,7 +1539,8 @@ const TarefaApp = (() => {
     }
     const totalMin = ((cur && cur.rats) || []).reduce((s, r) => s + (Number(RatView.tempoRat(r)) || 0), 0)
     let next
-    if (e.ratsLen === 0) next = 'Aguardando a primeira RAT do técnico.'
+    if (e.matConflito) next = 'Conflito de material: 2+ técnicos lançaram na MESMA RAT. Abra a RAT em conflito (aba RATs → "Editar ↗"), remova o conjunto duplicado e salve — depois é seguro faturar.'
+    else if (e.ratsLen === 0) next = 'Aguardando a primeira RAT do técnico.'
     else if (e.ratNaoEncN) next = `RAT em aberto ${diasTxt(e.ratNaoEncDias)} — o técnico não encerrou. Use "✓ Encerrar" na aba RATs para concluir.`
     else if (e.ratEmAndHoje) next = 'Há RAT em andamento hoje — aguarde a conclusão pelo técnico.'
     else if (e.devItens > 0 || e.foraN > 0) next = 'Conferir devolução de materiais / itens fora da proposta antes de faturar.'
