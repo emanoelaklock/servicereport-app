@@ -653,7 +653,7 @@
       // mais antigo é alcançável pela busca (3 meses, online). RLS (os_tecnico_sel) já escopa ao técnico.
       const d14 = new Date(Date.now() - 14 * 86400000).toISOString().slice(0, 10)
       const { data, error } = await sb.from('tarefas')
-        .select('id,numero,status,data_agendada,cliente_id,orientacao,observacoes,tipo_servico_id,local_servico,previsao_dias')
+        .select('id,numero,status,data_agendada,cliente_id,orientacao,observacoes,tipo_servico_id,local_servico,previsao_dias,motivo_devolucao')
         .neq('status', 'faturada')
         .or(`data_agendada.gte.${d14},data_agendada.is.null,status.in.(aguardando_execucao,em_execucao,em_pausa,devolvida)`)
         .order('data_agendada', { ascending: true, nullsFirst: false })
@@ -911,6 +911,8 @@
     const tipoNome = (ref.tipos.find(x => x.id === t.tipo_servico_id) || {}).nome
     const tSec = document.getElementById('t-det-tipo')
     if (tipoNome) { tSec.textContent = 'Tipo: ' + tipoNome; tSec.style.display = 'block' } else tSec.style.display = 'none'
+    const dSec = document.getElementById('t-det-devol-sec')
+    if (dSec) { if (t.status === 'devolvida' && t.motivo_devolucao) { document.getElementById('t-det-devol').textContent = t.motivo_devolucao; dSec.style.display = 'block' } else dSec.style.display = 'none' }
     const oSec = document.getElementById('t-det-orient-sec')
     if (t.orientacao) { document.getElementById('t-det-orient').textContent = t.orientacao; oSec.style.display = 'block' } else oSec.style.display = 'none'
     const obSec = document.getElementById('t-det-obs-sec')
@@ -2143,6 +2145,7 @@
       cliente: (ref.clientes.find(c => c.id === rat.cliente_id) || {}).nome || rat.cliente_nome || '—',
       tipo: tipoNomeR || '', clienteEditavel: !rat.tarefa_id,
       orientacao: (tarefaDela && tarefaDela.orientacao) || '',
+      motivoDevolucao: (tarefaDela && tarefaDela.status === 'devolvida' && tarefaDela.motivo_devolucao) || '',
     })
     document.getElementById('f-cliente').value = rat.cliente_id || ''
     cb.value = (ref.clientes.find(c => c.id === rat.cliente_id) || {}).nome || rat.cliente_nome || ''
@@ -2794,12 +2797,15 @@
   }
 
   // Card de contexto no topo da RAT (funde a faixa azul + Cliente & Serviço)
-  function preencherCtx({ no, cliente, tipo, clienteEditavel, orientacao }) {
+  function preencherCtx({ no, cliente, tipo, clienteEditavel, orientacao, motivoDevolucao }) {
     const noEl = document.getElementById('ctx-no'); if (noEl) noEl.textContent = no || ''
     const cli = document.getElementById('ctx-cli')
     if (cli) { cli.style.display = clienteEditavel ? 'none' : ''; cli.textContent = cliente || '—' }
     const tp = document.getElementById('ctx-tipo')
     if (tp) { tp.style.display = tipo ? '' : 'none'; tp.textContent = tipo || '' }
+    // Motivo da devolução (quando o admin devolveu a tarefa) — o que o técnico precisa corrigir.
+    const dvEl = document.getElementById('ctx-devol')
+    if (dvEl) { const d = (motivoDevolucao || '').trim(); dvEl.style.display = d ? '' : 'none'; dvEl.innerHTML = d ? `<span class="ctx-devol-k">Motivo da devolução</span>${esc(d)}` : '' }
     // Orientação ao técnico (da Tarefa) — sem ela o técnico fica no escuro durante a RAT.
     const orEl = document.getElementById('ctx-orient')
     if (orEl) { const o = (orientacao || '').trim(); orEl.style.display = o ? '' : 'none'; orEl.innerHTML = o ? `<span class="ctx-orient-k">Orientação</span>${esc(o)}` : '' }

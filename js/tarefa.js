@@ -335,7 +335,7 @@ const TarefaApp = (() => {
   // ─────────────────────────── Lista ───────────────────────────
   async function carregarTarefas() {
     const { data: ts, error } = await sb().from('tarefas')
-      .select('id,numero,status,criado_em,data_agendada,orcamento_id,cliente_id,orientacao,observacoes,pedido_compra,tipo_servico_id,conciliacao_obs,pendencias,faturado,data_faturamento,numero_nota,modalidade,valor_hora')
+      .select('id,numero,status,criado_em,data_agendada,orcamento_id,cliente_id,orientacao,observacoes,pedido_compra,tipo_servico_id,conciliacao_obs,pendencias,faturado,data_faturamento,numero_nota,modalidade,valor_hora,motivo_devolucao')
       .order('numero', { ascending: false })
     if (error) { toast('Erro ao carregar tarefas: ' + error.message, 'err'); tarefas = []; return }
     tarefas = ts || []
@@ -500,7 +500,7 @@ const TarefaApp = (() => {
   // ─────────────────────────── Detalhe ───────────────────────────
   async function abrirTarefa(id, aba) {
     const t = tarefas.find(x => x.id === id); if (!t) return
-    cur = { id, numero: t.numero, status: t.status, cliente_nome: cliNomes[t.cliente_id] || '—', equip: [], anexos: [] }
+    cur = { id, numero: t.numero, status: t.status, cliente_nome: cliNomes[t.cliente_id] || '—', motivo_devolucao: t.motivo_devolucao || null, equip: [], anexos: [] }
     // garante modo normal (caso venha do modo "nova")
     document.getElementById('cc-d-cliente').style.display = ''
     document.getElementById('cc-d-cli-wrap').style.display = 'none'
@@ -552,6 +552,27 @@ const TarefaApp = (() => {
     return u.respostas.volta_amanha === 'Não' && u.respostas.passagem_motivo === 'volto_depois'
   }
 
+  // Modal para o motivo da devolução (obrigatório). Resolve com o texto, ou null se cancelar.
+  function pedirMotivoDevolucao(atual) {
+    return new Promise((resolve) => {
+      const back = document.createElement('div')
+      back.style.cssText = 'position:fixed;inset:0;background:rgba(20,30,55,.5);z-index:400;display:flex;align-items:center;justify-content:center;padding:20px'
+      back.innerHTML = `<div style="background:#fff;border-radius:14px;max-width:460px;width:100%;padding:20px;box-shadow:0 20px 50px rgba(20,30,55,.3)">
+        <div style="font-size:16px;font-weight:700;color:#1B2A4A;margin-bottom:6px">Devolver tarefa ao técnico</div>
+        <div style="font-size:13px;color:#5b6270;margin-bottom:12px">Explique o que precisa ser corrigido. <b>Este motivo aparece para o técnico.</b></div>
+        <textarea id="dv-motivo" rows="4" style="width:100%;box-sizing:border-box;border:1px solid #D7DCE6;border-radius:10px;padding:10px;font:inherit;font-size:14px;resize:vertical" placeholder="Ex.: Faltou a foto do rack e a quantidade de cabo está divergente do orçado."></textarea>
+        <div style="display:flex;gap:10px;justify-content:flex-end;margin-top:14px">
+          <button id="dv-cancel" style="background:#EEF1F6;color:#5b6270;border:1px solid #D7DCE6;border-radius:10px;padding:9px 16px;cursor:pointer">Cancelar</button>
+          <button id="dv-ok" style="background:#E5403A;color:#fff;border:none;border-radius:10px;padding:9px 16px;font-weight:700;cursor:pointer">Devolver</button>
+        </div></div>`
+      document.body.appendChild(back)
+      const ta = back.querySelector('#dv-motivo'); ta.value = atual || ''; ta.focus()
+      const close = (val) => { back.remove(); resolve(val) }
+      back.querySelector('#dv-cancel').onclick = () => close(null)
+      back.querySelector('#dv-ok').onclick = () => { const v = ta.value.trim(); if (!v) { ta.style.borderColor = '#E5403A'; ta.focus(); return } close(v) }
+    })
+  }
+
   async function salvarDados() {
     if (!cur) return
     const patch = {
@@ -561,6 +582,12 @@ const TarefaApp = (() => {
       pedido_compra: document.getElementById('cc-d-pc').value.trim() || null,
       orientacao: document.getElementById('cc-d-orientacao').value.trim() || null,
       observacoes: document.getElementById('cc-d-obs').value.trim() || null,
+    }
+    // Devolver ao técnico exige MOTIVO (que aparece pra ele). Só ao ENTRAR em 'devolvida'.
+    if (cur.id && patch.status === 'devolvida' && cur.status !== 'devolvida') {
+      const motivo = await pedirMotivoDevolucao(cur.motivo_devolucao)
+      if (!motivo) return   // cancelou → não salva
+      patch.motivo_devolucao = motivo
     }
     // Modo "nova": cria a tarefa agora (cliente é obrigatório) e reabre já carregada.
     if (!cur.id) {
@@ -587,6 +614,7 @@ const TarefaApp = (() => {
     const up = await sb().from('tarefas').update(patch).eq('id', cur.id)
     if (up.error) return toast('Erro ao salvar: ' + up.error.message, 'err')
     cur.status = patch.status
+    if (patch.motivo_devolucao !== undefined) cur.motivo_devolucao = patch.motivo_devolucao
     setStatusBadge(cur.status)
     // sincroniza técnicos (N:N) por DIFERENÇA — evita ruído na auditoria (sem delete-all)
     const tecIds = getTecnicosChecked()
