@@ -552,24 +552,46 @@ const TarefaApp = (() => {
     return u.respostas.volta_amanha === 'Não' && u.respostas.passagem_motivo === 'volto_depois'
   }
 
+  // Motivos pré-definidos da devolução (marca 1+). O técnico vê o texto resultante.
+  const MOTIVOS_DEVOL = [
+    'Preenchimento incompleto (serviço executado, observações, fotos faltando)',
+    'Produtos incorretos/incompletos (item, quantidade ou código errado)',
+    'Pausa ou horário incorreto',
+    'Descrição do serviço rasa (não detalha o que foi feito)',
+    'Pendência não registrada (necessário abrir pré-orçamento, pendência ou observação)',
+  ]
   // Modal para o motivo da devolução (obrigatório). Resolve com o texto, ou null se cancelar.
-  function pedirMotivoDevolucao(atual) {
+  function pedirMotivoDevolucao() {
     return new Promise((resolve) => {
       const back = document.createElement('div')
       back.style.cssText = 'position:fixed;inset:0;background:rgba(20,30,55,.5);z-index:400;display:flex;align-items:center;justify-content:center;padding:20px'
-      back.innerHTML = `<div style="background:#fff;border-radius:14px;max-width:460px;width:100%;padding:20px;box-shadow:0 20px 50px rgba(20,30,55,.3)">
+      const opts = MOTIVOS_DEVOL.map(p => `<label style="display:flex;gap:9px;align-items:flex-start;padding:9px 11px;border:1px solid #D7DCE6;border-radius:10px;cursor:pointer;font-size:13.5px;color:#2b3447;line-height:1.4">
+        <input type="checkbox" class="dv-opt" value="${esc(p)}" style="margin-top:2px;flex:none;width:17px;height:17px;accent-color:#E5403A">
+        <span>${esc(p)}</span></label>`).join('')
+      back.innerHTML = `<div style="background:#fff;border-radius:14px;max-width:520px;width:100%;padding:20px;max-height:90vh;overflow:auto;box-shadow:0 20px 50px rgba(20,30,55,.3)">
         <div style="font-size:16px;font-weight:700;color:#1B2A4A;margin-bottom:6px">Devolver tarefa ao técnico</div>
-        <div style="font-size:13px;color:#5b6270;margin-bottom:12px">Explique o que precisa ser corrigido. <b>Este motivo aparece para o técnico.</b></div>
-        <textarea id="dv-motivo" rows="4" style="width:100%;box-sizing:border-box;border:1px solid #D7DCE6;border-radius:10px;padding:10px;font:inherit;font-size:14px;resize:vertical" placeholder="Ex.: Faltou a foto do rack e a quantidade de cabo está divergente do orçado."></textarea>
+        <div style="font-size:13px;color:#5b6270;margin-bottom:12px">Marque o que precisa ser corrigido. <b>Aparece para o técnico.</b></div>
+        <div style="display:flex;flex-direction:column;gap:8px">${opts}</div>
+        <div style="margin-top:12px">
+          <label style="font-size:12px;color:#5b6270;font-weight:600">Detalhes (opcional)</label>
+          <textarea id="dv-det" rows="3" style="width:100%;box-sizing:border-box;border:1px solid #D7DCE6;border-radius:10px;padding:10px;font:inherit;font-size:14px;resize:vertical;margin-top:4px" placeholder="Ex.: faltou a foto do rack; cabo lançado divergente do orçado."></textarea>
+        </div>
+        <div id="dv-err" style="display:none;color:#E5403A;font-size:12.5px;font-weight:600;margin-top:8px">Marque ao menos um motivo (ou escreva os detalhes).</div>
         <div style="display:flex;gap:10px;justify-content:flex-end;margin-top:14px">
           <button id="dv-cancel" style="background:#EEF1F6;color:#5b6270;border:1px solid #D7DCE6;border-radius:10px;padding:9px 16px;cursor:pointer">Cancelar</button>
           <button id="dv-ok" style="background:#E5403A;color:#fff;border:none;border-radius:10px;padding:9px 16px;font-weight:700;cursor:pointer">Devolver</button>
         </div></div>`
       document.body.appendChild(back)
-      const ta = back.querySelector('#dv-motivo'); ta.value = atual || ''; ta.focus()
       const close = (val) => { back.remove(); resolve(val) }
       back.querySelector('#dv-cancel').onclick = () => close(null)
-      back.querySelector('#dv-ok').onclick = () => { const v = ta.value.trim(); if (!v) { ta.style.borderColor = '#E5403A'; ta.focus(); return } close(v) }
+      back.querySelector('#dv-ok').onclick = () => {
+        const sel = [...back.querySelectorAll('.dv-opt:checked')].map(c => c.value)
+        const det = back.querySelector('#dv-det').value.trim()
+        if (!sel.length && !det) { back.querySelector('#dv-err').style.display = 'block'; return }
+        let motivo = sel.map(s => '• ' + s).join('\n')
+        if (det) motivo += (motivo ? '\n\n' : '') + det
+        close(motivo)
+      }
     })
   }
 
@@ -585,7 +607,7 @@ const TarefaApp = (() => {
     }
     // Devolver ao técnico exige MOTIVO (que aparece pra ele). Só ao ENTRAR em 'devolvida'.
     if (cur.id && patch.status === 'devolvida' && cur.status !== 'devolvida') {
-      const motivo = await pedirMotivoDevolucao(cur.motivo_devolucao)
+      const motivo = await pedirMotivoDevolucao()
       if (!motivo) return   // cancelou → não salva
       patch.motivo_devolucao = motivo
     }
