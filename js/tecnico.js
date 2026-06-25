@@ -173,10 +173,15 @@
   // Logout forçado (fim de dia / app fechado / sem sessão). Limpa marcas e volta pro login.
   // Re-login exige internet (decisão: bloquear offline) — o login.html valida a sessão.
   async function forcarLogout() {
+    // OFFLINE NÃO DESLOGA: o re-login exige internet; sem rede o signOut falha, a sessão persiste
+    // e login.html roteia de volta pra cá → LOOP/tela branca. Sem rede, mantém a sessão (o técnico
+    // de campo segue trabalhando). A política de dia/fechamento é reavaliada quando voltar a rede.
+    if (!navigator.onLine) return false
     try { localStorage.removeItem('sr_login_dia') } catch (e) { /* nada */ }
     try { sessionStorage.removeItem('sr_app_alive') } catch (e) { /* nada */ }
-    try { await getSupabase().auth.signOut() } catch (e) { /* offline: segue mesmo assim */ }
+    try { await getSupabase().auth.signOut() } catch (e) { /* segue mesmo assim */ }
     location.href = 'login.html'
+    return true
   }
   // Política de sessão do app do técnico (dispositivos compartilhados):
   //  (1) app FECHADO desde o último uso → exige login (heartbeat sr_app_alive some ao fechar; sobrevive a reload);
@@ -184,6 +189,13 @@
   // Retorna false (e dispara logout) quando a sessão não pode continuar.
   function verificarSessaoDia() {
     if (!tecnico.id) return true   // sem sessão: o fluxo normal mostra o login
+    // OFFLINE: não aplica logout (re-login exige rede; deslogar offline prende o técnico/tela branca).
+    // Mantém a sessão viva; a política é reavaliada quando voltar a internet.
+    if (!navigator.onLine) {
+      try { sessionStorage.setItem('sr_app_alive', '1') } catch (e) { /* nada */ }
+      try { if (!localStorage.getItem('sr_login_dia')) localStorage.setItem('sr_login_dia', hojeBR()) } catch (e) { /* nada */ }
+      return true
+    }
     let vivo = null; try { vivo = sessionStorage.getItem('sr_app_alive') } catch (e) { /* nada */ }
     if (!vivo) { forcarLogout(); return false }                 // (1) foi fechado
     const hoje = hojeBR()
@@ -195,7 +207,7 @@
   }
   // Vira o dia com o app ABERTO → desloga. Chamado por timer e ao voltar do 2º plano.
   function checarVirouDia() {
-    if (!tecnico.id) return
+    if (!tecnico.id || !navigator.onLine) return   // offline: nunca desloga (evita loop/tela branca)
     let dia = null; try { dia = localStorage.getItem('sr_login_dia') } catch (e) { /* nada */ }
     if (dia && dia !== hojeBR()) forcarLogout()
   }
