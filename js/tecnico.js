@@ -589,6 +589,7 @@
     return `<div class="listcard ${lc}" data-id="${esc(t.id)}">${edge}
         <div class="t"><span class="cli">${esc(cliNomeDe(t.cliente_id))}</span>${badge}</div>
         <div class="meta">${metaNo} · ${esc(ag)}</div>
+        ${t.orientacao ? `<div class="t-ori">${esc(t.orientacao)}</div>` : ''}
       </div>`
   }
   function pintarTarefas(box, lista) {
@@ -1014,6 +1015,7 @@
     preencherCtx({
       no: t.numero != null ? `Nº ${osNo(t.numero)}${seqNova ? '/' + String(seqNova).padStart(2, '0') : ''}` : '',
       cliente: cliNomeDe(t.cliente_id), tipo: tipoNome || '', clienteEditavel: false,
+      orientacao: t.orientacao || '',
     })
     // cliente vem da tarefa (campo oculto usado no salvar)
     document.getElementById('f-cliente').value = t.cliente_id || ''
@@ -1999,6 +2001,7 @@
       no: rat.tarefa_id ? (numR != null ? `Nº ${osNo(numR)}${subR}` : 'na fila ↑') : '',
       cliente: (ref.clientes.find(c => c.id === rat.cliente_id) || {}).nome || rat.cliente_nome || '—',
       tipo: tipoNomeR || '', clienteEditavel: !rat.tarefa_id,
+      orientacao: (tarefaDela && tarefaDela.orientacao) || '',
     })
     document.getElementById('f-cliente').value = rat.cliente_id || ''
     cb.value = (ref.clientes.find(c => c.id === rat.cliente_id) || {}).nome || rat.cliente_nome || ''
@@ -2650,12 +2653,15 @@
   }
 
   // Card de contexto no topo da RAT (funde a faixa azul + Cliente & Serviço)
-  function preencherCtx({ no, cliente, tipo, clienteEditavel }) {
+  function preencherCtx({ no, cliente, tipo, clienteEditavel, orientacao }) {
     const noEl = document.getElementById('ctx-no'); if (noEl) noEl.textContent = no || ''
     const cli = document.getElementById('ctx-cli')
     if (cli) { cli.style.display = clienteEditavel ? 'none' : ''; cli.textContent = cliente || '—' }
     const tp = document.getElementById('ctx-tipo')
     if (tp) { tp.style.display = tipo ? '' : 'none'; tp.textContent = tipo || '' }
+    // Orientação ao técnico (da Tarefa) — sem ela o técnico fica no escuro durante a RAT.
+    const orEl = document.getElementById('ctx-orient')
+    if (orEl) { const o = (orientacao || '').trim(); orEl.style.display = o ? '' : 'none'; orEl.innerHTML = o ? `<span class="ctx-orient-k">Orientação</span>${esc(o)}` : '' }
     const cw = document.getElementById('f-cliente-wrap')
     if (cw) cw.style.display = clienteEditavel ? '' : 'none'
   }
