@@ -2055,7 +2055,7 @@
       if (!ratId) { const { data: rr } = await sb.from('rats').select('id').eq('client_uuid', rat.client_uuid).maybeSingle(); ratId = rr && rr.id }
       if (!ratId) return
       const [mres, fres] = await Promise.all([
-        sb.from('materiais').select('id,produto_id,codigo_produto,descricao,quantidade,criado_em').eq('rat_id', ratId).eq('origem', 'usado'),
+        sb.from('materiais').select('id,produto_id,codigo_produto,descricao,quantidade,criado_em,created_by,device_id').eq('rat_id', ratId).eq('origem', 'usado'),
         sb.from('relatorio_fotos').select('id,url,legenda,criado_em').eq('rat_id', ratId),
       ])
       await D().hidratarMateriaisDaRat(rat.client_uuid, mres.data || [])
