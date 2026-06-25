@@ -390,7 +390,7 @@
     document.getElementById('nav-tarefas').onclick = async () => { mostrar('tarefas'); await renderTarefas() }
     document.getElementById('btn-tarefas-sync').onclick = async () => { await renderTarefas(true) }
     const tbq = document.getElementById('tarefas-busca'); if (tbq) tbq.oninput = () => agendarBuscaTarefas(tbq.value)
-    const rbq = document.getElementById('rats-busca'); if (rbq) rbq.oninput = () => { clearTimeout(_ratBuscaT); _ratBuscaT = setTimeout(() => renderLista(), 200) }
+    const rbq = document.getElementById('rats-busca'); if (rbq) { rbq.oninput = () => { clearTimeout(_ratBuscaT); _ratBuscaT = setTimeout(() => renderLista(), 200) }; rbq.onfocus = () => topUpRats90() }
     document.querySelectorAll('#tabbar .tab').forEach(b => b.onclick = () => irParaTab(b.dataset.tab))
     wireShell()
     document.getElementById('btn-nova-tarefa').onclick = () => abrirModalNovaTarefa(false)
@@ -528,6 +528,24 @@
   function badge(status) {
     const b = BADGE[status] || { cls: 's-sc', txt: status }
     return `<span class="badge ${b.cls}"><span class="dot"></span>${esc(b.txt)}</span>`
+  }
+
+  // Estende a busca de RATs ao SERVIDOR: ao focar a busca, traz as RATs do técnico (RLS titular,
+  // tarefas_tecnico_select) dos últimos 90 dias que ainda não estão no aparelho e re-renderiza —
+  // depois a busca local (matchRat) cobre tudo, e abrir funciona normal (hidrata os filhos).
+  // Bounded: 1 fetch, guardado por 60s; offline cai no que já é local.
+  async function topUpRats90() {
+    if (!navigator.onLine || (Date.now() - _ratsTopUpAt) < 60000) return
+    _ratsTopUpAt = Date.now()
+    try {
+      const sb = getSupabase()
+      const d90 = new Date(Date.now() - 90 * 86400000).toISOString().slice(0, 10)
+      const { data, error } = await sb.from('rats').select('*').gte('data_tarefa', d90).order('data_tarefa', { ascending: false }).limit(500)
+      if (error) return
+      let novas = 0
+      for (const row of (data || [])) { try { if (await D().aplicarDoServidor(D().SYNC_MAP.rats.store, row)) novas++ } catch (e) { /* segue */ } }
+      if (novas && screen === 'lista') await renderLista()
+    } catch (e) { /* offline/erro: a busca segue local */ }
   }
 
   async function renderLista() {
@@ -690,6 +708,7 @@
   }
   let buscaTarTimer = null
   let _ratBuscaT = null
+  let _ratsTopUpAt = 0
   function agendarBuscaTarefas(v) { clearTimeout(buscaTarTimer); buscaTarTimer = setTimeout(() => buscarTarefas(v), 250) }
   async function buscarTarefas(termoRaw) {
     const box = document.getElementById('lista-tarefas'), hint = document.getElementById('tarefas-busca-hint')
