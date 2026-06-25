@@ -281,7 +281,12 @@ try{if(localStorage.getItem('sr_dark')==='1')document.documentElement.classList.
   #tabbar .tab span{max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
   #tabbar .tab svg{width:23px;height:23px;fill:none;stroke:currentColor;stroke-width:1.9;stroke-linecap:round;stroke-linejoin:round}
   #tabbar .tab.on{color:#1E8AE0}
-  #form-foot{flex:none;background:var(--bg);padding:12px 16px calc(12px + env(safe-area-inset-bottom,0px));border-top:1px solid var(--bd);box-shadow:0 -3px 14px rgba(20,30,55,.12);z-index:30}
+  #form-foot{flex:none;display:flex;flex-direction:column;gap:9px;background:var(--sur);padding:12px 16px calc(12px + env(safe-area-inset-bottom,0px));border-top:1px solid var(--bd);box-shadow:0 -3px 14px rgba(20,30,55,.12);z-index:30}
+  #form-foot > div{display:flex;gap:9px}
+  #form-foot > div .btn{flex:1}
+  #form-foot .btn{justify-content:center;padding:12px 10px;font-weight:700;border-radius:10px}
+  #form-foot #btn-salvar{width:100%;background:#1E8AE0;color:#fff;border:none}
+  #form-foot #btn-salvar:hover{background:#1877c4}
   /* corzinha nos secundarios do rodape (eram brancos sem vida). Salvar e continuar = verde
      (segue trabalhando); Cancelar/Voltar = neutro com leve fill. Encerrar (btn-primary) = azul. */
   #form-foot #btn-continuar{background:#E6F6EC;color:#0B7A43;border-color:#9AD3B0;font-weight:600}
