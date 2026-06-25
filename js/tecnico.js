@@ -390,6 +390,7 @@
     document.getElementById('nav-tarefas').onclick = async () => { mostrar('tarefas'); await renderTarefas() }
     document.getElementById('btn-tarefas-sync').onclick = async () => { await renderTarefas(true) }
     const tbq = document.getElementById('tarefas-busca'); if (tbq) tbq.oninput = () => agendarBuscaTarefas(tbq.value)
+    const rbq = document.getElementById('rats-busca'); if (rbq) rbq.oninput = () => { clearTimeout(_ratBuscaT); _ratBuscaT = setTimeout(() => renderLista(), 200) }
     document.querySelectorAll('#tabbar .tab').forEach(b => b.onclick = () => irParaTab(b.dataset.tab))
     wireShell()
     document.getElementById('btn-nova-tarefa').onclick = () => abrirModalNovaTarefa(false)
@@ -550,7 +551,17 @@
     const pad2 = (n) => String(n).padStart(2, '0')
     const tarLabel = (r) => { const n = tarNumeroDe(r); if (n == null) return ''; const s = subDe(r); return 'Tarefa Nº ' + osNo(n) + (s != null ? '/' + pad2(s) : '') + ' · ' }
     const ordenadas = rats.slice().sort((a, b) => prioStatus(tarStatusDe(a)) - prioStatus(tarStatusDe(b)) || (b.criado_em || '').localeCompare(a.criado_em || ''))
-    box.innerHTML = ordenadas.map(r => {
+    // Busca local (a lista de RATs é toda do aparelho): casa nº da OS/RAT, cliente e status.
+    const termo = ((document.getElementById('rats-busca') || {}).value || '').trim().toLowerCase()
+    const filtradas = !termo ? ordenadas : ordenadas.filter(r => {
+      const n = tarNumeroDe(r), s = subDe(r)
+      const hay = [r.cliente_nome, (n != null ? osNo(n) : ''), (n != null && s != null ? osNo(n) + '/' + pad2(s) : ''), ratSit(r.status || 'em_andamento')].filter(Boolean).join(' ').toLowerCase()
+      return hay.includes(termo)
+    })
+    const hint = document.getElementById('rats-busca-hint')
+    if (hint) { hint.style.display = termo ? '' : 'none'; if (termo) hint.textContent = `${filtradas.length} RAT(s) encontrada(s).` }
+    if (termo && !filtradas.length) { box.innerHTML = '<p class="dim" style="padding:14px 2px">Nenhuma RAT encontrada.</p>'; return }
+    box.innerHTML = filtradas.map(r => {
       const emPausa = pausaAberta(r) && r.status === 'em_andamento'   // pausa aberta nesta RAT (local, imediato)
       const ts = emPausa ? 'em_pausa' : tarStatusDe(r); const sk = SKIN_STATUS[ts] || 'aguard'
       const lc = sk === 'info' ? 'lc-info' : sk === 'done' ? 'lc-done' : sk === 'warn' ? 'lc-warn' : ''
@@ -667,6 +678,7 @@
     return hay.includes(termo)
   }
   let buscaTarTimer = null
+  let _ratBuscaT = null
   function agendarBuscaTarefas(v) { clearTimeout(buscaTarTimer); buscaTarTimer = setTimeout(() => buscarTarefas(v), 250) }
   async function buscarTarefas(termoRaw) {
     const box = document.getElementById('lista-tarefas'), hint = document.getElementById('tarefas-busca-hint')
