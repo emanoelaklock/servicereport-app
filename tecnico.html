@@ -255,6 +255,16 @@ try{if(localStorage.getItem('sr_dark')==='1')document.documentElement.classList.
   #modal-handoff .hf-info{background:var(--sur2);color:var(--tx2);font-size:13px}#modal-handoff .hf-info svg{stroke:#1E8AE0}
   #modal-handoff .hf-foot{display:flex;flex-direction:column;gap:9px;padding:6px 20px 20px}
   #modal-handoff .hf-ghost{background:none;border:none;color:var(--tx2);font-weight:700}
+  /* Confirmação de pernoite (Nova viagem) — acento laranja (deslocamento) */
+  #modal-pernoite .tm-box{max-width:380px;text-align:center}
+  #modal-pernoite .pn-ico{width:64px;height:64px;border-radius:50%;display:grid;place-items:center;margin:22px auto 8px;background:#FDEBD7;color:#F4861F}
+  #modal-pernoite .pn-ico svg{width:30px;height:30px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
+  #modal-pernoite .pn-title{font-size:19px;font-weight:800;color:var(--tx);margin:2px 0 4px}
+  #modal-pernoite .pn-sub{font-size:14px;color:var(--tx2);line-height:1.55;padding:0 22px;margin:0 0 16px}
+  #modal-pernoite .pn-foot{display:flex;flex-direction:column;gap:9px;padding:6px 20px 20px}
+  #modal-pernoite .pn-foot .btn{justify-content:center;padding:12px 10px;font-weight:700;border-radius:10px}
+  #modal-pernoite #pn-sim{background:#F4861F;color:#fff;border:none}
+  #modal-pernoite .pn-ghost{background:none;border:none;color:var(--tx2)}
 
   /* ===== Pergunta Sim/Não (segmented) ===== */
   .segq{display:flex;gap:10px}
@@ -1087,6 +1097,17 @@ try{if(localStorage.getItem('sr_dark')==='1')document.documentElement.classList.
 
 <!-- Handoff ao encerrar a RAT (Em pausa / guiar a concluir) — conteúdo montado no JS -->
 <div class="tm-back" id="modal-handoff"><div class="tm-box" id="hf-box"></div></div>
+
+<!-- Confirmação antes de criar viagem: "Nova viagem" é só pra PERNOITE (dorme fora). -->
+<div class="tm-back" id="modal-pernoite"><div class="tm-box">
+  <div class="pn-ico"><svg viewBox="0 0 24 24"><path d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8Z"/></svg></div>
+  <div class="pn-title">Essa viagem tem pernoite?</div>
+  <p class="pn-sub"><b>Nova viagem</b> é para deslocamentos em que você <b>dorme fora</b> (pernoite, mais de um dia).<br><br>Se você vai ao cliente e <b>volta no mesmo dia</b>, não crie uma viagem aqui — registre o deslocamento (ida e retorno) <b>dentro da RAT</b> do atendimento.</p>
+  <div class="pn-foot">
+    <button class="btn" id="pn-sim">Sim, vou pernoitar</button>
+    <button class="btn pn-ghost" id="pn-nao">Não, volto hoje</button>
+  </div>
+</div></div>
 
 <!-- Pausa esquecida que cruzou a meia-noite: aviso OBRIGATÓRIO ao reabrir (sem ✕/cancelar) -->
 <div class="tm-back" id="modal-pausa-esq">

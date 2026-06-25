@@ -1486,7 +1486,10 @@
   }
 
   function bindDesloc() {
-    document.getElementById('desloc-novo').onclick = abrirDeslocNova
+    // "Nova viagem" é só pra PERNOITE — confirma antes (evita confundir com o desloc do dia, que é na RAT).
+    document.getElementById('desloc-novo').onclick = () => { const m = document.getElementById('modal-pernoite'); if (m) m.classList.add('open'); else abrirDeslocNova() }
+    const pnSim = document.getElementById('pn-sim'); if (pnSim) pnSim.onclick = () => { document.getElementById('modal-pernoite').classList.remove('open'); abrirDeslocNova() }
+    const pnNao = document.getElementById('pn-nao'); if (pnNao) pnNao.onclick = () => document.getElementById('modal-pernoite').classList.remove('open')
     document.getElementById('dl-x').onclick = fecharDesloc
     document.getElementById('dl-cancelar').onclick = fecharDesloc
     document.getElementById('dl-salvar').onclick = salvarDesloc
