@@ -154,9 +154,26 @@
   }
 
   // ─────────────────────────── Init ───────────────────────────
+  // Isola dados por usuário no mesmo aparelho: IndexedDB por uid + limpa caches/cursores ao trocar
+  // de login (inclui a 1ª vez pós-update). NÃO apaga trabalho não-sincronizado (o IndexedDB do
+  // usuário anterior fica intacto no banco dele). Resolve a colisão "logada como Pablo vendo RAT do Teste".
+  function isolarPorUsuario(uid) {
+    try { D().setUser(uid) } catch (e) { /* nada */ }
+    let last = null
+    try { last = localStorage.getItem('sr_last_uid') } catch (e) { /* nada */ }
+    if (uid && last !== uid) {
+      try {
+        ['sr_tarefas_v1', 'sr_resp_tarefa_v1', 'sr_tec_screen'].forEach(k => localStorage.removeItem(k))
+        Object.keys(localStorage).filter(k => k.indexOf('sr_pull_') === 0).forEach(k => localStorage.removeItem(k))
+        localStorage.setItem('sr_last_uid', uid)
+      } catch (e) { /* nada */ }
+    }
+  }
+
   async function init() {
     const { data: { user } } = await getSupabase().auth.getUser()
     tecnico.id = user?.id || null
+    isolarPorUsuario(tecnico.id)   // ANTES de qualquer acesso a IndexedDB/cache
     const u = await getUserRole().catch(() => null)
     tecnico.nome = tcase(u?.nome || user?.email?.split('@')[0] || 'Técnico')
     const ftn = document.getElementById('ft-nome'); if (ftn) ftn.textContent = tecnico.nome

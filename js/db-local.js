@@ -59,11 +59,22 @@
   function agora() { return new Date().toISOString() }
 
   // ── Abertura/migração do banco ──
-  let _dbp = null
+  let _dbp = null, _dbConn = null, _uid = null
+  // Escopo POR USUÁRIO: cada login tem seu próprio IndexedDB (service_report_u_<uid>). Sem isso,
+  // dois logins no mesmo aparelho misturavam RATs/tarefas (risco de faturamento). O banco legado
+  // ('service_report') é preservado (não apaga trabalho não-sincronizado de quem usou antes).
+  function setUser(uid) {
+    uid = uid || null
+    if (uid === _uid) return
+    _uid = uid
+    if (_dbConn) { try { _dbConn.close() } catch (e) { /* nada */ } _dbConn = null }
+    _dbp = null   // próxima db() reabre no banco do usuário atual
+  }
+  function dbName() { return _uid ? ('service_report_u_' + _uid) : DB_NAME }
   function db() {
     if (_dbp) return _dbp
     _dbp = new Promise((resolve, reject) => {
-      const req = indexedDB.open(DB_NAME, DB_VERSION)
+      const req = indexedDB.open(dbName(), DB_VERSION)
       req.onupgradeneeded = (e) => {
         const d = e.target.result
         if (!d.objectStoreNames.contains(ST_RATS)) {
@@ -108,7 +119,7 @@
           s.createIndex('sync_status', 'sync_status', { unique: false })
         }
       }
-      req.onsuccess = () => resolve(req.result)
+      req.onsuccess = () => { _dbConn = req.result; resolve(req.result) }
       req.onerror = () => reject(req.error)
     })
     return _dbp
@@ -576,7 +587,7 @@
 
   window.DBLocal = {
     STATUS, TRANSICOES,
-    deviceId, uuid,
+    deviceId, uuid, setUser,
     salvarSegmento, obterSegmento, listarSegmentos, segmentoAberto, segmentosPendentes, marcarSegmentoStatus, removerSegmento,
     salvarDeslocamento, listarDeslocamentos, deslocamentosPendentes, marcarDeslocamentoStatus, removerDeslocamento,
     salvarTarefaLocal, listarTarefasLocais, tarefasLocaisPendentes, removerTarefaLocal,
