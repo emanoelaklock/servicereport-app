@@ -504,6 +504,9 @@ try{if(localStorage.getItem('sr_dark')==='1')document.documentElement.classList.
   .ctx .ctx-orient{margin-top:10px;padding:10px 12px;background:#FFF8E8;border:1px solid #F2D98A;border-radius:10px;font-size:13.5px;color:#5a4a16;line-height:1.5;white-space:pre-wrap}
   .ctx .ctx-orient-k{display:block;font-size:10px;font-weight:800;letter-spacing:.5px;text-transform:uppercase;color:#9a7d1a;margin-bottom:3px}
   html.dark .ctx .ctx-orient{background:#2a2410;border-color:#5a4d1e;color:#e8d8a0}
+  .ctx .ctx-devol{margin-top:10px;padding:10px 12px;background:#FDECEA;border:1px solid #F3B7B2;border-left:3px solid #E5403A;border-radius:10px;font-size:13.5px;color:#7a2018;line-height:1.5;white-space:pre-wrap}
+  .ctx .ctx-devol-k{display:block;font-size:10px;font-weight:800;letter-spacing:.5px;text-transform:uppercase;color:#A82A22;margin-bottom:3px}
+  html.dark .ctx .ctx-devol{background:#2e1513;border-color:#6a2a24;color:#f0b8b0}
   html.dark .ctx .tag{background:#1d2940;color:#9fc1ff}
   .regs{display:grid;grid-template-columns:1fr 1fr;gap:10px}
   .reg{border:none;border-radius:16px;padding:12px;display:flex;flex-direction:column;gap:9px;cursor:pointer;font:inherit;text-align:left;color:#fff}
@@ -700,6 +703,9 @@ try{if(localStorage.getItem('sr_dark')==='1')document.documentElement.classList.
             </div>
             <div class="mt"><div id="t-det-agenda"></div><div id="t-det-tipo" style="display:none"></div></div>
           </div>
+          <div class="devol" id="t-det-devol-sec" style="display:none">
+            <div class="k">Motivo da devolução</div><div class="v" id="t-det-devol"></div>
+          </div>
           <div class="orient" id="t-det-orient-sec" style="display:none">
             <div class="k">Orientação</div><div class="v" id="t-det-orient"></div>
           </div>
@@ -738,6 +744,7 @@ try{if(localStorage.getItem('sr_dark')==='1')document.documentElement.classList.
           <div class="row1"><span class="tag">RAT</span><span class="no" id="ctx-no"></span></div>
           <div class="cli" id="ctx-cli">—</div>
           <div class="tipo" id="ctx-tipo" style="display:none"></div>
+          <div class="ctx-devol" id="ctx-devol" style="display:none"></div>
           <div class="ctx-orient" id="ctx-orient" style="display:none"></div>
           <div class="fg campo" id="f-cliente-wrap" style="display:none;margin:10px 0 0">
             <label>Cliente <span class="req">*</span></label>

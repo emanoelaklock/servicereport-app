@@ -108,6 +108,9 @@
 .tskin .orient{background:#F3F6FC;border:1px solid #E3EAF5;border-left:3px solid var(--blue);border-radius:12px;padding:12px 14px;margin-top:14px;}
 .tskin .orient .k{font-size:10px;font-weight:700;letter-spacing:1px;color:var(--t-muted);text-transform:uppercase;}
 .tskin .orient .v{font-size:15px;font-weight:600;margin-top:3px;white-space:pre-wrap;}
+.tskin .devol{background:#FDECEA;border:1px solid #F3B7B2;border-left:3px solid #E5403A;border-radius:12px;padding:12px 14px;margin-top:14px;}
+.tskin .devol .k{font-size:10px;font-weight:800;letter-spacing:1px;color:#A82A22;text-transform:uppercase;}
+.tskin .devol .v{font-size:15px;font-weight:600;margin-top:3px;color:#7a2018;white-space:pre-wrap;}
 .tskin .prod{padding:12px 0;border-top:1px solid var(--t-line);}
 .tskin .prod .pn{font-size:13px;font-weight:600;line-height:1.35;}
 .tskin .prod .chips{display:flex;gap:7px;margin-top:8px;flex-wrap:wrap;}
