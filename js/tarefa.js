@@ -64,6 +64,15 @@ const TarefaApp = (() => {
     const b = document.getElementById('cc-badge'); if (b) { b.textContent = statusLabel(s); b.className = 'ed-badge'; b.style.cssText = statusStyleAttr(s) }
     const h = document.getElementById('cc-hd-status'); if (h) { h.textContent = statusLabel(s); h.style.color = corTextoLegivel(statusCor(s)) }
   }
+  // Colore o <select> de Status conforme o valor (mesma paleta do badge).
+  const pintarStatusSel = () => {
+    const sel = document.getElementById('cc-d-status-sel'); if (!sel) return
+    const c = statusCor(sel.value)
+    sel.style.background = c + '1A'
+    sel.style.color = corTextoLegivel(c)
+    sel.style.borderColor = c + '66'
+    sel.style.fontWeight = '700'
+  }
   const iniciais = (n) => String(n || '').trim().split(/\s+/).slice(0, 2).map(w => w[0] || '').join('').toUpperCase() || '—'
   function renderHeader(t) {
     const tipo = (ref.tipos.find(x => x.id === (t && t.tipo_servico_id)) || {}).nome || ''
@@ -272,6 +281,7 @@ const TarefaApp = (() => {
     document.getElementById('cc-d-pend-tarefa').onclick = abrirPendTarefa
     document.getElementById('cc-d-status-sel').addEventListener('change', (e) => {
       document.getElementById('cc-d-pend-tarefa').style.display = (e.target.value === 'concluida_pendencia') ? '' : 'none'
+      pintarStatusSel()
     })
     // Faturamento
     document.getElementById('cc-fat-modalidade').onchange = renderModalidadeCalc
@@ -480,6 +490,7 @@ const TarefaApp = (() => {
     setStatusBadge('aguardando_execucao')
     document.getElementById('cc-d-orc').textContent = 'Criada direto (sem orçamento)'
     document.getElementById('cc-d-status-sel').value = 'aguardando_execucao'
+    pintarStatusSel()
     document.getElementById('cc-d-pend-note').textContent = ''
     document.getElementById('cc-d-tipo').value = ''
     setTecnicosChecked([])
@@ -515,6 +526,7 @@ const TarefaApp = (() => {
     document.getElementById('cc-d-orc').textContent = t.orcamento_id ? `Orçamento Nº ${orcNo[t.orcamento_id] ?? '—'}` : 'Criada direto (sem orçamento)'
     document.getElementById('cc-d-status-sel').innerHTML = statusOptionsHTML(cur.status)
     document.getElementById('cc-d-status-sel').value = cur.status || 'aguardando_execucao'
+    pintarStatusSel()
     document.getElementById('cc-d-pend-note').textContent = (cur.status === 'concluida_pendencia' && t.pendencias) ? 'Pendência: ' + t.pendencias : ''
     document.getElementById('cc-d-pend-tarefa').style.display = (cur.status === 'concluida_pendencia') ? '' : 'none'
     document.getElementById('cc-d-tipo').value = t.tipo_servico_id || ''
@@ -1385,6 +1397,7 @@ const TarefaApp = (() => {
         cur.status = 'concluida'; cur.pendencias = null
         setStatusBadge(cur.status)
         const ss = document.getElementById('cc-d-status-sel'); if (ss) ss.value = 'concluida'
+        pintarStatusSel()
       }
     }
     fecharModal('modal-pend')
