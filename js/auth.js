@@ -60,6 +60,9 @@ var fazerLogin = async () => {
     const { data, error } = await getSupabase().auth.signInWithPassword({ email, password: senha })
     if (error) throw error
     SESSION = data.session
+    // Heartbeat de login explícito (sessionStorage some quando o app é FECHADO; sobrevive a reload).
+    // O app do técnico usa isso pra exigir login de novo após fechar o app.
+    try { sessionStorage.setItem('sr_app_alive', '1') } catch (e) { /* nada */ }
     await _posLogin(SESSION)
   } catch (e) {
     if (msg) msg.innerHTML = `<div style="padding:9px 12px;background:#FEF2F2;color:#DC2626;border:1px solid #FECACA;border-radius:7px;font-size:13px">${esc(e.message)}</div>`
