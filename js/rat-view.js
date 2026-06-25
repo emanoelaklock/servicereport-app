@@ -235,10 +235,14 @@ window.RatView = (function () {
     const adminEdit = edit && opts && opts.adminEdit
     if ((mats && mats.length) || adminEdit) {
       const total = (mats || []).reduce((s, m) => s + (Number(m.subtotal) || 0), 0)
-      h += `<div class="rd-sec"><div class="rd-sec-t">Produtos</div>
-        <table class="rd-prodtbl"><thead><tr><th>Produto</th><th class="num">Qtd</th><th class="num">Valor unit.</th><th class="num">Subtotal</th>${adminEdit ? '<th></th>' : ''}</tr></thead><tbody id="rd-prodbody">` +
+      // Conflito de material colaborativo: 2+ autores (created_by) na mesma RAT → avisa e rotula por autor.
+      const autores = [...new Set((mats || []).map(m => m.created_by).filter(Boolean))]
+      const temConflito = adminEdit && autores.length >= 2   // só no editor admin (não no PDF/leitura)
+      h += `<div class="rd-sec"><div class="rd-sec-t">Produtos</div>` +
+        (temConflito ? `<div class="rd-conflito">⚠ Conflito de material — ${autores.length} técnicos lançaram produto nesta RAT. Mantenha um conjunto e remova o duplicado (×); ao sobrar um, o conflito some e o faturamento libera.</div>` : '') +
+        `<table class="rd-prodtbl"><thead><tr><th>Produto</th><th class="num">Qtd</th><th class="num">Valor unit.</th><th class="num">Subtotal</th>${adminEdit ? '<th></th>' : ''}</tr></thead><tbody id="rd-prodbody">` +
         (mats || []).map(m => `<tr data-matrow="${esc(m.id)}">
-          <td>${esc(m.descricao || m.codigo || '—')}</td>
+          <td>${esc(m.descricao || m.codigo || '—')}${(temConflito && m.autor) ? `<div class="rd-autor">por ${esc(m.autor)}</div>` : ''}</td>
           <td class="num">${adminEdit ? `<input class="rd-qtd" data-matqtd="${esc(m.id)}" type="number" step="any" min="0" value="${m.quantidade}">` : esc(String(m.quantidade))}</td>
           <td class="num">${edit ? `<input class="rd-preco" data-mat="${esc(m.id)}" type="number" step="0.01" min="0" value="${m.preco}">` : money(m.preco)}</td>
           <td class="num">${money(m.subtotal)}</td>
@@ -271,17 +275,24 @@ window.RatView = (function () {
     const sb = getSupabase()
     const campos = forms[r.formulario_id] || []
     const { data: matsRaw } = await sb.from('materiais')
-      .select('id,produto_id,codigo_produto,descricao,quantidade,preco_unitario').eq('rat_id', r.id).eq('origem', 'usado')
+      .select('id,produto_id,codigo_produto,descricao,quantidade,preco_unitario,created_by').eq('rat_id', r.id).eq('origem', 'usado')
     const pids = [...new Set((matsRaw || []).map(m => m.produto_id).filter(Boolean))]
     const precoCat = {}
     if (pids.length) {
       const { data: ps } = await sb.from('produtos').select('id,preco_venda').in('id', pids)
       ; (ps || []).forEach(p => { precoCat[p.id] = Number(p.preco_venda) || 0 })
     }
+    // Autor de cada linha (conflito de material colaborativo): resolve created_by → nome do técnico.
+    const aids = [...new Set((matsRaw || []).map(m => m.created_by).filter(Boolean))]
+    const nomeAutor = {}
+    if (aids.length) {
+      const { data: us } = await sb.from('usuarios').select('id,nome').in('id', aids)
+      ; (us || []).forEach(u => { nomeAutor[u.id] = u.nome })
+    }
     const mats = (matsRaw || []).map(m => {
       const preco = m.preco_unitario != null ? Number(m.preco_unitario) : (m.produto_id ? (precoCat[m.produto_id] || 0) : 0)
       const qtd = Number(m.quantidade) || 0
-      return { id: m.id, descricao: m.descricao, codigo: m.codigo_produto, quantidade: qtd, preco, subtotal: qtd * preco }
+      return { id: m.id, descricao: m.descricao, codigo: m.codigo_produto, quantidade: qtd, preco, subtotal: qtd * preco, created_by: m.created_by || null, autor: nomeAutor[m.created_by] || null }
     })
     const { data: fotosRaw } = await sb.from('relatorio_fotos').select('id,url,legenda').eq('rat_id', r.id)
     const comUrl = (fotosRaw || []).filter(f => f.url)
