@@ -108,7 +108,7 @@
     const b = document.getElementById('btn-salvar'), bc = document.getElementById('btn-continuar')
     const bv = document.getElementById('btn-voltar-pass')
     const imp = (atendExec === 'Não')
-    if (b) b.textContent = imp ? 'Registrar visita' : 'Encerrar a RAT do dia'
+    if (b) b.textContent = imp ? 'Registrar visita' : 'Encerrar RAT do Dia'
     // "Salvar e continuar": só no fluxo normal, antes de abrir o checkpoint de encerrar.
     if (bc) bc.style.display = (imp || revelarPass) ? 'none' : ''
     // "Voltar": só com o checkpoint aberto (execução) — pra o técnico não ficar preso.
