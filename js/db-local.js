@@ -247,6 +247,7 @@
       quantidade: Number(m.quantidade) || 0, qtd_levada: (m.qtd_levada != null ? Number(m.qtd_levada) : null),
       qtd_orcada: (m.qtd_orcada != null ? Number(m.qtd_orcada) : null),
       qtd_usada_tarefa: (m.qtd_usada_tarefa != null ? Number(m.qtd_usada_tarefa) : null),
+      created_by: _uid || null, device_id: deviceId(),   // autor real da linha (conflito de material colaborativo)
       criado_em: agora(),
     }
     await tx([ST_MATERIAIS], 'readwrite', (t) => { t.objectStore(ST_MATERIAIS).add(reg) })
@@ -285,6 +286,7 @@
           descricao: m.descricao || null, unidade: m.unidade || null,
           quantidade: Number(m.quantidade) || 0,
           qtd_levada: null, qtd_orcada: null, qtd_usada_tarefa: null,
+          created_by: m.created_by || null, device_id: m.device_id || null,   // preserva o autor real
           criado_em: m.criado_em || agora(),
         })
       }

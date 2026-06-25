@@ -106,6 +106,7 @@
         id: m.id, origem: 'usado', rat_id: tarefaId,
         produto_id: m.produto_id || null, codigo_produto: m.codigo_produto || null,
         descricao: m.descricao || null, quantidade: m.quantidade || 0,
+        created_by: m.created_by || null, device_id: m.device_id || null,   // autor real (conflito colaborativo) — NÃO sobrescreve com o uploader
       }))
       const mr = await sb.from('materiais').upsert(mrows, { onConflict: 'id' })
       if (mr.error) throw mr.error
