@@ -280,14 +280,23 @@
     await tx([ST_MATERIAIS], 'readwrite', (t) => {
       const s = t.objectStore(ST_MATERIAIS)
       for (const m of serverMats) {
-        s.put({
-          id: m.id, rat_uuid: client_uuid,
-          produto_id: m.produto_id || null, codigo_produto: m.codigo_produto || null,
-          descricao: m.descricao || null, unidade: m.unidade || null,
-          quantidade: Number(m.quantidade) || 0,
-          qtd_levada: null, qtd_orcada: null, qtd_usada_tarefa: null,
-          created_by: m.created_by || null, device_id: m.device_id || null,   // preserva o autor real
-          criado_em: m.criado_em || agora(),
+        reqP(s.get(m.id)).then((cur) => {
+          s.put({
+            id: m.id, rat_uuid: client_uuid,
+            produto_id: m.produto_id || (cur && cur.produto_id) || null,
+            codigo_produto: m.codigo_produto || (cur && cur.codigo_produto) || null,
+            descricao: m.descricao || (cur && cur.descricao) || null,
+            unidade: m.unidade || (cur && cur.unidade) || null,
+            quantidade: Number(m.quantidade) || 0,
+            // o servidor NÃO carrega o plano da tarefa (orçada/levada) — preserva o que já está local
+            // (senão a RAT reaberta perde "Orçado/Disponibilizado"). precarregarLevados re-preenche se faltar.
+            qtd_levada: (cur && cur.qtd_levada != null) ? cur.qtd_levada : null,
+            qtd_orcada: (cur && cur.qtd_orcada != null) ? cur.qtd_orcada : null,
+            qtd_usada_tarefa: (cur && cur.qtd_usada_tarefa != null) ? cur.qtd_usada_tarefa : null,
+            created_by: m.created_by || (cur && cur.created_by) || null,
+            device_id: m.device_id || (cur && cur.device_id) || null,
+            criado_em: m.criado_em || (cur && cur.criado_em) || agora(),
+          })
         })
       }
     })
@@ -299,7 +308,9 @@
       for (const f of serverFotos) {
         s.put({
           id: f.id, rat_uuid: client_uuid, blob: null, legenda: f.legenda || null,
-          url: f.signedUrl || f.url || null, enviada: 1, criado_em: f.criado_em || agora(),
+          // url = PATH (fonte da verdade p/ re-upload e re-assinar). NUNCA gravar a URL assinada aqui:
+          // ela expira em 1h e o re-envio a persistiria em relatorio_fotos.url → fotos somem. preview = só exibir.
+          url: f.url || null, preview: f.signedUrl || null, enviada: 1, criado_em: f.criado_em || agora(),
         })
       }
     })
