@@ -515,12 +515,14 @@ O **técnico nunca escolhe a modalidade** — ela é **derivada** (do contrato/o
 - **Link opcional** como padrão recorrente: `pre_orcamento_id`, `orcamento_id`, `produto_id` — preenchido = ligado; vazio = origem alternativa/avulso.
 - **"Melhorar escrita" (IA):** botão ✨ ao lado de textareas que reescreve o texto livre em português profissional (edge function `melhorar-texto`, Claude Haiku; chave só no servidor). Helper compartilhado em `js/utils.js`, **desktop-only**: vive nas telas do back-office (Tarefa, RAT em edição) e na descrição do serviço do orçamento (comercial-app). **Decisão (10/06): NÃO fica no app do técnico** — foi testado lá e removido; o texto bruto do campo é melhorado no escritório.
 - **Identidade do usuário vem do Portal:** papel sincronizado de `portal_acessos` (não de `usuarios.role`), foto/avatar de `usuarios.foto` (base64 gravada pelo Portal), cargo em texto livre. **Gestão de usuários saiu do Service Report** (centralizada no Portal).
+- **Isolamento de dados por usuário no aparelho (06/26):** dispositivos de campo são compartilhados. O **IndexedDB é por usuário** — nome `service_report_u_<uid>` (`DBLocal.setUser(uid)` reabre no banco do uid e fecha a conexão anterior). Ao **trocar de login** (inclui a 1ª vez pós-rollout) limpam-se os caches re-obteníveis (`sr_tarefas_v1`/`sr_resp_tarefa_v1`/`sr_tec_screen`) e os **cursores de pull** (`sr_pull_*`) → o novo usuário re-baixa **só os dados dele** (RLS já garante o escopo). **Nunca apaga** trabalho não-sincronizado (o banco do usuário anterior fica intacto on-disk). Resolve a colisão "logada como Pablo aparecendo RAT do Teste". *(O catálogo `sr_ref_v1` e o `device_id` continuam globais — são do aparelho, não do usuário.)*
+- **Sessão do app do técnico (06/26):** **logout automático 1×/dia** (na virada do dia, fuso `America/Sao_Paulo` — `sr_login_dia`, checado na abertura, por timer e ao voltar do 2º plano) e **exigir login ao FECHAR o app** (heartbeat `sr_app_alive` em `sessionStorage`: some ao fechar, sobrevive a reload — `fazerLogin` o marca, o `init` exige login se faltar). **Re-login exige internet (bloqueia offline)** — decisão da gestão pra dispositivos compartilhados; afrouxável p/ "trabalhar offline e logar ao reconectar" se travar campo. Vale **só** no app do técnico (o portal admin segue em `localStorage`, sem logout diário).
 
 ---
 
 ## 13. Estado atual da construção
 
-*Atualizado em 24/06/2026.*
+*Atualizado em 25/06/2026.*
 
 ### Concluído
 
@@ -564,7 +566,14 @@ O **técnico nunca escolhe a modalidade** — ela é **derivada** (do contrato/o
   - **Double-check:** corrigida a superrcontagem do tempo no caso **legado** da `rat-editar` (passou a espelhar a fórmula do §8.1).
   - **Devolução não perde mais os filhos:** ao reabrir uma RAT sincronizada (ex.: tarefa devolvida), o técnico passa a **hidratar material e fotos do servidor** no local (não vêm no pull `SYNC_MAP`) — antes a RAT reabria sem produto/foto. Merge por id (não clobbera trabalho local), fotos com URL assinada; só online e sem trabalho local pendente.
   - **Limpeza pontual:** removida a duplicação de material da RAT 04765 (caso **isolado** — RAT colaborativa, 2 aparelhos lançaram offline; varredura confirmou só 1 ocorrência). Ver pendente "Conflito de material em RAT colaborativa".
-- Service worker na casa da **v482**; produção no Vercel (`servicereport-app.vercel.app`).
+- **Entregas de 25/06:**
+  - **Busca de OS no app do técnico + janela de 14 dias:** a lista padrão de Tarefas janela em 14 dias (mas **nunca esconde** tarefa ativa/pendente nem sem data); a caixa de busca consulta **3 meses online** (SELECT na sessão do técnico → herda a RLS `os_tecnico_sel`: titular + co-responsável, **sem** service role) e, offline, filtra o cache de 14 dias. Casa nº/cliente/orientação/local/tipo. Só leitura, sem objeto novo no banco.
+  - **Orientação ao técnico visível onde ele trabalha:** o card de contexto no topo da RAT (e o card da lista de Tarefas) passam a mostrar a **Orientação** (`tarefas.orientacao`) — antes só no detalhe da Tarefa, deixando o técnico "no escuro" durante a RAT.
+  - **Barra de navegação fixa no rodapé (estilo app)** — abas **Início · Tarefas · RATs · Desloc.** (Jornada pelo Início). O rodapé virou **item de layout (flex)** num shell de altura fixa (`100dvh`/visual viewport), **não `position:fixed`** → corrige de vez o bug do "rodapé subindo pro meio". No **formulário da RAT** a barra some e aparecem as ações da RAT; idem pré-orçamento.
+  - **Rodapé de ações da RAT** colorido na paleta: **Cancelar** (neutro) · **Salvar e continuar** (verde `#179A47`) · **Encerrar a RAT do dia** (vermelho `#E5403A`), full-width.
+  - **Isolamento de dados por usuário no mesmo aparelho** (§12): IndexedDB **por usuário** (`service_report_u_<uid>`) + limpeza de caches/cursores ao trocar de login → corrige a colisão "logada como Pablo vendo RAT do Teste". Não apaga trabalho não-sincronizado.
+  - **Sessão do app do técnico** (§12): **logout automático 1×/dia** (virada do dia, fuso SP) e **exigir login ao fechar o app** (heartbeat em `sessionStorage`; reload mantém, fechar exige login). Re-login exige internet (bloqueia offline — decisão da gestão).
+- Service worker na casa da **v490**; produção no Vercel (`servicereport-app.vercel.app`).
 
 ### Pendente (próximos passos)
 
