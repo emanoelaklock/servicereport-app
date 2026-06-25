@@ -2130,6 +2130,7 @@
     if (!rat) return
     await hidratarFilhosDevolucao(rat)   // devolução/admin: traz material+foto do servidor (não vêm no pull)
     cur = { client_uuid, campos: [], tarefa_id: rat.tarefa_id || null, tarefa_numero: rat.tarefa_numero || null }
+    await precarregarLevados()   // restaura o plano da tarefa (orçada/disponibilizada) que a hidratação não traz
     usoProd = rat.uso_produtos || (rat.respostas && rat.respostas.uso_produtos) || null
     const cb = document.getElementById('f-cliente-busca')
     // tipo é da Tarefa (não da RAT): busca pelo vínculo da tarefa, só para exibir
@@ -2896,7 +2897,8 @@
     if (!box) return
     const fotos = await D().listarFotos(cur.client_uuid)
     box.innerHTML = fotos.map(f => {
-      const src = f.url || URL.createObjectURL(f.blob)
+      // blob local → objectURL; foto hidratada (sem blob) → preview assinado; nunca usa o path cru.
+      const src = f.blob ? URL.createObjectURL(f.blob) : (f.preview || f.url || '')
       return `<div class="thumb-card">
         <div class="thumb"><img src="${src}" alt=""><button type="button" class="thumb-x" data-id="${esc(f.id)}">×</button></div>
         <input type="text" class="thumb-leg" data-legid="${esc(f.id)}" placeholder="Legenda" value="${esc(f.legenda || '')}">
@@ -3085,10 +3087,20 @@
       if (!data || !data.length) return
       const existentes = await D().listarMateriais(cur.client_uuid)
       const chave = (x) => `${x.produto_id || ''}|${x.codigo_produto || ''}|${(x.descricao || '').trim().toLowerCase()}`
-      const have = new Set(existentes.map(chave))
+      const byChave = new Map(existentes.map(e => [chave(e), e]))
       for (const m of data) {
         if (!(Number(m.qtd_levada) > 0) && !(Number(m.qtd_orcada) > 0)) continue   // levados OU orçados da tarefa
-        if (have.has(chave(m))) continue
+        const ex = byChave.get(chave(m))
+        if (ex) {
+          // Já existe (ex.: RAT reaberta/hidratada). Restaura o plano (orçada/levada) se tiver sumido.
+          if (ex.qtd_levada == null && ex.qtd_orcada == null) {
+            await D().atualizarMaterial(ex.id, {
+              qtd_levada: m.qtd_levada, qtd_orcada: m.qtd_orcada,
+              qtd_usada_tarefa: m.qtd_utilizada, unidade: ex.unidade || m.unidade,
+            })
+          }
+          continue
+        }
         await D().adicionarMaterial(cur.client_uuid, {
           produto_id: m.produto_id, codigo_produto: m.codigo_produto, descricao: m.descricao,
           unidade: m.unidade, quantidade: 0, qtd_levada: m.qtd_levada,
@@ -3707,7 +3719,8 @@
     if (!box || !curPo) return
     const fotos = await D().listarFotos(curPo.client_uuid)
     box.innerHTML = fotos.map(f => {
-      const src = f.url || URL.createObjectURL(f.blob)
+      // blob local → objectURL; foto hidratada (sem blob) → preview assinado; nunca usa o path cru.
+      const src = f.blob ? URL.createObjectURL(f.blob) : (f.preview || f.url || '')
       return `<div class="thumb-card">
         <div class="thumb"><img src="${src}" alt=""><button type="button" class="thumb-x" data-id="${esc(f.id)}">×</button></div>
         <input type="text" class="thumb-leg" data-legid="${esc(f.id)}" placeholder="Legenda" value="${esc(f.legenda || '')}">
