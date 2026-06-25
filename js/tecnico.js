@@ -187,27 +187,28 @@
   //  (1) app FECHADO desde o último uso → exige login (heartbeat sr_app_alive some ao fechar; sobrevive a reload);
   //  (2) logout automático 1x/dia → na virada do dia (fuso de SP) exige login.
   // Retorna false (e dispara logout) quando a sessão não pode continuar.
+  // FLAG: logout automático (diário + ao fechar) TEMPORARIAMENTE DESATIVADO.
+  // Estava causando tela branca/loop no campo (forcarLogout → login.html acha a sessão em cache
+  // → volta pra cá → forcarLogout… ; offline o signOut nem completa). Reintroduzir com cuidado e
+  // teste, tratando o caminho offline/loop. Por ora: o app NÃO força logout sozinho (volta ao
+  // comportamento estável anterior); o logout manual continua disponível.
+  const LOGOUT_AUTO_ATIVO = false
   function verificarSessaoDia() {
     if (!tecnico.id) return true   // sem sessão: o fluxo normal mostra o login
-    // OFFLINE: não aplica logout (re-login exige rede; deslogar offline prende o técnico/tela branca).
-    // Mantém a sessão viva; a política é reavaliada quando voltar a internet.
-    if (!navigator.onLine) {
-      try { sessionStorage.setItem('sr_app_alive', '1') } catch (e) { /* nada */ }
-      try { if (!localStorage.getItem('sr_login_dia')) localStorage.setItem('sr_login_dia', hojeBR()) } catch (e) { /* nada */ }
-      return true
-    }
-    let vivo = null; try { vivo = sessionStorage.getItem('sr_app_alive') } catch (e) { /* nada */ }
-    if (!vivo) { forcarLogout(); return false }                 // (1) foi fechado
-    const hoje = hojeBR()
-    let dia = null; try { dia = localStorage.getItem('sr_login_dia') } catch (e) { /* nada */ }
-    if (!dia) { try { localStorage.setItem('sr_login_dia', hoje) } catch (e) { /* nada */ } }
-    else if (dia !== hoje) { forcarLogout(); return false }      // (2) virou o dia
+    // Mantém a contabilidade (heartbeat/dia) pra quando o recurso for reativado — mas NÃO desloga.
     try { sessionStorage.setItem('sr_app_alive', '1') } catch (e) { /* nada */ }
+    try { if (!localStorage.getItem('sr_login_dia')) localStorage.setItem('sr_login_dia', hojeBR()) } catch (e) { /* nada */ }
+    if (!LOGOUT_AUTO_ATIVO) return true
+    // (enforcement desativado — ver LOGOUT_AUTO_ATIVO)
+    if (!navigator.onLine) return true
+    const hoje = hojeBR()
+    const dia = (() => { try { return localStorage.getItem('sr_login_dia') } catch (e) { return null } })()
+    if (dia && dia !== hoje) { forcarLogout(); return false }
     return true
   }
-  // Vira o dia com o app ABERTO → desloga. Chamado por timer e ao voltar do 2º plano.
+  // Vira o dia com o app ABERTO → desloga. (Desativado por LOGOUT_AUTO_ATIVO.)
   function checarVirouDia() {
-    if (!tecnico.id || !navigator.onLine) return   // offline: nunca desloga (evita loop/tela branca)
+    if (!LOGOUT_AUTO_ATIVO || !tecnico.id || !navigator.onLine) return
     let dia = null; try { dia = localStorage.getItem('sr_login_dia') } catch (e) { /* nada */ }
     if (dia && dia !== hojeBR()) forcarLogout()
   }
