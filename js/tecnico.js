@@ -341,6 +341,8 @@
     document.getElementById('nav-tarefas').onclick = async () => { mostrar('tarefas'); await renderTarefas() }
     document.getElementById('btn-tarefas-sync').onclick = async () => { await renderTarefas(true) }
     const tbq = document.getElementById('tarefas-busca'); if (tbq) tbq.oninput = () => agendarBuscaTarefas(tbq.value)
+    document.querySelectorAll('#tabbar .tab').forEach(b => b.onclick = () => irParaTab(b.dataset.tab))
+    wireShell()
     document.getElementById('btn-nova-tarefa').onclick = () => abrirModalNovaTarefa(false)
     const hnt = document.getElementById('home-nova-tarefa'); if (hnt) hnt.onclick = () => abrirModalNovaTarefa(true)
     document.getElementById('nt-fechar').onclick = () => document.getElementById('modal-nt').classList.remove('open')
@@ -1087,26 +1089,40 @@
       // voltou pra home = momento natural de ociosidade → deixa o auto-update tentar trocar a versão
       if (typeof window.srTentarUpdate === 'function') { try { window.srTentarUpdate() } catch (e) { /* nada */ } }
     }
-    if (secao === 'form') { wireFootViewport(); requestAnimationFrame(pinFootViewport) }
-    else pinFootViewport()   // ao sair do form, devolve o rodapé ao fundo
+    // Rodapé: barra de abas nas telas principais; no formulário da RAT some e aparecem as ações
+    // da RAT (Salvar/Encerrar). Esconde a barra também no pré-orçamento (tem ações próprias).
+    const tb = document.getElementById('tabbar'), ff = document.getElementById('form-foot')
+    const focoForm = (secao === 'form')
+    if (ff) ff.style.display = focoForm ? '' : 'none'
+    if (tb) {
+      tb.style.display = (focoForm || secao === 'preorc-form') ? 'none' : 'flex'
+      const ativa = TAB_DE[secao] || TAB_DE[SCREEN_PARENT[secao]] || ''
+      tb.querySelectorAll('.tab').forEach(b => b.classList.toggle('on', b.dataset.tab === ativa))
+    }
+    requestAnimationFrame(fitShell)
   }
 
-  // Rodapé da RAT colado ao fundo VISÍVEL. Bug clássico: com o teclado aberto, o position:fixed se
-  // descola da viewport e "sobe pro meio" (iOS/Android). A Visual Viewport API dá a altura realmente
-  // visível → erguemos o rodapé pra logo acima do teclado; sem teclado volta a bottom:0. O limiar de
-  // 120px evita falso-positivo da barra de URL (que é baixa; teclado é alto).
-  function pinFootViewport() {
-    const vv = window.visualViewport; const f = document.querySelector('#view-form .foot'); if (!f) return
-    if (!vv) { f.style.bottom = '0px'; return }
-    const gap = Math.round(window.innerHeight - vv.height - vv.offsetTop)
-    f.style.bottom = (gap > 120 ? gap : 0) + 'px'
+  // Altura do shell pela viewport REALMENTE visível (Visual Viewport): teclado/toolbar encolhem e,
+  // como o rodapé é item de layout (flex), ele acompanha o fundo visível — sem position:fixed (que
+  // "subia pro meio"). O conteúdo rola dentro do .field-body.
+  function fitShell() {
+    const w = document.querySelector('.field-wrap'); if (!w) return
+    const h = (window.visualViewport && window.visualViewport.height) ? window.visualViewport.height : window.innerHeight
+    w.style.height = Math.round(h) + 'px'
   }
-  let _vvWired = false
-  function wireFootViewport() {
-    if (_vvWired || !window.visualViewport) return
-    _vvWired = true
-    window.visualViewport.addEventListener('resize', pinFootViewport)
-    window.visualViewport.addEventListener('scroll', pinFootViewport)
+  let _shellWired = false
+  function wireShell() {
+    if (_shellWired) return; _shellWired = true
+    if (window.visualViewport) { window.visualViewport.addEventListener('resize', fitShell); window.visualViewport.addEventListener('scroll', fitShell) }
+    window.addEventListener('orientationchange', () => setTimeout(fitShell, 120))
+    fitShell()
+  }
+  const TAB_DE = { home: 'home', tarefas: 'tarefas', lista: 'lista', desloc: 'desloc', 'tarefa-det': 'tarefas' }
+  async function irParaTab(tab) {
+    if (screen === tab) { const fb = document.querySelector('.field-body'); if (fb) fb.scrollTo({ top: 0, behavior: 'smooth' }); return }
+    mostrar(tab)   // 'home' já renderiza dentro do mostrar
+    const R = { tarefas: renderTarefas, lista: renderLista, desloc: renderDesloc }
+    if (R[tab]) { try { await R[tab]() } catch (e) { /* offline: mostra cache */ } }
   }
   // Resumo do herói da home (apresentação) — lê dados já em memória/IndexedDB, sem novas chamadas Supabase.
   async function updateHomeResumo() {
