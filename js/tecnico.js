@@ -431,6 +431,12 @@
     document.getElementById('view-preorc-form').addEventListener('input', atualizarTempoPo)
     document.getElementById('view-preorc-form').addEventListener('input', atualizarEstimativaPo)
     document.getElementById('po-prod-add-btn').onclick = poAddItem
+    // Produtos: item avulso (fora de catálogo), como na RAT.
+    document.getElementById('po-prod-avulso-btn').onclick = () => { const f = document.getElementById('po-prod-avulso-form'); f.style.display = (f.style.display === 'none' || !f.style.display) ? '' : 'none' }
+    document.getElementById('po-pav-cancelar').onclick = () => { document.getElementById('po-prod-avulso-form').style.display = 'none' }
+    document.getElementById('po-pav-add').onclick = poAddAvulso
+    // Deslocamento: segmentado Sim/Não (como a RAT) gravando no hidden po-desloc.
+    document.querySelectorAll('#po-desloc-seg button').forEach(b => { b.onclick = () => poSetDesloc(b.dataset.v) })
     const pf = document.getElementById('po-foto-input')
     document.getElementById('po-btn-foto').onclick = () => pf.click()
     pf.onchange = () => poAddFotos(pf.files)
@@ -3682,7 +3688,7 @@
       'po-est-tec', 'po-est-qtd', 'po-observacoes'].forEach(id => set(id, ''))
     set('po-est-un', 'dias')
     set('po-tempo', '—')
-    onDeslocPoChange()
+    poSetDesloc('')
     atualizarEstimativaPo()
   }
 
@@ -3715,7 +3721,7 @@
     const est = r.estimativa || {}
     set('po-est-tec', est.tecnicos); set('po-est-qtd', est.qtd); if (est.unidade) set('po-est-un', est.unidade)
     set('po-observacoes', r.observacoes)
-    onDeslocPoChange(); atualizarEstimativaPo()
+    poSetDesloc(r.deslocamento || ''); atualizarEstimativaPo()
     poBindAutocomplete()
     await poRefreshThumbs()
     await poRefreshItens()
@@ -3728,6 +3734,27 @@
     document.getElementById('po-bloco-sem').style.display = d === 'Não' ? 'block' : 'none'
     document.getElementById('po-bloco-com').style.display = d === 'Sim' ? 'block' : 'none'
     atualizarTempoPo(); atualizarCardsPo()
+  }
+  // Deslocamento segmentado (Sim/Não) → grava no hidden po-desloc + marca o botão ativo.
+  function poSetDesloc(v) {
+    const h = document.getElementById('po-desloc'); if (h) h.value = v || ''
+    document.querySelectorAll('#po-desloc-seg button').forEach(b => b.classList.toggle('on', b.dataset.v === v))
+    onDeslocPoChange()
+  }
+  // Item avulso (fora de catálogo) no pré-orçamento — mesmo conceito da RAT.
+  async function poAddAvulso() {
+    if (!curPo) return
+    const nome = document.getElementById('po-pav-nome').value.trim()
+    const un = document.getElementById('po-pav-un').value.trim() || null
+    const qtd = Number(document.getElementById('po-pav-qtd').value)
+    if (!nome) return toast('Informe o nome do item.', 'err')
+    if (!qtd || qtd <= 0) return toast('Informe a quantidade.', 'err')
+    await D().adicionarItemPreorc(curPo.client_uuid, { produto_id: null, codigo_produto: null, descricao: nome, unidade: un, quantidade: qtd })
+    document.getElementById('po-pav-nome').value = ''
+    document.getElementById('po-pav-un').value = ''
+    document.getElementById('po-pav-qtd').value = ''
+    document.getElementById('po-prod-avulso-form').style.display = 'none'
+    await poRefreshItens()
   }
   function calcTempoPo() {
     const v = (id) => { const e = document.getElementById(id); return e ? e.value : '' }
