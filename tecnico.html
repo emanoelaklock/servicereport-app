@@ -1047,15 +1047,25 @@ try{if(localStorage.getItem('sr_dark')==='1')document.documentElement.classList.
 
       <div class="tm-back tskin" id="modal-po-pausa"><div class="tm-box po-modal">
         <div class="po-mh"><span>Pausa / Almoço</span><button type="button" class="po-mx" data-poclose="modal-po-pausa">×</button></div>
-        <div class="fg campo" style="margin-bottom:14px">
-          <label>Almoço — início / término</label>
-          <div id="po-tmr-almoco" class="atd-timer" style="margin-top:6px"></div>
-          <div style="display:flex;gap:8px"><input type="time" id="po-almoco-ini" style="flex:1" title="Início do almoço"><input type="time" id="po-almoco-fim" style="flex:1" title="Término do almoço"></div>
+        <div class="fg campo">
+          <label>Teve pausa / almoço?</label>
+          <div class="segq" id="po-pausa-seg">
+            <button type="button" data-v="Sim">Sim</button>
+            <button type="button" data-v="Não">Não</button>
+          </div>
+          <input type="hidden" id="po-teve-pausa">
         </div>
-        <div class="fg campo" style="margin-bottom:0">
-          <label>Pausa — início / término</label>
-          <div id="po-tmr-pausa" class="atd-timer" style="margin-top:6px"></div>
-          <div style="display:flex;gap:8px"><input type="time" id="po-pausa-ini" style="flex:1" title="Início da pausa"><input type="time" id="po-pausa-fim" style="flex:1" title="Término da pausa"></div>
+        <div id="po-bloco-pausa" style="display:none">
+          <div class="fg campo" style="margin-bottom:14px">
+            <label>Almoço — início / término</label>
+            <div id="po-tmr-almoco" class="atd-timer" style="margin-top:6px"></div>
+            <div style="display:flex;gap:8px"><input type="time" id="po-almoco-ini" style="flex:1" title="Início do almoço"><input type="time" id="po-almoco-fim" style="flex:1" title="Término do almoço"></div>
+          </div>
+          <div class="fg campo" style="margin-bottom:0">
+            <label>Pausa — início / término</label>
+            <div id="po-tmr-pausa" class="atd-timer" style="margin-top:6px"></div>
+            <div style="display:flex;gap:8px"><input type="time" id="po-pausa-ini" style="flex:1" title="Início da pausa"><input type="time" id="po-pausa-fim" style="flex:1" title="Término da pausa"></div>
+          </div>
         </div>
         <div class="po-mfoot"><button type="button" class="btn btn-primary" data-poclose="modal-po-pausa">Pronto</button></div>
       </div></div>
