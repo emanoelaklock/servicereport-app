@@ -441,9 +441,9 @@
     document.getElementById('po-pav-add').onclick = poAddAvulso
     // Deslocamento: segmentado Sim/Não (como a RAT) gravando no hidden po-desloc.
     document.querySelectorAll('#po-desloc-seg button').forEach(b => { b.onclick = () => poSetDesloc(b.dataset.v) })
-    // Botões "agora": carimbam a hora atual no campo (visita/ida/retorno/almoço/pausa).
-    const hhmmNow = () => { const d = new Date(); return String(d.getHours()).padStart(2, '0') + ':' + String(d.getMinutes()).padStart(2, '0') }
-    document.querySelectorAll('.po-now').forEach(b => { b.onclick = () => { const el = document.getElementById(b.dataset.now); if (el) el.value = hhmmNow(); atualizarTempoPo(); atualizarCardsPo() } })
+    // Timers Iniciar/Encerrar (igual à RAT) p/ visita, deslocamento, almoço e pausa.
+    document.getElementById('view-preorc-form').addEventListener('input', poTimersRender)
+    poTimersRender()
     const pf = document.getElementById('po-foto-input')
     document.getElementById('po-btn-foto').onclick = () => pf.click()
     pf.onchange = () => poAddFotos(pf.files)
@@ -3765,7 +3765,48 @@
     const d = document.getElementById('po-desloc').value
     // "Sim" mostra ida/retorno; "Não" não abre nada (a visita tem início/término próprios).
     document.getElementById('po-bloco-com').style.display = d === 'Sim' ? 'block' : 'none'
-    atualizarTempoPo(); atualizarCardsPo()
+    atualizarTempoPo(); atualizarCardsPo(); poTimersRender()
+  }
+  // Timers Iniciar/Encerrar/Reabrir (igual à RAT) para os pares de horário do pré-orçamento.
+  let poTimersTick = null
+  function poTimersRender() {
+    const hhmm = () => { const d = new Date(); return String(d.getHours()).padStart(2, '0') + ':' + String(d.getMinutes()).padStart(2, '0') }
+    const decorrido = (ini) => {
+      const [h, m] = String(ini).split(':').map(Number); if (isNaN(h) || isNaN(m)) return ''
+      const d = new Date(); let t = (d.getHours() * 60 + d.getMinutes()) - (h * 60 + m); if (t < 0) t += 1440
+      return `${Math.floor(t / 60)}h ${String(t % 60).padStart(2, '0')}min`
+    }
+    const P = '<svg viewBox="0 0 24 24"><path d="M7 4.5v15l12-7.5-12-7.5Z"/></svg>'
+    const S = '<svg viewBox="0 0 24 24"><rect x="6" y="6" width="12" height="12" rx="1.5"/></svg>'
+    const U = '<svg viewBox="0 0 24 24"><path d="M3 7v6h6"/><path d="M21 17a9 9 0 0 0-15-6.6L3 13"/></svg>'
+    const defs = [
+      { host: 'po-tmr-visita', ini: 'po-visita-ini', fim: 'po-visita-fim', iniciar: 'Iniciar o pré-orçamento', curto: 'Pré-orçamento', tempo: true },
+      { host: 'po-tmr-desloc', ini: 'po-ida', fim: 'po-retorno', iniciar: 'Iniciar deslocamento', curto: 'Deslocamento' },
+      { host: 'po-tmr-almoco', ini: 'po-almoco-ini', fim: 'po-almoco-fim', iniciar: 'Iniciar almoço', curto: 'Almoço' },
+      { host: 'po-tmr-pausa', ini: 'po-pausa-ini', fim: 'po-pausa-fim', iniciar: 'Iniciar pausa', curto: 'Pausa' },
+    ]
+    const stamp = (el, val) => { if (el) { el.value = val; el.dispatchEvent(new Event('input', { bubbles: true })) } }
+    for (const d of defs) {
+      const bar = document.getElementById(d.host); if (!bar) continue
+      const eIni = document.getElementById(d.ini), eFim = document.getElementById(d.fim)
+      const vi = eIni ? eIni.value : '', vf = eFim ? eFim.value : ''
+      if (!vi) {
+        bar.className = 'atd-timer'
+        bar.innerHTML = `<div class="tt">${esc(d.curto)} ainda não iniciado</div><button type="button" class="go">${P}${esc(d.iniciar)}</button>`
+        bar.querySelector('.go').onclick = () => stamp(eIni, hhmm())
+      } else if (!vf) {
+        bar.className = 'atd-timer run'
+        bar.innerHTML = `<div class="tt">${esc(d.curto)} desde <b>${esc(vi)}</b> · <span class="el">${esc(decorrido(vi))}</span></div><button type="button" class="redo" title="Desfazer início">${U}</button><button type="button" class="stop">${S}Encerrar</button>`
+        bar.querySelector('.stop').onclick = () => stamp(eFim, hhmm())
+        bar.querySelector('.redo').onclick = () => stamp(eIni, '')
+      } else {
+        bar.className = 'atd-timer'
+        const extra = d.tempo ? ` · <span class="el">${esc(fmtMin(calcTempoPo()))}</span>` : ''
+        bar.innerHTML = `<div class="tt">${esc(d.curto)} <b>${esc(vi)}</b> – <b>${esc(vf)}</b>${extra}</div><button type="button" class="redo" title="Reabrir para refazer o término">${U}Reabrir</button>`
+        bar.querySelector('.redo').onclick = () => stamp(eFim, '')
+      }
+    }
+    if (!poTimersTick) poTimersTick = setInterval(() => { if (!document.querySelector('#view-preorc-form .atd-timer.run')) return; poTimersRender() }, 30000)
   }
   // Deslocamento segmentado (Sim/Não) → grava no hidden po-desloc + marca o botão ativo.
   function poSetDesloc(v) {
