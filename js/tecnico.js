@@ -442,6 +442,8 @@
     // Deslocamento: segmentado Sim/Não (como a RAT) gravando no hidden po-desloc.
     document.querySelectorAll('#po-desloc-seg button').forEach(b => { b.onclick = () => poSetDesloc(b.dataset.v) })
     document.querySelectorAll('#po-pausa-seg button').forEach(b => { b.onclick = () => poSetTevePausa(b.dataset.v) })
+    // Edição manual de horários nos modais (fora do #view-preorc-form) recalcula tempo + barras.
+    ;['modal-po-desloc', 'modal-po-pausa'].forEach(id => { const m = document.getElementById(id); if (m) m.addEventListener('input', () => { atualizarTempoPo(); atualizarCardsPo(); poTimersRender() }) })
     // Timers Iniciar/Encerrar (igual à RAT) p/ visita, deslocamento, almoço e pausa.
     document.getElementById('view-preorc-form').addEventListener('input', poTimersRender)
     poTimersRender()
@@ -3788,7 +3790,9 @@
       { host: 'po-tmr-almoco', ini: 'po-almoco-ini', fim: 'po-almoco-fim', iniciar: 'Iniciar almoço', curto: 'Almoço' },
       { host: 'po-tmr-pausa', ini: 'po-pausa-ini', fim: 'po-pausa-fim', iniciar: 'Iniciar pausa', curto: 'Pausa' },
     ]
-    const stamp = (el, val) => { if (el) { el.value = val; el.dispatchEvent(new Event('input', { bubbles: true })) } }
+    // Atualiza direto: os modais (deslocamento/pausa) ficam FORA do #view-preorc-form,
+    // então o evento 'input' não borbulha até o listener do form. Sem isso, a barra não troca pra "Encerrar".
+    const stamp = (el, val) => { if (el) { el.value = val; atualizarTempoPo(); atualizarCardsPo(); poTimersRender() } }
     for (const d of defs) {
       const bar = document.getElementById(d.host); if (!bar) continue
       const eIni = document.getElementById(d.ini), eFim = document.getElementById(d.fim)
