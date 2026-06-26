@@ -965,10 +965,10 @@ try{if(localStorage.getItem('sr_dark')==='1')document.documentElement.classList.
         <div class="fcard fc-green">
           <div class="h"><span class="hi"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg></span>Tempo</div>
           <div class="calc">
-            <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>
-            <div><div class="k">Tempo da visita (calculado)</div><input class="v" id="po-tempo" readonly value="—" style="border:none;background:none;padding:0;font:inherit;width:auto;color:var(--tx)"></div>
+            <svg viewBox="0 0 24 24"><path d="M3 3v18h18"/><path d="M7 14l3-3 3 3 4-5"/></svg>
+            <div><div class="k">Estimativa de execução</div><div class="v" id="po-est-destaque">—</div></div>
           </div>
-          <div class="po-tempo-est" id="po-tempo-est" style="display:none"></div>
+          <div class="po-tempo-est">Tempo da visita (calculado): <input id="po-tempo" readonly value="—" style="border:none;background:none;padding:0;font:inherit;width:auto;color:var(--tx2)"></div>
         </div>
 
         <div class="foot">
@@ -978,7 +978,7 @@ try{if(localStorage.getItem('sr_dark')==='1')document.documentElement.classList.
       </div>
 
       <!-- Modais do PRÉ-ORÇAMENTO (próprios; reusam o visual, não tocam nos da RAT) -->
-      <div class="tm-back" id="modal-po-prod"><div class="tm-box po-modal">
+      <div class="tm-back tskin" id="modal-po-prod"><div class="tm-box po-modal">
         <div class="po-mh"><span>Produtos necessários</span><button type="button" class="po-mx" data-poclose="modal-po-prod">×</button></div>
         <div class="prod-box">
           <div class="prod-add">
@@ -995,17 +995,17 @@ try{if(localStorage.getItem('sr_dark')==='1')document.documentElement.classList.
         <div class="po-mfoot"><button type="button" class="btn btn-primary" data-poclose="modal-po-prod">Pronto</button></div>
       </div></div>
 
-      <div class="tm-back" id="modal-po-fotos"><div class="tm-box po-modal">
+      <div class="tm-back tskin" id="modal-po-fotos"><div class="tm-box po-modal">
         <div class="po-mh"><span>Fotos</span><button type="button" class="po-mx" data-poclose="modal-po-fotos">×</button></div>
         <div class="foto-box">
-          <input type="file" accept="image/*" capture="environment" multiple id="po-foto-input" style="display:none">
+          <input type="file" accept="image/*" multiple id="po-foto-input" style="display:none">
           <div class="photo" id="po-btn-foto"><svg viewBox="0 0 24 24"><path d="M3 7h4l2-2h6l2 2h4v12H3z"/><circle cx="12" cy="13" r="3.2"/></svg>Adicionar foto</div>
           <div class="thumbs" id="po-thumbs" style="margin-top:10px"></div>
         </div>
         <div class="po-mfoot"><button type="button" class="btn btn-primary" data-poclose="modal-po-fotos">Pronto</button></div>
       </div></div>
 
-      <div class="tm-back" id="modal-po-desloc"><div class="tm-box po-modal">
+      <div class="tm-back tskin" id="modal-po-desloc"><div class="tm-box po-modal">
         <div class="po-mh"><span>Deslocamento</span><button type="button" class="po-mx" data-poclose="modal-po-desloc">×</button></div>
         <div class="fg campo">
           <label>Houve deslocamento?</label>
@@ -1026,7 +1026,7 @@ try{if(localStorage.getItem('sr_dark')==='1')document.documentElement.classList.
         <div class="po-mfoot"><button type="button" class="btn btn-primary" data-poclose="modal-po-desloc">Pronto</button></div>
       </div></div>
 
-      <div class="tm-back" id="modal-po-pausa"><div class="tm-box po-modal">
+      <div class="tm-back tskin" id="modal-po-pausa"><div class="tm-box po-modal">
         <div class="po-mh"><span>Pausa / Almoço</span><button type="button" class="po-mx" data-poclose="modal-po-pausa">×</button></div>
         <div class="prod-add" style="grid-template-columns:1fr 1fr">
           <div class="fg campo" style="margin-bottom:0"><label>Almoço (min)</label><input type="number" id="po-almoco" inputmode="numeric" min="0" placeholder="0"></div>

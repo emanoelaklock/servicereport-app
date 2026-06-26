@@ -3771,13 +3771,13 @@
     const qtd = Number((document.getElementById('po-est-qtd') || {}).value) || 0
     const un = (document.getElementById('po-est-un') || {}).value || 'dias'
     const resumoEl = document.getElementById('po-est-resumo')
-    const tempoEstEl = document.getElementById('po-tempo-est')
+    const destaqueEl = document.getElementById('po-est-destaque')   // caixa verde do card Tempo
     const mostra = tec > 0 && qtd > 0
     const txt = mostra
       ? `${tec} ${tec > 1 ? 'técnicos' : 'técnico'} × ${qtd} ${un === 'horas' ? (qtd > 1 ? 'horas' : 'hora') : (qtd > 1 ? 'dias' : 'dia')}`
       : ''
     if (resumoEl) { resumoEl.textContent = txt; resumoEl.style.display = mostra ? '' : 'none' }
-    if (tempoEstEl) { tempoEstEl.textContent = mostra ? ('Estimativa de execução: ' + txt) : ''; tempoEstEl.style.display = mostra ? '' : 'none' }
+    if (destaqueEl) destaqueEl.textContent = mostra ? txt : '—'
   }
 
   async function poAddFotos(fileList) {
