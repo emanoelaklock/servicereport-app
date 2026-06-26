@@ -80,6 +80,7 @@ type DocData = {
   // pré-orçamento: levantamento de campo (o PDF deve mostrar tudo que o técnico levantou)
   estimativa?: string | null
   tempoVisita?: string | null
+  visita?: string | null
   deslocamento?: string | null
   fotos?: { bytes: Uint8Array; isPng: boolean }[]
 }
@@ -203,10 +204,11 @@ async function buildPdf(d: DocData): Promise<Uint8Array> {
   }
 
   // ── 5b · Levantamento (só pré-orçamento): estimativa, tempo da visita, deslocamento ──
-  if (!withPrice && (d.estimativa || d.tempoVisita || d.deslocamento)) {
+  if (!withPrice && (d.estimativa || d.tempoVisita || d.visita || d.deslocamento)) {
     sh("Levantamento")
     const info: Array<[string, string]> = []
     if (d.estimativa) info.push(["Estimativa de execução", d.estimativa])
+    if (d.visita) info.push(["Visita", d.visita])
     if (d.tempoVisita) info.push(["Tempo da visita", d.tempoVisita])
     if (d.deslocamento) info.push(["Deslocamento", d.deslocamento])
     for (const [k, v] of info) {
@@ -355,7 +357,9 @@ Deno.serve(async (req: Request) => {
         : null
       const deslocTxt = r.deslocamento === "Sim"
         ? `Sim · ida ${r.ida || "—"}, retorno ${r.retorno || "—"}`
-        : r.deslocamento === "Não" ? `Não · visita ${r.hora_inicio || "—"}–${r.hora_termino || "—"}` : null
+        : r.deslocamento === "Não" ? "Não" : null
+      const visitaTxt = (r.visita_inicio || r.visita_termino)
+        ? `${r.visita_inicio || "—"}–${r.visita_termino || "—"}` : null
       // Fotos: baixa do Storage (rat-anexos, privado) via service role. Falha de uma foto é ignorada.
       const fotos: { bytes: Uint8Array; isPng: boolean }[] = []
       const { data: fotosRows } = await admin.from("relatorio_fotos").select("url,criado_em").eq("pre_orcamento_id", id).order("criado_em")
@@ -376,7 +380,7 @@ Deno.serve(async (req: Request) => {
           descricao: m.descricao || (m as { codigo_produto?: string }).codigo_produto || "—",
           unidade: m.unidade, quantidade: Number(m.quantidade) || 0, preco_unitario: 0,
         })),
-        estimativa: estTxt, tempoVisita: fmtMinPdf(po.tempo_trabalhado), deslocamento: deslocTxt,
+        estimativa: estTxt, tempoVisita: fmtMinPdf(po.tempo_trabalhado), visita: visitaTxt, deslocamento: deslocTxt,
         observacoes: (r.observacoes as string) || null,
         fotos,
       }

@@ -441,6 +441,9 @@
     document.getElementById('po-pav-add').onclick = poAddAvulso
     // Deslocamento: segmentado Sim/Não (como a RAT) gravando no hidden po-desloc.
     document.querySelectorAll('#po-desloc-seg button').forEach(b => { b.onclick = () => poSetDesloc(b.dataset.v) })
+    // Botões "agora": carimbam a hora atual no campo (visita/ida/retorno/almoço/pausa).
+    const hhmmNow = () => { const d = new Date(); return String(d.getHours()).padStart(2, '0') + ':' + String(d.getMinutes()).padStart(2, '0') }
+    document.querySelectorAll('.po-now').forEach(b => { b.onclick = () => { const el = document.getElementById(b.dataset.now); if (el) el.value = hhmmNow(); atualizarTempoPo(); atualizarCardsPo() } })
     const pf = document.getElementById('po-foto-input')
     document.getElementById('po-btn-foto').onclick = () => pf.click()
     pf.onchange = () => poAddFotos(pf.files)
@@ -3710,7 +3713,7 @@
   function poLimparForm() {
     const set = (id, v) => { const e = document.getElementById(id); if (e) e.value = v }
     ;['po-cliente', 'po-cliente-busca', 'po-descricao', 'po-prod-sel', 'po-prod-busca', 'po-prod-qtd',
-      'po-desloc', 'po-hora-inicio', 'po-hora-termino', 'po-ida', 'po-retorno',
+      'po-desloc', 'po-visita-ini', 'po-visita-fim', 'po-ida', 'po-retorno',
       'po-almoco-ini', 'po-almoco-fim', 'po-pausa-ini', 'po-pausa-fim',
       'po-est-tec', 'po-est-qtd', 'po-observacoes'].forEach(id => set(id, ''))
     set('po-est-un', 'dias')
@@ -3743,7 +3746,7 @@
     document.getElementById('po-descricao').value = po.descricao || ''
     const r = po.respostas || {}
     const set = (id, v) => { const e = document.getElementById(id); if (e && v != null) e.value = v }
-    set('po-desloc', r.deslocamento); set('po-hora-inicio', r.hora_inicio); set('po-hora-termino', r.hora_termino)
+    set('po-desloc', r.deslocamento); set('po-visita-ini', r.visita_inicio); set('po-visita-fim', r.visita_termino)
     set('po-ida', r.ida); set('po-retorno', r.retorno)
     set('po-almoco-ini', r.almoco_inicio); set('po-almoco-fim', r.almoco_termino)
     set('po-pausa-ini', r.pausa_inicio); set('po-pausa-fim', r.pausa_termino)
@@ -3760,7 +3763,7 @@
 
   function onDeslocPoChange() {
     const d = document.getElementById('po-desloc').value
-    document.getElementById('po-bloco-sem').style.display = d === 'Não' ? 'block' : 'none'
+    // "Sim" mostra ida/retorno; "Não" não abre nada (a visita tem início/término próprios).
     document.getElementById('po-bloco-com').style.display = d === 'Sim' ? 'block' : 'none'
     atualizarTempoPo(); atualizarCardsPo()
   }
@@ -3793,11 +3796,8 @@
   }
   function calcTempoPo() {
     const v = (id) => { const e = document.getElementById(id); return e ? e.value : '' }
-    const d = v('po-desloc'); let ini, fim
-    if (d === 'Sim') { ini = v('po-ida'); fim = v('po-retorno') }
-    else if (d === 'Não') { ini = v('po-hora-inicio'); fim = v('po-hora-termino') }
-    else return null
-    const a = minutosDe(ini), b = minutosDe(fim)
+    // Tempo da visita = término - início (sempre), menos almoço e pausa. Deslocamento (ida/retorno) é à parte.
+    const a = minutosDe(v('po-visita-ini')), b = minutosDe(v('po-visita-fim'))
     if (a == null || b == null) return null
     const t = b - a - poDur('po-almoco-ini', 'po-almoco-fim') - poDur('po-pausa-ini', 'po-pausa-fim')
     return t < 0 ? 0 : t
@@ -3917,7 +3917,7 @@
       descricao: desc,
       respostas: {
         deslocamento: v('po-desloc') || null,
-        hora_inicio: v('po-hora-inicio') || null, hora_termino: v('po-hora-termino') || null,
+        visita_inicio: v('po-visita-ini') || null, visita_termino: v('po-visita-fim') || null,
         ida: v('po-ida') || null, retorno: v('po-retorno') || null,
         almoco_inicio: v('po-almoco-ini') || null, almoco_termino: v('po-almoco-fim') || null,
         pausa_inicio: v('po-pausa-ini') || null, pausa_termino: v('po-pausa-fim') || null,
