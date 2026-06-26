@@ -129,10 +129,14 @@
     function render(q) {
       const nq = normStr(q)
       if (!nq) { list.classList.remove('open'); list.innerHTML = ''; return }
+      // Busca por tokens: todas as palavras precisam aparecer, em QUALQUER ordem
+      // (ex.: "rede cabo" acha "CABO DE REDE..."). Acentos/caixa normalizados via normStr.
+      const toks = nq.split(/\s+/).filter(Boolean)
       const matches = []
       for (const it of items) {
         const f = fmt(it)
-        if (normStr(f.label).includes(nq)) { matches.push(f); if (matches.length >= 30) break }
+        const hay = normStr(f.label)
+        if (toks.every(t => hay.includes(t))) { matches.push(f); if (matches.length >= 30) break }
       }
       if (!matches.length) { list.innerHTML = '<div class="ac-empty">Nada encontrado</div>'; list.classList.add('open'); return }
       list.innerHTML = matches.map(m => `<div class="ac-item" data-id="${esc(m.id)}">${esc(m.label)}</div>`).join('')
