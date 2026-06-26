@@ -441,6 +441,7 @@
     document.getElementById('po-pav-add').onclick = poAddAvulso
     // Deslocamento: segmentado Sim/Não (como a RAT) gravando no hidden po-desloc.
     document.querySelectorAll('#po-desloc-seg button').forEach(b => { b.onclick = () => poSetDesloc(b.dataset.v) })
+    document.querySelectorAll('#po-pausa-seg button').forEach(b => { b.onclick = () => poSetTevePausa(b.dataset.v) })
     // Timers Iniciar/Encerrar (igual à RAT) p/ visita, deslocamento, almoço e pausa.
     document.getElementById('view-preorc-form').addEventListener('input', poTimersRender)
     poTimersRender()
@@ -3719,6 +3720,7 @@
     set('po-est-un', 'dias')
     set('po-tempo', '—')
     poSetDesloc('')
+    poSetTevePausa('')
     atualizarEstimativaPo()
   }
 
@@ -3750,10 +3752,11 @@
     set('po-ida', r.ida); set('po-retorno', r.retorno)
     set('po-almoco-ini', r.almoco_inicio); set('po-almoco-fim', r.almoco_termino)
     set('po-pausa-ini', r.pausa_inicio); set('po-pausa-fim', r.pausa_termino)
+    const tevePausa = r.teve_pausa || ((r.almoco_inicio || r.pausa_inicio) ? 'Sim' : '')
     const est = r.estimativa || {}
     set('po-est-tec', est.tecnicos); set('po-est-qtd', est.qtd); if (est.unidade) set('po-est-un', est.unidade)
     set('po-observacoes', r.observacoes)
-    poSetDesloc(r.deslocamento || ''); atualizarEstimativaPo()
+    poSetDesloc(r.deslocamento || ''); poSetTevePausa(tevePausa); atualizarEstimativaPo()
     poBindAutocomplete()
     await poRefreshThumbs()
     await poRefreshItens()
@@ -3814,6 +3817,14 @@
     document.querySelectorAll('#po-desloc-seg button').forEach(b => b.classList.toggle('on', b.dataset.v === v))
     onDeslocPoChange()
   }
+  // "Teve pausa / almoço?" Sim/Não — "Não" esconde e zera os campos; "Sim" revela.
+  function poSetTevePausa(v) {
+    const h = document.getElementById('po-teve-pausa'); if (h) h.value = v || ''
+    document.querySelectorAll('#po-pausa-seg button').forEach(b => b.classList.toggle('on', b.dataset.v === v))
+    const bloco = document.getElementById('po-bloco-pausa'); if (bloco) bloco.style.display = v === 'Sim' ? 'block' : 'none'
+    if (v === 'Não') {['po-almoco-ini', 'po-almoco-fim', 'po-pausa-ini', 'po-pausa-fim'].forEach(id => { const e = document.getElementById(id); if (e) e.value = '' }) }
+    atualizarTempoPo(); atualizarCardsPo(); poTimersRender()
+  }
   // Item avulso (fora de catálogo) no pré-orçamento — mesmo conceito da RAT.
   async function poAddAvulso() {
     if (!curPo) return
@@ -3858,8 +3869,9 @@
     } catch (e) { /* offline/erro: mantém o badge */ }
     const d = (document.getElementById('po-desloc') || {}).value || ''
     setBadgePo(document.getElementById('po-st-desloc'), d || '—', !!d)
+    const teve = (document.getElementById('po-teve-pausa') || {}).value || ''
     const tot = poDur('po-almoco-ini', 'po-almoco-fim') + poDur('po-pausa-ini', 'po-pausa-fim')
-    setBadgePo(document.getElementById('po-st-pausa'), tot ? `${tot} min` : 'Não', tot > 0)
+    setBadgePo(document.getElementById('po-st-pausa'), teve === 'Não' ? 'Não' : (tot ? `${tot} min` : (teve === 'Sim' ? 'Sim' : '—')), !!teve)
   }
   // Data + técnico (logado, como na RAT) no card "O levantamento".
   function preencherLevantamentoPo() {
@@ -3960,6 +3972,7 @@
         deslocamento: v('po-desloc') || null,
         visita_inicio: v('po-visita-ini') || null, visita_termino: v('po-visita-fim') || null,
         ida: v('po-ida') || null, retorno: v('po-retorno') || null,
+        teve_pausa: v('po-teve-pausa') || null,
         almoco_inicio: v('po-almoco-ini') || null, almoco_termino: v('po-almoco-fim') || null,
         pausa_inicio: v('po-pausa-ini') || null, pausa_termino: v('po-pausa-fim') || null,
         estimativa: ((Number(v('po-est-tec')) || 0) || (Number(v('po-est-qtd')) || 0))
