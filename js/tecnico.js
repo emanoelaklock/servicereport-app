@@ -429,6 +429,7 @@
     document.getElementById('po-btn-salvar').onclick = concluirPreorc
     document.getElementById('po-desloc').onchange = onDeslocPoChange
     document.getElementById('view-preorc-form').addEventListener('input', atualizarTempoPo)
+    document.getElementById('view-preorc-form').addEventListener('input', atualizarEstimativaPo)
     document.getElementById('po-prod-add-btn').onclick = poAddItem
     const pf = document.getElementById('po-foto-input')
     document.getElementById('po-btn-foto').onclick = () => pf.click()
@@ -3677,9 +3678,12 @@
   function poLimparForm() {
     const set = (id, v) => { const e = document.getElementById(id); if (e) e.value = v }
     ;['po-cliente', 'po-cliente-busca', 'po-descricao', 'po-prod-sel', 'po-prod-busca', 'po-prod-qtd',
-      'po-desloc', 'po-hora-inicio', 'po-hora-termino', 'po-ida', 'po-retorno', 'po-almoco', 'po-pausa'].forEach(id => set(id, ''))
+      'po-desloc', 'po-hora-inicio', 'po-hora-termino', 'po-ida', 'po-retorno', 'po-almoco', 'po-pausa',
+      'po-est-tec', 'po-est-qtd', 'po-observacoes'].forEach(id => set(id, ''))
+    set('po-est-un', 'dias')
     set('po-tempo', '—')
     onDeslocPoChange()
+    atualizarEstimativaPo()
   }
 
   async function novoPreorcUI() {
@@ -3708,7 +3712,10 @@
     const set = (id, v) => { const e = document.getElementById(id); if (e && v != null) e.value = v }
     set('po-desloc', r.deslocamento); set('po-hora-inicio', r.hora_inicio); set('po-hora-termino', r.hora_termino)
     set('po-ida', r.ida); set('po-retorno', r.retorno); set('po-almoco', r.almoco); set('po-pausa', r.pausa)
-    onDeslocPoChange()
+    const est = r.estimativa || {}
+    set('po-est-tec', est.tecnicos); set('po-est-qtd', est.qtd); if (est.unidade) set('po-est-un', est.unidade)
+    set('po-observacoes', r.observacoes)
+    onDeslocPoChange(); atualizarEstimativaPo()
     poBindAutocomplete()
     await poRefreshThumbs()
     await poRefreshItens()
@@ -3757,6 +3764,20 @@
     if (dEl) dEl.textContent = hojeBR().split('-').reverse().join('/')
     const tEl = document.getElementById('po-lev-tec')
     if (tEl) { const nome = tecnico.nome || 'Técnico'; const ini = ((nome.trim()[0]) || '?').toUpperCase(); tEl.innerHTML = `<span class="av">${esc(ini)}</span><span>${esc(nome)}</span>` }
+  }
+  // Estimativa de execução: "N técnicos × N dias/horas" (resumo + linha no card Tempo). Sem total.
+  function atualizarEstimativaPo() {
+    const tec = Number((document.getElementById('po-est-tec') || {}).value) || 0
+    const qtd = Number((document.getElementById('po-est-qtd') || {}).value) || 0
+    const un = (document.getElementById('po-est-un') || {}).value || 'dias'
+    const resumoEl = document.getElementById('po-est-resumo')
+    const tempoEstEl = document.getElementById('po-tempo-est')
+    const mostra = tec > 0 && qtd > 0
+    const txt = mostra
+      ? `${tec} ${tec > 1 ? 'técnicos' : 'técnico'} × ${qtd} ${un === 'horas' ? (qtd > 1 ? 'horas' : 'hora') : (qtd > 1 ? 'dias' : 'dia')}`
+      : ''
+    if (resumoEl) { resumoEl.textContent = txt; resumoEl.style.display = mostra ? '' : 'none' }
+    if (tempoEstEl) { tempoEstEl.textContent = mostra ? ('Estimativa de execução: ' + txt) : ''; tempoEstEl.style.display = mostra ? '' : 'none' }
   }
 
   async function poAddFotos(fileList) {
@@ -3837,6 +3858,10 @@
         hora_inicio: v('po-hora-inicio') || null, hora_termino: v('po-hora-termino') || null,
         ida: v('po-ida') || null, retorno: v('po-retorno') || null,
         almoco: v('po-almoco') || null, pausa: v('po-pausa') || null,
+        estimativa: ((Number(v('po-est-tec')) || 0) || (Number(v('po-est-qtd')) || 0))
+          ? { tecnicos: Number(v('po-est-tec')) || 0, qtd: Number(v('po-est-qtd')) || 0, unidade: v('po-est-un') || 'dias' }
+          : null,
+        observacoes: v('po-observacoes').trim() || null,
       },
       tempo_trabalhado: calcTempoPo(),
       data: new Date().toISOString(),
