@@ -45,6 +45,24 @@ function fmtData(d: Date): string {
   for (const part of f.formatToParts(d)) p[part.type] = part.value
   return `${p.day}/${p.month}/${p.year}`
 }
+function fmtMinPdf(min?: number | null): string | null {
+  const m = Number(min) || 0; if (m <= 0) return null
+  const h = Math.floor(m / 60), mm = m % 60
+  return h ? `${h}h${mm ? " " + mm + "min" : ""}` : `${mm}min`
+}
+// Sanitiza p/ a fonte WinAnsi (Helvetica do pdf-lib): acentos PT-BR (à-ÿ) passam intactos;
+// aspas/traços "curvos" do teclado viram ASCII; emoji e qualquer coisa fora do Latin-1 some.
+// Sem isso, um caractere fora do WinAnsi faz o pdf-lib LANÇAR e derruba o PDF inteiro.
+function san(s: unknown): string {
+  return String(s ?? "")
+    .replace(/[‘’‛′]/g, "'")
+    .replace(/[“”‟″]/g, '"')
+    .replace(/[–—−]/g, "-")
+    .replace(/…/g, "...")
+    .replace(/[•●▪]/g, "-")
+    .replace(/ /g, " ")
+    .replace(/[^\x09\x0A\x0D\x20-\xFF]/g, "")
+}
 
 type Mat = { descricao: string; unidade?: string | null; quantidade: number; preco_unitario: number }
 type DocData = {
@@ -59,6 +77,11 @@ type DocData = {
   prazoExecucao?: string | null
   condicaoPagamento?: string | null
   observacoes?: string | null
+  // pré-orçamento: levantamento de campo (o PDF deve mostrar tudo que o técnico levantou)
+  estimativa?: string | null
+  tempoVisita?: string | null
+  deslocamento?: string | null
+  fotos?: { bytes: Uint8Array; isPng: boolean }[]
 }
 
 async function buildPdf(d: DocData): Promise<Uint8Array> {
@@ -72,8 +95,8 @@ async function buildPdf(d: DocData): Promise<Uint8Array> {
 
   let page = pdf.addPage([W, H])
   let y = H - 40
-  const t = (s: unknown, x: number, yy: number, size: number, f = font, c = ink) => page.drawText(String(s ?? ""), { x, y: yy, size, font: f, color: c })
-  const wof = (s: unknown, size: number, f = font) => f.widthOfTextAtSize(String(s ?? ""), size)
+  const t = (s: unknown, x: number, yy: number, size: number, f = font, c = ink) => page.drawText(san(s), { x, y: yy, size, font: f, color: c })
+  const wof = (s: unknown, size: number, f = font) => f.widthOfTextAtSize(san(s), size)
   const rt = (s: unknown, xr: number, yy: number, size: number, f = font, c = ink) => t(s, xr - wof(s, size, f), yy, size, f, c)
   const ct = (s: unknown, cx: number, yy: number, size: number, f = font, c = ink) => t(s, cx - wof(s, size, f) / 2, yy, size, f, c)
   const rect = (x: number, yy: number, w: number, h: number, c: ReturnType<typeof rgb>) => page.drawRectangle({ x, y: yy, width: w, height: h, color: c })
@@ -179,6 +202,49 @@ async function buildPdf(d: DocData): Promise<Uint8Array> {
     y -= 10
   }
 
+  // ── 5b · Levantamento (só pré-orçamento): estimativa, tempo da visita, deslocamento ──
+  if (!withPrice && (d.estimativa || d.tempoVisita || d.deslocamento)) {
+    sh("Levantamento")
+    const info: Array<[string, string]> = []
+    if (d.estimativa) info.push(["Estimativa de execução", d.estimativa])
+    if (d.tempoVisita) info.push(["Tempo da visita", d.tempoVisita])
+    if (d.deslocamento) info.push(["Deslocamento", d.deslocamento])
+    for (const [k, v] of info) {
+      ensure(18)
+      t(k.toUpperCase(), ML, y, 8, bold, gray)
+      for (const ln of wrap(v, 11, XR - ML - 190)) { t(ln, ML + 185, y, 11, font, ink); y -= 14 }
+      y -= 4
+    }
+    y -= 6
+  }
+
+  // ── 5c · Observações (pré-orçamento; no orçamento sai no bloco de condições) ──
+  if (!withPrice && d.observacoes && d.observacoes.trim()) {
+    sh("Observações")
+    for (const ln of wrap(d.observacoes, 11, XR - ML)) { ensure(15); t(ln, ML, y, 11, font, rgb(0.29, 0.31, 0.34)); y -= 14 }
+    y -= 8
+  }
+
+  // ── 5d · Fotos (grade 2 colunas; foto inválida é pulada, nunca derruba o PDF) ──
+  if (d.fotos && d.fotos.length) {
+    sh("Fotos")
+    const gap = 12, cols = 2, cellW = (XR - ML - gap) / cols
+    const imgs: Array<{ emb: Awaited<ReturnType<typeof pdf.embedJpg>>; h: number }> = []
+    for (const f of d.fotos) {
+      try {
+        const emb = f.isPng ? await pdf.embedPng(f.bytes) : await pdf.embedJpg(f.bytes)
+        imgs.push({ emb, h: emb.height * (cellW / emb.width) })
+      } catch (_) { /* foto inválida: pula */ }
+    }
+    for (let i = 0; i < imgs.length; i += cols) {
+      const pair = imgs.slice(i, i + cols)
+      const rowH = Math.max(...pair.map(p => p.h))
+      ensure(rowH + gap)
+      pair.forEach((p, c) => { page.drawImage(p.emb, { x: ML + c * (cellW + gap), y: y - p.h, width: cellW, height: p.h }) })
+      y -= rowH + gap
+    }
+  }
+
   // ── 6 · Resumo financeiro (só orçamento) ──
   if (withPrice) {
     ensure(96)
@@ -223,9 +289,9 @@ async function buildPdf(d: DocData): Promise<Uint8Array> {
   const left = `${EMP.nome} · ${EMP.telefone} · ${EMP.email} · ${EMP.cidade}`
   pages.forEach((p, i) => {
     p.drawLine({ start: { x: ML, y: 34 }, end: { x: XR, y: 34 }, thickness: 0.6, color: line })
-    p.drawText(left, { x: ML, y: 22, size: 8, font, color: gray })
+    p.drawText(san(left), { x: ML, y: 22, size: 8, font, color: gray })
     const r = `Gerado em ${d.emissao} por ${d.geradoPor} · Página ${i + 1} de ${pages.length}`
-    p.drawText(r, { x: XR - font.widthOfTextAtSize(r, 8), y: 22, size: 8, font, color: gray })
+    p.drawText(san(r), { x: XR - font.widthOfTextAtSize(san(r), 8), y: 22, size: 8, font, color: gray })
   })
 
   return await pdf.save()
@@ -281,6 +347,27 @@ Deno.serve(async (req: Request) => {
       const { data: itens } = await admin.from("pre_orcamento_itens").select("*").eq("pre_orcamento_id", id).order("criado_em")
       const cli = po.cliente_id ? (await admin.from("clientes").select("nome,documento,endereco").eq("id", po.cliente_id).single()).data : null
       preorcRow = po
+      // Levantamento de campo (respostas jsonb): estimativa, deslocamento; + tempo da visita.
+      const r = (po.respostas || {}) as Record<string, unknown>
+      const est = (r.estimativa || null) as { tecnicos?: number; qtd?: number; unidade?: string } | null
+      const estTxt = est && ((est.tecnicos || 0) > 0 && (est.qtd || 0) > 0)
+        ? `${est.tecnicos} ${(est.tecnicos || 0) > 1 ? "técnicos" : "técnico"} × ${est.qtd} ${est.unidade === "horas" ? ((est.qtd || 0) > 1 ? "horas" : "hora") : ((est.qtd || 0) > 1 ? "dias" : "dia")}`
+        : null
+      const deslocTxt = r.deslocamento === "Sim"
+        ? `Sim · ida ${r.ida || "—"}, retorno ${r.retorno || "—"}`
+        : r.deslocamento === "Não" ? `Não · visita ${r.hora_inicio || "—"}–${r.hora_termino || "—"}` : null
+      // Fotos: baixa do Storage (rat-anexos, privado) via service role. Falha de uma foto é ignorada.
+      const fotos: { bytes: Uint8Array; isPng: boolean }[] = []
+      const { data: fotosRows } = await admin.from("relatorio_fotos").select("url,criado_em").eq("pre_orcamento_id", id).order("criado_em")
+      for (const fr of (fotosRows || []).slice(0, 16)) {
+        let path = (fr as { url?: string }).url || ""
+        if (!path) continue
+        if (path.includes("/object/")) path = path.replace(/^.*\/(?:sign|public|authenticated)\/rat-anexos\//, "").split("?")[0]
+        try {
+          const dl = await admin.storage.from("rat-anexos").download(path)
+          if (dl.data) fotos.push({ bytes: new Uint8Array(await dl.data.arrayBuffer()), isPng: /\.png$/i.test(path) })
+        } catch (_) { /* foto indisponível: pula */ }
+      }
       docData = {
         kind: "pre_orcamento", numero: po.numero, emissao: fmtData(po.criado_em ? new Date(po.criado_em) : new Date()), geradoPor,
         cliente: { nome: po.cliente_nome || cli?.nome, documento: cli?.documento, endereco: cli?.endereco },
@@ -289,6 +376,9 @@ Deno.serve(async (req: Request) => {
           descricao: m.descricao || (m as { codigo_produto?: string }).codigo_produto || "—",
           unidade: m.unidade, quantidade: Number(m.quantidade) || 0, preco_unitario: 0,
         })),
+        estimativa: estTxt, tempoVisita: fmtMinPdf(po.tempo_trabalhado), deslocamento: deslocTxt,
+        observacoes: (r.observacoes as string) || null,
+        fotos,
       }
     } else if (tipo === "orcamento") {
       if (!isOffice) return json({ error: "apenas escritório" }, 403)
