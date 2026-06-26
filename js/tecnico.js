@@ -458,6 +458,9 @@
     document.querySelectorAll('#po-pausa-seg button').forEach(b => { b.onclick = () => poSetTevePausa(b.dataset.v) })
     // Edição manual de horários nos modais (fora do #view-preorc-form) recalcula tempo + barras.
     ;['modal-po-desloc', 'modal-po-pausa'].forEach(id => { const m = document.getElementById(id); if (m) m.addEventListener('input', () => { atualizarTempoPo(); atualizarCardsPo(); poTimersRender() }) })
+    // Técnicos do levantamento (equipe, com avatar) — seletor próprio do pré-orçamento.
+    document.getElementById('po-tec-add-btn').onclick = () => { poRenderTecLista(); document.getElementById('modal-po-tec').classList.add('open') }
+    document.getElementById('po-tec-busca').addEventListener('input', poRenderTecLista)
     // Timers Iniciar/Encerrar (igual à RAT) p/ visita, deslocamento, almoço e pausa.
     document.getElementById('view-preorc-form').addEventListener('input', poTimersRender)
     poTimersRender()
@@ -3669,6 +3672,38 @@
 
   // ═══════════════════════ Pré-orçamento (form fixo) ═══════════════════════
   let curPo = null   // { client_uuid }
+  let poTecSel = new Set()   // IDs dos técnicos do levantamento (equipe)
+  // Cards (avatar + nome) dos técnicos selecionados, no "O Levantamento".
+  function poRenderTecCards() {
+    const box = document.getElementById('po-tec-cards'); if (!box) return
+    const ids = [...poTecSel]
+    box.innerHTML = ids.map(id => {
+      const t = (ref.tecnicos || []).find(x => x.id === id) || (id === tecnico.id ? { id, nome: tecnico.nome } : { id, nome: '—' })
+      const n = tcase(t.nome || '—')
+      const rl = t.cargo ? `${t.cargo} · Técnico` : 'Técnico'
+      const foto = (typeof avatarUrl === 'function') ? avatarUrl(t.foto_url) : null
+      const av = foto ? `<img src="${esc(foto)}" alt="">` : esc(iniciaisDe(n))
+      return `<div class="tec-card"><span class="av">${av}</span><span class="ti"><span class="nm">${esc(n)}</span><span class="rl">${esc(rl)}</span></span><button type="button" class="tc-x" data-potecrem="${esc(id)}" title="Remover">×</button></div>`
+    }).join('') || '<div class="tec-vazio">Nenhum técnico selecionado.</div>'
+    box.querySelectorAll('[data-potecrem]').forEach(b => { b.onclick = () => { poTecSel.delete(b.dataset.potecrem); poRenderTecCards() } })
+  }
+  // Lista do modal de seleção (todos os técnicos, com avatar; toque alterna).
+  function poRenderTecLista() {
+    const lista = document.getElementById('po-tec-lista'); if (!lista) return
+    const q = normStr((document.getElementById('po-tec-busca') || {}).value || '')
+    const rows = (ref.tecnicos || []).filter(t => !q || normStr(t.nome).includes(q)).map(t => {
+      const n = tcase(t.nome || '—')
+      const rl = t.cargo ? `${t.cargo} · Técnico` : 'Técnico'
+      const foto = (typeof avatarUrl === 'function') ? avatarUrl(t.foto_url) : null
+      const av = foto ? `<img src="${esc(foto)}" alt="">` : esc(iniciaisDe(n))
+      const on = poTecSel.has(t.id)
+      return `<div class="tec-row" data-potectoggle="${esc(t.id)}"><span class="av">${av}</span><span class="ti"><span class="nm">${esc(n)}</span><span class="rl">${esc(rl)}</span></span><span class="pl ${on ? 'pl-rem' : 'pl-add'}">${on ? '✓' : '+'}</span></div>`
+    }).join('')
+    lista.innerHTML = rows || '<div class="tec-vazio" style="padding:14px 2px">Nenhum técnico.</div>'
+    lista.querySelectorAll('[data-potectoggle]').forEach(r => {
+      r.onclick = () => { const id = r.dataset.potectoggle; poTecSel.has(id) ? poTecSel.delete(id) : poTecSel.add(id); poRenderTecLista(); poRenderTecCards() }
+    })
+  }
 
   async function renderPreorcLista() {
     const box = document.getElementById('lista-preorc')
@@ -3737,6 +3772,8 @@
     set('po-tempo', '—')
     poSetDesloc('')
     poSetTevePausa('')
+    poTecSel = new Set(tecnico.id ? [tecnico.id] : [])   // começa com o técnico logado
+    poRenderTecCards()
     atualizarEstimativaPo()
   }
 
@@ -3772,6 +3809,10 @@
     const est = r.estimativa || {}
     set('po-est-tec', est.tecnicos); set('po-est-qtd', est.qtd); if (est.unidade) set('po-est-un', est.unidade)
     set('po-observacoes', r.observacoes)
+    // Técnicos do levantamento: carrega a equipe salva (ou cai pro técnico criador).
+    const tecsSalvos = (r.tecnicos || []).map(t => (t && t.id) ? t.id : t).filter(Boolean)
+    poTecSel = new Set(tecsSalvos.length ? tecsSalvos : (po.tecnico_id ? [po.tecnico_id] : []))
+    poRenderTecCards()
     poSetDesloc(r.deslocamento || ''); poSetTevePausa(tevePausa); atualizarEstimativaPo()
     poBindAutocomplete()
     await poRefreshThumbs()
@@ -3893,8 +3934,7 @@
   function preencherLevantamentoPo() {
     const dEl = document.getElementById('po-lev-data')
     if (dEl) dEl.textContent = hojeBR().split('-').reverse().join('/')
-    const tEl = document.getElementById('po-lev-tec')
-    if (tEl) { const nome = tecnico.nome || 'Técnico'; const ini = ((nome.trim()[0]) || '?').toUpperCase(); tEl.innerHTML = `<span class="av">${esc(ini)}</span><span>${esc(nome)}</span>` }
+    poRenderTecCards()
   }
   // Estimativa de execução: "N técnicos × N dias/horas" (resumo + linha no card Tempo). Sem total.
   function atualizarEstimativaPo() {
@@ -3995,6 +4035,10 @@
           ? { tecnicos: Number(v('po-est-tec')) || 0, qtd: Number(v('po-est-qtd')) || 0, unidade: v('po-est-un') || 'dias' }
           : null,
         observacoes: v('po-observacoes').trim() || null,
+        tecnicos: [...poTecSel].map(id => {
+          const t = (ref.tecnicos || []).find(x => x.id === id) || (id === tecnico.id ? { id, nome: tecnico.nome } : { id, nome: null })
+          return { id, nome: t.nome || null }
+        }),
       },
       tempo_trabalhado: calcTempoPo(),
       data: new Date().toISOString(),

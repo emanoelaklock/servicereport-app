@@ -78,6 +78,7 @@ type DocData = {
   condicaoPagamento?: string | null
   observacoes?: string | null
   // pré-orçamento: levantamento de campo (o PDF deve mostrar tudo que o técnico levantou)
+  tecnicos?: string | null
   estimativa?: string | null
   tempoVisita?: string | null
   visita?: string | null
@@ -204,9 +205,10 @@ async function buildPdf(d: DocData): Promise<Uint8Array> {
   }
 
   // ── 5b · Levantamento (só pré-orçamento): estimativa, tempo da visita, deslocamento ──
-  if (!withPrice && (d.estimativa || d.tempoVisita || d.visita || d.deslocamento)) {
+  if (!withPrice && (d.tecnicos || d.estimativa || d.tempoVisita || d.visita || d.deslocamento)) {
     sh("Levantamento")
     const info: Array<[string, string]> = []
+    if (d.tecnicos) info.push(["Técnicos", d.tecnicos])
     if (d.estimativa) info.push(["Estimativa de execução", d.estimativa])
     if (d.visita) info.push(["Visita", d.visita])
     if (d.tempoVisita) info.push(["Tempo da visita", d.tempoVisita])
@@ -351,6 +353,7 @@ Deno.serve(async (req: Request) => {
       preorcRow = po
       // Levantamento de campo (respostas jsonb): estimativa, deslocamento; + tempo da visita.
       const r = (po.respostas || {}) as Record<string, unknown>
+      const tecsTxt = ((r.tecnicos || []) as Array<{ nome?: string }>).map((t) => t && t.nome).filter(Boolean).join(", ") || po.tecnico_nome || null
       const est = (r.estimativa || null) as { tecnicos?: number; qtd?: number; unidade?: string } | null
       const estTxt = est && ((est.tecnicos || 0) > 0 && (est.qtd || 0) > 0)
         ? `${est.tecnicos} ${(est.tecnicos || 0) > 1 ? "técnicos" : "técnico"} × ${est.qtd} ${est.unidade === "horas" ? ((est.qtd || 0) > 1 ? "horas" : "hora") : ((est.qtd || 0) > 1 ? "dias" : "dia")}`
@@ -380,7 +383,7 @@ Deno.serve(async (req: Request) => {
           descricao: m.descricao || (m as { codigo_produto?: string }).codigo_produto || "—",
           unidade: m.unidade, quantidade: Number(m.quantidade) || 0, preco_unitario: 0,
         })),
-        estimativa: estTxt, tempoVisita: fmtMinPdf(po.tempo_trabalhado), visita: visitaTxt, deslocamento: deslocTxt,
+        tecnicos: tecsTxt, estimativa: estTxt, tempoVisita: fmtMinPdf(po.tempo_trabalhado), visita: visitaTxt, deslocamento: deslocTxt,
         observacoes: (r.observacoes as string) || null,
         fotos,
       }
