@@ -1020,6 +1020,11 @@ try{if(localStorage.getItem('sr_dark')==='1')document.documentElement.classList.
       <div class="tm-back tskin" id="modal-po-desloc"><div class="tm-box po-modal">
         <div class="po-mh"><span>Deslocamento</span><button type="button" class="po-mx" data-poclose="modal-po-desloc">×</button></div>
         <div class="fg campo">
+          <label>Visita — início / término</label>
+          <div style="display:flex;gap:8px;align-items:center"><input type="time" id="po-visita-ini" style="flex:1"><button type="button" class="btn btn-sm po-now" data-now="po-visita-ini" style="width:auto;padding:9px 12px;font-size:13px;white-space:nowrap">agora</button></div>
+          <div style="display:flex;gap:8px;align-items:center;margin-top:8px"><input type="time" id="po-visita-fim" style="flex:1"><button type="button" class="btn btn-sm po-now" data-now="po-visita-fim" style="width:auto;padding:9px 12px;font-size:13px;white-space:nowrap">agora</button></div>
+        </div>
+        <div class="fg campo">
           <label>Houve deslocamento?</label>
           <div class="segq" id="po-desloc-seg">
             <button type="button" data-v="Sim">Sim</button>
@@ -1027,13 +1032,9 @@ try{if(localStorage.getItem('sr_dark')==='1')document.documentElement.classList.
           </div>
           <input type="hidden" id="po-desloc">
         </div>
-        <div id="po-bloco-sem" style="display:none">
-          <div class="fg campo"><label>Início da visita</label><input type="time" id="po-hora-inicio"></div>
-          <div class="fg campo"><label>Fim da visita</label><input type="time" id="po-hora-termino"></div>
-        </div>
         <div id="po-bloco-com" style="display:none">
-          <div class="fg campo"><label>Início do deslocamento (ida)</label><input type="time" id="po-ida"></div>
-          <div class="fg campo"><label>Fim do deslocamento (retorno)</label><input type="time" id="po-retorno"></div>
+          <div class="fg campo"><label>Início do deslocamento (ida)</label><div style="display:flex;gap:8px;align-items:center"><input type="time" id="po-ida" style="flex:1"><button type="button" class="btn btn-sm po-now" data-now="po-ida" style="width:auto;padding:9px 12px;font-size:13px;white-space:nowrap">agora</button></div></div>
+          <div class="fg campo"><label>Fim do deslocamento (retorno)</label><div style="display:flex;gap:8px;align-items:center"><input type="time" id="po-retorno" style="flex:1"><button type="button" class="btn btn-sm po-now" data-now="po-retorno" style="width:auto;padding:9px 12px;font-size:13px;white-space:nowrap">agora</button></div></div>
         </div>
         <div class="po-mfoot"><button type="button" class="btn btn-primary" data-poclose="modal-po-desloc">Pronto</button></div>
       </div></div>
@@ -1042,11 +1043,13 @@ try{if(localStorage.getItem('sr_dark')==='1')document.documentElement.classList.
         <div class="po-mh"><span>Pausa / Almoço</span><button type="button" class="po-mx" data-poclose="modal-po-pausa">×</button></div>
         <div class="fg campo" style="margin-bottom:10px">
           <label>Almoço — início / término</label>
-          <div style="display:flex;gap:8px"><input type="time" id="po-almoco-ini" style="flex:1" title="Início do almoço"><input type="time" id="po-almoco-fim" style="flex:1" title="Término do almoço"></div>
+          <div style="display:flex;gap:8px;align-items:center"><input type="time" id="po-almoco-ini" style="flex:1" title="Início do almoço"><button type="button" class="btn btn-sm po-now" data-now="po-almoco-ini" style="width:auto;padding:9px 12px;font-size:13px;white-space:nowrap">agora</button></div>
+          <div style="display:flex;gap:8px;align-items:center;margin-top:8px"><input type="time" id="po-almoco-fim" style="flex:1" title="Término do almoço"><button type="button" class="btn btn-sm po-now" data-now="po-almoco-fim" style="width:auto;padding:9px 12px;font-size:13px;white-space:nowrap">agora</button></div>
         </div>
         <div class="fg campo" style="margin-bottom:0">
           <label>Pausa — início / término</label>
-          <div style="display:flex;gap:8px"><input type="time" id="po-pausa-ini" style="flex:1" title="Início da pausa"><input type="time" id="po-pausa-fim" style="flex:1" title="Término da pausa"></div>
+          <div style="display:flex;gap:8px;align-items:center"><input type="time" id="po-pausa-ini" style="flex:1" title="Início da pausa"><button type="button" class="btn btn-sm po-now" data-now="po-pausa-ini" style="width:auto;padding:9px 12px;font-size:13px;white-space:nowrap">agora</button></div>
+          <div style="display:flex;gap:8px;align-items:center;margin-top:8px"><input type="time" id="po-pausa-fim" style="flex:1" title="Término da pausa"><button type="button" class="btn btn-sm po-now" data-now="po-pausa-fim" style="width:auto;padding:9px 12px;font-size:13px;white-space:nowrap">agora</button></div>
         </div>
         <div class="po-mfoot"><button type="button" class="btn btn-primary" data-poclose="modal-po-pausa">Pronto</button></div>
       </div></div>
