@@ -434,6 +434,14 @@
     document.getElementById('po-desloc').onchange = onDeslocPoChange
     document.getElementById('view-preorc-form').addEventListener('input', atualizarTempoPo)
     document.getElementById('view-preorc-form').addEventListener('input', atualizarEstimativaPo)
+    // "Serviço a ser orçado": 1ª letra de cada linha (após "- ") em MAIÚSCULA. No nível do form
+    // (delegação) p/ pegar o campo de forma robusta. Troca só 1 caractere/linha → cursor preservado.
+    document.getElementById('view-preorc-form').addEventListener('input', (e) => {
+      if (!e.target || e.target.id !== 'po-descricao') return
+      const ta = e.target, pos = ta.selectionStart
+      const novo = ta.value.split('\n').map(l => l.replace(/^(\s*-\s*)?([a-zà-ÿ])/, (m, pre, ch) => (pre || '') + ch.toUpperCase())).join('\n')
+      if (novo !== ta.value) { ta.value = novo; try { ta.setSelectionRange(pos, pos) } catch (_) {} }
+    })
     document.getElementById('po-prod-add-btn').onclick = poAddItem
     // Produtos: item avulso (fora de catálogo), como na RAT.
     document.getElementById('po-prod-avulso-btn').onclick = () => { const f = document.getElementById('po-prod-avulso-form'); f.style.display = (f.style.display === 'none' || !f.style.display) ? '' : 'none' }
@@ -474,13 +482,6 @@
         const s = poServ.selectionStart, f = poServ.selectionEnd, v = poServ.value
         poServ.value = v.slice(0, s) + '\n- ' + v.slice(f)
         poServ.selectionStart = poServ.selectionEnd = s + 3
-      })
-      // Sempre a primeira letra de cada linha (após o "- ") em MAIÚSCULA. Troca só a caixa
-      // de 1 caractere por linha → mesmo tamanho, então o cursor é preservado.
-      poServ.addEventListener('input', () => {
-        const pos = poServ.selectionStart
-        const novo = poServ.value.split('\n').map(l => l.replace(/^(\s*-\s*)?([a-zà-ÿ])/, (m, pre, ch) => (pre || '') + ch.toUpperCase())).join('\n')
-        if (novo !== poServ.value) { poServ.value = novo; try { poServ.setSelectionRange(pos, pos) } catch (_) {} }
       })
     }
     // A fila (Home) depende de estado do servidor — responsável — que NÃO passa pelo SYNC_MAP de
