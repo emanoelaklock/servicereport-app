@@ -439,6 +439,12 @@
     document.getElementById('po-prod-avulso-btn').onclick = () => { const f = document.getElementById('po-prod-avulso-form'); f.style.display = (f.style.display === 'none' || !f.style.display) ? '' : 'none' }
     document.getElementById('po-pav-cancelar').onclick = () => { document.getElementById('po-prod-avulso-form').style.display = 'none' }
     document.getElementById('po-pav-add').onclick = poAddAvulso
+    // Item avulso: nome sempre em MAIÚSCULAS (preserva a posição do cursor).
+    document.getElementById('po-pav-nome').addEventListener('input', (e) => {
+      const s = e.target.selectionStart, en = e.target.selectionEnd
+      e.target.value = e.target.value.toUpperCase()
+      try { e.target.setSelectionRange(s, en) } catch (_) {}
+    })
     // Deslocamento: segmentado Sim/Não (como a RAT) gravando no hidden po-desloc.
     document.querySelectorAll('#po-desloc-seg button').forEach(b => { b.onclick = () => poSetDesloc(b.dataset.v) })
     document.querySelectorAll('#po-pausa-seg button').forEach(b => { b.onclick = () => poSetTevePausa(b.dataset.v) })
@@ -3832,14 +3838,12 @@
   // Item avulso (fora de catálogo) no pré-orçamento — mesmo conceito da RAT.
   async function poAddAvulso() {
     if (!curPo) return
-    const nome = document.getElementById('po-pav-nome').value.trim()
-    const un = document.getElementById('po-pav-un').value.trim() || null
+    const nome = document.getElementById('po-pav-nome').value.trim().toUpperCase()
     const qtd = Number(document.getElementById('po-pav-qtd').value)
     if (!nome) return toast('Informe o nome do item.', 'err')
     if (!qtd || qtd <= 0) return toast('Informe a quantidade.', 'err')
-    await D().adicionarItemPreorc(curPo.client_uuid, { produto_id: null, codigo_produto: null, descricao: nome, unidade: un, quantidade: qtd })
+    await D().adicionarItemPreorc(curPo.client_uuid, { produto_id: null, codigo_produto: null, descricao: nome, unidade: null, quantidade: qtd })
     document.getElementById('po-pav-nome').value = ''
-    document.getElementById('po-pav-un').value = ''
     document.getElementById('po-pav-qtd').value = ''
     document.getElementById('po-prod-avulso-form').style.display = 'none'
     await poRefreshItens()

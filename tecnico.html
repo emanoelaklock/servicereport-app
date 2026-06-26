@@ -1005,9 +1005,8 @@ try{if(localStorage.getItem('sr_dark')==='1')document.documentElement.classList.
         <button type="button" class="btn prod-avulso" id="po-prod-avulso-btn" style="margin-top:10px">+ Item avulso (fora de catálogo)</button>
         <div id="po-prod-avulso-form" style="display:none;margin-top:10px">
           <div style="display:flex;gap:8px">
-            <input id="po-pav-nome" autocapitalize="sentences" placeholder="Nome do item" style="flex:2;min-width:0">
-            <input id="po-pav-un" placeholder="Un." style="flex:.55;min-width:0">
-            <input id="po-pav-qtd" inputmode="decimal" placeholder="Qtd" style="flex:.55;min-width:0">
+            <input id="po-pav-nome" autocapitalize="characters" placeholder="NOME DO ITEM" style="flex:2;min-width:0;text-transform:uppercase">
+            <input id="po-pav-qtd" inputmode="decimal" placeholder="Qtd" style="flex:.7;min-width:0">
           </div>
           <div style="display:flex;gap:8px;margin-top:8px;justify-content:flex-end">
             <button type="button" class="btn btn-sm" id="po-pav-cancelar" style="width:auto;padding:9px 13px;font-size:13px">Cancelar</button>
