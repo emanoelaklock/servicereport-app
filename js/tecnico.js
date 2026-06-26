@@ -475,6 +475,13 @@
         poServ.value = v.slice(0, s) + '\n- ' + v.slice(f)
         poServ.selectionStart = poServ.selectionEnd = s + 3
       })
+      // Sempre a primeira letra de cada linha (após o "- ") em MAIÚSCULA. Troca só a caixa
+      // de 1 caractere por linha → mesmo tamanho, então o cursor é preservado.
+      poServ.addEventListener('input', () => {
+        const pos = poServ.selectionStart
+        const novo = poServ.value.split('\n').map(l => l.replace(/^(\s*-\s*)?([a-zà-ÿ])/, (m, pre, ch) => (pre || '') + ch.toUpperCase())).join('\n')
+        if (novo !== poServ.value) { poServ.value = novo; try { poServ.setSelectionRange(pos, pos) } catch (_) {} }
+      })
     }
     // A fila (Home) depende de estado do servidor — responsável — que NÃO passa pelo SYNC_MAP de
     // RATs/deslocamentos; logo mudança feita no portal não dispara onSyncChanged. Enquanto a Home
