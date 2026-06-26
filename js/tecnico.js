@@ -3864,10 +3864,10 @@
   }
   function calcTempoPo() {
     const v = (id) => { const e = document.getElementById(id); return e ? e.value : '' }
-    // Tempo da visita = término - início (sempre), menos almoço e pausa. Deslocamento (ida/retorno) é à parte.
+    // Tempo = visita (término - início) + deslocamento (ida→retorno) - almoço - pausa.
     const a = minutosDe(v('po-visita-ini')), b = minutosDe(v('po-visita-fim'))
     if (a == null || b == null) return null
-    const t = b - a - poDur('po-almoco-ini', 'po-almoco-fim') - poDur('po-pausa-ini', 'po-pausa-fim')
+    const t = (b - a) + poDur('po-ida', 'po-retorno') - poDur('po-almoco-ini', 'po-almoco-fim') - poDur('po-pausa-ini', 'po-pausa-fim')
     return t < 0 ? 0 : t
   }
   function atualizarTempoPo() {
