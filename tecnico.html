@@ -531,6 +531,11 @@ try{if(localStorage.getItem('sr_dark')==='1')document.documentElement.classList.
   .po-mx{background:none;border:none;font-size:22px;line-height:1;color:var(--tx3);cursor:pointer;padding:0 4px}
   .po-mfoot{margin-top:14px;display:flex;justify-content:flex-end}
   .po-mfoot .btn{padding:10px 18px}
+  .po-est{display:flex;align-items:center;gap:8px;flex-wrap:wrap;font-size:13.5px;color:var(--tx2)}
+  .po-est input{width:58px;text-align:center;padding:8px 6px}
+  .po-est select{width:auto;padding:8px 8px}
+  .po-est-resumo{margin-top:10px;font-size:13.5px;font-weight:700;color:#1565C0}
+  .po-tempo-est{margin-top:8px;font-size:13px;font-weight:600;color:var(--tx2)}
   .regs{display:grid;grid-template-columns:1fr 1fr;gap:10px}
   .reg{border:none;border-radius:16px;padding:12px;display:flex;flex-direction:column;gap:9px;cursor:pointer;font:inherit;text-align:left;color:#fff}
   .r-teal{background:var(--green,#179A47)}
@@ -939,13 +944,31 @@ try{if(localStorage.getItem('sr_dark')==='1')document.documentElement.classList.
           </div>
         </div>
 
-        <!-- TEMPO (calculado, igual à RAT) -->
+        <!-- ESTIMATIVA DE EXECUÇÃO (nova seção) -->
+        <div class="fcard fc-blue">
+          <div class="h"><span class="hi"><svg viewBox="0 0 24 24"><path d="M3 3v18h18"/><path d="M7 14l3-3 3 3 4-5"/></svg></span>Estimativa de execução</div>
+          <div class="po-est">
+            <span>Para executar:</span>
+            <input type="number" id="po-est-tec" inputmode="numeric" min="0" step="1" placeholder="0">
+            <span>técnicos ×</span>
+            <input type="number" id="po-est-qtd" inputmode="numeric" min="0" step="1" placeholder="0">
+            <select id="po-est-un"><option value="dias">dias</option><option value="horas">horas</option></select>
+          </div>
+          <div class="po-est-resumo" id="po-est-resumo" style="display:none"></div>
+          <div class="fg campo" style="margin:12px 0 0">
+            <label>Observações</label>
+            <textarea class="ta-longo" id="po-observacoes" autocapitalize="sentences" placeholder="Condições do local, prazos, ressalvas…"></textarea>
+          </div>
+        </div>
+
+        <!-- TEMPO (visita calculado) + estimativa (preenchida) — o comercial vê os dois -->
         <div class="fcard fc-green">
           <div class="h"><span class="hi"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg></span>Tempo</div>
           <div class="calc">
             <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>
             <div><div class="k">Tempo da visita (calculado)</div><input class="v" id="po-tempo" readonly value="—" style="border:none;background:none;padding:0;font:inherit;width:auto;color:var(--tx)"></div>
           </div>
+          <div class="po-tempo-est" id="po-tempo-est" style="display:none"></div>
         </div>
 
         <div class="foot">
