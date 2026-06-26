@@ -3664,10 +3664,32 @@
       return `<div class="listcard lc-${conf ? 'done' : 'warn'}" data-uuid="${esc(p.client_uuid)}"><span class="edge e-${sk}"></span>
         <div class="t"><span class="cli">${esc(p.cliente_nome || 'Sem cliente')}</span><span class="badge b-${sk}">${conf ? 'Enviado' : 'na fila ↑'}</span></div>
         <div class="meta">${p.numero ? 'Nº <b>' + esc(p.numero) + '</b> · ' : ''}${esc((p.descricao || '—').slice(0, 48))}</div>
-        <div class="meta">${fdt(p.criado_em, { withTime: true })}</div>
+        <div class="meta" style="display:flex;justify-content:space-between;align-items:center"><span>${fdt(p.criado_em, { withTime: true })}</span><button type="button" class="rat-del" data-del="${esc(p.client_uuid)}" title="Excluir pré-orçamento" style="background:none;border:none;cursor:pointer"><svg viewBox="0 0 24 24"><path d="M3 6h18M8 6V4a1 1 0 0 1 1-1h6a1 1 0 0 1 1 1v2m4 0v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6"/></svg></button></div>
       </div>`
     }).join('')
-    box.querySelectorAll('.listcard').forEach(el => { el.onclick = () => abrirPreorc(el.dataset.uuid) })
+    box.querySelectorAll('.listcard').forEach(el => {
+      el.onclick = (e) => { if (e.target.closest('[data-del]')) return; abrirPreorc(el.dataset.uuid) }
+    })
+    box.querySelectorAll('[data-del]').forEach(b => { b.onclick = (e) => { e.stopPropagation(); excluirPreorc(b.dataset.del) } })
+  }
+
+  async function excluirPreorc(client_uuid) {
+    if (!confirm('Excluir este pré-orçamento? Esta ação não pode ser desfeita.')) return
+    const po = await D().obterPreorc(client_uuid)
+    if (po && po.recebido_em && navigator.onLine) {
+      try {
+        const sb = getSupabase()
+        const { data: srv } = await sb.from('pre_orcamentos').select('id').eq('client_uuid', client_uuid).maybeSingle()
+        if (srv) {
+          await sb.from('pre_orcamento_itens').delete().eq('pre_orcamento_id', srv.id)
+          await sb.from('relatorio_fotos').delete().eq('pre_orcamento_id', srv.id)
+          await sb.from('pre_orcamentos').delete().eq('id', srv.id)
+        }
+      } catch (e) { toast('Removido do aparelho; falha no servidor: ' + (e.message || e), 'err') }
+    }
+    await D().removerPreorc(client_uuid)
+    await renderPreorcLista()
+    toast('Pré-orçamento excluído.', 'ok')
   }
 
   function poBindAutocomplete() {
@@ -3688,7 +3710,8 @@
   function poLimparForm() {
     const set = (id, v) => { const e = document.getElementById(id); if (e) e.value = v }
     ;['po-cliente', 'po-cliente-busca', 'po-descricao', 'po-prod-sel', 'po-prod-busca', 'po-prod-qtd',
-      'po-desloc', 'po-hora-inicio', 'po-hora-termino', 'po-ida', 'po-retorno', 'po-almoco', 'po-pausa',
+      'po-desloc', 'po-hora-inicio', 'po-hora-termino', 'po-ida', 'po-retorno',
+      'po-almoco-ini', 'po-almoco-fim', 'po-pausa-ini', 'po-pausa-fim',
       'po-est-tec', 'po-est-qtd', 'po-observacoes'].forEach(id => set(id, ''))
     set('po-est-un', 'dias')
     set('po-tempo', '—')
@@ -3721,7 +3744,9 @@
     const r = po.respostas || {}
     const set = (id, v) => { const e = document.getElementById(id); if (e && v != null) e.value = v }
     set('po-desloc', r.deslocamento); set('po-hora-inicio', r.hora_inicio); set('po-hora-termino', r.hora_termino)
-    set('po-ida', r.ida); set('po-retorno', r.retorno); set('po-almoco', r.almoco); set('po-pausa', r.pausa)
+    set('po-ida', r.ida); set('po-retorno', r.retorno)
+    set('po-almoco-ini', r.almoco_inicio); set('po-almoco-fim', r.almoco_termino)
+    set('po-pausa-ini', r.pausa_inicio); set('po-pausa-fim', r.pausa_termino)
     const est = r.estimativa || {}
     set('po-est-tec', est.tecnicos); set('po-est-qtd', est.qtd); if (est.unidade) set('po-est-un', est.unidade)
     set('po-observacoes', r.observacoes)
@@ -3760,6 +3785,12 @@
     document.getElementById('po-prod-avulso-form').style.display = 'none'
     await poRefreshItens()
   }
+  // Duração em minutos de um par início/término (padrão da RAT). 0 se incompleto/inválido.
+  function poDur(iniId, fimId) {
+    const v = (id) => { const e = document.getElementById(id); return e ? e.value : '' }
+    const i = minutosDe(v(iniId)), f = minutosDe(v(fimId))
+    return (i != null && f != null && f > i) ? (f - i) : 0
+  }
   function calcTempoPo() {
     const v = (id) => { const e = document.getElementById(id); return e ? e.value : '' }
     const d = v('po-desloc'); let ini, fim
@@ -3768,7 +3799,7 @@
     else return null
     const a = minutosDe(ini), b = minutosDe(fim)
     if (a == null || b == null) return null
-    const t = b - a - (Number(v('po-almoco')) || 0) - (Number(v('po-pausa')) || 0)
+    const t = b - a - poDur('po-almoco-ini', 'po-almoco-fim') - poDur('po-pausa-ini', 'po-pausa-fim')
     return t < 0 ? 0 : t
   }
   function atualizarTempoPo() {
@@ -3786,7 +3817,7 @@
     } catch (e) { /* offline/erro: mantém o badge */ }
     const d = (document.getElementById('po-desloc') || {}).value || ''
     setBadgePo(document.getElementById('po-st-desloc'), d || '—', !!d)
-    const tot = (Number((document.getElementById('po-almoco') || {}).value) || 0) + (Number((document.getElementById('po-pausa') || {}).value) || 0)
+    const tot = poDur('po-almoco-ini', 'po-almoco-fim') + poDur('po-pausa-ini', 'po-pausa-fim')
     setBadgePo(document.getElementById('po-st-pausa'), tot ? `${tot} min` : 'Não', tot > 0)
   }
   // Data + técnico (logado, como na RAT) no card "O levantamento".
@@ -3888,7 +3919,8 @@
         deslocamento: v('po-desloc') || null,
         hora_inicio: v('po-hora-inicio') || null, hora_termino: v('po-hora-termino') || null,
         ida: v('po-ida') || null, retorno: v('po-retorno') || null,
-        almoco: v('po-almoco') || null, pausa: v('po-pausa') || null,
+        almoco_inicio: v('po-almoco-ini') || null, almoco_termino: v('po-almoco-fim') || null,
+        pausa_inicio: v('po-pausa-ini') || null, pausa_termino: v('po-pausa-fim') || null,
         estimativa: ((Number(v('po-est-tec')) || 0) || (Number(v('po-est-qtd')) || 0))
           ? { tecnicos: Number(v('po-est-tec')) || 0, qtd: Number(v('po-est-qtd')) || 0, unidade: v('po-est-un') || 'dias' }
           : null,
