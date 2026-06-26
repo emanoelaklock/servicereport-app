@@ -430,6 +430,7 @@
     // Pré-orçamento
     document.getElementById('btn-preorc-novo').onclick = novoPreorcUI
     document.getElementById('po-btn-cancelar').onclick = cancelarPreorc
+    document.getElementById('po-btn-rascunho').onclick = salvarRascunhoPreorc
     document.getElementById('po-btn-salvar').onclick = concluirPreorc
     document.getElementById('po-desloc').onchange = onDeslocPoChange
     document.getElementById('view-preorc-form').addEventListener('input', atualizarTempoPo)
@@ -3715,9 +3716,11 @@
     }
     box.innerHTML = list.map(p => {
       const conf = p.sync_status === 'confirmado'
+      const rasc = !conf && (p.sync_status === 'rascunho' || p.status === 'rascunho')
       const sk = conf ? 'done' : 'warn'
+      const badge = conf ? 'Enviado' : (rasc ? 'Rascunho' : 'na fila ↑')
       return `<div class="listcard lc-${conf ? 'done' : 'warn'}" data-uuid="${esc(p.client_uuid)}"><span class="edge e-${sk}"></span>
-        <div class="t"><span class="cli">${esc(p.cliente_nome || 'Sem cliente')}</span><span class="badge b-${sk}">${conf ? 'Enviado' : 'na fila ↑'}</span></div>
+        <div class="t"><span class="cli">${esc(p.cliente_nome || 'Sem cliente')}</span><span class="badge b-${sk}">${badge}</span></div>
         <div class="meta">${p.numero ? 'Nº <b>' + esc(p.numero) + '</b> · ' : ''}${esc((p.descricao || '—').slice(0, 48))}</div>
         <div class="meta" style="display:flex;justify-content:space-between;align-items:center"><span>${fdt(p.criado_em, { withTime: true })}</span><button type="button" class="rat-del" data-del="${esc(p.client_uuid)}" title="Excluir pré-orçamento" style="background:none;border:none;cursor:pointer"><svg viewBox="0 0 24 24"><path d="M3 6h18M8 6V4a1 1 0 0 1 1-1h6a1 1 0 0 1 1 1v2m4 0v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6"/></svg></button></div>
       </div>`
@@ -4010,6 +4013,45 @@
     box.querySelectorAll('[data-mid]').forEach(b => { b.onclick = async () => { await D().removerItemPreorc(b.dataset.mid); await poRefreshItens() } })
   }
 
+  // Monta o payload do pré-orçamento a partir do formulário (usado por Salvar e Enviar).
+  function poMontarPayload(status) {
+    const v = (id) => { const e = document.getElementById(id); return e ? e.value : '' }
+    const cliId = document.getElementById('po-cliente').value
+    const cli = ref.clientes.find(c => c.id === cliId)
+    return {
+      cliente_id: cliId || null,
+      cliente_nome: cli?.nome || null,
+      tecnico_id: tecnico.id,
+      tecnico_nome: tecnico.nome,
+      descricao: document.getElementById('po-descricao').value.trim(),
+      respostas: {
+        deslocamento: v('po-desloc') || null,
+        visita_inicio: v('po-visita-ini') || null, visita_termino: v('po-visita-fim') || null,
+        ida: v('po-ida') || null, retorno: v('po-retorno') || null,
+        teve_pausa: v('po-teve-pausa') || null,
+        almoco_inicio: v('po-almoco-ini') || null, almoco_termino: v('po-almoco-fim') || null,
+        pausa_inicio: v('po-pausa-ini') || null, pausa_termino: v('po-pausa-fim') || null,
+        estimativa: ((Number(v('po-est-tec')) || 0) || (Number(v('po-est-qtd')) || 0))
+          ? { tecnicos: Number(v('po-est-tec')) || 0, qtd: Number(v('po-est-qtd')) || 0, unidade: v('po-est-un') || 'dias' }
+          : null,
+        observacoes: v('po-observacoes').trim() || null,
+        tecnicos: [...poTecSel].map(id => {
+          const t = (ref.tecnicos || []).find(x => x.id === id) || (id === tecnico.id ? { id, nome: tecnico.nome } : { id, nome: null })
+          return { id, nome: t.nome || null }
+        }),
+      },
+      tempo_trabalhado: calcTempoPo(),
+      data: new Date().toISOString(),
+      status,
+    }
+  }
+  // Salvar (rascunho): grava o progresso e mantém RASCUNHO (não sincroniza) — continuar depois.
+  async function salvarRascunhoPreorc() {
+    if (!curPo) return
+    await D().salvarPreorc(curPo.client_uuid, poMontarPayload('rascunho'))
+    toast('Salvo. Você pode continuar depois.', 'ok')
+    await renderPreorcLista()
+  }
   async function concluirPreorc() {
     if (!curPo) return
     const cliId = document.getElementById('po-cliente').value
