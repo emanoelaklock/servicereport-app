@@ -882,10 +882,24 @@
     } catch (e) { filaBox.innerHTML = '<div class="home-empty">Não foi possível carregar a fila.</div>'; if (filaCt) filaCt.textContent = '' }
   }
 
+  // RAT a corrigir numa tarefa DEVOLVIDA: a última RAT registrada/em andamento já
+  // existente (a devolução pede CORREÇÃO do que foi enviado — material/foto incluídos —,
+  // não uma RAT nova do dia, que abriria vazia).
+  const ratParaCorrigir = (rs, tid) => (rs || [])
+    .filter(r => r.tarefa_id === tid && r.sync_status !== D().STATUS.RASCUNHO && (r.status === 'registrado' || r.status === 'em_andamento'))
+    .sort((a, b) => (b.criado_em || '').localeCompare(a.criado_em || ''))[0]
+
   // Abre a RAT de hoje da tarefa: reabre a do dia se já existe (local), senão cria.
   async function abrirRatDeHoje(t) {
-    const doDia = ratDoDiaDe(await D().listarRats(), t.id)
+    const rs = await D().listarRats()
+    const doDia = ratDoDiaDe(rs, t.id)
     if (doDia) return abrirExistente(doDia.client_uuid)
+    // Tarefa devolvida pelo admin: reabre a RAT existente pra corrigir (traz material+foto
+    // do servidor via hidratarFilhosDevolucao), em vez de criar uma RAT nova e vazia.
+    if (t.status === 'devolvida') {
+      const corrigir = ratParaCorrigir(rs, t.id)
+      if (corrigir) return abrirExistente(corrigir.client_uuid)
+    }
     return iniciarRatDaTarefa(t)
   }
 

@@ -306,11 +306,19 @@
     await tx([ST_FOTOS], 'readwrite', (t) => {
       const s = t.objectStore(ST_FOTOS)
       for (const f of serverFotos) {
-        s.put({
-          id: f.id, rat_uuid: client_uuid, blob: null, legenda: f.legenda || null,
-          // url = PATH (fonte da verdade p/ re-upload e re-assinar). NUNCA gravar a URL assinada aqui:
-          // ela expira em 1h e o re-envio a persistiria em relatorio_fotos.url → fotos somem. preview = só exibir.
-          url: f.url || null, preview: f.signedUrl || null, enviada: 1, criado_em: f.criado_em || agora(),
+        reqP(s.get(f.id)).then((cur) => {
+          s.put({
+            id: f.id, rat_uuid: client_uuid,
+            // PRESERVA o blob local (cópia offline da foto): re-hidratar NÃO pode destruí-lo, senão
+            // a galeria fica refém da URL assinada (expira em 1h / pode falhar) e a foto some.
+            blob: (cur && cur.blob) || null,
+            legenda: f.legenda || (cur && cur.legenda) || null,
+            // url = PATH (fonte da verdade p/ re-upload e re-assinar). NUNCA gravar a URL assinada aqui:
+            // ela expira em 1h e o re-envio a persistiria em relatorio_fotos.url → fotos somem. preview = só exibir.
+            url: f.url || (cur && cur.url) || null,
+            preview: f.signedUrl || (cur && cur.preview) || null,
+            enviada: 1, criado_em: f.criado_em || (cur && cur.criado_em) || agora(),
+          })
         })
       }
     })
