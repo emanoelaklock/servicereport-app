@@ -403,11 +403,11 @@
     const pbx = document.getElementById('pb-x'); if (pbx) pbx.onclick = fecharModalBuscaProd
     document.getElementById('f-tipo').onchange = onTipoChange
     // Execução é o padrão; marcar "visita improdutiva" troca o modo (recolhe o checkpoint).
-    document.getElementById('f-improdutiva-chk').onchange = (e) => { revelarPass = false; setExec(e.target.checked ? 'Não' : 'Sim') }
-    document.querySelectorAll('#f-volta-seg button').forEach(b => { b.onclick = () => { setVoltaAmanha(b.dataset.v); if (b.dataset.v === 'Sim') salvar('registrado') } })
+    document.getElementById('f-improdutiva-chk').onchange = (e) => { revelarPass = false; setExec(e.target.checked ? 'Não' : 'Sim'); if (e.target.checked) revelarNoForm(document.getElementById('f-exec-nao')) }
+    document.querySelectorAll('#f-volta-seg button').forEach(b => { b.onclick = () => { setVoltaAmanha(b.dataset.v); if (b.dataset.v === 'Sim') salvar('registrado'); else revelarNoForm(document.getElementById('f-passagem-nao')) } })
     document.getElementById('btn-voltar-pass').onclick = voltarDoCheckpoint
-    document.querySelectorAll('#f-passagem-motivo input[name="f-pass-motivo"]').forEach(r => { r.onchange = togglePassagemHandoff })
-    document.querySelectorAll('#f-motivos input[name="f-motivo"]').forEach(r => { r.onchange = toggleMotivoTexto })
+    document.querySelectorAll('#f-passagem-motivo input[name="f-pass-motivo"]').forEach(r => { r.onchange = () => { togglePassagemHandoff(); if (r.value === 'volto_depois') revelarNoForm(document.getElementById('f-passagem-handoff')) } })
+    document.querySelectorAll('#f-motivos input[name="f-motivo"]').forEach(r => { r.onchange = () => { toggleMotivoTexto(); if (r.value === 'outro') revelarNoForm(document.getElementById('f-motivo-texto-wrap')) } })
     // Navegação da home
     document.getElementById('btn-voltar').onclick = onVoltar
     document.getElementById('nav-os').onclick = async () => { mostrar('lista'); await renderLista() }
@@ -1294,10 +1294,19 @@
     const h = (window.visualViewport && window.visualViewport.height) ? window.visualViewport.height : window.innerHeight
     w.style.height = Math.round(h) + 'px'
   }
+  // Traz uma seção recém-revelada (no fim do formulário) pra vista, pra o técnico não precisar
+  // rolar pra cima pra achá-la. Chamado nos gatilhos de AÇÃO (não nas funções toggle*, que também
+  // rodam na repopulação ao reabrir a RAT — ali não se quer rolar a tela).
+  function revelarNoForm(el) {
+    if (!el) return
+    requestAnimationFrame(() => { try { fitShell() } catch (e) { /* nada */ } el.scrollIntoView({ behavior: 'smooth', block: 'center' }) })
+  }
   let _shellWired = false
   function wireShell() {
     if (_shellWired) return; _shellWired = true
-    if (window.visualViewport) { window.visualViewport.addEventListener('resize', fitShell); window.visualViewport.addEventListener('scroll', fitShell) }
+    // só 'resize' (teclado/toolbar mudam a altura). 'scroll' re-dimensionava o shell no meio do
+    // scroll/rubber-band do iOS, encolhendo-o por um instante e expondo o fundo atrás do formulário.
+    if (window.visualViewport) { window.visualViewport.addEventListener('resize', fitShell) }
     window.addEventListener('orientationchange', () => setTimeout(fitShell, 120))
     fitShell()
   }
