@@ -1312,23 +1312,16 @@
     // try/catch defensivo: ajuste de layout NUNCA pode lançar e quebrar o boot/render (iOS/WebKit).
     try {
       const w = document.querySelector('.field-wrap'); if (!w) return
+      w.style.transform = ''   // SEM transform: translateY(offsetTop) empurrava o shell pra baixo → vazio em cima.
+      // Teclado aberto (campo de texto focado): NÃO mexe no shell. Deixa o iOS rolar o campo focado
+      // NATIVAMENTE (ele já faz). Redimensionar/reposicionar aqui é o que jogava cabeçalho/rodapé pra
+      // fora da vista. Só re-encaixa o shell quando NÃO há campo focado (toolbar/orientação).
+      const el = document.activeElement
+      if (el && el.matches && el.matches('input,textarea,select,[contenteditable="true"]')) return
       const vv = window.visualViewport
       const h = (vv && vv.height) ? vv.height : window.innerHeight
       w.style.height = Math.round(h) + 'px'
-      // Teclado iOS desloca a viewport visível pra baixo (offsetTop): sem acompanhar, o shell (preso no
-      // topo) fica desalinhado e expõe o fundo (tela branca) com o campo focado fora da vista. translateY
-      // cola o shell na área realmente visível. Os modais ficam FORA do .field-wrap → o transform não os afeta.
-      w.style.transform = (vv && typeof vv.offsetTop === 'number') ? ('translateY(' + Math.round(vv.offsetTop) + 'px)') : ''
     } catch (e) { /* nunca deixa o ajuste de layout quebrar o app */ }
-  }
-  // Mantém o campo focado VISÍVEL acima do teclado (iOS): após a animação do teclado, rola o campo
-  // pra vista. Sem isso, focar Observações / "O que falta" some atrás do teclado (tela branca).
-  function garantirCampoVisivel() {
-    try {
-      const el = document.activeElement
-      if (!el || !el.matches || !el.matches('input,textarea,select,[contenteditable="true"]')) return
-      el.scrollIntoView({ block: 'center', behavior: 'smooth' })
-    } catch (e) { /* nada */ }
   }
   // Traz uma seção recém-revelada (no fim do formulário) pra vista, pra o técnico não precisar
   // rolar pra cima pra achá-la. Chamado nos gatilhos de AÇÃO (não nas funções toggle*, que também
@@ -1337,20 +1330,12 @@
     if (!el) return
     requestAnimationFrame(() => { try { fitShell() } catch (e) { /* nada */ } el.scrollIntoView({ behavior: 'smooth', block: 'center' }) })
   }
-  let _shellWired = false, _kbT = null
+  let _shellWired = false
   function wireShell() {
     if (_shellWired) return; _shellWired = true
-    // só 'resize' (teclado/toolbar mudam a altura). 'scroll' re-dimensionava o shell no meio do
-    // scroll/rubber-band do iOS, encolhendo-o por um instante e expondo o fundo atrás do formulário.
-    // No resize do teclado: re-encaixa o shell (com offsetTop) E traz o campo focado pra vista.
-    if (window.visualViewport) {
-      window.visualViewport.addEventListener('resize', () => { fitShell(); clearTimeout(_kbT); _kbT = setTimeout(garantirCampoVisivel, 120) })
-    }
-    // Ao focar um campo, o teclado sobe (iOS): espera a animação e garante o campo acima do teclado.
-    document.addEventListener('focusin', (e) => {
-      const t = e.target
-      if (t && t.matches && t.matches('input,textarea,select,[contenteditable="true"]')) { clearTimeout(_kbT); _kbT = setTimeout(garantirCampoVisivel, 300) }
-    })
+    // 'resize' (toolbar/teclado mudam a altura): re-encaixa o shell — MAS com o teclado aberto o fitShell
+    // NÃO mexe (deixa o iOS rolar o campo nativamente). Sem 'scroll' (encolhia no rubber-band e expunha o fundo).
+    if (window.visualViewport) { window.visualViewport.addEventListener('resize', fitShell) }
     window.addEventListener('orientationchange', () => setTimeout(fitShell, 120))
     fitShell()
   }
