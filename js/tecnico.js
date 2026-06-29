@@ -1309,21 +1309,26 @@
   // como o rodapé é item de layout (flex), ele acompanha o fundo visível — sem position:fixed (que
   // "subia pro meio"). O conteúdo rola dentro do .field-body.
   function fitShell() {
-    const w = document.querySelector('.field-wrap'); if (!w) return
-    const vv = window.visualViewport
-    const h = (vv && vv.height) ? vv.height : window.innerHeight
-    w.style.height = Math.round(h) + 'px'
-    // Teclado iOS desloca a viewport visível pra baixo (offsetTop): sem acompanhar, o shell (preso no
-    // topo) fica desalinhado e expõe o fundo (tela branca) com o campo focado fora da vista. translateY
-    // cola o shell na área realmente visível. Os modais ficam FORA do .field-wrap → o transform não os afeta.
-    w.style.transform = vv ? ('translateY(' + Math.round(vv.offsetTop) + 'px)') : ''
+    // try/catch defensivo: ajuste de layout NUNCA pode lançar e quebrar o boot/render (iOS/WebKit).
+    try {
+      const w = document.querySelector('.field-wrap'); if (!w) return
+      const vv = window.visualViewport
+      const h = (vv && vv.height) ? vv.height : window.innerHeight
+      w.style.height = Math.round(h) + 'px'
+      // Teclado iOS desloca a viewport visível pra baixo (offsetTop): sem acompanhar, o shell (preso no
+      // topo) fica desalinhado e expõe o fundo (tela branca) com o campo focado fora da vista. translateY
+      // cola o shell na área realmente visível. Os modais ficam FORA do .field-wrap → o transform não os afeta.
+      w.style.transform = (vv && typeof vv.offsetTop === 'number') ? ('translateY(' + Math.round(vv.offsetTop) + 'px)') : ''
+    } catch (e) { /* nunca deixa o ajuste de layout quebrar o app */ }
   }
   // Mantém o campo focado VISÍVEL acima do teclado (iOS): após a animação do teclado, rola o campo
   // pra vista. Sem isso, focar Observações / "O que falta" some atrás do teclado (tela branca).
   function garantirCampoVisivel() {
-    const el = document.activeElement
-    if (!el || !el.matches || !el.matches('input,textarea,select,[contenteditable="true"]')) return
-    try { el.scrollIntoView({ block: 'center', behavior: 'smooth' }) } catch (e) { /* nada */ }
+    try {
+      const el = document.activeElement
+      if (!el || !el.matches || !el.matches('input,textarea,select,[contenteditable="true"]')) return
+      el.scrollIntoView({ block: 'center', behavior: 'smooth' })
+    } catch (e) { /* nada */ }
   }
   // Traz uma seção recém-revelada (no fim do formulário) pra vista, pra o técnico não precisar
   // rolar pra cima pra achá-la. Chamado nos gatilhos de AÇÃO (não nas funções toggle*, que também

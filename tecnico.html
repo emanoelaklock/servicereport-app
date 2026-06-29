@@ -20,14 +20,20 @@ try{if(localStorage.getItem('sr_dark')==='1')document.documentElement.classList.
       b.textContent='⚠ Erro no app (mostre esta tela ao suporte):\n\n'+txt;
     }catch(e){}
   }
-  window.addEventListener('error',function(e){ mostrarErro((e&&e.message?e.message:'erro')+'\n'+((e&&e.error&&e.error.stack)?e.error.stack:((e&&e.filename?e.filename:'')+':'+(e&&e.lineno?e.lineno:'')))); });
+  window.addEventListener('error',function(e){
+    var msg=(e&&e.message)?e.message:'erro';
+    var loc=((e&&e.filename)?e.filename:'?')+':'+((e&&e.lineno)?e.lineno:'?')+':'+((e&&e.colno)?e.colno:'?');
+    var stk=(e&&e.error&&e.error.stack)?('\n'+e.error.stack):'';
+    var hint=(msg==='Script error.'&&!(e&&e.error))?'\n(erro de script EXTERNO/CDN — sem detalhe por falta de CORS)':'';
+    mostrarErro(msg+'\n'+loc+stk+hint);
+  });
   window.addEventListener('unhandledrejection',function(e){ var r=e&&e.reason; mostrarErro('Promise: '+((r&&r.stack)?r.stack:(r&&r.message?r.message:String(r)))); });
 })();</script>
 <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
 <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="css/theme.css">
 <link rel="stylesheet" href="css/tecnico-skin.css">
-<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2" crossorigin="anonymous"></script>
 <script src="js/utils.js"></script>
 <script src="js/supabase-client.js"></script>
 <script src="js/auth.js"></script>
