@@ -42,6 +42,7 @@ Regras do projeto que você (Claude Code) deve seguir em **toda** sessão. Leia 
 - **Commits pequenos, um de cada vez.** Nunca empilhar vários commits e só então mostrar. Commite e aguarde revisão antes do próximo.
 - **Verifique cada commit:** rode/teste o que mexeu e diga o que verificou. Em **migração de dados**, explique o que pode dar errado e como testou (não perder histórico).
 - **Pacote pesado vai em branch própria** (ex.: `feat/...`), não direto na `main` (que está no ar no Vercel).
+- **Ajustes pequenos (CSS/UI, correção pontual) podem ir direto na `main` e com push, sem pedir confirmação a cada vez.** Bump do `CACHE` no `service-worker.js` quando mexer em CSS/JS servido. O push fica liberado para esses casos; pacote pesado continua em branch + PR.
 - Mudou comportamento? **Atualize o spec** correspondente.
 
 ## NÃO FAZER (decisões já tomadas — não reintroduzir)
