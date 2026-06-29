@@ -841,9 +841,10 @@
               .map(r => (r.respostas && r.respostas.data) || (r.criado_em || '').slice(0, 10)).filter(Boolean)).size
             const multi = t.previsao_dias ? `<div class="tkprog num">Dia ${dias + (temRatHoje ? 0 : 1)} · previsto ~${t.previsao_dias}</div>` : ''
             const sub = [tipoNomeDe(t.tipo_servico_id), t.local_servico].filter(Boolean).join(' · ')
+            const orient = t.orientacao ? `<div class="orient"><div class="k">Orientação</div><div class="v">${esc(t.orientacao)}</div></div>` : ''
             return `<div class="listcard ${LC_SK[e.sk] || ''}" data-hoje="${esc(t.id)}"><span class="edge e-${e.sk}"></span>
               <div class="t"><span class="cli">${esc(cliNomeDe(t.cliente_id))}</span></div>
-              ${sub ? `<div class="meta">${esc(sub)}</div>` : ''}${multi}
+              ${sub ? `<div class="meta">${esc(sub)}</div>` : ''}${multi}${orient}
               <div class="tkact"><span class="badge b-${e.sk}">${esc(e.txt)}</span><span class="tkgo">${temRatHoje ? 'RAT de hoje' : 'Iniciar'} <svg viewBox="0 0 24 24"><path d="M9 6l6 6-6 6"/></svg></span></div>
             </div>`
           }).join('')
@@ -870,9 +871,10 @@
         ? '<div class="home-empty">Nenhuma tarefa aberta na fila.</div>'
         : fila.map(t => {
             const sub = [tipoNomeDe(t.tipo_servico_id), t.local_servico].filter(Boolean).join(' · ')
+            const orient = t.orientacao ? `<div class="orient"><div class="k">Orientação</div><div class="v">${esc(t.orientacao)}</div></div>` : ''
             return `<div class="listcard lc-info"><span class="edge e-info"></span>
               <div class="t"><span class="cli">${esc(cliNomeDe(t.cliente_id))}</span></div>
-              ${sub ? `<div class="meta">${esc(sub)}</div>` : ''}
+              ${sub ? `<div class="meta">${esc(sub)}</div>` : ''}${orient}
               <div class="tkact"><span class="badge b-info">Na fila</span><button class="tkpick" data-pegar="${esc(t.id)}">Pegar</button></div>
             </div>`
           }).join('')
