@@ -1310,8 +1310,20 @@
   // "subia pro meio"). O conteúdo rola dentro do .field-body.
   function fitShell() {
     const w = document.querySelector('.field-wrap'); if (!w) return
-    const h = (window.visualViewport && window.visualViewport.height) ? window.visualViewport.height : window.innerHeight
+    const vv = window.visualViewport
+    const h = (vv && vv.height) ? vv.height : window.innerHeight
     w.style.height = Math.round(h) + 'px'
+    // Teclado iOS desloca a viewport visível pra baixo (offsetTop): sem acompanhar, o shell (preso no
+    // topo) fica desalinhado e expõe o fundo (tela branca) com o campo focado fora da vista. translateY
+    // cola o shell na área realmente visível. Os modais ficam FORA do .field-wrap → o transform não os afeta.
+    w.style.transform = vv ? ('translateY(' + Math.round(vv.offsetTop) + 'px)') : ''
+  }
+  // Mantém o campo focado VISÍVEL acima do teclado (iOS): após a animação do teclado, rola o campo
+  // pra vista. Sem isso, focar Observações / "O que falta" some atrás do teclado (tela branca).
+  function garantirCampoVisivel() {
+    const el = document.activeElement
+    if (!el || !el.matches || !el.matches('input,textarea,select,[contenteditable="true"]')) return
+    try { el.scrollIntoView({ block: 'center', behavior: 'smooth' }) } catch (e) { /* nada */ }
   }
   // Traz uma seção recém-revelada (no fim do formulário) pra vista, pra o técnico não precisar
   // rolar pra cima pra achá-la. Chamado nos gatilhos de AÇÃO (não nas funções toggle*, que também
@@ -1320,12 +1332,20 @@
     if (!el) return
     requestAnimationFrame(() => { try { fitShell() } catch (e) { /* nada */ } el.scrollIntoView({ behavior: 'smooth', block: 'center' }) })
   }
-  let _shellWired = false
+  let _shellWired = false, _kbT = null
   function wireShell() {
     if (_shellWired) return; _shellWired = true
     // só 'resize' (teclado/toolbar mudam a altura). 'scroll' re-dimensionava o shell no meio do
     // scroll/rubber-band do iOS, encolhendo-o por um instante e expondo o fundo atrás do formulário.
-    if (window.visualViewport) { window.visualViewport.addEventListener('resize', fitShell) }
+    // No resize do teclado: re-encaixa o shell (com offsetTop) E traz o campo focado pra vista.
+    if (window.visualViewport) {
+      window.visualViewport.addEventListener('resize', () => { fitShell(); clearTimeout(_kbT); _kbT = setTimeout(garantirCampoVisivel, 120) })
+    }
+    // Ao focar um campo, o teclado sobe (iOS): espera a animação e garante o campo acima do teclado.
+    document.addEventListener('focusin', (e) => {
+      const t = e.target
+      if (t && t.matches && t.matches('input,textarea,select,[contenteditable="true"]')) { clearTimeout(_kbT); _kbT = setTimeout(garantirCampoVisivel, 300) }
+    })
     window.addEventListener('orientationchange', () => setTimeout(fitShell, 120))
     fitShell()
   }
