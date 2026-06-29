@@ -226,10 +226,17 @@
     let sess = (typeof SESSION !== 'undefined' && SESSION) ? SESSION : null
     if (!sess) { try { sess = (await getSupabase().auth.getSession()).data.session } catch (e) { sess = null } }
     tecnico.id = sess?.user?.id || null
-    if (!tecnico.id) { location.href = 'login.html'; return }   // sem sessão local → login; nunca seguir sem uid (evita banco errado)
+    // Soluço/offline sem uid: cai pro último usuário conhecido do aparelho (mesma pessoa) — assim
+    // o app abre offline com o banco certo em vez de travar.
+    if (!tecnico.id) { try { tecnico.id = localStorage.getItem('sr_last_uid') || null } catch (e) { /* nada */ } }
+    // Sem uid de jeito nenhum: NÃO redireciona offline (técnico não loga sem rede → tela branca/loop);
+    // só manda pro login quando há internet pra logar.
+    if (!tecnico.id) { if (navigator.onLine) location.href = 'login.html'; return }
     if (!verificarSessaoDia()) return            // app fechado / virou o dia → exige login
     isolarPorUsuario(tecnico.id)   // ANTES de qualquer acesso a IndexedDB/cache
-    const u = await getUserRole().catch(() => null)
+    // Perfil/nome é COSMÉTICO no boot e não pode travar o app offline: getUserRole() faz getUser()
+    // (rede), que offline fica re-tentando e pendura o boot → tela branca. Corre contra um timeout.
+    const u = await Promise.race([getUserRole().catch(() => null), new Promise(res => setTimeout(() => res(null), 2500))])
     tecnico.nome = tcase(u?.nome || sess?.user?.email?.split('@')[0] || 'Técnico')
     const ftn = document.getElementById('ft-nome'); if (ftn) ftn.textContent = tecnico.nome
 
@@ -509,6 +516,7 @@
   // Online: busca do Supabase e cacheia (localStorage) para uso offline.
   // Offline: usa o cache.
   async function carregarRef() {
+    if (navigator.onLine) {
     try {
       const sb = getSupabase()
       const [cli, tip, forms, tec, veic, prod, base, sts] = await Promise.all([
@@ -555,6 +563,10 @@
       const cache = localStorage.getItem(REF_KEY)
       if (cache) { ref = JSON.parse(cache); toast('Offline — usando cadastros salvos.', 'info') }
       else { toast('Sem conexão e sem cadastros em cache.', 'err') }
+    }
+    } else {
+      // OFFLINE: cache na hora — não toca a rede (re-tentativas do supabase-js penduram o boot = tela branca)
+      try { const _c = localStorage.getItem(REF_KEY); if (_c) ref = JSON.parse(_c) } catch (e) { /* nada */ }
     }
     // cliente: autocomplete (lista grande do Omie)
     attachAutocomplete(
@@ -708,6 +720,7 @@
   // Carrega as tarefas do técnico (RLS já filtra por tarefa_tecnicos) e mescla as criadas
   // offline ainda na fila. Cacheia p/ offline. Popula o global `tarefas` (sem renderizar).
   async function carregarTarefas(force) {
+    if (navigator.onLine) {
     try {
       const sb = getSupabase()
       // Janela offline de 14 dias: histórico antigo JÁ RESOLVIDO sai da lista padrão (cache enxuto),
@@ -733,6 +746,12 @@
       tarefas = cache ? JSON.parse(cache) : []
       try { respPorTarefa = JSON.parse(localStorage.getItem(RESP_KEY) || '{}') } catch (_) { respPorTarefa = {} }
       if (force) toast('Offline — mostrando tarefas salvas.', 'info')
+    }
+    } else {
+      // OFFLINE: cache na hora — não toca a rede (re-tentativas penduram o boot)
+      const cache = localStorage.getItem(TAREFAS_KEY)
+      tarefas = cache ? JSON.parse(cache) : []
+      try { respPorTarefa = JSON.parse(localStorage.getItem(RESP_KEY) || '{}') } catch (_) { respPorTarefa = {} }
     }
     // Mescla tarefas criadas offline (ainda na fila) que ainda não vieram do servidor.
     let locais = []
