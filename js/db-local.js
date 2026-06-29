@@ -80,8 +80,11 @@
   }
   function db() {
     if (_dbp) return _dbp
+    // dbName() pode lançar (sem usuário) — chamada ANTES de cachear _dbp, pra não prender uma
+    // promise rejeitada: a próxima chamada (já com usuário definido) reabre normalmente.
+    const _name = dbName()
     _dbp = new Promise((resolve, reject) => {
-      const req = indexedDB.open(dbName(), DB_VERSION)
+      const req = indexedDB.open(_name, DB_VERSION)
       req.onupgradeneeded = (e) => {
         const d = e.target.result
         if (!d.objectStoreNames.contains(ST_RATS)) {
