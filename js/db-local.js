@@ -70,7 +70,14 @@
     if (_dbConn) { try { _dbConn.close() } catch (e) { /* nada */ } _dbConn = null }
     _dbp = null   // próxima db() reabre no banco do usuário atual
   }
-  function dbName() { return _uid ? ('service_report_u_' + _uid) : DB_NAME }
+  function dbName() {
+    let u = _uid
+    if (!u) { try { u = localStorage.getItem('sr_last_uid') } catch (e) { u = null } }
+    // Recusa abrir o banco legado/compartilhado: sem usuário, falha alto em vez de mostrar
+    // (ou gravar em) um banco vazio/errado — o "sumiço" silencioso de RATs vinha daqui.
+    if (!u) throw new Error('DBLocal: sem usuário — recusando abrir banco (evita banco legado vazio)')
+    return 'service_report_u_' + u
+  }
   function db() {
     if (_dbp) return _dbp
     _dbp = new Promise((resolve, reject) => {

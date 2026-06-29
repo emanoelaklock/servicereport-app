@@ -162,6 +162,7 @@
   // de login (inclui a 1ª vez pós-update). NÃO apaga trabalho não-sincronizado (o IndexedDB do
   // usuário anterior fica intacto no banco dele). Resolve a colisão "logada como Pablo vendo RAT do Teste".
   function isolarPorUsuario(uid) {
+    if (!uid) return   // uid nulo NÃO troca de banco (evita cair no banco legado service_report)
     try { D().setUser(uid) } catch (e) { /* nada */ }
     let last = null
     try { last = localStorage.getItem('sr_last_uid') } catch (e) { /* nada */ }
@@ -218,12 +219,18 @@
   }
 
   async function init() {
-    const { data: { user } } = await getSupabase().auth.getUser()
-    tecnico.id = user?.id || null
+    // uid SEMPRE da sessão LOCAL (offline-first). getUser() faz chamada de REDE e devolve null
+    // num soluço de conexão / token renovando → o app abria o banco legado vazio e as RATs
+    // "sumiam". SESSION já vem populada pelo _posLogin (auth.js) antes do init; getSession() é
+    // o fallback local (não toca a rede), igual o resto do sistema (auth.js).
+    let sess = (typeof SESSION !== 'undefined' && SESSION) ? SESSION : null
+    if (!sess) { try { sess = (await getSupabase().auth.getSession()).data.session } catch (e) { sess = null } }
+    tecnico.id = sess?.user?.id || null
+    if (!tecnico.id) { location.href = 'login.html'; return }   // sem sessão local → login; nunca seguir sem uid (evita banco errado)
     if (!verificarSessaoDia()) return            // app fechado / virou o dia → exige login
     isolarPorUsuario(tecnico.id)   // ANTES de qualquer acesso a IndexedDB/cache
     const u = await getUserRole().catch(() => null)
-    tecnico.nome = tcase(u?.nome || user?.email?.split('@')[0] || 'Técnico')
+    tecnico.nome = tcase(u?.nome || sess?.user?.email?.split('@')[0] || 'Técnico')
     const ftn = document.getElementById('ft-nome'); if (ftn) ftn.textContent = tecnico.nome
 
     const hello = document.getElementById('home-hello')
