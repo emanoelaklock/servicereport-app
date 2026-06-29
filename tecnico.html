@@ -602,9 +602,29 @@ try{if(localStorage.getItem('sr_dark')==='1')document.documentElement.classList.
         <input type="password" id="l-senha" placeholder="••••••••" autocomplete="current-password" onkeydown="if(event.key==='Enter')fazerLogin()"/>
       </div>
       <button class="btn btn-p" style="width:100%;justify-content:center;padding:10px" id="btn-login" onclick="fazerLogin()">Entrar</button>
+      <div id="sw-ver" style="margin-top:14px;font-size:11px;color:var(--tx3);text-align:center">versão —</div>
     </div>
   </div>
 </div>
+<script>
+  // Indicador discreto de versão: lê o(s) cache(s) reais do Service Worker (sr-shell-vNNN) para
+  // confirmar QUAL build está no ar (preview vs produção). Sem depender de palpite na URL.
+  (function () {
+    const el = document.getElementById('sw-ver'); if (!el) return
+    const pintar = async () => {
+      let v = '—'
+      try {
+        const ks = (await caches.keys()).filter(k => k.indexOf('sr-shell-') === 0).map(k => k.replace('sr-shell-', ''))
+        if (ks.length) v = ks.join(', ')
+      } catch (e) { /* nada */ }
+      const semSW = (navigator.serviceWorker && navigator.serviceWorker.controller) ? '' : ' · sem SW ativo'
+      el.textContent = 'versão ' + v + semSW
+    }
+    pintar()
+    if (navigator.serviceWorker) navigator.serviceWorker.addEventListener('controllerchange', pintar)
+    setTimeout(pintar, 2000)
+  })()
+</script>
 
 <!-- APP DE CAMPO -->
 <div id="app-screen" style="display:none">
