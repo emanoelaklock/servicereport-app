@@ -3400,7 +3400,11 @@
       try {
         if (!cur || !cur.client_uuid) return
         const r = await D().obterRat(cur.client_uuid)
-        if (!r || r.sync_status !== D().STATUS.RASCUNHO) return
+        const S = D().STATUS
+        // Autosalva rascunho E RAT reaberta pra correção (confirmada/salvo_local). NÃO mexe
+        // enquanto está subindo (na_fila/enviando) pra não competir com o envio.
+        if (!r || r.sync_status === S.NA_FILA || r.sync_status === S.ENVIANDO) return
+        const eraConfirmada = r.sync_status === S.CONFIRMADO
         const { respostas } = coletarRespostas()
         if (usoProd) respostas.uso_produtos = usoProd
         await D().salvarRat(cur.client_uuid, {
@@ -3408,6 +3412,10 @@
           tempo_trabalhado: calcTempo(),
           uso_produtos: usoProd || null,
         })
+        // RAT já confirmada sendo editada (correção de devolução): vira pendente pra (1) o pull
+        // do servidor NÃO sobrescrever a edição (aplicarDoServidor: local pendente vence) e
+        // (2) a correção voltar a subir no próximo sync.
+        if (eraConfirmada) await D().definirStatus(cur.client_uuid, S.SALVO_LOCAL, 'edição pós-confirmação')
       } catch (e) { /* autosave é melhor-esforço */ }
       finally { autosavePend = false }   // sempre limpa (inclusive nos early-returns) — não trava p/ sempre
     }, 700)

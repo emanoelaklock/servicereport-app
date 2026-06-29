@@ -36,7 +36,7 @@
     na_fila:     ['enviando', 'erro', 'na_fila'],
     enviando:    ['confirmado', 'erro'],
     erro:        ['na_fila'],          // retry
-    confirmado:  [],                   // terminal
+    confirmado:  ['salvo_local'],      // reabrir RAT confirmada p/ correção (devolução)
   }
 
   // ── device_id persistente (uma vez por aparelho) ──
