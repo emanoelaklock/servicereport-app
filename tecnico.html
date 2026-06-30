@@ -31,6 +31,17 @@ try{if(localStorage.getItem('sr_dark')==='1')document.documentElement.classList.
   });
   window.addEventListener('unhandledrejection',function(e){ var r=e&&e.reason; mostrarErro('Promise: '+((r&&r.stack)?r.stack:(r&&r.message?r.message:String(r)))); });
 })();</script>
+<script>/* Altura do app em PIXELS via JS. O iOS Safari trata 100vh/100dvh como altura INDEFINIDA pro
+   flex (nem flex-grow nem margin:auto empurram o rodapé pra base). window.innerHeight = viewport
+   VISÍVEL (acompanha a barra do Safari e o teclado). Px = altura DEFINIDA → flex preenche. Só no
+   resize (sem transform, sem listener de scroll — não briga com a rolagem). */
+(function(){
+  function setH(){ try{ document.documentElement.style.setProperty('--app-h', window.innerHeight + 'px'); }catch(e){} }
+  setH();
+  window.addEventListener('resize', setH);
+  window.addEventListener('orientationchange', function(){ setTimeout(setH, 150); });
+  if (window.visualViewport) window.visualViewport.addEventListener('resize', setH);
+})();</script>
 <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
 <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="css/theme.css">
@@ -65,7 +76,7 @@ try{if(localStorage.getItem('sr_dark')==='1')document.documentElement.classList.
      (gap 143 até no standalone). Em modo estático o flex preenche normal. No standalone não há barra do
      Safari, então 100dvh = tela cheia e a página não rola → rodapé na base. body{min-height:0} garante
      que o body acompanha o shell (sem o min-height:100vh do theme.css esticar a página). */
-  .field-wrap{max-width:560px;margin:0 auto;height:100vh;height:100dvh;display:flex;flex-direction:column;overflow:hidden;background:var(--bg)}
+  .field-wrap{max-width:560px;margin:0 auto;height:100vh;height:100dvh;height:var(--app-h,100dvh);display:flex;flex-direction:column;overflow:hidden;background:var(--bg)}
   .field-top{height:56px;background:#1E8AE0;color:#fff;display:flex;align-items:center;justify-content:space-between;padding:0 16px;position:sticky;top:0;z-index:50}
   .field-top .ft-title{font-size:15px;font-weight:600;flex:1}
   .field-top .ft-logout{background:rgba(255,255,255,.12);border:none;color:#fff;border-radius:8px;padding:8px 12px;font:inherit;font-size:13px;cursor:pointer}
