@@ -73,7 +73,10 @@ try{if(localStorage.getItem('sr_dark')==='1')document.documentElement.classList.
   /* Cards da Fila (tarefas abertas): azul claro translucido — o lc-info (#F2F8FE) sumia no fundo branco */
   #home-fila .listcard{background:rgba(30,138,224,.12);border-color:rgba(30,138,224,.32)}
   /* miolo rola só na vertical (overflow-x:hidden mata o arrasto lateral); fundo cinza do conteúdo aqui. */
-  .field-body{flex:1 1 auto;min-height:0;overflow-y:auto;overflow-x:hidden;overscroll-behavior:contain;-webkit-overflow-scrolling:touch;padding:18px 16px;background:var(--bg)}
+  /* flex:1 1 0 (basis 0, NÃO auto): no iOS o basis:auto não distribuía o espaço livre e o .field-body
+     não esticava → o rodapé ficava no fim do conteúdo curto, sobrando espaço embaixo (gap no standalone
+     também). Com basis 0 ele toma todo o espaço disponível (preenche), e segue rolando se o conteúdo passa. */
+  .field-body{flex:1 1 0;min-height:0;overflow-y:auto;overflow-x:hidden;overscroll-behavior:contain;-webkit-overflow-scrolling:touch;padding:18px 16px;background:var(--bg)}
 
   /* Home (3 botões) */
   .home-hello{font-size:18px;font-weight:700;color:var(--tx);margin:4px 2px 16px}
