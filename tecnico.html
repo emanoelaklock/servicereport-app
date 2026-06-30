@@ -58,14 +58,18 @@ try{if(localStorage.getItem('sr_dark')==='1')document.documentElement.classList.
   /* SEM height:100% aqui: no iOS, 100% = viewport GRANDE (barra recolhida) e o shell usa 100dvh
      (viewport visível) → body ficava maior que o shell e sobrava um vão embaixo. Sem height, o body
      encolhe junto com o shell. overflow:hidden trava a página (só o .field-body rola). */
-  html,body{height:var(--app-h,100dvh);overflow:hidden;overscroll-behavior:none}
+  html{height:var(--app-h,100dvh);overflow:hidden;overscroll-behavior:none}
   /* canvas atrás do app = superfície (branco), não o cinza do conteúdo: assim qualquer faixa que o
      shell fixo não cubra (borda inferior no iOS standalone) fica BRANCA, igual ao rodapé — sem barra cinza.
      O fundo cinza do conteúdo (--bg) vai no .field-body. */
   /* min-height:0 ANULA o body{min-height:100vh} do theme.css: no iOS, 100vh = viewport GRANDE (com a
      barra recolhida), maior que a visível (100dvh) → o body ficava mais alto que a tela, a página
      rolava e o rodapé subia junto. Sem o min-height, o body acompanha o shell (100dvh). */
-  body{display:block;background:var(--sur);min-height:0}
+  /* body POSITION:FIXED: trava o documento de verdade no iOS (o overflow:hidden não impede o iOS de
+     rolar a página num scrollIntoView/auto-scroll → arrastava o shell estático, dando o GAP só ao
+     revelar "Por quê?"). Com o body fixo, NADA rola o documento; o .field-wrap continua STATIC (o flex
+     preenche, que só funciona em static); o .field-body rola por dentro. */
+  body{display:block;background:var(--sur);min-height:0;position:fixed;top:0;left:0;right:0;height:var(--app-h,100dvh);overflow:hidden;overscroll-behavior:none}
   /* App-shell — cada contexto com a técnica que funciona nele (SEM JS):
      • NAVEGADOR: height:100dvh acompanha a barra do Safari (rodapé colado logo acima dela; sem vão).
      • PWA instalado (standalone): position:fixed cobrindo a viewport — o 100dvh do standalone não
