@@ -1630,5 +1630,26 @@ try{if(localStorage.getItem('sr_dark')==='1')document.documentElement.classList.
     }
   }
 </script>
+<!-- TEMP: diagnóstico de layout no aparelho (REMOVER antes do merge) -->
+<script>
+(function(){
+  function box(){ var b=document.getElementById('dbg-lay'); if(!b){ b=document.createElement('div'); b.id='dbg-lay'; b.style.cssText='position:fixed;top:62px;left:6px;z-index:100000;background:rgba(0,0,0,.82);color:#1aff6a;font:700 11px/1.35 monospace;padding:6px 8px;border-radius:8px;white-space:pre;pointer-events:none'; document.body.appendChild(b);} return b; }
+  async function ver(){ try{ var ks=(await caches.keys()).filter(function(k){return k.indexOf('sr-shell-')===0;}).map(function(k){return k.replace('sr-shell-','');}); return ks.join(',')||'—'; }catch(e){ return '?'; } }
+  async function upd(){
+    var b=box(), vv=window.visualViewport, fw=document.querySelector('.field-wrap');
+    var tb=document.getElementById('tabbar'), ff=document.getElementById('form-foot');
+    var foot=(ff && getComputedStyle(ff).display!=='none')?ff:tb;
+    var fr=foot?foot.getBoundingClientRect():null;
+    b.textContent =
+      'v'+(await ver())+'  standalone:'+matchMedia('(display-mode:standalone)').matches+'\n'+
+      'innerH:'+window.innerHeight+'  vv:'+(vv?Math.round(vv.height):'-')+'\n'+
+      'bodyH:'+Math.round(document.body.getBoundingClientRect().height)+'  fw:'+(fw?Math.round(fw.getBoundingClientRect().height):'-')+' '+(fw?getComputedStyle(fw).position:'')+'\n'+
+      'foot.bottom:'+(fr?Math.round(fr.bottom):'-')+'  GAP:'+(fr?(window.innerHeight-Math.round(fr.bottom)):'-');
+  }
+  window.addEventListener('load', upd);
+  if(window.visualViewport){ visualViewport.addEventListener('resize', upd); visualViewport.addEventListener('scroll', upd); }
+  setInterval(upd, 1000);
+})();
+</script>
 </body>
 </html>
