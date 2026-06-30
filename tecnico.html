@@ -44,7 +44,10 @@ try{if(localStorage.getItem('sr_dark')==='1')document.documentElement.classList.
 <script src="js/push.js" crossorigin="anonymous"></script>
 <script src="js/tecnico.js" crossorigin="anonymous"></script>
 <style>
-  html,body{height:100%;overflow:hidden;overscroll-behavior:none}   /* trava a página: só o .field-body rola; nada de rubber-band na página (descolava o rodapé) */
+  /* SEM height:100% aqui: no iOS, 100% = viewport GRANDE (barra recolhida) e o shell usa 100dvh
+     (viewport visível) → body ficava maior que o shell e sobrava um vão embaixo. Sem height, o body
+     encolhe junto com o shell. overflow:hidden trava a página (só o .field-body rola). */
+  html,body{overflow:hidden;overscroll-behavior:none}
   /* canvas atrás do app = superfície (branco), não o cinza do conteúdo: assim qualquer faixa que o
      shell fixo não cubra (borda inferior no iOS standalone) fica BRANCA, igual ao rodapé — sem barra cinza.
      O fundo cinza do conteúdo (--bg) vai no .field-body. */
