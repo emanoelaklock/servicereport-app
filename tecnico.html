@@ -1650,10 +1650,16 @@ try{if(localStorage.getItem('sr_dark')==='1')document.documentElement.classList.
     var tb=document.getElementById('tabbar'), ff=document.getElementById('form-foot');
     var foot=(ff && getComputedStyle(ff).display!=='none')?ff:tb;
     var fr=foot?foot.getBoundingClientRect():null;
+    var ftop=document.querySelector('.field-top'), fbody=document.querySelector('.field-body');
+    var h=function(el){ return el?Math.round(el.getBoundingClientRect().height):'-'; };
+    var fwr=fw?fw.getBoundingClientRect():null;
+    // soma dos filhos do field-wrap (só os visíveis) pra ver se batem com fw
+    var soma=0; if(fw){ Array.prototype.forEach.call(fw.children, function(c){ if(getComputedStyle(c).display!=='none') soma+=Math.round(c.getBoundingClientRect().height); }); }
     b.textContent =
       'v'+(await ver())+'  standalone:'+matchMedia('(display-mode:standalone)').matches+'\n'+
       'innerH:'+window.innerHeight+'  vv:'+(vv?Math.round(vv.height):'-')+'\n'+
-      'bodyH:'+Math.round(document.body.getBoundingClientRect().height)+'  fw:'+(fw?Math.round(fw.getBoundingClientRect().height):'-')+' '+(fw?getComputedStyle(fw).position:'')+'\n'+
+      'fw:'+(fw?Math.round(fwr.height):'-')+' top:'+(fwr?Math.round(fwr.top):'-')+' '+(fw?getComputedStyle(fw).position:'')+'\n'+
+      'ftop:'+h(ftop)+' fbody:'+h(fbody)+' foot:'+h(foot)+' soma:'+soma+'\n'+
       'foot.bottom:'+(fr?Math.round(fr.bottom):'-')+'  GAP:'+(fr?(window.innerHeight-Math.round(fr.bottom)):'-');
   }
   window.addEventListener('load', upd);
