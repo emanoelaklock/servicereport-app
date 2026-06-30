@@ -162,6 +162,7 @@
   // de login (inclui a 1ª vez pós-update). NÃO apaga trabalho não-sincronizado (o IndexedDB do
   // usuário anterior fica intacto no banco dele). Resolve a colisão "logada como Pablo vendo RAT do Teste".
   function isolarPorUsuario(uid) {
+    if (!uid) return   // uid nulo NÃO troca de banco (evita cair no banco legado service_report)
     try { D().setUser(uid) } catch (e) { /* nada */ }
     let last = null
     try { last = localStorage.getItem('sr_last_uid') } catch (e) { /* nada */ }
@@ -218,12 +219,25 @@
   }
 
   async function init() {
-    const { data: { user } } = await getSupabase().auth.getUser()
-    tecnico.id = user?.id || null
+    // uid SEMPRE da sessão LOCAL (offline-first). getUser() faz chamada de REDE e devolve null
+    // num soluço de conexão / token renovando → o app abria o banco legado vazio e as RATs
+    // "sumiam". SESSION já vem populada pelo _posLogin (auth.js) antes do init; getSession() é
+    // o fallback local (não toca a rede), igual o resto do sistema (auth.js).
+    let sess = (typeof SESSION !== 'undefined' && SESSION) ? SESSION : null
+    if (!sess) { try { sess = (await getSupabase().auth.getSession()).data.session } catch (e) { sess = null } }
+    tecnico.id = sess?.user?.id || null
+    // Soluço/offline sem uid: cai pro último usuário conhecido do aparelho (mesma pessoa) — assim
+    // o app abre offline com o banco certo em vez de travar.
+    if (!tecnico.id) { try { tecnico.id = localStorage.getItem('sr_last_uid') || null } catch (e) { /* nada */ } }
+    // Sem uid de jeito nenhum: NÃO redireciona offline (técnico não loga sem rede → tela branca/loop);
+    // só manda pro login quando há internet pra logar.
+    if (!tecnico.id) { if (navigator.onLine) location.href = 'login.html'; return }
     if (!verificarSessaoDia()) return            // app fechado / virou o dia → exige login
     isolarPorUsuario(tecnico.id)   // ANTES de qualquer acesso a IndexedDB/cache
-    const u = await getUserRole().catch(() => null)
-    tecnico.nome = tcase(u?.nome || user?.email?.split('@')[0] || 'Técnico')
+    // Perfil/nome é COSMÉTICO no boot e não pode travar o app offline: getUserRole() faz getUser()
+    // (rede), que offline fica re-tentando e pendura o boot → tela branca. Corre contra um timeout.
+    const u = await Promise.race([getUserRole().catch(() => null), new Promise(res => setTimeout(() => res(null), 2500))])
+    tecnico.nome = tcase(u?.nome || sess?.user?.email?.split('@')[0] || 'Técnico')
     const ftn = document.getElementById('ft-nome'); if (ftn) ftn.textContent = tecnico.nome
 
     const hello = document.getElementById('home-hello')
@@ -396,11 +410,11 @@
     const pbx = document.getElementById('pb-x'); if (pbx) pbx.onclick = fecharModalBuscaProd
     document.getElementById('f-tipo').onchange = onTipoChange
     // Execução é o padrão; marcar "visita improdutiva" troca o modo (recolhe o checkpoint).
-    document.getElementById('f-improdutiva-chk').onchange = (e) => { revelarPass = false; setExec(e.target.checked ? 'Não' : 'Sim') }
-    document.querySelectorAll('#f-volta-seg button').forEach(b => { b.onclick = () => { setVoltaAmanha(b.dataset.v); if (b.dataset.v === 'Sim') salvar('registrado') } })
+    document.getElementById('f-improdutiva-chk').onchange = (e) => { revelarPass = false; setExec(e.target.checked ? 'Não' : 'Sim'); if (e.target.checked) revelarNoForm(document.getElementById('f-exec-nao')) }
+    document.querySelectorAll('#f-volta-seg button').forEach(b => { b.onclick = () => { setVoltaAmanha(b.dataset.v); if (b.dataset.v === 'Sim') salvar('registrado'); else revelarNoForm(document.getElementById('f-passagem-nao')) } })
     document.getElementById('btn-voltar-pass').onclick = voltarDoCheckpoint
-    document.querySelectorAll('#f-passagem-motivo input[name="f-pass-motivo"]').forEach(r => { r.onchange = togglePassagemHandoff })
-    document.querySelectorAll('#f-motivos input[name="f-motivo"]').forEach(r => { r.onchange = toggleMotivoTexto })
+    document.querySelectorAll('#f-passagem-motivo input[name="f-pass-motivo"]').forEach(r => { r.onchange = () => { togglePassagemHandoff(); if (r.value === 'volto_depois') revelarNoForm(document.getElementById('f-passagem-handoff')) } })
+    document.querySelectorAll('#f-motivos input[name="f-motivo"]').forEach(r => { r.onchange = () => { toggleMotivoTexto(); if (r.value === 'outro') revelarNoForm(document.getElementById('f-motivo-texto-wrap')) } })
     // Navegação da home
     document.getElementById('btn-voltar').onclick = onVoltar
     document.getElementById('nav-os').onclick = async () => { mostrar('lista'); await renderLista() }
@@ -409,7 +423,6 @@
     const tbq = document.getElementById('tarefas-busca'); if (tbq) tbq.oninput = () => agendarBuscaTarefas(tbq.value)
     const rbq = document.getElementById('rats-busca'); if (rbq) { rbq.oninput = () => { clearTimeout(_ratBuscaT); _ratBuscaT = setTimeout(() => renderLista(), 200) }; rbq.onfocus = () => topUpRats90() }
     document.querySelectorAll('#tabbar .tab').forEach(b => b.onclick = () => irParaTab(b.dataset.tab))
-    wireShell()
     document.getElementById('btn-nova-tarefa').onclick = () => abrirModalNovaTarefa(false)
     const hnt = document.getElementById('home-nova-tarefa'); if (hnt) hnt.onclick = () => abrirModalNovaTarefa(true)
     document.getElementById('nt-fechar').onclick = () => document.getElementById('modal-nt').classList.remove('open')
@@ -502,6 +515,7 @@
   // Online: busca do Supabase e cacheia (localStorage) para uso offline.
   // Offline: usa o cache.
   async function carregarRef() {
+    if (navigator.onLine) {
     try {
       const sb = getSupabase()
       const [cli, tip, forms, tec, veic, prod, base, sts] = await Promise.all([
@@ -548,6 +562,10 @@
       const cache = localStorage.getItem(REF_KEY)
       if (cache) { ref = JSON.parse(cache); toast('Offline — usando cadastros salvos.', 'info') }
       else { toast('Sem conexão e sem cadastros em cache.', 'err') }
+    }
+    } else {
+      // OFFLINE: cache na hora — não toca a rede (re-tentativas do supabase-js penduram o boot = tela branca)
+      try { const _c = localStorage.getItem(REF_KEY); if (_c) ref = JSON.parse(_c) } catch (e) { /* nada */ }
     }
     // cliente: autocomplete (lista grande do Omie)
     attachAutocomplete(
@@ -701,6 +719,7 @@
   // Carrega as tarefas do técnico (RLS já filtra por tarefa_tecnicos) e mescla as criadas
   // offline ainda na fila. Cacheia p/ offline. Popula o global `tarefas` (sem renderizar).
   async function carregarTarefas(force) {
+    if (navigator.onLine) {
     try {
       const sb = getSupabase()
       // Janela offline de 14 dias: histórico antigo JÁ RESOLVIDO sai da lista padrão (cache enxuto),
@@ -726,6 +745,12 @@
       tarefas = cache ? JSON.parse(cache) : []
       try { respPorTarefa = JSON.parse(localStorage.getItem(RESP_KEY) || '{}') } catch (_) { respPorTarefa = {} }
       if (force) toast('Offline — mostrando tarefas salvas.', 'info')
+    }
+    } else {
+      // OFFLINE: cache na hora — não toca a rede (re-tentativas penduram o boot)
+      const cache = localStorage.getItem(TAREFAS_KEY)
+      tarefas = cache ? JSON.parse(cache) : []
+      try { respPorTarefa = JSON.parse(localStorage.getItem(RESP_KEY) || '{}') } catch (_) { respPorTarefa = {} }
     }
     // Mescla tarefas criadas offline (ainda na fila) que ainda não vieram do servidor.
     let locais = []
@@ -1276,23 +1301,17 @@
       const ativa = TAB_DE[secao] || TAB_DE[SCREEN_PARENT[secao]] || ''
       tb.querySelectorAll('.tab').forEach(b => b.classList.toggle('on', b.dataset.tab === ativa))
     }
-    requestAnimationFrame(fitShell)
   }
 
-  // Altura do shell pela viewport REALMENTE visível (Visual Viewport): teclado/toolbar encolhem e,
-  // como o rodapé é item de layout (flex), ele acompanha o fundo visível — sem position:fixed (que
-  // "subia pro meio"). O conteúdo rola dentro do .field-body.
-  function fitShell() {
-    const w = document.querySelector('.field-wrap'); if (!w) return
-    const h = (window.visualViewport && window.visualViewport.height) ? window.visualViewport.height : window.innerHeight
-    w.style.height = Math.round(h) + 'px'
-  }
-  let _shellWired = false
-  function wireShell() {
-    if (_shellWired) return; _shellWired = true
-    if (window.visualViewport) { window.visualViewport.addEventListener('resize', fitShell); window.visualViewport.addEventListener('scroll', fitShell) }
-    window.addEventListener('orientationchange', () => setTimeout(fitShell, 120))
-    fitShell()
+  // Layout do shell é 100% CSS (.field-wrap{height:100dvh} + html,body travados + overscroll-behavior).
+  // SEM JS de tamanho: o antigo fitShell brigava com o scroll/rubber-band do iOS (rodapé descolava,
+  // tela branca). O iOS cuida do scroll e do teclado nativamente.
+  // Traz uma seção recém-revelada (no fim do formulário) pra vista, pra o técnico não precisar rolar
+  // pra cima pra achá-la. Chamado nos gatilhos de AÇÃO (não nas funções toggle*, que também rodam na
+  // repopulação ao reabrir a RAT — ali não se quer rolar a tela).
+  function revelarNoForm(el) {
+    if (!el) return
+    requestAnimationFrame(() => { try { el.scrollIntoView({ behavior: 'smooth', block: 'center' }) } catch (e) { /* nada */ } })
   }
   const TAB_DE = { home: 'home', tarefas: 'tarefas', lista: 'lista', desloc: 'desloc', 'tarefa-det': 'tarefas' }
   async function irParaTab(tab) {
@@ -3393,7 +3412,11 @@
       try {
         if (!cur || !cur.client_uuid) return
         const r = await D().obterRat(cur.client_uuid)
-        if (!r || r.sync_status !== D().STATUS.RASCUNHO) return
+        const S = D().STATUS
+        // Autosalva rascunho E RAT reaberta pra correção (confirmada/salvo_local). NÃO mexe
+        // enquanto está subindo (na_fila/enviando) pra não competir com o envio.
+        if (!r || r.sync_status === S.NA_FILA || r.sync_status === S.ENVIANDO) return
+        const eraConfirmada = r.sync_status === S.CONFIRMADO
         const { respostas } = coletarRespostas()
         if (usoProd) respostas.uso_produtos = usoProd
         await D().salvarRat(cur.client_uuid, {
@@ -3401,6 +3424,10 @@
           tempo_trabalhado: calcTempo(),
           uso_produtos: usoProd || null,
         })
+        // RAT já confirmada sendo editada (correção de devolução): vira pendente pra (1) o pull
+        // do servidor NÃO sobrescrever a edição (aplicarDoServidor: local pendente vence) e
+        // (2) a correção voltar a subir no próximo sync.
+        if (eraConfirmada) await D().definirStatus(cur.client_uuid, S.SALVO_LOCAL, 'edição pós-confirmação')
       } catch (e) { /* autosave é melhor-esforço */ }
       finally { autosavePend = false }   // sempre limpa (inclusive nos early-returns) — não trava p/ sempre
     }, 700)

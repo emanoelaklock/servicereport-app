@@ -20,31 +20,44 @@ try{if(localStorage.getItem('sr_dark')==='1')document.documentElement.classList.
       b.textContent='⚠ Erro no app (mostre esta tela ao suporte):\n\n'+txt;
     }catch(e){}
   }
-  window.addEventListener('error',function(e){ mostrarErro((e&&e.message?e.message:'erro')+'\n'+((e&&e.error&&e.error.stack)?e.error.stack:((e&&e.filename?e.filename:'')+':'+(e&&e.lineno?e.lineno:'')))); });
+  window.addEventListener('error',function(e){
+    var msg=(e&&e.message)?e.message:'erro';
+    // Erro de script EXTERNO/CDN (cross-origin, sem detalhe): NÃO quebra o app e não é nosso código.
+    // Não mostra o banner vermelho (assustaria o técnico à toa); só registra no console pra diagnóstico.
+    if(msg==='Script error.'&&!(e&&e.error)&&!(e&&e.filename)){ try{console.warn('[ignorado] erro de script externo/CDN sem detalhe (não-crítico)');}catch(_){ } return; }
+    var loc=((e&&e.filename)?e.filename:'?')+':'+((e&&e.lineno)?e.lineno:'?')+':'+((e&&e.colno)?e.colno:'?');
+    var stk=(e&&e.error&&e.error.stack)?('\n'+e.error.stack):'';
+    mostrarErro(msg+'\n'+loc+stk);
+  });
   window.addEventListener('unhandledrejection',function(e){ var r=e&&e.reason; mostrarErro('Promise: '+((r&&r.stack)?r.stack:(r&&r.message?r.message:String(r)))); });
 })();</script>
 <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
 <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="css/theme.css">
 <link rel="stylesheet" href="css/tecnico-skin.css">
-<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-<script src="js/utils.js"></script>
-<script src="js/supabase-client.js"></script>
-<script src="js/auth.js"></script>
-<script src="js/db-local.js"></script>
-<script src="js/sync.js"></script>
-<script src="js/push.js"></script>
-<script src="js/tecnico.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2" crossorigin="anonymous"></script>
+<script src="js/utils.js" crossorigin="anonymous"></script>
+<script src="js/supabase-client.js" crossorigin="anonymous"></script>
+<script src="js/auth.js" crossorigin="anonymous"></script>
+<script src="js/db-local.js" crossorigin="anonymous"></script>
+<script src="js/sync.js" crossorigin="anonymous"></script>
+<script src="js/push.js" crossorigin="anonymous"></script>
+<script src="js/tecnico.js" crossorigin="anonymous"></script>
 <style>
+  html,body{height:100%;overflow:hidden;overscroll-behavior:none}   /* trava a página: só o .field-body rola; nada de rubber-band na página (descolava o rodapé) */
   body{display:block;background:var(--bg)}
-  .field-wrap{max-width:560px;margin:0 auto;height:100vh;height:100dvh;display:flex;flex-direction:column;overflow:hidden}
+  /* App-shell fixo na viewport: cobre a tela inteira (top/bottom/left/right:0) — altura definida pela
+     própria viewport, sem depender de dvh/% (que ou cortavam, ou viravam auto e matavam o scroll). O
+     .field-body rola dentro; o rodapé chega à base de verdade (o safe-area do indicador fica no padding
+     do rodapé). SEM JS — o antigo fitShell/transform é que fazia o shell "subir pro meio". */
+  .field-wrap{position:fixed;top:0;right:0;bottom:0;left:0;max-width:560px;margin:0 auto;display:flex;flex-direction:column;overflow:hidden}
   .field-top{height:56px;background:#1E8AE0;color:#fff;display:flex;align-items:center;justify-content:space-between;padding:0 16px;position:sticky;top:0;z-index:50}
   .field-top .ft-title{font-size:15px;font-weight:600;flex:1}
   .field-top .ft-logout{background:rgba(255,255,255,.12);border:none;color:#fff;border-radius:8px;padding:8px 12px;font:inherit;font-size:13px;cursor:pointer}
   .field-top .ft-back{background:rgba(255,255,255,.12);border:none;color:#fff;border-radius:8px;width:32px;height:32px;font-size:20px;line-height:1;cursor:pointer;margin-right:8px;flex:none}
   /* Cards da Fila (tarefas abertas): azul claro translucido — o lc-info (#F2F8FE) sumia no fundo branco */
   #home-fila .listcard{background:rgba(30,138,224,.12);border-color:rgba(30,138,224,.32)}
-  .field-body{flex:1 1 auto;min-height:0;overflow-y:auto;-webkit-overflow-scrolling:touch;padding:18px 16px}
+  .field-body{flex:1 1 auto;min-height:0;overflow-y:auto;overscroll-behavior:contain;-webkit-overflow-scrolling:touch;padding:18px 16px}
 
   /* Home (3 botões) */
   .home-hello{font-size:18px;font-weight:700;color:var(--tx);margin:4px 2px 16px}
@@ -602,9 +615,29 @@ try{if(localStorage.getItem('sr_dark')==='1')document.documentElement.classList.
         <input type="password" id="l-senha" placeholder="••••••••" autocomplete="current-password" onkeydown="if(event.key==='Enter')fazerLogin()"/>
       </div>
       <button class="btn btn-p" style="width:100%;justify-content:center;padding:10px" id="btn-login" onclick="fazerLogin()">Entrar</button>
+      <div id="sw-ver" style="margin-top:14px;font-size:11px;color:var(--tx3);text-align:center">versão —</div>
     </div>
   </div>
 </div>
+<script>
+  // Indicador discreto de versão: lê o(s) cache(s) reais do Service Worker (sr-shell-vNNN) para
+  // confirmar QUAL build está no ar (preview vs produção). Sem depender de palpite na URL.
+  (function () {
+    const el = document.getElementById('sw-ver'); if (!el) return
+    const pintar = async () => {
+      let v = '—'
+      try {
+        const ks = (await caches.keys()).filter(k => k.indexOf('sr-shell-') === 0).map(k => k.replace('sr-shell-', ''))
+        if (ks.length) v = ks.join(', ')
+      } catch (e) { /* nada */ }
+      const semSW = (navigator.serviceWorker && navigator.serviceWorker.controller) ? '' : ' · sem SW ativo'
+      el.textContent = 'versão ' + v + semSW
+    }
+    pintar()
+    if (navigator.serviceWorker) navigator.serviceWorker.addEventListener('controllerchange', pintar)
+    setTimeout(pintar, 2000)
+  })()
+</script>
 
 <!-- APP DE CAMPO -->
 <div id="app-screen" style="display:none">

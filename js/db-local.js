@@ -36,7 +36,7 @@
     na_fila:     ['enviando', 'erro', 'na_fila'],
     enviando:    ['confirmado', 'erro'],
     erro:        ['na_fila'],          // retry
-    confirmado:  [],                   // terminal
+    confirmado:  ['salvo_local'],      // reabrir RAT confirmada p/ correção (devolução)
   }
 
   // ── device_id persistente (uma vez por aparelho) ──
@@ -70,11 +70,21 @@
     if (_dbConn) { try { _dbConn.close() } catch (e) { /* nada */ } _dbConn = null }
     _dbp = null   // próxima db() reabre no banco do usuário atual
   }
-  function dbName() { return _uid ? ('service_report_u_' + _uid) : DB_NAME }
+  function dbName() {
+    let u = _uid
+    if (!u) { try { u = localStorage.getItem('sr_last_uid') } catch (e) { u = null } }
+    // Recusa abrir o banco legado/compartilhado: sem usuário, falha alto em vez de mostrar
+    // (ou gravar em) um banco vazio/errado — o "sumiço" silencioso de RATs vinha daqui.
+    if (!u) throw new Error('DBLocal: sem usuário — recusando abrir banco (evita banco legado vazio)')
+    return 'service_report_u_' + u
+  }
   function db() {
     if (_dbp) return _dbp
+    // dbName() pode lançar (sem usuário) — chamada ANTES de cachear _dbp, pra não prender uma
+    // promise rejeitada: a próxima chamada (já com usuário definido) reabre normalmente.
+    const _name = dbName()
     _dbp = new Promise((resolve, reject) => {
-      const req = indexedDB.open(dbName(), DB_VERSION)
+      const req = indexedDB.open(_name, DB_VERSION)
       req.onupgradeneeded = (e) => {
         const d = e.target.result
         if (!d.objectStoreNames.contains(ST_RATS)) {
