@@ -1662,32 +1662,5 @@ try{if(localStorage.getItem('sr_dark')==='1')document.documentElement.classList.
     }
   }
 </script>
-<!-- TEMP: diagnóstico de layout no aparelho (REMOVER antes do merge) -->
-<script>
-(function(){
-  function box(){ var b=document.getElementById('dbg-lay'); if(!b){ b=document.createElement('div'); b.id='dbg-lay'; b.style.cssText='position:fixed;top:62px;left:6px;z-index:100000;background:rgba(0,0,0,.82);color:#1aff6a;font:700 11px/1.35 monospace;padding:6px 8px;border-radius:8px;white-space:pre;pointer-events:none'; document.body.appendChild(b);} return b; }
-  async function ver(){ try{ var ks=(await caches.keys()).filter(function(k){return k.indexOf('sr-shell-')===0;}).map(function(k){return k.replace('sr-shell-','');}); return ks.join(',')||'—'; }catch(e){ return '?'; } }
-  async function upd(){
-    var b=box(), vv=window.visualViewport, fw=document.querySelector('.field-wrap');
-    var tb=document.getElementById('tabbar'), ff=document.getElementById('form-foot');
-    var foot=(ff && getComputedStyle(ff).display!=='none')?ff:tb;
-    var fr=foot?foot.getBoundingClientRect():null;
-    var ftop=document.querySelector('.field-top'), fbody=document.querySelector('.field-body');
-    var h=function(el){ return el?Math.round(el.getBoundingClientRect().height):'-'; };
-    var fwr=fw?fw.getBoundingClientRect():null;
-    // soma dos filhos do field-wrap (só os visíveis) pra ver se batem com fw
-    var soma=0; if(fw){ Array.prototype.forEach.call(fw.children, function(c){ if(getComputedStyle(c).display!=='none') soma+=Math.round(c.getBoundingClientRect().height); }); }
-    b.textContent =
-      'v'+(await ver())+'  standalone:'+matchMedia('(display-mode:standalone)').matches+'\n'+
-      'innerH:'+window.innerHeight+'  vv:'+(vv?Math.round(vv.height):'-')+'\n'+
-      'fw:'+(fw?Math.round(fwr.height):'-')+' top:'+(fwr?Math.round(fwr.top):'-')+' '+(fw?getComputedStyle(fw).position:'')+'\n'+
-      'ftop:'+h(ftop)+' fbody:'+h(fbody)+' foot:'+h(foot)+' soma:'+soma+'\n'+
-      'foot.bottom:'+(fr?Math.round(fr.bottom):'-')+'  GAP:'+(fr?(window.innerHeight-Math.round(fr.bottom)):'-');
-  }
-  window.addEventListener('load', upd);
-  if(window.visualViewport){ visualViewport.addEventListener('resize', upd); visualViewport.addEventListener('scroll', upd); }
-  setInterval(upd, 1000);
-})();
-</script>
 </body>
 </html>

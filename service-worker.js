@@ -9,7 +9,7 @@
    não do cache do SW.
 ═══════════════════════════════════════════════ */
 
-const CACHE = 'sr-shell-v557'
+const CACHE = 'sr-shell-v558'
 
 const SHELL = [
   'index.html',
@@ -52,10 +52,8 @@ const SHELL = [
 ]
 
 // Precache resiliente (um 404 não derruba a instalação inteira).
-// TEMP (branch de teste): skipWaiting pra a versão nova ativar NA HORA e acabar com a dança de
-// cache durante os testes de layout no iPhone. REMOVER antes do merge (volta ao update conservador).
+// NÃO chama skipWaiting aqui: a página mostra "Atualizar" e decide quando trocar.
 self.addEventListener('install', (event) => {
-  self.skipWaiting()
   event.waitUntil((async () => {
     const cache = await caches.open(CACHE)
     await Promise.all(SHELL.map(async (path) => {
