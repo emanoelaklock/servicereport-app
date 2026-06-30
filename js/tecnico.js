@@ -1311,7 +1311,17 @@
   // repopulação ao reabrir a RAT — ali não se quer rolar a tela).
   function revelarNoForm(el) {
     if (!el) return
-    requestAnimationFrame(() => { try { el.scrollIntoView({ behavior: 'smooth', block: 'center' }) } catch (e) { /* nada */ } })
+    requestAnimationFrame(() => {
+      try {
+        // rola DENTRO do .field-body (set scrollTop), NUNCA scrollIntoView: no iOS o scrollIntoView
+        // rola o DOCUMENTO (mesmo com body fixo) e descola o rodapé (GAP ao revelar "Por quê?"). Aqui
+        // só o miolo rola → o shell/rodapé não se mexem.
+        const fb = document.querySelector('.field-body'); if (!fb) return
+        const fbR = fb.getBoundingClientRect(), elR = el.getBoundingClientRect()
+        const delta = (elR.top - fbR.top) - (fb.clientHeight - elR.height) / 2
+        fb.scrollTo({ top: fb.scrollTop + delta, behavior: 'smooth' })
+      } catch (e) { /* nada */ }
+    })
   }
   const TAB_DE = { home: 'home', tarefas: 'tarefas', lista: 'lista', desloc: 'desloc', 'tarefa-det': 'tarefas' }
   async function irParaTab(tab) {
@@ -3500,7 +3510,7 @@
       if (w) { w.classList.add('campo-erro'); primeiro = primeiro || w }
     }
     for (const el of (extraEls || [])) { if (el) { el.classList.add('btn-erro'); primeiro = primeiro || el } }
-    if (primeiro) primeiro.scrollIntoView({ behavior: 'smooth', block: 'center' })
+    if (primeiro) revelarNoForm(primeiro)   // rola no field-body (não scrollIntoView, que rola o documento no iOS)
   }
 
   // modo: 'em_andamento' (botão "Salvar e continuar") | 'registrado' (botão "Encerrar a RAT do dia").
