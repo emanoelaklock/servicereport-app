@@ -45,7 +45,10 @@ try{if(localStorage.getItem('sr_dark')==='1')document.documentElement.classList.
 <script src="js/tecnico.js" crossorigin="anonymous"></script>
 <style>
   html,body{height:100%;overflow:hidden;overscroll-behavior:none}   /* trava a página: só o .field-body rola; nada de rubber-band na página (descolava o rodapé) */
-  body{display:block;background:var(--bg)}
+  /* canvas atrás do app = superfície (branco), não o cinza do conteúdo: assim qualquer faixa que o
+     shell fixo não cubra (borda inferior no iOS standalone) fica BRANCA, igual ao rodapé — sem barra cinza.
+     O fundo cinza do conteúdo (--bg) vai no .field-body. */
+  body{display:block;background:var(--sur)}
   /* App-shell fixo na viewport: cobre a tela inteira (top/bottom/left/right:0) — altura definida pela
      própria viewport, sem depender de dvh/% (que ou cortavam, ou viravam auto e matavam o scroll). O
      .field-body rola dentro; o rodapé chega à base de verdade (o safe-area do indicador fica no padding
@@ -57,7 +60,8 @@ try{if(localStorage.getItem('sr_dark')==='1')document.documentElement.classList.
   .field-top .ft-back{background:rgba(255,255,255,.12);border:none;color:#fff;border-radius:8px;width:32px;height:32px;font-size:20px;line-height:1;cursor:pointer;margin-right:8px;flex:none}
   /* Cards da Fila (tarefas abertas): azul claro translucido — o lc-info (#F2F8FE) sumia no fundo branco */
   #home-fila .listcard{background:rgba(30,138,224,.12);border-color:rgba(30,138,224,.32)}
-  .field-body{flex:1 1 auto;min-height:0;overflow-y:auto;overscroll-behavior:contain;-webkit-overflow-scrolling:touch;padding:18px 16px}
+  /* miolo rola só na vertical (overflow-x:hidden mata o arrasto lateral); fundo cinza do conteúdo aqui. */
+  .field-body{flex:1 1 auto;min-height:0;overflow-y:auto;overflow-x:hidden;overscroll-behavior:contain;-webkit-overflow-scrolling:touch;padding:18px 16px;background:var(--bg)}
 
   /* Home (3 botões) */
   .home-hello{font-size:18px;font-weight:700;color:var(--tx);margin:4px 2px 16px}
@@ -151,6 +155,7 @@ try{if(localStorage.getItem('sr_dark')==='1')document.documentElement.classList.
   .multi-chk input[type=checkbox]{width:18px;height:18px}
   .prod-box{display:flex;flex-direction:column;gap:8px}
   .prod-add{display:grid;grid-template-columns:1fr 80px auto;gap:6px;align-items:center}
+  .prod-add>*{min-width:0}   /* nome de produto longo no select não estoura a coluna 1fr (overflow horizontal) */
   .prod-add select,.prod-add input{padding:8px 9px;border:1px solid var(--bd);border-radius:8px;font:inherit;font-size:13px}
   .prod-list{display:flex;flex-direction:column;gap:6px}
   .prod-item{display:grid;grid-template-columns:1fr auto 24px;gap:8px;align-items:center;background:var(--sur);border:1px solid var(--bd);border-radius:8px;padding:6px 10px;font-size:13px}
@@ -401,8 +406,10 @@ try{if(localStorage.getItem('sr_dark')==='1')document.documentElement.classList.
   .tec-card .hchip.h-edit{background:#E7F1FC;color:#1565C0}
   html.dark .tec-card .hchip.h-edit{background:#16243a;color:#9fc1ff}
   .tec-card .hchip .tag{font-size:8.5px;font-weight:800;background:var(--sur);border-radius:99px;padding:1px 6px;letter-spacing:.4px}
-  .hedit{display:inline-flex;align-items:center;gap:5px;margin-top:5px;font-size:12px;color:var(--tx3)}
-  .hedit input[type="time"]{padding:4px 6px;border:1px solid var(--bd);border-radius:8px;font:inherit;font-size:12.5px;width:86px;background:var(--sur);color:var(--tx);-webkit-appearance:none;appearance:none}
+  /* flex-wrap: 2 inputs de hora + "–" + botões (OK/da RAT) quebram pra próxima linha em vez de estourar
+     a largura do card (era o maior gerador de scroll horizontal). */
+  .hedit{display:inline-flex;flex-wrap:wrap;align-items:center;gap:5px;margin-top:5px;font-size:12px;color:var(--tx3)}
+  .hedit input[type="time"]{padding:4px 6px;border:1px solid var(--bd);border-radius:8px;font:inherit;font-size:12.5px;width:86px;min-width:0;max-width:100%;background:var(--sur);color:var(--tx);-webkit-appearance:none;appearance:none}
   .hedit button{border:none;border-radius:8px;font:inherit;font-size:11px;font-weight:800;padding:6px 9px;cursor:pointer}
   .hedit .he-ok{background:#1B7FC4;color:#fff}
   .hedit .he-clear{background:var(--sur2);color:var(--tx3)}
@@ -457,7 +464,7 @@ try{if(localStorage.getItem('sr_dark')==='1')document.documentElement.classList.
   .bd-row .bd-add{width:26px;height:26px;border-radius:50%;border:1.5px dashed #9DC3E2;background:#F2F8FD;color:#175fb0;font-weight:800;cursor:pointer;font-size:14px;line-height:1;flex:none}
   html.dark .bd-row .bd-add{background:#16243a;border-color:#23406b;color:#9fc1ff}
   .ltimers{display:flex;gap:9px}
-  .ltimers .tbx{flex:1;background:var(--sur2);border:1px solid var(--bd);border-radius:12px;padding:9px 12px}
+  .ltimers .tbx{flex:1;min-width:0;background:var(--sur2);border:1px solid var(--bd);border-radius:12px;padding:9px 12px}
   .ltimers .tbx .k{font-size:9.5px;font-weight:700;color:var(--tx3);text-transform:uppercase;letter-spacing:.5px}
   .ltimers .tbx .v{font-size:15px;font-weight:800;margin-top:2px;font-variant-numeric:tabular-nums;color:var(--tx)}
   .ltimers .tbx button{margin-top:5px;border:none;border-radius:9px;background:#1B7FC4;color:#fff;font:inherit;font-size:11.5px;font-weight:800;padding:7px 9px;cursor:pointer;width:100%}
@@ -1138,7 +1145,7 @@ try{if(localStorage.getItem('sr_dark')==='1')document.documentElement.classList.
 <div class="tm-back tm-fs" id="modal-fotos">
   <div class="tm-box" style="display:flex;flex-direction:column">
     <div class="tm-h tmh tmh-purple"><span class="tmh-ic"><svg viewBox="0 0 24 24"><path d="M3 7h4l2-2h6l2 2h4v12H3z"/><circle cx="12" cy="13" r="3.2"/></svg></span><span class="tmh-t">Fotos / Evidências</span><button class="tm-x" id="fotos-x">✕</button></div>
-    <div class="tm-b tskin" style="flex:1;overflow:auto;min-height:0">
+    <div class="tm-b tskin" style="flex:1;overflow-y:auto;overflow-x:hidden;min-height:0">
       <input type="file" accept="image/*" capture="environment" multiple id="foto-input" style="display:none">
       <input type="file" accept="image/*" multiple id="foto-input-gal" style="display:none">
       <div style="display:flex;gap:10px">
@@ -1155,7 +1162,7 @@ try{if(localStorage.getItem('sr_dark')==='1')document.documentElement.classList.
 <div class="tm-back tm-fs" id="modal-prod">
   <div class="tm-box" style="display:flex;flex-direction:column">
     <div class="tm-h tmh tmh-teal"><span class="tmh-ic"><svg viewBox="0 0 24 24"><path d="M21 16V8l-9-5-9 5v8l9 5 9-5Z"/><path d="m3.3 7 8.7 5 8.7-5M12 22V12"/></svg></span><span class="tmh-t">Produtos da RAT</span><button class="tm-x" id="prod-x">✕</button></div>
-    <div class="tm-b tskin" style="flex:1;overflow:auto;min-height:0">
+    <div class="tm-b tskin" style="flex:1;overflow-y:auto;overflow-x:hidden;min-height:0">
       <div class="fg">
         <label>Foi utilizado produto neste atendimento? <span style="color:var(--re,#DE2C2C)">*</span></label>
         <div class="segq" id="prod-uso-seg">
@@ -1196,7 +1203,7 @@ try{if(localStorage.getItem('sr_dark')==='1')document.documentElement.classList.
 <div class="tm-back tm-fs" id="modal-prod-busca">
   <div class="tm-box" style="display:flex;flex-direction:column">
     <div class="tm-h tmh tmh-teal"><span class="tmh-t">Buscar produto</span><button class="tm-x" id="pb-x">✕</button></div>
-    <div class="tm-b tskin" style="flex:1;overflow:auto;min-height:0">
+    <div class="tm-b tskin" style="flex:1;overflow-y:auto;overflow-x:hidden;min-height:0">
       <div class="fg"><input id="pb-busca" placeholder="Nome ou código — ex.: cabo azul" autocomplete="off"></div>
       <div id="pb-res" style="margin-top:8px"></div>
     </div>
@@ -1206,7 +1213,7 @@ try{if(localStorage.getItem('sr_dark')==='1')document.documentElement.classList.
 <div class="tm-back tm-fs" id="modal-nt">
   <div class="tm-box" style="display:flex;flex-direction:column">
     <div class="tm-h tmh tmh-blue"><span class="tmh-ic"><svg viewBox="0 0 24 24"><rect x="4" y="4" width="16" height="16" rx="2"/><path d="M12 9v6M9 12h6"/></svg></span><span class="tmh-t">Nova tarefa</span><button class="tm-x" id="nt-fechar">✕</button></div>
-    <div class="tm-b" style="flex:1;overflow:auto;min-height:0">
+    <div class="tm-b" style="flex:1;overflow-y:auto;overflow-x:hidden;min-height:0">
       <label>Cliente *</label>
       <div class="ac">
         <input type="text" id="nt-cliente-busca" placeholder="Buscar cliente…" autocomplete="off">
@@ -1318,7 +1325,7 @@ try{if(localStorage.getItem('sr_dark')==='1')document.documentElement.classList.
 <div class="tm-back tm-fs" id="modal-desloc">
   <div class="tm-box" style="display:flex;flex-direction:column">
     <div class="tm-h tmh tmh-orange"><span class="tmh-ic"><svg viewBox="0 0 24 24"><path d="M3 17h2m14 0h2M5 17a2 2 0 1 0 4 0 2 2 0 0 0-4 0Zm10 0a2 2 0 1 0 4 0 2 2 0 0 0-4 0Z"/><path d="M5 17V8a1 1 0 0 1 1-1h8l4 4v6"/></svg></span><span class="tmh-t">Deslocamento</span><span class="dl-pill" id="dl-pill" style="display:none">Em viagem</span><button class="tm-x" id="dl-x">✕</button></div>
-    <div class="tm-b tskin" style="flex:1;overflow:auto;min-height:0">
+    <div class="tm-b tskin" style="flex:1;overflow-y:auto;overflow-x:hidden;min-height:0">
       <div class="dl-ctx">
         <div class="k">Viagem / Pernoite</div>
         <p class="dim" style="font-size:11.5px;margin:7px 0 0">Em cada trecho: escolha o <b>Destino</b> (cliente da parada) e, se houver, a <b>Ref. Tarefa</b> em aberto daquele cliente.</p>
@@ -1343,7 +1350,7 @@ try{if(localStorage.getItem('sr_dark')==='1')document.documentElement.classList.
 <div class="tm-back tm-fs" id="modal-tec-dl">
   <div class="tm-box" style="display:flex;flex-direction:column">
     <div class="tm-h tmh tmh-blue"><span class="tmh-ic"><svg viewBox="0 0 24 24"><path d="M16 21v-2a4 4 0 0 0-8 0v2M12 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8Z"/></svg></span><span class="tmh-t">Técnicos a bordo</span><button class="tm-x" id="dltec-x">✕</button></div>
-    <div class="tm-b tskin" style="flex:1;overflow:auto;min-height:0">
+    <div class="tm-b tskin" style="flex:1;overflow-y:auto;overflow-x:hidden;min-height:0">
       <input id="dltec-busca" placeholder="Buscar técnico…" autocomplete="off">
       <div id="dltec-lista" class="tec-lista"></div>
       <div class="prod-empty" id="dltec-vazio" style="display:none">Todos os técnicos já estão a bordo.</div>
@@ -1359,7 +1366,7 @@ try{if(localStorage.getItem('sr_dark')==='1')document.documentElement.classList.
 <div class="tm-back tm-fs" id="modal-dl-tarefa">
   <div class="tm-box" style="display:flex;flex-direction:column">
     <div class="tm-h tmh tmh-orange"><span class="tmh-ic"><svg viewBox="0 0 24 24"><path d="M9 6h11M9 12h11M9 18h11M4 6h.01M4 12h.01M4 18h.01"/></svg></span><span class="tmh-t">Ref. Tarefa</span><button class="tm-x" id="dltar-x">✕</button></div>
-    <div class="tm-b tskin" style="flex:1;overflow:auto;min-height:0">
+    <div class="tm-b tskin" style="flex:1;overflow-y:auto;overflow-x:hidden;min-height:0">
       <div class="opt-lista" id="dltar-lista" style="margin-top:0"></div>
       <p class="dim" style="font-size:12px;margin-top:10px">Tarefas em aberto do cliente do destino deste trecho. Toque para vincular.</p>
     </div>
@@ -1373,7 +1380,7 @@ try{if(localStorage.getItem('sr_dark')==='1')document.documentElement.classList.
 <div class="tm-back tm-fs" id="modal-dl-dest">
   <div class="tm-box" style="display:flex;flex-direction:column">
     <div class="tm-h tmh tmh-orange"><span class="tmh-ic"><svg viewBox="0 0 24 24"><path d="M12 21s-7-5.1-7-11a7 7 0 0 1 14 0c0 5.9-7 11-7 11Z"/><circle cx="12" cy="10" r="2.5"/></svg></span><span class="tmh-t">Destino do trecho</span><button class="tm-x" id="dldest-x">✕</button></div>
-    <div class="tm-b tskin" style="flex:1;overflow:auto;min-height:0">
+    <div class="tm-b tskin" style="flex:1;overflow-y:auto;overflow-x:hidden;min-height:0">
       <input id="dldest-busca" placeholder="Buscar empresa ou local…" autocomplete="off" style="width:100%;padding:11px 12px;border:1px solid var(--bd);border-radius:10px;font:inherit;font-size:16px;background:var(--sur);color:var(--tx)">
       <div class="opt-lista" id="dldest-lista"></div>
       <div class="opt-sep">Ou outro lugar</div>
@@ -1388,7 +1395,7 @@ try{if(localStorage.getItem('sr_dark')==='1')document.documentElement.classList.
 <div class="tm-back tm-fs" id="modal-dl-veic">
   <div class="tm-box" style="display:flex;flex-direction:column">
     <div class="tm-h tmh tmh-orange"><span class="tmh-ic"><svg viewBox="0 0 24 24"><path d="M3 17h2m14 0h2M5 17a2 2 0 1 0 4 0 2 2 0 0 0-4 0Zm10 0a2 2 0 1 0 4 0 2 2 0 0 0-4 0Z"/><path d="M5 17V8a1 1 0 0 1 1-1h8l4 4v6"/></svg></span><span class="tmh-t">Veículo do trecho</span><button class="tm-x" id="dlveic-x">✕</button></div>
-    <div class="tm-b tskin" style="flex:1;overflow:auto;min-height:0">
+    <div class="tm-b tskin" style="flex:1;overflow-y:auto;overflow-x:hidden;min-height:0">
       <div class="opt-sep" style="margin-top:0">Veículos da empresa</div>
       <div class="opt-lista" id="dlveic-lista" style="margin-top:6px"></div>
       <div class="opt-sep">Sem veículo da empresa</div>
@@ -1403,7 +1410,7 @@ try{if(localStorage.getItem('sr_dark')==='1')document.documentElement.classList.
 <div class="tm-back tm-fs" id="modal-dl-dir">
   <div class="tm-box" style="display:flex;flex-direction:column">
     <div class="tm-h tmh tmh-orange"><span class="tmh-ic"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="2.5"/><path d="M12 3v6.5M4.2 16.5l6-3M19.8 16.5l-6-3"/></svg></span><span class="tmh-t">Direção do trecho</span><button class="tm-x" id="dldir-x">✕</button></div>
-    <div class="tm-b tskin" style="flex:1;overflow:auto;min-height:0">
+    <div class="tm-b tskin" style="flex:1;overflow-y:auto;overflow-x:hidden;min-height:0">
       <div class="opt-sep" style="margin-top:0">Quem dirigiu</div>
       <div id="dldir-turnos"></div>
       <div class="opt-sep" id="dldir-add-titulo">Definir motorista</div>
@@ -1423,7 +1430,7 @@ try{if(localStorage.getItem('sr_dark')==='1')document.documentElement.classList.
 <div class="tm-back tm-fs" id="modal-tec">
   <div class="tm-box" style="display:flex;flex-direction:column">
     <div class="tm-h tmh tmh-blue"><span class="tmh-ic"><svg viewBox="0 0 24 24"><path d="M16 21v-2a4 4 0 0 0-8 0v2M12 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8Z"/></svg></span><span class="tmh-t">Técnicos responsáveis</span><button class="tm-x" id="tec-x">✕</button></div>
-    <div class="tm-b tskin" style="flex:1;overflow:auto;min-height:0">
+    <div class="tm-b tskin" style="flex:1;overflow-y:auto;overflow-x:hidden;min-height:0">
       <input id="tec-busca" placeholder="Buscar técnico…" autocomplete="off">
       <div id="tec-modal-lista" class="tec-lista"></div>
       <div class="prod-empty" id="tec-modal-vazio" style="display:none">Todos os técnicos já estão na RAT.</div>
@@ -1439,7 +1446,7 @@ try{if(localStorage.getItem('sr_dark')==='1')document.documentElement.classList.
 <div class="tm-back tm-fs" id="modal-desloc-rat">
   <div class="tm-box" style="display:flex;flex-direction:column">
     <div class="tm-h tmh tmh-orange"><span class="tmh-ic"><svg viewBox="0 0 24 24"><path d="M3 17h2m14 0h2M5 17a2 2 0 1 0 4 0 2 2 0 0 0-4 0Zm10 0a2 2 0 1 0 4 0 2 2 0 0 0-4 0Z"/><path d="M5 17V8a1 1 0 0 1 1-1h8l4 4v6"/></svg></span><span class="tmh-t">Deslocamento</span><button class="tm-x" id="dr-x">✕</button></div>
-    <div class="tm-b tskin" style="flex:1;overflow:auto;min-height:0"><div id="desloc-campos"></div></div>
+    <div class="tm-b tskin" style="flex:1;overflow-y:auto;overflow-x:hidden;min-height:0"><div id="desloc-campos"></div></div>
     <div class="tm-f" style="justify-content:flex-end"><button class="btn btn-orange" id="dr-ok">Concluir</button></div>
   </div>
 </div>
@@ -1448,7 +1455,7 @@ try{if(localStorage.getItem('sr_dark')==='1')document.documentElement.classList.
 <div class="tm-back tm-fs" id="modal-pausa">
   <div class="tm-box" style="display:flex;flex-direction:column">
     <div class="tm-h tmh tmh-yellow"><span class="tmh-ic"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg></span><span class="tmh-t">Pausa/Almoço</span><button class="tm-x" id="pa-x">✕</button></div>
-    <div class="tm-b tskin" style="flex:1;overflow:auto;min-height:0"><div id="pausa-campos"></div></div>
+    <div class="tm-b tskin" style="flex:1;overflow-y:auto;overflow-x:hidden;min-height:0"><div id="pausa-campos"></div></div>
     <div class="tm-f" style="justify-content:flex-end"><button class="btn btn-yellow" id="pa-ok">Concluir</button></div>
   </div>
 </div>
