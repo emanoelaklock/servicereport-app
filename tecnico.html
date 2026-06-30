@@ -47,10 +47,6 @@ try{if(localStorage.getItem('sr_dark')==='1')document.documentElement.classList.
   html,body{height:100%;overflow:hidden;overscroll-behavior:none}   /* trava a página: só o .field-body rola; nada de rubber-band na página (descolava o rodapé) */
   body{display:block;background:var(--bg)}
   .field-wrap{max-width:560px;margin:0 auto;height:100vh;height:100dvh;display:flex;flex-direction:column;overflow:hidden}
-  /* PWA instalado (standalone): sem barra do Safari, a janela é o html/body (height:100%). O 100dvh do
-     iOS standalone não chegava ao fim da tela e deixava o fundo aparecer abaixo do rodapé. Aqui o shell
-     preenche 100% da janela — rodapé colado na base (só o safe-area do indicador de gestos fica abaixo). */
-  @media (display-mode:standalone){ .field-wrap{height:100%} }
   .field-top{height:56px;background:#1E8AE0;color:#fff;display:flex;align-items:center;justify-content:space-between;padding:0 16px;position:sticky;top:0;z-index:50}
   .field-top .ft-title{font-size:15px;font-weight:600;flex:1}
   .field-top .ft-logout{background:rgba(255,255,255,.12);border:none;color:#fff;border-radius:8px;padding:8px 12px;font:inherit;font-size:13px;cursor:pointer}
