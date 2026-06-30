@@ -42,6 +42,7 @@ try{if(localStorage.getItem('sr_dark')==='1')document.documentElement.classList.
 <script src="js/push.js" crossorigin="anonymous"></script>
 <script src="js/tecnico.js" crossorigin="anonymous"></script>
 <style>
+  html,body{height:100%;overflow:hidden;overscroll-behavior:none}   /* trava a página: só o .field-body rola; nada de rubber-band na página (descolava o rodapé) */
   body{display:block;background:var(--bg)}
   .field-wrap{max-width:560px;margin:0 auto;height:100vh;height:100dvh;display:flex;flex-direction:column;overflow:hidden}
   .field-top{height:56px;background:#1E8AE0;color:#fff;display:flex;align-items:center;justify-content:space-between;padding:0 16px;position:sticky;top:0;z-index:50}
@@ -50,7 +51,7 @@ try{if(localStorage.getItem('sr_dark')==='1')document.documentElement.classList.
   .field-top .ft-back{background:rgba(255,255,255,.12);border:none;color:#fff;border-radius:8px;width:32px;height:32px;font-size:20px;line-height:1;cursor:pointer;margin-right:8px;flex:none}
   /* Cards da Fila (tarefas abertas): azul claro translucido — o lc-info (#F2F8FE) sumia no fundo branco */
   #home-fila .listcard{background:rgba(30,138,224,.12);border-color:rgba(30,138,224,.32)}
-  .field-body{flex:1 1 auto;min-height:0;overflow-y:auto;-webkit-overflow-scrolling:touch;padding:18px 16px}
+  .field-body{flex:1 1 auto;min-height:0;overflow-y:auto;overscroll-behavior:contain;-webkit-overflow-scrolling:touch;padding:18px 16px}
 
   /* Home (3 botões) */
   .home-hello{font-size:18px;font-weight:700;color:var(--tx);margin:4px 2px 16px}

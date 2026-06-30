@@ -423,7 +423,6 @@
     const tbq = document.getElementById('tarefas-busca'); if (tbq) tbq.oninput = () => agendarBuscaTarefas(tbq.value)
     const rbq = document.getElementById('rats-busca'); if (rbq) { rbq.oninput = () => { clearTimeout(_ratBuscaT); _ratBuscaT = setTimeout(() => renderLista(), 200) }; rbq.onfocus = () => topUpRats90() }
     document.querySelectorAll('#tabbar .tab').forEach(b => b.onclick = () => irParaTab(b.dataset.tab))
-    wireShell()
     document.getElementById('btn-nova-tarefa').onclick = () => abrirModalNovaTarefa(false)
     const hnt = document.getElementById('home-nova-tarefa'); if (hnt) hnt.onclick = () => abrirModalNovaTarefa(true)
     document.getElementById('nt-fechar').onclick = () => document.getElementById('modal-nt').classList.remove('open')
@@ -1302,42 +1301,17 @@
       const ativa = TAB_DE[secao] || TAB_DE[SCREEN_PARENT[secao]] || ''
       tb.querySelectorAll('.tab').forEach(b => b.classList.toggle('on', b.dataset.tab === ativa))
     }
-    requestAnimationFrame(fitShell)
   }
 
-  // Altura do shell pela viewport REALMENTE visível (Visual Viewport): teclado/toolbar encolhem e,
-  // como o rodapé é item de layout (flex), ele acompanha o fundo visível — sem position:fixed (que
-  // "subia pro meio"). O conteúdo rola dentro do .field-body.
-  function fitShell() {
-    // try/catch defensivo: ajuste de layout NUNCA pode lançar e quebrar o boot/render (iOS/WebKit).
-    try {
-      const w = document.querySelector('.field-wrap'); if (!w) return
-      w.style.transform = ''   // SEM transform: translateY(offsetTop) empurrava o shell pra baixo → vazio em cima.
-      // Teclado aberto (campo de texto focado): NÃO mexe no shell. Deixa o iOS rolar o campo focado
-      // NATIVAMENTE (ele já faz). Redimensionar/reposicionar aqui é o que jogava cabeçalho/rodapé pra
-      // fora da vista. Só re-encaixa o shell quando NÃO há campo focado (toolbar/orientação).
-      const el = document.activeElement
-      if (el && el.matches && el.matches('input,textarea,select,[contenteditable="true"]')) return
-      const vv = window.visualViewport
-      const h = (vv && vv.height) ? vv.height : window.innerHeight
-      w.style.height = Math.round(h) + 'px'
-    } catch (e) { /* nunca deixa o ajuste de layout quebrar o app */ }
-  }
-  // Traz uma seção recém-revelada (no fim do formulário) pra vista, pra o técnico não precisar
-  // rolar pra cima pra achá-la. Chamado nos gatilhos de AÇÃO (não nas funções toggle*, que também
-  // rodam na repopulação ao reabrir a RAT — ali não se quer rolar a tela).
+  // Layout do shell é 100% CSS (.field-wrap{height:100dvh} + html,body travados + overscroll-behavior).
+  // SEM JS de tamanho: o antigo fitShell brigava com o scroll/rubber-band do iOS (rodapé descolava,
+  // tela branca). O iOS cuida do scroll e do teclado nativamente.
+  // Traz uma seção recém-revelada (no fim do formulário) pra vista, pra o técnico não precisar rolar
+  // pra cima pra achá-la. Chamado nos gatilhos de AÇÃO (não nas funções toggle*, que também rodam na
+  // repopulação ao reabrir a RAT — ali não se quer rolar a tela).
   function revelarNoForm(el) {
     if (!el) return
-    requestAnimationFrame(() => { try { fitShell() } catch (e) { /* nada */ } el.scrollIntoView({ behavior: 'smooth', block: 'center' }) })
-  }
-  let _shellWired = false
-  function wireShell() {
-    if (_shellWired) return; _shellWired = true
-    // 'resize' (toolbar/teclado mudam a altura): re-encaixa o shell — MAS com o teclado aberto o fitShell
-    // NÃO mexe (deixa o iOS rolar o campo nativamente). Sem 'scroll' (encolhia no rubber-band e expunha o fundo).
-    if (window.visualViewport) { window.visualViewport.addEventListener('resize', fitShell) }
-    window.addEventListener('orientationchange', () => setTimeout(fitShell, 120))
-    fitShell()
+    requestAnimationFrame(() => { try { el.scrollIntoView({ behavior: 'smooth', block: 'center' }) } catch (e) { /* nada */ } })
   }
   const TAB_DE = { home: 'home', tarefas: 'tarefas', lista: 'lista', desloc: 'desloc', 'tarefa-det': 'tarefas' }
   async function irParaTab(tab) {
