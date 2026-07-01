@@ -1313,13 +1313,21 @@
     if (!el) return
     requestAnimationFrame(() => {
       try {
-        // rola DENTRO do .field-body (set scrollTop), NUNCA scrollIntoView: no iOS o scrollIntoView
-        // rola o DOCUMENTO (mesmo com body fixo) e descola o rodapé (GAP ao revelar "Por quê?"). Aqui
-        // só o miolo rola → o shell/rodapé não se mexem.
+        // Traz a seção recém-revelada à vista rolando DENTRO do .field-body (nunca o documento — no
+        // iOS o scroll do documento descola o rodapé). REGRAS que evitam o crash de campo no Android:
+        //  - INSTANTÂNEO (sem behavior:'smooth'): o animador de smooth-scroll rodando neste container
+        //    (-webkit-overflow-scrolling:touch + header sticky + reveal ao mesmo tempo) derrubava o
+        //    Chromium Android pra tela branca. Scroll instantâneo (set scrollTop) é o primitivo mais
+        //    compatível e não envolve o compositor.
+        //  - SÓ SE preciso: se a seção já está visível, não mexe (zero risco).
         const fb = document.querySelector('.field-body'); if (!fb) return
         const fbR = fb.getBoundingClientRect(), elR = el.getBoundingClientRect()
-        const delta = (elR.top - fbR.top) - (fb.clientHeight - elR.height) / 2
-        fb.scrollTo({ top: fb.scrollTop + delta, behavior: 'smooth' })
+        const margem = 12
+        if (elR.bottom > fbR.bottom) {            // revelada abaixo da área visível → sobe o miolo
+          fb.scrollTop += (elR.bottom - fbR.bottom + margem)
+        } else if (elR.top < fbR.top) {           // acima → desce o miolo
+          fb.scrollTop += (elR.top - fbR.top - margem)
+        }                                          // já visível → não faz nada
       } catch (e) { /* nada */ }
     })
   }
