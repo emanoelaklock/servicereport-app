@@ -1310,26 +1310,15 @@
   // pra cima pra achá-la. Chamado nos gatilhos de AÇÃO (não nas funções toggle*, que também rodam na
   // repopulação ao reabrir a RAT — ali não se quer rolar a tela).
   function revelarNoForm(el) {
-    if (!el) return
-    requestAnimationFrame(() => {
-      try {
-        // Traz a seção recém-revelada à vista rolando DENTRO do .field-body (nunca o documento — no
-        // iOS o scroll do documento descola o rodapé). REGRAS que evitam o crash de campo no Android:
-        //  - INSTANTÂNEO (sem behavior:'smooth'): o animador de smooth-scroll rodando neste container
-        //    (-webkit-overflow-scrolling:touch + header sticky + reveal ao mesmo tempo) derrubava o
-        //    Chromium Android pra tela branca. Scroll instantâneo (set scrollTop) é o primitivo mais
-        //    compatível e não envolve o compositor.
-        //  - SÓ SE preciso: se a seção já está visível, não mexe (zero risco).
-        const fb = document.querySelector('.field-body'); if (!fb) return
-        const fbR = fb.getBoundingClientRect(), elR = el.getBoundingClientRect()
-        const margem = 12
-        if (elR.bottom > fbR.bottom) {            // revelada abaixo da área visível → sobe o miolo
-          fb.scrollTop += (elR.bottom - fbR.bottom + margem)
-        } else if (elR.top < fbR.top) {           // acima → desce o miolo
-          fb.scrollTop += (elR.top - fbR.top - margem)
-        }                                          // já visível → não faz nada
-      } catch (e) { /* nada */ }
-    })
+    // REDE DE SEGURANÇA (hotfix Android, engatilhado): NÃO rola NADA. Replica exatamente o
+    // comportamento pré-Patch (antes da v542), em que revelar o checkpoint/handoff era só o
+    // display:block feito pelos handlers — SEM scroll — e que NUNCA crashou o Android. O git provou
+    // que o gatilho da tela branca é o scroll (o reveal sozinho, sem scroll, sempre funcionou).
+    // Sem scroll (nem smooth, nem instantâneo) não há como o animador/compositor derrubar a tela.
+    // Os campos revelados aparecem logo abaixo do que o técnico tocou. Mantém TODO o resto (fim do
+    // "RAT sumiu", rodapé iOS, indicador de versão, etc.). Se um dia o reveal ficar longe da vista,
+    // resolver com layout/âncora — não com scroll programático neste container.
+    return
   }
   const TAB_DE = { home: 'home', tarefas: 'tarefas', lista: 'lista', desloc: 'desloc', 'tarefa-det': 'tarefas' }
   async function irParaTab(tab) {
