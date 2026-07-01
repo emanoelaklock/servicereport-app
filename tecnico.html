@@ -674,22 +674,42 @@ try{if(localStorage.getItem('sr_dark')==='1')document.documentElement.classList.
   </div>
 </div>
 <script>
-  // Indicador discreto de versão: lê o(s) cache(s) reais do Service Worker (sr-shell-vNNN) para
-  // confirmar QUAL build está no ar (preview vs produção). Sem depender de palpite na URL.
+  // Indicador discreto de versão: confirma QUAL build está no ar (preview vs produção).
+  // Antes lia caches.keys() no 1º paint — mas o cache do SW quase sempre ainda não estava populado
+  // (install/activate é assíncrono) → "versão —" na maioria dos acessos. Agora PERGUNTA a versão
+  // direto ao Service Worker (que sabe o próprio CACHE), com fallback pro caches.keys() e re-tentativas.
   (function () {
     const el = document.getElementById('sw-ver'); if (!el) return
-    const pintar = async () => {
-      let v = '—'
-      try {
-        const ks = (await caches.keys()).filter(k => k.indexOf('sr-shell-') === 0).map(k => k.replace('sr-shell-', ''))
-        if (ks.length) v = ks.join(', ')
-      } catch (e) { /* nada */ }
-      const semSW = (navigator.serviceWorker && navigator.serviceWorker.controller) ? '' : ' · sem SW ativo'
-      el.textContent = 'versão ' + v + semSW
+    function perguntarSW(sw) {
+      return new Promise((resolve) => {
+        let feito = false
+        const ch = new MessageChannel()
+        ch.port1.onmessage = (e) => { if (!feito) { feito = true; resolve(e.data && e.data.version) } }
+        try { sw.postMessage({ type: 'GET_VERSION' }, [ch.port2]) } catch (e) { resolve(null) }
+        setTimeout(() => { if (!feito) { feito = true; resolve(null) } }, 1200)
+      })
     }
+    async function lerVersao() {
+      // 1) direto do SW que controla a página (autoritativo, independe do cache estar populado)
+      try {
+        const sw = navigator.serviceWorker && navigator.serviceWorker.controller
+        if (sw) { const v = await perguntarSW(sw); if (v) return v }
+      } catch (e) { /* nada */ }
+      // 2) fallback: nomes dos caches (pega o maior nº se houver transição de versão)
+      try {
+        const ks = (await caches.keys()).filter(k => k.indexOf('sr-shell-') === 0)
+          .map(k => k.replace('sr-shell-v', '')).map(Number).filter(n => !isNaN(n))
+        if (ks.length) return 'v' + Math.max.apply(null, ks)
+      } catch (e) { /* nada */ }
+      return null
+    }
+    const pintar = async () => { const v = await lerVersao(); if (v) el.textContent = 'versão ' + v }
+    el.textContent = 'versão …'
     pintar()
     if (navigator.serviceWorker) navigator.serviceWorker.addEventListener('controllerchange', pintar)
-    setTimeout(pintar, 2000)
+    // re-tenta enquanto não tiver versão (SW pode ainda estar instalando no 1º acesso)
+    let n = 0
+    const iv = setInterval(async () => { n++; const v = await lerVersao(); if (v) { el.textContent = 'versão ' + v; clearInterval(iv) } else if (n >= 6) { clearInterval(iv); if (el.textContent === 'versão …') el.textContent = 'versão —' } }, 700)
   })()
 </script>
 

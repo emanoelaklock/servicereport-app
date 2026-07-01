@@ -9,7 +9,7 @@
    não do cache do SW.
 ═══════════════════════════════════════════════ */
 
-const CACHE = 'sr-shell-v560'
+const CACHE = 'sr-shell-v561'
 
 const SHELL = [
   'index.html',
@@ -63,9 +63,15 @@ self.addEventListener('install', (event) => {
   })())
 })
 
-// A página pede a troca imediata do SW novo (botão "Atualizar").
+// A página pede a troca imediata do SW novo (botão "Atualizar") ou a versão atual (indicador).
 self.addEventListener('message', (event) => {
   if (event.data && event.data.type === 'SKIP_WAITING') self.skipWaiting()
+  // Fonte da verdade da versão: o próprio SW conhece seu CACHE, sem depender do timing de
+  // populamento de caches.keys() na página (que dava "versão —" na maioria dos acessos).
+  if (event.data && event.data.type === 'GET_VERSION') {
+    const port = event.ports && event.ports[0]
+    if (port) port.postMessage({ version: CACHE.replace('sr-shell-', '') })
+  }
 })
 
 // ─────────── Notificações push ───────────
