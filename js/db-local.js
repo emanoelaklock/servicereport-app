@@ -59,6 +59,34 @@
   function agora() { return new Date().toISOString() }
 
   // ── Abertura/migração do banco ──
+  // ── Instrumentação de diagnóstico (branch diag/encerramento-hang-db) ──
+  // Loga passos do DB/salvar no console e, com SR_DB_DEBUG on, na TELA via toast — localiza o
+  // congelamento do encerramento no aparelho SEM CPU profile. Global pro tecnico.js reusar.
+  // Desligar/remover na limpeza (ver PR).
+  window.SR_DB_DEBUG = true
+  window.srDbg = function (msg, nivel) {
+    ;(nivel === 'warn' ? console.warn : console.info)('[diag] ' + msg)
+    if (window.SR_DB_DEBUG && typeof toast === 'function') { try { toast(msg, nivel === 'warn' ? 'err' : '') } catch (e) { /* nada */ } }
+  }
+  // Breadcrumb SÍNCRONO (localStorage) — sobrevive a main-thread travado (toast NÃO pinta num
+  // bloqueio síncrono). Escreve o passo ANTES de cada operação; após força-fechar+reabrir, o
+  // último valor = passo onde o thread morreu. Surfaceado no load (init do tecnico.js).
+  window.srStep = function (label) {
+    var now = Date.now()
+    try {
+      // Trilha (reset a cada 'click:'): guarda os últimos passos COM timestamp → o delta entre
+      // passos consecutivos diz se o congelamento foi imediato no passo X ou se algo antes
+      // degradou N ms. localStorage é síncrono → sobrevive ao main-thread travado.
+      var arr = /^click:/.test(label) ? [] : (JSON.parse(localStorage.getItem('sr_diag_trail') || '[]') || [])
+      if (!Array.isArray(arr)) arr = []
+      arr.push(label + ' @' + now)
+      if (arr.length > 12) arr = arr.slice(-12)
+      localStorage.setItem('sr_diag_trail', JSON.stringify(arr))
+      localStorage.setItem('sr_diag_step', label + ' @' + now)   // último (compat/fallback)
+    } catch (e) { /* nada */ }
+    console.info('[step] ' + label + ' @' + now)
+  }
+
   let _dbp = null, _dbConn = null, _uid = null
   // Escopo POR USUÁRIO: cada login tem seu próprio IndexedDB (service_report_u_<uid>). Sem isso,
   // dois logins no mesmo aparelho misturavam RATs/tarefas (risco de faturamento). O banco legado
@@ -84,7 +112,14 @@
     // promise rejeitada: a próxima chamada (já com usuário definido) reabre normalmente.
     const _name = dbName()
     _dbp = new Promise((resolve, reject) => {
+      window.srDbg && window.srDbg('db: abrindo ' + _name)
       const req = indexedDB.open(_name, DB_VERSION)
+      // Watchdog anti-hang (só em debug): se o open não resolver em 8s (blocked/travado), falha
+      // ALTO em vez de pendurar pra sempre; limpa _dbp pra a próxima chamada reabrir.
+      const _wd = window.SR_DB_DEBUG ? setTimeout(function () {
+        window.srDbg && window.srDbg('db: OPEN TIMEOUT (8s) — provável BLOQUEADO', 'warn')
+        _dbp = null; reject(new Error('DBLocal: open timeout (possível blocked)'))
+      }, 8000) : null
       req.onupgradeneeded = (e) => {
         const d = e.target.result
         if (!d.objectStoreNames.contains(ST_RATS)) {
@@ -129,8 +164,17 @@
           s.createIndex('sync_status', 'sync_status', { unique: false })
         }
       }
-      req.onsuccess = () => { _dbConn = req.result; resolve(req.result) }
-      req.onerror = () => reject(req.error)
+      req.onblocked = () => { window.srDbg && window.srDbg('db: BLOQUEADO (open travado por outra conexão aberta)', 'warn') }
+      req.onsuccess = () => {
+        if (_wd) clearTimeout(_wd)
+        _dbConn = req.result
+        // onversionchange: se outra aba/instância quiser subir de versão, ESTA conexão cede (fecha)
+        // em vez de bloquear o upgrade — metade preventiva do fix (um DB que não pendura em bloqueio).
+        _dbConn.onversionchange = () => { window.srDbg && window.srDbg('db: onversionchange → fechando esta conexão', 'warn'); try { _dbConn.close() } catch (e) { /* nada */ } _dbConn = null; _dbp = null }
+        window.srDbg && window.srDbg('db: ok ' + _name)
+        resolve(req.result)
+      }
+      req.onerror = () => { if (_wd) clearTimeout(_wd); window.srDbg && window.srDbg('db: ERRO no open: ' + (req.error && req.error.message), 'warn'); reject(req.error) }
     })
     return _dbp
   }
