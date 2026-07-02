@@ -131,11 +131,65 @@ const _posLogin = async (session) => {
   if (userRole) { const rl = ROLE_LABEL[PERFIL] || PERFIL || '—'; userRole.textContent = u.cargo ? `${u.cargo} · ${rl}` : rl }
 }
 
-// Logout
-var fazerLogout = async () => {
-  await getSupabase().auth.signOut()
-  SESSION = null; PERFIL = null
+// ─── SIGNED_OUT: navegação condicional (fix — irmão do bug v498) ───────────────
+// O supabase-js emite SIGNED_OUT tanto no logout real quanto numa falha de refresh de token
+// (comum no PWA Android em rede instável). O handler antigo navegava pro login em QUALQUER
+// SIGNED_OUT → tela branca / deslogue / loop tecnico↔login no meio do encerramento. Agora a
+// navegação é condicional: distingue logout intencional de transitório, nunca desloga offline,
+// e não navega no meio de operação crítica (encerramento/sync).
+var _logoutIntencional = false   // "Sair" / logout forçado explícito → SIGNED_OUT esperado
+var _navegandoLogin = false      // single-shot: decisão de ir pro login já tomada (anti-loop)
+var _recheckPendente = false     // SIGNED_OUT chegou durante op crítica → re-avaliar ao fim dela
+var _criticalDepth = 0           // nº de operações críticas em curso (Commit 2 marca as 3 rajadas)
+
+// Marca que o PRÓXIMO SIGNED_OUT é intencional (fazerLogout aqui; forcarLogout do tecnico.js no Commit 2).
+window.srMarcarLogoutIntencional = () => { _logoutIntencional = true }
+// Guard de operação crítica — Commit 2 chama begin/end em volta de salvar()/concluirTarefa()/syncAll.
+window.srCriticalBegin = () => { _criticalDepth++ }
+window.srCriticalEnd = () => {
+  _criticalDepth = Math.max(0, _criticalDepth - 1)
+  // Passo 4: ao fim da op crítica, um SIGNED_OUT adiado é RE-AVALIADO pelos MESMOS 5 passos
+  // (em especial o 5: debounce + getSession). NUNCA navega direto aqui.
+  if (_criticalDepth === 0 && _recheckPendente) { _recheckPendente = false; avaliarSignedOut() }
+}
+
+function _irParaLogin() {
+  if (_navegandoLogin) return   // single-shot → mata o loop tecnico↔login
+  _navegandoLogin = true
   location.href = 'login.html'
+}
+
+// Os 5 passos num único lugar — usados pelo evento SIGNED_OUT E pela re-avaliação pós-op crítica.
+async function avaliarSignedOut() {
+  // 1) já decidimos ir pro login → nada (anti-loop)
+  if (_navegandoLogin) return
+  // 2) logout intencional (Sair / forçado) → navega
+  if (_logoutIntencional) { _logoutIntencional = false; console.info('[auth] SIGNED_OUT intencional → login'); _irParaLogin(); return }
+  // 3) offline → NUNCA desloga (a sessão local persiste; re-login exige rede)
+  if (!navigator.onLine) { console.info('[auth] SIGNED_OUT suprimido: offline'); return }
+  // 4) operação crítica em curso → não navega agora; re-avalia (pelos 5 passos) ao fim
+  if (_criticalDepth > 0) { _recheckPendente = true; console.info('[auth] SIGNED_OUT adiado: operação crítica em curso'); return }
+  // 5) online, não-intencional, sem op crítica → pode ser refresh transitório. Debounce + confirma.
+  await new Promise(function (r) { setTimeout(r, 1500) })
+  if (_navegandoLogin) return
+  if (_criticalDepth > 0) { _recheckPendente = true; return }   // op crítica começou no debounce → re-avalia depois
+  var confirmadoSemSessao = false
+  try {
+    var r = await getSupabase().auth.getSession()
+    if (!(r && r.data && r.data.session)) confirmadoSemSessao = true
+  } catch (e) { /* rede falhou → não dá pra confirmar expiração; na dúvida NÃO desloga */ }
+  if (!navigator.onLine) { console.info('[auth] SIGNED_OUT: caiu offline no debounce → mantém sessão'); return }
+  if (!confirmadoSemSessao) { console.info('[auth] SIGNED_OUT transitório: sessão presente/indefinida → ignora'); return }
+  console.warn('[auth] SIGNED_OUT real: sessão expirada → login')
+  _irParaLogin()
+}
+
+// Logout manual ("Sair") — sempre navega (é escolha explícita do usuário).
+var fazerLogout = async () => {
+  _logoutIntencional = true
+  try { await getSupabase().auth.signOut() } catch (e) { /* offline: segue e navega mesmo assim */ }
+  SESSION = null; PERFIL = null
+  _irParaLogin()
 }
 
 // Init: verifica sessão existente
@@ -157,12 +211,13 @@ var initAuth = async () => {
     }
   }
 
-  // Reagir a mudanças de sessão
+  // Reagir a mudanças de sessão. SIGNED_OUT agora é AVALIADO (não navega incondicionalmente).
   getSupabase().auth.onAuthStateChange((event, session) => {
     if (event === 'SIGNED_OUT') {
-      location.href = 'login.html'
+      avaliarSignedOut()
     } else if (event === 'TOKEN_REFRESHED' && session) {
       SESSION = session
+      _recheckPendente = false   // refresh voltou → cancela re-avaliação pendente
     }
   })
 }
