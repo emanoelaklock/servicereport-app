@@ -1025,11 +1025,13 @@
     let temRat = ratsLocais.some(r => r.sync_status !== D().STATUS.RASCUNHO && RAT_FECHADA.includes(r.status))
     let retAberto = passagemAberta(ratsLocais)
     if (navigator.onLine) {
+      window.srCriticalBegin?.()   // 4º site: SIGNED_OUT no select do detalhe (spinner do "Concluir Agora") não navega
       try {
         const { data: srv } = await getSupabase().from('rats')
           .select('respostas,data_tarefa,criado_em,status').eq('tarefa_id', id)
         if (srv) { temRat = temRat || srv.some(r => RAT_FECHADA.includes(r.status)); retAberto = passagemAberta(srv) }   // servidor é autoritativo (vê RAT de coautor)
       } catch (e) { /* offline/erro: mantém o que tem local */ }
+      finally { window.srCriticalEnd?.() }
     }
     // Concluir bloqueado se há "retorno em aberto" (RAT marcada como "vou voltar depois pra terminar").
     // O técnico não pode; o admin pode forçar pelo portal (com ciência).
