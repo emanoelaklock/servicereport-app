@@ -72,8 +72,19 @@
   // bloqueio síncrono). Escreve o passo ANTES de cada operação; após força-fechar+reabrir, o
   // último valor = passo onde o thread morreu. Surfaceado no load (init do tecnico.js).
   window.srStep = function (label) {
-    try { localStorage.setItem('sr_diag_step', label + ' @' + Date.now()) } catch (e) { /* nada */ }
-    console.info('[step] ' + label)
+    var now = Date.now()
+    try {
+      // Trilha (reset a cada 'click:'): guarda os últimos passos COM timestamp → o delta entre
+      // passos consecutivos diz se o congelamento foi imediato no passo X ou se algo antes
+      // degradou N ms. localStorage é síncrono → sobrevive ao main-thread travado.
+      var arr = /^click:/.test(label) ? [] : (JSON.parse(localStorage.getItem('sr_diag_trail') || '[]') || [])
+      if (!Array.isArray(arr)) arr = []
+      arr.push(label + ' @' + now)
+      if (arr.length > 12) arr = arr.slice(-12)
+      localStorage.setItem('sr_diag_trail', JSON.stringify(arr))
+      localStorage.setItem('sr_diag_step', label + ' @' + now)   // último (compat/fallback)
+    } catch (e) { /* nada */ }
+    console.info('[step] ' + label + ' @' + now)
   }
 
   let _dbp = null, _dbConn = null, _uid = null

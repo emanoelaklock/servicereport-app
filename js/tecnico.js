@@ -222,8 +222,14 @@
     // DIAG (branch diag/encerramento-hang-db): surface o ÚLTIMO breadcrumb do salvar — se o app
     // travou no encerramento, força-fechar+reabrir cai aqui e mostra ONDE o main thread morreu.
     try {
-      const _st = localStorage.getItem('sr_diag_step')
-      if (_st && window.SR_DB_DEBUG) setTimeout(function () { if (typeof toast === 'function') toast('🔎 último passo: ' + _st, 'err') }, 1600)
+      var _trail = JSON.parse(localStorage.getItem('sr_diag_trail') || '[]')
+      if (window.SR_DB_DEBUG && Array.isArray(_trail) && _trail.length) {
+        var _p = _trail.map(function (s) { var i = s.lastIndexOf(' @'); return { l: s.slice(0, i), t: +s.slice(i + 2) } })
+        var _total = _p[_p.length - 1].t - _p[0].t   // do click até o último passo (antes de travar)
+        var _tail = _p.slice(-4).map(function (x, i, a) { return x.l + (i ? ' +' + (x.t - a[i - 1].t) + 'ms' : '') }).join(' › ')
+        var _msg = '🔎 TRAVOU em "' + _p[_p.length - 1].l + '" | ' + _total + 'ms desde o click › ' + _tail
+        setTimeout(function () { if (typeof toast === 'function') toast(_msg, 'err') }, 1600)
+      }
     } catch (e) { /* nada */ }
     // uid SEMPRE da sessão LOCAL (offline-first). getUser() faz chamada de REDE e devolve null
     // num soluço de conexão / token renovando → o app abria o banco legado vazio e as RATs
