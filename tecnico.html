@@ -118,6 +118,11 @@ try{if(localStorage.getItem('sr_dark')==='1')document.documentElement.classList.
   .home-card.soon{opacity:.62}
   html,body{overscroll-behavior-y:contain}
   .net-badge{font-size:11px;font-weight:600;padding:3px 9px;border-radius:20px;white-space:nowrap}
+  /* Badge de versão (diagnóstico de update): versão do SW no controle + chip "↑ disponível" (amarelo=atenção). */
+  .app-ver{display:inline-flex;align-items:center;gap:6px;white-space:nowrap}
+  .app-ver #app-ver-run{font-size:11px;font-weight:600;color:rgba(255,255,255,.72)}
+  .app-ver #app-ver-run:empty{display:none}
+  .app-ver-upd{font-size:11px;font-weight:700;background:#F7B81E;color:#1B2A4A;padding:2px 8px;border-radius:20px}
   .net-on{background:rgba(40,169,76,.18);color:#bff0cf}
   .net-pend{background:rgba(247,184,30,.22);color:#ffe6a8}
   .net-sync{background:rgba(255,255,255,.18);color:#fff}
@@ -720,6 +725,7 @@ try{if(localStorage.getItem('sr_dark')==='1')document.documentElement.classList.
       <button class="ft-back" id="btn-voltar" style="display:none" aria-label="Voltar">‹</button>
       <span class="ft-title" id="ft-title">Service Report</span>
       <div style="display:flex;align-items:center;gap:10px">
+        <span class="app-ver" id="app-ver" title="Versão do app (SW no controle)"><span id="app-ver-run"></span><span class="app-ver-upd" id="app-ver-upd" style="display:none"></span></span>
         <span class="net-badge" id="net-badge">—</span>
         <button class="ft-logout" id="btn-dark" title="Modo claro/escuro" style="padding:8px 10px">🌙</button>
         <button class="ft-logout" onclick="fazerLogout()">Sair</button>
@@ -1639,6 +1645,30 @@ try{if(localStorage.getItem('sr_dark')==='1')document.documentElement.classList.
     let updatePendente = false   // existe versão nova esperando (reg.waiting)
     let swapIniciado = false     // já mandamos SKIP_WAITING desta versão (não repete → sem loop)
 
+    // Badge de versão fixo na top-bar (#app-ver): mostra a versão do SW que CONTROLA a página — vira
+    // quando o swap completa, confirmando visualmente que o update pegou — e um chip "↑ vNNN disponível"
+    // enquanto houver SW em espera. Pergunta a versão a cada worker via GET_VERSION (o SW conhece seu CACHE).
+    function askVer(sw) {
+      return new Promise((resolve) => {
+        if (!sw) return resolve(null)
+        let feito = false
+        const ch = new MessageChannel()
+        ch.port1.onmessage = (e) => { if (!feito) { feito = true; resolve(e.data && e.data.version) } }
+        try { sw.postMessage({ type: 'GET_VERSION' }, [ch.port2]) } catch (e) { resolve(null) }
+        setTimeout(() => { if (!feito) { feito = true; resolve(null) } }, 1200)
+      })
+    }
+    async function refreshAppVer() {
+      const runEl = document.getElementById('app-ver-run'), updEl = document.getElementById('app-ver-upd')
+      if (!runEl || !updEl) return
+      const run = await askVer(navigator.serviceWorker && navigator.serviceWorker.controller)
+      const wait = (swReg && swReg.waiting) ? await askVer(swReg.waiting) : null
+      runEl.textContent = run || ''
+      if (wait && wait !== run) { updEl.textContent = '↑ ' + wait + ' disponível'; updEl.style.display = '' }
+      else { updEl.textContent = ''; updEl.style.display = 'none' }
+    }
+    window.srRefreshAppVer = refreshAppVer
+
     navigator.serviceWorker.addEventListener('controllerchange', () => {
       if (recarregando) return
       recarregando = true
@@ -1661,11 +1691,15 @@ try{if(localStorage.getItem('sr_dark')==='1')document.documentElement.classList.
       try {
         const reg = await navigator.serviceWorker.register('service-worker.js')
         swReg = reg
+        // pinta o badge assim que der; re-tenta pois o controller pode ainda não existir no 1º paint
+        refreshAppVer()
+        let vt = 0; const vtiv = setInterval(() => { vt++; refreshAppVer(); if (vt >= 5) clearInterval(vtiv) }, 900)
         const detectou = () => {
           if (!navigator.serviceWorker.controller) return   // 1ª instalação: não há versão a trocar
           updatePendente = true
           mostrarUpdate(reg)   // barra de fallback manual
           tentarUpdate()       // se já estiver ocioso na home, troca na hora
+          refreshAppVer()      // versão nova em espera → mostra o chip "↑ disponível"
         }
         if (reg.waiting) detectou()
         reg.addEventListener('updatefound', () => {
@@ -1674,7 +1708,7 @@ try{if(localStorage.getItem('sr_dark')==='1')document.documentElement.classList.
         })
         setInterval(() => reg.update().catch(() => {}), 30 * 60 * 1000)   // procura versão nova (online)
         setInterval(tentarUpdate, 60 * 1000)                              // reavalia a ociosidade
-        document.addEventListener('visibilitychange', () => { if (!document.hidden) { reg.update().catch(() => {}); tentarUpdate() } })
+        document.addEventListener('visibilitychange', () => { if (!document.hidden) { reg.update().catch(() => {}); tentarUpdate(); refreshAppVer() } })
       } catch (e) { console.warn('SW:', e) }
     })
   }
