@@ -302,6 +302,7 @@
     if (typeof window.onSyncStart === 'function') window.onSyncStart()
     let ok = 0, fail = 0
     const PEND = [D().STATUS.SALVO_LOCAL, D().STATUS.NA_FILA, D().STATUS.ERRO]
+    window.srCriticalBegin?.()   // guard: SIGNED_OUT durante o push do sync não navega (colado no try → finally garante o End)
     try {
       // Tarefas criadas offline primeiro (RAT depende da tarefa via FK).
       const tlocais = await D().tarefasLocaisPendentes()
@@ -344,7 +345,7 @@
         try { await enviarDeslocamento(d); ok++ }
         catch (e) { console.warn('[sync] falha deslocamento', d.id, e); fail++ }
       }
-    } finally { syncing = false }
+    } finally { syncing = false; window.srCriticalEnd?.() }
     await pullChanges()   // depois de empurrar o local, puxa o que mudou no servidor
     if (typeof window.onSyncDone === 'function') window.onSyncDone({ ok, fail })
     return { ok, fail }

@@ -1025,11 +1025,13 @@
     let temRat = ratsLocais.some(r => r.sync_status !== D().STATUS.RASCUNHO && RAT_FECHADA.includes(r.status))
     let retAberto = passagemAberta(ratsLocais)
     if (navigator.onLine) {
+      window.srCriticalBegin?.()   // 4º site: SIGNED_OUT no select do detalhe (spinner do "Concluir Agora") não navega
       try {
         const { data: srv } = await getSupabase().from('rats')
           .select('respostas,data_tarefa,criado_em,status').eq('tarefa_id', id)
         if (srv) { temRat = temRat || srv.some(r => RAT_FECHADA.includes(r.status)); retAberto = passagemAberta(srv) }   // servidor é autoritativo (vê RAT de coautor)
       } catch (e) { /* offline/erro: mantém o que tem local */ }
+      finally { window.srCriticalEnd?.() }
     }
     // Concluir bloqueado se há "retorno em aberto" (RAT marcada como "vou voltar depois pra terminar").
     // O técnico não pode; o admin pode forçar pelo portal (com ciência).
@@ -1096,7 +1098,11 @@
     if (comPendencia) return abrirModalConcPend()
     if (!skipConfirm && !confirm('Concluir o serviço desta tarefa?\n\nIsso fecha a Tarefa inteira (não só o dia). Se o trabalho continua, use "RAT de hoje".')) return
     const id = tarefaAberta.id
-    const up = await getSupabase().from('tarefas').update({ status: 'concluida', pendencias: null }).eq('id', id)
+    let up
+    window.srCriticalBegin?.()   // guard: SIGNED_OUT durante o update não navega no meio do fluxo
+    try {
+      up = await getSupabase().from('tarefas').update({ status: 'concluida', pendencias: null }).eq('id', id)
+    } finally { window.srCriticalEnd?.() }
     if (up.error) return toast('Erro ao concluir: ' + up.error.message, 'err')
     toast('Serviço concluído.', 'ok')
     await renderTarefas()
@@ -3604,6 +3610,10 @@
 
     // sit = 'em_andamento' (continua) | 'registrado' (encerra o dia). A RAT NUNCA conclui
     // o serviço — isso é deliberado na Tarefa ("Concluir serviço").
+    // Guard de op crítica: SIGNED_OUT durante a gravação+notify não navega no meio do encerramento.
+    // (salvarRat/definirStatus são locais; notificarPush é fire-and-forget — valor marginal, ver PR.)
+    window.srCriticalBegin?.()
+    try {
     await D().salvarRat(cur.client_uuid, {
       tarefa_id: cur.tarefa_id || null,
       tarefa_numero: cur.tarefa_numero || null,
@@ -3632,6 +3642,7 @@
     if (!emExecucao && navigator.onLine && window.notificarPush) {
       notificarPush('rat_registrada', { numero: cur.tarefa_numero, cliente: cli?.nome, tarefa_id: cur.tarefa_id })
     }
+    } finally { window.srCriticalEnd?.() }
     // Handoff ao encerrar (volta amanhã = Não) → modal guiado:
     //  volto_depois → Tarefa foi pra EM PAUSA (informa + leva à Tarefa).
     //  terminei     → guia a CONCLUIR o serviço (encerrar a RAT não conclui — resolve 4773/4774).
