@@ -153,6 +153,15 @@ window.srCriticalEnd = () => {
   if (_criticalDepth === 0 && _recheckPendente) { _recheckPendente = false; avaliarSignedOut() }
 }
 
+// Instrumentação (Commit 3): loga a decisão do SIGNED_OUT no console E, com SR_AUTH_DEBUG on,
+// na TELA via toast — pro técnico ver a decisão no aparelho sem USB/devtools.
+// BRANCH de diagnóstico: default on. Desligar/remover na limpeza pré-merge (ver PR).
+var SR_AUTH_DEBUG = true
+function _authDbg(msg, nivel) {
+  ;(nivel === 'warn' ? console.warn : console.info)('[auth] ' + msg)
+  if (SR_AUTH_DEBUG && typeof toast === 'function') { try { toast('auth: ' + msg, nivel === 'warn' ? 'err' : '') } catch (e) { /* nada */ } }
+}
+
 function _irParaLogin() {
   if (_navegandoLogin) return   // single-shot → mata o loop tecnico↔login
   _navegandoLogin = true
@@ -164,11 +173,11 @@ async function avaliarSignedOut() {
   // 1) já decidimos ir pro login → nada (anti-loop)
   if (_navegandoLogin) return
   // 2) logout intencional (Sair / forçado) → navega
-  if (_logoutIntencional) { _logoutIntencional = false; console.info('[auth] SIGNED_OUT intencional → login'); _irParaLogin(); return }
+  if (_logoutIntencional) { _logoutIntencional = false; _authDbg('SIGNED_OUT intencional → login'); _irParaLogin(); return }
   // 3) offline → NUNCA desloga (a sessão local persiste; re-login exige rede)
-  if (!navigator.onLine) { console.info('[auth] SIGNED_OUT suprimido: offline'); return }
+  if (!navigator.onLine) { _authDbg('SIGNED_OUT suprimido: offline'); return }
   // 4) operação crítica em curso → não navega agora; re-avalia (pelos 5 passos) ao fim
-  if (_criticalDepth > 0) { _recheckPendente = true; console.info('[auth] SIGNED_OUT adiado: operação crítica em curso'); return }
+  if (_criticalDepth > 0) { _recheckPendente = true; _authDbg('SIGNED_OUT adiado: operação crítica em curso'); return }
   // 5) online, não-intencional, sem op crítica → pode ser refresh transitório. Debounce + confirma.
   await new Promise(function (r) { setTimeout(r, 1500) })
   if (_navegandoLogin) return
@@ -178,9 +187,9 @@ async function avaliarSignedOut() {
     var r = await getSupabase().auth.getSession()
     if (!(r && r.data && r.data.session)) confirmadoSemSessao = true
   } catch (e) { /* rede falhou → não dá pra confirmar expiração; na dúvida NÃO desloga */ }
-  if (!navigator.onLine) { console.info('[auth] SIGNED_OUT: caiu offline no debounce → mantém sessão'); return }
-  if (!confirmadoSemSessao) { console.info('[auth] SIGNED_OUT transitório: sessão presente/indefinida → ignora'); return }
-  console.warn('[auth] SIGNED_OUT real: sessão expirada → login')
+  if (!navigator.onLine) { _authDbg('SIGNED_OUT: caiu offline no debounce → mantém sessão'); return }
+  if (!confirmadoSemSessao) { _authDbg('SIGNED_OUT transitório: sessão presente/indefinida → ignora'); return }
+  _authDbg('SIGNED_OUT real: sessão expirada → login', 'warn')
   _irParaLogin()
 }
 
