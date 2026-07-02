@@ -380,9 +380,17 @@
     document.getElementById('btn-cancelar').onclick = cancelar
     // Ação primária: encerrar o dia (Sim, revela o checkpoint) ou registrar visita (Não improdutiva).
     document.getElementById('btn-salvar').onclick = () => {
-      window.srStep && window.srStep('click: btn-salvar (Encerrar/registrar)')
-      if (atendExec === 'Não') return salvar()                 // improdutiva: registra direto
-      if (!revelarPass) { revelarPass = true; togglePassagem(); atualizarBtnSalvar(); return }  // 1º toque: revela o checkpoint, sem salvar
+      var S = window.srStep || function () {}
+      S('click: btn-salvar | atendExec=' + atendExec + ' revelarPass=' + revelarPass)
+      if (atendExec === 'Não') { S('click: A -> salvar() improdutiva'); return salvar() }
+      S('click: B pre revelarPass-check')
+      if (!revelarPass) {                                        // 1º toque: revela o checkpoint, sem salvar
+        S('click: C 1o toque -> revelarPass=true'); revelarPass = true
+        S('click: D pre togglePassagem'); togglePassagem()
+        S('click: E pre atualizarBtnSalvar'); atualizarBtnSalvar()
+        S('click: F reveal OK -> return'); return
+      }
+      S('click: G pre salvar(registrado)')
       salvar('registrado')                                      // caminho "Não": confirma depois do motivo
     }
     // Secundária: salvar parcial e continuar editando hoje (em_andamento).
@@ -3531,9 +3539,12 @@
 
   // modo: 'em_andamento' (botão "Salvar e continuar") | 'registrado' (botão "Encerrar a RAT do dia").
   async function salvar(modo) {
+    window.srStep && window.srStep('salvar: 0 topo (modo=' + modo + ')')
     if (!cur) return
+    window.srStep && window.srStep('salvar: 1 leu f-cliente')
     const cliId = document.getElementById('f-cliente').value
     if (!cliId) return toast('Selecione o cliente.', 'err')
+    window.srStep && window.srStep('salvar: 2 pre improdutiva/formulario-check')
     // Visita improdutiva: fui e não executei → registra motivo, sem exigir execução.
     if (atendExec === 'Não') return salvarImprodutiva(cliId)
     if (!cur.formulario_id) return toast('Esta tarefa não tem formulário configurado.', 'err')
