@@ -219,6 +219,12 @@
   }
 
   async function init() {
+    // DIAG (branch diag/encerramento-hang-db): surface o ÚLTIMO breadcrumb do salvar — se o app
+    // travou no encerramento, força-fechar+reabrir cai aqui e mostra ONDE o main thread morreu.
+    try {
+      const _st = localStorage.getItem('sr_diag_step')
+      if (_st && window.SR_DB_DEBUG) setTimeout(function () { if (typeof toast === 'function') toast('🔎 último passo: ' + _st, 'err') }, 1600)
+    } catch (e) { /* nada */ }
     // uid SEMPRE da sessão LOCAL (offline-first). getUser() faz chamada de REDE e devolve null
     // num soluço de conexão / token renovando → o app abria o banco legado vazio e as RATs
     // "sumiam". SESSION já vem populada pelo _posLogin (auth.js) antes do init; getSession() é
@@ -368,6 +374,7 @@
     document.getElementById('btn-cancelar').onclick = cancelar
     // Ação primária: encerrar o dia (Sim, revela o checkpoint) ou registrar visita (Não improdutiva).
     document.getElementById('btn-salvar').onclick = () => {
+      window.srStep && window.srStep('click: btn-salvar (Encerrar/registrar)')
       if (atendExec === 'Não') return salvar()                 // improdutiva: registra direto
       if (!revelarPass) { revelarPass = true; togglePassagem(); atualizarBtnSalvar(); return }  // 1º toque: revela o checkpoint, sem salvar
       salvar('registrado')                                      // caminho "Não": confirma depois do motivo
@@ -3528,10 +3535,12 @@
     const sit = (modo === 'em_andamento') ? 'em_andamento' : 'registrado'
     // "Salvar e continuar" (em_andamento) → salva parcial, sem exigir os obrigatórios.
     const emExecucao = (sit === 'em_andamento')
+    window.srStep && window.srStep('salvar: entrada (' + sit + ')')
 
     // Hora de Término não pode estar no futuro (vale também ao salvar parcial).
     if (horaTerminoNoFuturo()) { limparErros(); marcarErros(['hora_termino'], []); return toast('A Hora de Término não pode ser depois do horário atual.', 'err') }
 
+    window.srStep && window.srStep('salvar: coletarRespostas')
     const { respostas, faltando, faltandoIds } = coletarRespostas()
     const vis = (c) => curVisivel[c.id] !== false
     const fotoObrig = cur.campos.some(c => c.tipo === 'foto' && c.obrigatorio && vis(c))
@@ -3539,7 +3548,9 @@
     const produtosObrig = cur.campos.some(c => c.tipo === 'produtos' && c.obrigatorio && vis(c))
 
     limparErros()
+    window.srStep && window.srStep('salvar: listarFotos (IndexedDB)')
     const fotos = await D().listarFotos(cur.client_uuid)
+    window.srStep && window.srStep('salvar: validacao campos/produtos/desloc')
     if (!emExecucao) {
       // Pergunta de produtos é obrigatória para concluir (resposta explícita Sim/Não)
       const temProdutosCampo = cur.campos.some(c => c.tipo === 'produtos' && vis(c))
@@ -3577,6 +3588,7 @@
       if (produtosObrig && usoProd !== 'Não' && (await D().listarMateriais(cur.client_uuid)).filter(m => (Number(m.quantidade) || 0) > 0).length === 0) { marcarErros([], [document.getElementById('form-produtos-btn')]); return toast('Aponte os produtos utilizados (ou responda "Não").', 'err') }
     }
 
+    window.srStep && window.srStep('salvar: assinatura (dataURL)')
     let assinatura_local = null
     const temAssinatura = sig && !sig.isEmpty()
     if (!emExecucao && assinaturaObrig && !temAssinatura) return toast('Capture a assinatura.', 'err')
@@ -3585,6 +3597,7 @@
     // Checkpoint de passagem (ao encerrar o dia): "volta amanhã?" obrigatório. Se Não → por quê?
     // 'volto_depois' exige o handoff (o que falta / o que levar); 'terminei' dispensa (NÃO conclui aqui).
     if (sit === 'registrado') {
+      window.srStep && window.srStep('salvar: erroCronologia + checkpoint')
       const ec = erroCronologia()
       if (ec) { limparErros(); marcarErros([], ec.btns.filter(Boolean)); return toast(ec.msg, 'err') }
       if (!voltaAmanha) return toast('Responda se volta amanhã pra continuar.', 'err')
@@ -3612,6 +3625,7 @@
     // o serviço — isso é deliberado na Tarefa ("Concluir serviço").
     // Guard de op crítica: SIGNED_OUT durante a gravação+notify não navega no meio do encerramento.
     // (salvarRat/definirStatus são locais; notificarPush é fire-and-forget — valor marginal, ver PR.)
+    window.srStep && window.srStep('salvar: calcTempo + write salvarRat (IndexedDB)')
     window.srCriticalBegin?.()
     try {
     await D().salvarRat(cur.client_uuid, {
@@ -3643,6 +3657,7 @@
       notificarPush('rat_registrada', { numero: cur.tarefa_numero, cliente: cli?.nome, tarefa_id: cur.tarefa_id })
     }
     } finally { window.srCriticalEnd?.() }
+    window.srStep && window.srStep('salvar: write OK; abrindo handoff/sync')
     // Handoff ao encerrar (volta amanhã = Não) → modal guiado:
     //  volto_depois → Tarefa foi pra EM PAUSA (informa + leva à Tarefa).
     //  terminei     → guia a CONCLUIR o serviço (encerrar a RAT não conclui — resolve 4773/4774).
