@@ -3953,6 +3953,7 @@
   // Timers Iniciar/Encerrar/Reabrir (igual à RAT) para os pares de horário do pré-orçamento.
   let poTimersTick = null
   function poTimersRender() {
+    window.srStep && window.srStep('  poRender: entrada')
     const hhmm = () => { const d = new Date(); return String(d.getHours()).padStart(2, '0') + ':' + String(d.getMinutes()).padStart(2, '0') }
     const decorrido = (ini) => {
       const [h, m] = String(ini).split(':').map(Number); if (isNaN(h) || isNaN(m)) return ''
@@ -3972,6 +3973,7 @@
     // então o evento 'input' não borbulha até o listener do form. Sem isso, a barra não troca pra "Encerrar".
     const stamp = (el, val) => { if (el) { el.value = val; atualizarTempoPo(); atualizarCardsPo(); poTimersRender() } }
     for (const d of defs) {
+      window.srStep && window.srStep('    poRenderBar: ' + d.host)
       const bar = document.getElementById(d.host); if (!bar) continue
       const eIni = document.getElementById(d.ini), eFim = document.getElementById(d.fim)
       const vi = eIni ? eIni.value : '', vf = eFim ? eFim.value : ''
@@ -3991,7 +3993,8 @@
         bar.querySelector('.redo').onclick = () => stamp(eFim, '')
       }
     }
-    if (!poTimersTick) poTimersTick = setInterval(() => { window.srStep && window.srStep('  TICK poTimersTick 30s'); if (!document.querySelector('#view-preorc-form .atd-timer.run')) return; poTimersRender() }, 30000)
+    window.srStep && window.srStep('  poRender: saida (pre-setInterval)')
+    if (!poTimersTick) poTimersTick = setInterval(() => { var S = window.srStep || function () {}; S('  TICK poTimersTick 30s'); var run = !!document.querySelector('#view-preorc-form .atd-timer.run'); S('  poTick: guard run=' + run); if (run) poTimersRender(); S('  poTick: pos-guard'); Promise.resolve().then(function () { S('  poTick POST-micro') }); setTimeout(function () { S('  poTick POST-macro (PRE-paint)') }, 0); requestAnimationFrame(function () { requestAnimationFrame(function () { S('  poTick POST-PAINT (2x rAF)') }) }) }, 30000)
   }
   // Deslocamento segmentado (Sim/Não) → grava no hidden po-desloc + marca o botão ativo.
   function poSetDesloc(v) {
