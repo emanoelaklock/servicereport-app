@@ -65,13 +65,17 @@
     window.srStep && window.srStep('  tP: display set OK')
   }
   function setVoltaAmanha(v) {
+    window.srStep && window.srStep('  setVoltaAmanha: entrada (v=' + v + ')')
     voltaAmanha = (v === 'Não') ? 'Não' : 'Sim'
     document.querySelectorAll('#f-volta-seg button').forEach(b => b.classList.toggle('on', b.dataset.v === voltaAmanha))
     const nao = document.getElementById('f-passagem-nao')
     if (nao) nao.style.display = (voltaAmanha === 'Não') ? 'block' : 'none'
     if (voltaAmanha !== 'Não') document.querySelectorAll('#f-passagem-motivo input').forEach(r => { r.checked = false })
+    window.srStep && window.srStep('  setVoltaAmanha: pre togglePassagemHandoff')
     togglePassagemHandoff()
+    window.srStep && window.srStep('  setVoltaAmanha: pre atualizarBtnSalvar')
     atualizarBtnSalvar()   // "Não" revela o "Encerrar" final; "Sim" encerra direto (no handler do botão)
+    window.srStep && window.srStep('  setVoltaAmanha: saida OK')
   }
   // Voltar do checkpoint: recolhe "Volta amanhã?" e devolve "Salvar e continuar" — o técnico não fica preso.
   function voltarDoCheckpoint() {
@@ -84,9 +88,11 @@
   // 'volto_depois' (continua → o que falta / o que levar OBRIGATÓRIOS). 'Terminei' NÃO conclui aqui.
   const passMotivoVal = () => { const el = document.querySelector('#f-passagem-motivo input:checked'); return el ? el.value : null }
   function togglePassagemHandoff() {
+    window.srStep && window.srStep('  tPH: entrada')
     const m = (voltaAmanha === 'Não') ? passMotivoVal() : null
     const ho = document.getElementById('f-passagem-handoff'); if (ho) ho.style.display = (m === 'volto_depois') ? 'block' : 'none'
     const th = document.getElementById('f-passagem-terminei-hint'); if (th) th.style.display = (m === 'terminei') ? 'block' : 'none'
+    window.srStep && window.srStep('  tPH: saida OK')
   }
   // Execução é o padrão; o checkbox "visita improdutiva" troca pra 'Não' (motivo + tempo no local,
   // sem exigir execução; a tarefa fica aguardando). Estado em `atendExec` ('Sim'|'Não').
@@ -438,9 +444,9 @@
     document.getElementById('f-tipo').onchange = onTipoChange
     // Execução é o padrão; marcar "visita improdutiva" troca o modo (recolhe o checkpoint).
     document.getElementById('f-improdutiva-chk').onchange = (e) => { revelarPass = false; setExec(e.target.checked ? 'Não' : 'Sim'); if (e.target.checked) revelarNoForm(document.getElementById('f-exec-nao')) }
-    document.querySelectorAll('#f-volta-seg button').forEach(b => { b.onclick = () => { setVoltaAmanha(b.dataset.v); if (b.dataset.v === 'Sim') salvar('registrado'); else revelarNoForm(document.getElementById('f-passagem-nao')) } })
+    document.querySelectorAll('#f-volta-seg button').forEach(b => { b.onclick = () => { window.srStep && window.srStep('⟳ H-volta: click v=' + b.dataset.v); setVoltaAmanha(b.dataset.v); if (b.dataset.v === 'Sim') { window.srStep && window.srStep('  H-volta: pre salvar'); salvar('registrado') } else { window.srStep && window.srStep('  H-volta: pre revelarNoForm(nao)'); revelarNoForm(document.getElementById('f-passagem-nao')); window.srStep && window.srStep('  H-volta: FIM') } } })
     document.getElementById('btn-voltar-pass').onclick = voltarDoCheckpoint
-    document.querySelectorAll('#f-passagem-motivo input[name="f-pass-motivo"]').forEach(r => { r.onchange = () => { togglePassagemHandoff(); if (r.value === 'volto_depois') revelarNoForm(document.getElementById('f-passagem-handoff')) } })
+    document.querySelectorAll('#f-passagem-motivo input[name="f-pass-motivo"]').forEach(r => { r.onchange = () => { window.srStep && window.srStep('⟳ H-motivo: change v=' + r.value); togglePassagemHandoff(); if (r.value === 'volto_depois') { window.srStep && window.srStep('  H-motivo: pre revelarNoForm(handoff)'); revelarNoForm(document.getElementById('f-passagem-handoff')); window.srStep && window.srStep('  H-motivo: FIM') } else { window.srStep && window.srStep('  H-motivo: FIM (terminei)') } } })
     document.querySelectorAll('#f-motivos input[name="f-motivo"]').forEach(r => { r.onchange = () => { toggleMotivoTexto(); if (r.value === 'outro') revelarNoForm(document.getElementById('f-motivo-texto-wrap')) } })
     // Navegação da home
     document.getElementById('btn-voltar').onclick = onVoltar
@@ -1343,6 +1349,7 @@
   // pra cima pra achá-la. Chamado nos gatilhos de AÇÃO (não nas funções toggle*, que também rodam na
   // repopulação ao reabrir a RAT — ali não se quer rolar a tela).
   function revelarNoForm(el) {
+    window.srStep && window.srStep('  revelarNoForm: entrada (id=' + (el && el.id) + ')')
     // REDE DE SEGURANÇA (hotfix Android, engatilhado): NÃO rola NADA. Replica exatamente o
     // comportamento pré-Patch (antes da v542), em que revelar o checkpoint/handoff era só o
     // display:block feito pelos handlers — SEM scroll — e que NUNCA crashou o Android. O git provou
@@ -2363,7 +2370,7 @@
     organizarCamposForm()   // ordem cronológica + almoço no modal
     const sc = cont.querySelector('canvas.sig-pad')
     if (sc) { sig = initSignature(sc); sig.resize() }
-    const onFormChange = (e) => { aplicarEspelhos(e); atualizarTempo(); aplicarCondicionais(); atualizarResumoAlmoco(); atualizarBadgeDesloc(); atualizarProgresso(); if (timersRender) timersRender(); const w = e.target.closest && e.target.closest('[data-field]'); if (w) w.classList.remove('campo-erro'); agendarAutosave(); const cid = e.target && e.target.getAttribute && e.target.getAttribute('data-campo'); if (cid === 'pausa' || cid === 'pausa_inicio' || cid === 'pausa_termino') agendarPersistPausa() }
+    const onFormChange = (e) => { var S = window.srStep || function () {}; S('⟳ onFormChange (campo=' + (e && e.target && e.target.getAttribute && e.target.getAttribute('data-campo')) + ')'); S('  oFC: aplicarEspelhos'); aplicarEspelhos(e); S('  oFC: atualizarTempo'); atualizarTempo(); S('  oFC: aplicarCondicionais'); aplicarCondicionais(); S('  oFC: atualizarResumoAlmoco'); atualizarResumoAlmoco(); S('  oFC: atualizarBadgeDesloc'); atualizarBadgeDesloc(); S('  oFC: atualizarProgresso'); atualizarProgresso(); S('  oFC: timersRender'); if (timersRender) timersRender(); const w = e.target.closest && e.target.closest('[data-field]'); if (w) w.classList.remove('campo-erro'); S('  oFC: agendarAutosave'); agendarAutosave(); const cid = e.target && e.target.getAttribute && e.target.getAttribute('data-campo'); if (cid === 'pausa' || cid === 'pausa_inicio' || cid === 'pausa_termino') agendarPersistPausa(); S('  oFC: FIM') }
     cont.oninput = onFormChange
     cont.onchange = onFormChange
     const dCont = document.getElementById('desloc-campos')
