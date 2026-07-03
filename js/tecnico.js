@@ -2465,7 +2465,7 @@
     function renderAll() { window.srStep && window.srStep('  renderAll: entrada'); bars.forEach(renderBar); window.srStep && window.srStep('  renderAll: saida OK') }
     timersRender = renderAll
     renderAll()
-    timersTick = setInterval(() => { window.srStep && window.srStep('  TICK timersTick 30s'); if (!document.querySelector('.atd-timer')) { clearInterval(timersTick); timersTick = null; return } renderAll() }, 30000)
+    timersTick = setInterval(() => { var S = window.srStep || function () {}; S('  TICK timersTick 30s'); if (!document.querySelector('.atd-timer')) { clearInterval(timersTick); timersTick = null; return } renderAll(); Promise.resolve().then(function () { S('  timersTick POST-micro') }); setTimeout(function () { S('  timersTick POST-macro (pos-paint)') }, 0) }, 30000)
   }
 
   // ── Espelho: um campo copia o valor de outro quando este muda ──
