@@ -77,7 +77,7 @@
       // Trilha (reset a cada 'click:'): guarda os últimos passos COM timestamp → o delta entre
       // passos consecutivos diz se o congelamento foi imediato no passo X ou se algo antes
       // degradou N ms. localStorage é síncrono → sobrevive ao main-thread travado.
-      var arr = /^click:/.test(label) ? [] : (JSON.parse(localStorage.getItem('sr_diag_trail') || '[]') || [])
+      var arr = /^⟳/.test(label) ? [] : (JSON.parse(localStorage.getItem('sr_diag_trail') || '[]') || [])
       if (!Array.isArray(arr)) arr = []
       arr.push(label + ' @' + now)
       if (arr.length > 12) arr = arr.slice(-12)
