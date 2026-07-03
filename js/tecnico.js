@@ -59,8 +59,10 @@
   let voltaAmanha = null
   let revelarPass = false   // o checkpoint só aparece quando o técnico opta por encerrar o dia
   function togglePassagem() {
+    window.srStep && window.srStep('  tP: entrada')
     const box = document.getElementById('f-passagem')
     if (box) box.style.display = (atendExec === 'Sim' && revelarPass) ? 'block' : 'none'
+    window.srStep && window.srStep('  tP: display set OK')
   }
   function setVoltaAmanha(v) {
     voltaAmanha = (v === 'Não') ? 'Não' : 'Sim'
@@ -105,6 +107,7 @@
   // Ação primária: "Encerrar a RAT do dia" (Sim) | "Registrar visita" (Não improdutiva).
   // Secundária "Salvar e continuar" (salva parcial em_andamento) só aparece no Sim.
   function atualizarBtnSalvar() {
+    window.srStep && window.srStep('  aBS: entrada')
     const b = document.getElementById('btn-salvar'), bc = document.getElementById('btn-continuar')
     const bv = document.getElementById('btn-voltar-pass')
     const imp = (atendExec === 'Não')
@@ -116,6 +119,7 @@
     // "Encerrar": some enquanto espera a resposta do "Volta amanhã?" (Sim encerra sozinho) e
     // reaparece no caminho "Não" pra confirmar depois do motivo.
     if (b) b.style.display = (!imp && revelarPass && voltaAmanha !== 'Não') ? 'none' : ''
+    window.srStep && window.srStep('  aBS: saida OK')
   }
   const osNo = (n) => n != null ? String(n).padStart(5, '0') : '—'
   const cliNomeDe = (id, fb) => (ref.clientes.find(c => c.id === id) || {}).nome || fb || '—'
@@ -226,7 +230,7 @@
       if (window.SR_DB_DEBUG && Array.isArray(_trail) && _trail.length) {
         var _p = _trail.map(function (s) { var i = s.lastIndexOf(' @'); return { l: s.slice(0, i), t: +s.slice(i + 2) } })
         var _total = _p[_p.length - 1].t - _p[0].t   // do click até o último passo (antes de travar)
-        var _tail = _p.slice(-4).map(function (x, i, a) { return x.l + (i ? ' +' + (x.t - a[i - 1].t) + 'ms' : '') }).join(' › ')
+        var _tail = _p.slice(-6).map(function (x, i, a) { return x.l + (i ? ' +' + (x.t - a[i - 1].t) + 'ms' : '') }).join(' › ')
         var _msg = '🔎 TRAVOU em "' + _p[_p.length - 1].l + '" | ' + _total + 'ms desde o click › ' + _tail
         setTimeout(function () { if (typeof toast === 'function') toast(_msg, 'err') }, 1600)
       }
@@ -381,17 +385,19 @@
     // Ação primária: encerrar o dia (Sim, revela o checkpoint) ou registrar visita (Não improdutiva).
     document.getElementById('btn-salvar').onclick = () => {
       var S = window.srStep || function () {}
-      S('click: btn-salvar | atendExec=' + atendExec + ' revelarPass=' + revelarPass)
-      if (atendExec === 'Não') { S('click: A -> salvar() improdutiva'); return salvar() }
-      S('click: B pre revelarPass-check')
+      S('⟳ click btn-salvar | atendExec=' + atendExec + ' revelarPass=' + revelarPass)
+      if (atendExec === 'Não') { S('A: salvar() improdutiva'); return salvar() }
+      S('B: pre revelarPass-check')
       if (!revelarPass) {                                        // 1º toque: revela o checkpoint, sem salvar
-        S('click: C 1o toque -> revelarPass=true'); revelarPass = true
-        S('click: D pre togglePassagem'); togglePassagem()
-        S('click: E pre atualizarBtnSalvar'); atualizarBtnSalvar()
-        S('click: F reveal OK -> return'); return
+        S('C: revelarPass=true'); revelarPass = true
+        S('D: pre togglePassagem()'); togglePassagem()
+        S('E: pre atualizarBtnSalvar()'); atualizarBtnSalvar()
+        S('F: pos atualizarBtnSalvar, pre return')
+        Promise.resolve().then(function () { S('POST-micro: handler retornou (microtask)') })
+        setTimeout(function () { S('POST-macro: handler retornou (macrotask/pos-paint)') }, 0)
+        return
       }
-      S('click: G pre salvar(registrado)')
-      salvar('registrado')                                      // caminho "Não": confirma depois do motivo
+      S('G: pre salvar(registrado)'); salvar('registrado')      // caminho "Não": confirma depois do motivo
     }
     // Secundária: salvar parcial e continuar editando hoje (em_andamento).
     document.getElementById('btn-continuar').onclick = () => salvar('em_andamento')
