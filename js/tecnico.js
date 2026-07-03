@@ -271,7 +271,7 @@
     await restaurarTela()
     // Pausa esquecida que cruzou a meia-noite: checa ao abrir e quando o app volta do 2º plano.
     document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible') { checarVirouDia(); checarPausaEsquecida() } })
-    setInterval(checarVirouDia, 5 * 60 * 1000)   // virada do dia com o app aberto → logout
+    setInterval(() => { window.srStep && window.srStep('  TICK checarVirouDia 5min'); checarVirouDia() }, 5 * 60 * 1000)   // virada do dia com o app aberto → logout
     await checarPausaEsquecida()
   }
 
@@ -541,7 +541,7 @@
     const refreshFilaSeHome = () => { if (screen === 'home' && !document.hidden && navigator.onLine) renderFila() }
     document.addEventListener('visibilitychange', refreshFilaSeHome)
     window.addEventListener('online', refreshFilaSeHome)
-    setInterval(refreshFilaSeHome, 60 * 1000)
+    setInterval(() => { window.srStep && window.srStep('  TICK refreshFilaSeHome 60s'); refreshFilaSeHome() }, 60 * 1000)
   }
 
   // ───────────────────── Dados de referência ─────────────────────
@@ -1465,7 +1465,7 @@
           <div class="js-dur">${segDur(s.inicio, s.fim)}</div></div>`
       }).join('')
     if (jorTick) { clearInterval(jorTick); jorTick = null }
-    if (aberto) jorTick = setInterval(() => { const el = document.getElementById('jor-cron'); if (el) el.textContent = segDur(aberto.inicio); else { clearInterval(jorTick); jorTick = null } }, 1000)
+    if (aberto) jorTick = setInterval(() => { window.srStep && window.srStep('  TICK jorTick 1s'); const el = document.getElementById('jor-cron'); if (el) el.textContent = segDur(aberto.inicio); else { clearInterval(jorTick); jorTick = null } }, 1000)
   }
 
   function abrirSeg(modo) {
@@ -2434,6 +2434,7 @@
     if (!bars.length) return
     const cap = (s) => s.charAt(0).toUpperCase() + s.slice(1)
     function renderBar({ d, bar }) {
+      window.srStep && window.srStep('    renderBar: ' + d.lb)
       if (!document.body.contains(bar)) return
       const wIni = wrapDe(d.ini)
       bar.style.display = (!wIni || wIni.style.display === 'none') ? 'none' : ''
@@ -2461,10 +2462,10 @@
         bar.querySelector('.redo').onclick = () => { const el = $c(d.fim); if (!el) return; el.value = ''; disparar(el); renderAll() }
       }
     }
-    function renderAll() { bars.forEach(renderBar) }
+    function renderAll() { window.srStep && window.srStep('  renderAll: entrada'); bars.forEach(renderBar); window.srStep && window.srStep('  renderAll: saida OK') }
     timersRender = renderAll
     renderAll()
-    timersTick = setInterval(() => { if (!document.querySelector('.atd-timer')) { clearInterval(timersTick); timersTick = null; return } renderAll() }, 30000)
+    timersTick = setInterval(() => { window.srStep && window.srStep('  TICK timersTick 30s'); if (!document.querySelector('.atd-timer')) { clearInterval(timersTick); timersTick = null; return } renderAll() }, 30000)
   }
 
   // ── Espelho: um campo copia o valor de outro quando este muda ──
@@ -3456,6 +3457,7 @@
     autosavePend = true
     clearTimeout(autosaveT)
     autosaveT = setTimeout(async () => {
+      window.srStep && window.srStep('  TICK autosave (700ms)')
       try {
         if (!cur || !cur.client_uuid) return
         const r = await D().obterRat(cur.client_uuid)
@@ -3493,6 +3495,7 @@
     persistPausaT = setTimeout(() => { persistirPausaSync().catch(() => {}).finally(() => { pausaPend = false }) }, 700)
   }
   async function persistirPausaSync() {
+    window.srStep && window.srStep('  TICK persistirPausaSync (700ms)')
     if (!cur || !cur.client_uuid) return
     const cliId = (document.getElementById('f-cliente') || {}).value || null
     const cli = ref.clientes.find(c => c.id === cliId)
@@ -3977,7 +3980,7 @@
         bar.querySelector('.redo').onclick = () => stamp(eFim, '')
       }
     }
-    if (!poTimersTick) poTimersTick = setInterval(() => { if (!document.querySelector('#view-preorc-form .atd-timer.run')) return; poTimersRender() }, 30000)
+    if (!poTimersTick) poTimersTick = setInterval(() => { window.srStep && window.srStep('  TICK poTimersTick 30s'); if (!document.querySelector('#view-preorc-form .atd-timer.run')) return; poTimersRender() }, 30000)
   }
   // Deslocamento segmentado (Sim/Não) → grava no hidden po-desloc + marca o botão ativo.
   function poSetDesloc(v) {
