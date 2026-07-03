@@ -87,11 +87,21 @@
   // Sub-motivo do "Não volto amanhã": 'terminei' (vou concluir na Tarefa, sem handoff) |
   // 'volto_depois' (continua → o que falta / o que levar OBRIGATÓRIOS). 'Terminei' NÃO conclui aqui.
   const passMotivoVal = () => { const el = document.querySelector('#f-passagem-motivo input:checked'); return el ? el.value : null }
+  // Espelha a classe .checked no .motopt do motivo marcado (destaque rosa do rótulo). Substitui o
+  // seletor .motopt:has(input:checked) — que causava tempestade de recalc de estilo no WebView
+  // Android a cada mutação de DOM. Idempotente; chamado em toda mudança de estado dos rádios.
+  function syncMotivoChecked() {
+    document.querySelectorAll('#f-passagem-motivo .motopt').forEach(opt => {
+      const inp = opt.querySelector('input')
+      opt.classList.toggle('checked', !!(inp && inp.checked))
+    })
+  }
   function togglePassagemHandoff() {
     window.srStep && window.srStep('  tPH: entrada')
     const m = (voltaAmanha === 'Não') ? passMotivoVal() : null
     const ho = document.getElementById('f-passagem-handoff'); if (ho) ho.style.display = (m === 'volto_depois') ? 'block' : 'none'
     const th = document.getElementById('f-passagem-terminei-hint'); if (th) th.style.display = (m === 'terminei') ? 'block' : 'none'
+    syncMotivoChecked()   // mantém o destaque do rótulo em sincronia (interativo: H-motivo, setVoltaAmanha, re-hidratação)
     window.srStep && window.srStep('  tPH: saida OK')
   }
   // Execução é o padrão; o checkbox "visita improdutiva" troca pra 'Não' (motivo + tempo no local,
@@ -1274,6 +1284,7 @@
     voltaAmanha = null
     document.querySelectorAll('#f-volta-seg button').forEach(b => b.classList.remove('on'))
     document.querySelectorAll('#f-passagem-motivo input').forEach(r => { r.checked = false })
+    syncMotivoChecked()   // RAT nova: limpa o destaque .checked do motivo (tPH não roda aqui)
     ;['f-passagem-falta', 'f-passagem-levar'].forEach(id => { const el = document.getElementById(id); if (el) el.value = '' })
     const pnao = document.getElementById('f-passagem-nao'); if (pnao) pnao.style.display = 'none'
     const pho = document.getElementById('f-passagem-handoff'); if (pho) pho.style.display = 'none'
@@ -2465,7 +2476,7 @@
     function renderAll() { window.srStep && window.srStep('  renderAll: entrada'); bars.forEach(renderBar); window.srStep && window.srStep('  renderAll: saida OK') }
     timersRender = renderAll
     renderAll()
-    timersTick = setInterval(() => { var S = window.srStep || function () {}; S('  TICK timersTick 30s'); if (!document.querySelector('.atd-timer')) { clearInterval(timersTick); timersTick = null; return } renderAll(); Promise.resolve().then(function () { S('  timersTick POST-micro') }); setTimeout(function () { S('  timersTick POST-macro (pos-paint)') }, 0) }, 30000)
+    timersTick = setInterval(() => { var S = window.srStep || function () {}; S('  TICK timersTick 30s'); if (!document.querySelector('.atd-timer')) { clearInterval(timersTick); timersTick = null; return } renderAll(); Promise.resolve().then(function () { S('  timersTick POST-micro') }); setTimeout(function () { S('  timersTick POST-macro (setTimeout0, PRE-paint)') }, 0); requestAnimationFrame(function () { requestAnimationFrame(function () { S('  timersTick POST-PAINT (2x rAF, apos o paint real)') }) }) }, 30000)
   }
 
   // ── Espelho: um campo copia o valor de outro quando este muda ──
