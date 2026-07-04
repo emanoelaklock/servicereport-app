@@ -1371,9 +1371,18 @@
     // resolver com layout/âncora — não com scroll programático neste container.
     return
   }
+  // Alvo de scroll ciente da plataforma: no Android o DOCUMENTO rola (fix da layer composta de
+  // altura cheia — ver Commit 1, html.android em tecnico.html); no iOS/desktop o scroller é o
+  // .field-body interno. Único ponto de scroll ativo hoje (revelarNoForm é no-op; o PTR já usa
+  // window.scrollY, correto pros dois modelos).
+  function scrollerEl() {
+    return document.documentElement.classList.contains('android')
+      ? (document.scrollingElement || document.documentElement)
+      : document.querySelector('.field-body')
+  }
   const TAB_DE = { home: 'home', tarefas: 'tarefas', lista: 'lista', desloc: 'desloc', 'tarefa-det': 'tarefas' }
   async function irParaTab(tab) {
-    if (screen === tab) { const fb = document.querySelector('.field-body'); if (fb) fb.scrollTo({ top: 0, behavior: 'smooth' }); return }
+    if (screen === tab) { const sc = scrollerEl(); if (sc) sc.scrollTo({ top: 0, behavior: 'smooth' }); return }
     mostrar(tab)   // 'home' já renderiza dentro do mostrar
     const R = { tarefas: renderTarefas, lista: renderLista, desloc: renderDesloc }
     if (R[tab]) { try { await R[tab]() } catch (e) { /* offline: mostra cache */ } }
