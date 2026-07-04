@@ -41,6 +41,9 @@ try{if(localStorage.getItem('sr_dark')==='1')document.documentElement.classList.
 (function(){
   var ua = navigator.userAgent || '';
   var isIOS = /iP(hone|od|ad)/.test(ua) || (navigator.maxTouchPoints > 1 && /Macintosh/.test(ua));
+  // Android: scroll no DOCUMENTO (fix da layer composta de altura cheia — bug só Android). iOS tem
+  // PRECEDÊNCIA (checado antes): iPhone com "solicitar site desktop"/UA-spoof NÃO cai no ramo Android.
+  if (!isIOS && /Android/.test(ua)) document.documentElement.classList.add('android');
   if (!isIOS) return;
   document.documentElement.classList.add('ios');
   function setH(){ try{ document.documentElement.style.setProperty('--app-h', window.innerHeight + 'px'); }catch(e){} }
@@ -106,6 +109,17 @@ try{if(localStorage.getItem('sr_dark')==='1')document.documentElement.classList.
      não esticava → o rodapé ficava no fim do conteúdo curto, sobrando espaço embaixo (gap no standalone
      também). Com basis 0 ele toma todo o espaço disponível (preenche), e segue rolando se o conteúdo passa. */
   .field-body{flex:1 1 auto;min-height:0;overflow-y:auto;overflow-x:hidden;overscroll-behavior:contain;-webkit-overflow-scrolling:touch;padding:18px 16px;background:var(--bg)}
+  /* ANDROID (classe html.android via JS; iOS tem precedência): scroll no DOCUMENTO, não no .field-body.
+     O scroller interno vira uma layer COMPOSTA de altura cheia (ex.: 1344×5575 = 30MB) que a GPU do
+     WebView Android corrompe ao mutar o form (checkpoint) → tela branca com o renderer vivo. O scroller
+     do DOCUMENTO é TILED (~viewport, ~15MB). iOS (html.ios) e desktop ficam no shell atual, sem regressão.
+     O pull-to-refresh nativo do Chrome segue suprimido pelo html{overscroll-behavior:none} acima (validar
+     no emulador). NB: o scroll-target do JS (reveal/erro + PTR do app) vem no Commit 2. */
+  html.android{overflow:visible}
+  html.android body{overflow:visible}
+  html.android .field-wrap{height:auto;min-height:100dvh;overflow:visible}
+  html.android .field-body{overflow:visible}
+  html.android #form-foot{position:sticky;bottom:0}
 
   /* Home (3 botões) */
   .home-hello{font-size:18px;font-weight:700;color:var(--tx);margin:4px 2px 16px}
