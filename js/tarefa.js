@@ -1296,7 +1296,30 @@ const TarefaApp = (() => {
       const e = (ref.equip || []).find(x => x.id === id)
       return e ? `<tr><td style="${tdS}">${esc(e.tipo || '—')}</td><td style="${tdS}">${esc(e.modelo || '—')}</td><td style="${tdS}">${esc(e.part_number || '—')}</td><td style="${tdS}">${esc(e.serial || '—')}</td></tr>` : ''
     }).join('')
-    const anexosHtml = (cur.anexos || []).map(a => esc(a.nome)).join(' · ')
+    // Anexos: imagens (jpg/png/…) viram <img> reduzida — VISÍVEL no PDF (reusa .det-foto, 150px);
+    // não-imagens (pdf etc.) ficam como nome. Assina em lote e reduz p/ o PDF não pesar.
+    const anexosHtml = await (async () => {
+      const anx = cur.anexos || []; if (!anx.length) return ''
+      const ehImg = (n) => /\.(jpe?g|png|gif|webp|bmp)$/i.test(n || '')
+      const urlByPath = {}
+      const imgs = anx.filter(a => ehImg(a.nome))
+      if (imgs.length) {
+        try {
+          const { data: signed } = await sb().storage.from('rat-anexos').createSignedUrls(imgs.map(a => a.url), 3600)
+          ;(signed || []).forEach(s => { if (s && s.signedUrl) urlByPath[s.path] = s.signedUrl })
+        } catch (e) { /* offline/erro: cai pro nome */ }
+      }
+      const cards = [], nomes = []
+      for (const a of anx) {
+        const url = urlByPath[a.url]
+        if (url && ehImg(a.nome)) {
+          const small = await RatView.shrinkImg(url, 1100, 0.72)
+          cards.push(`<figure class="det-foto"><img src="${small}" alt=""><figcaption>${esc(a.nome)}</figcaption></figure>`)
+        } else nomes.push(esc(a.nome))
+      }
+      return (cards.length ? `<div class="det-fotos">${cards.join('')}</div>` : '')
+        + (nomes.length ? `<div style="font-size:12px;color:#5b6b86${cards.length ? ';margin-top:8px' : ''}">${nomes.join(' · ')}</div>` : '')
+    })()
     const fatTxt = t.faturado
       ? `Faturada${t.numero_nota ? ' · Nota ' + esc(t.numero_nota) : ''}${t.data_faturamento ? ' · ' + dmy(t.data_faturamento) : ''}`
       : 'Não faturada'
@@ -1339,7 +1362,7 @@ const TarefaApp = (() => {
         <table style="width:100%;border-collapse:collapse;font-size:12px;margin-top:4px">
           <thead><tr><th style="${thS}">Tipo</th><th style="${thS}">Modelo</th><th style="${thS}">Part number</th><th style="${thS}">Serial</th></tr></thead>
           <tbody>${equipHtml}</tbody></table></div>` : ''}
-      ${anexosHtml ? `<div class="rd-sec"><div class="rd-sec-t">Anexos</div><div class="rd-f"><div class="v">${anexosHtml}</div></div></div>` : ''}`
+      ${anexosHtml ? `<div class="rd-sec"><div class="rd-sec-t">Anexos</div>${anexosHtml}</div>` : ''}`
     const dets = []
     for (const r of (cur.rats || [])) dets.push(await RatView.loadDetalhe(r))
     RatView.gerarPdf(dets, `Tarefa ${osNo(cur.numero)}`, capa, modo)
