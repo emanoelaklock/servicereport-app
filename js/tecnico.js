@@ -1131,11 +1131,12 @@
       } catch (e) { /* offline/erro: cai pro modo link (assina no clique) */ }
       // só formatos que o <img> renderiza (HEIC/HEIF não pintam no Android → ficam como link)
       const ehImg = (n) => /\.(jpe?g|png|gif|webp|bmp)$/i.test(n || '')
+      box.setAttribute('data-lb-scope', '')   // agrupa só os anexos-imagem no lightbox
       box.innerHTML = data.map((a, i) => {
         const nome = esc(a.nome || 'arquivo')
         const url = urlByPath[a.url]
         return (url && ehImg(a.nome))
-          ? `<div class="anx-card" data-anx="${i}" title="${nome}"><div class="thumb"><img src="${url}" alt="${nome}" loading="lazy"></div><span class="anx-nome">${nome}</span></div>`
+          ? `<div class="anx-card" data-lb="${url}" data-lb-cap="${nome}" title="${nome}" style="cursor:zoom-in"><div class="thumb"><img src="${url}" alt="${nome}" loading="lazy"></div><span class="anx-nome">${nome}</span></div>`
           : `<div class="t-det-anx" data-anx="${i}"><span class="anx-ic">${fileIcon(a.nome, 18)}</span><a>${nome}</a></div>`
       }).join('')
       box.querySelectorAll('[data-anx]').forEach(el => el.onclick = async () => {
@@ -3081,11 +3082,12 @@
     const box = document.getElementById('thumbs')
     if (!box) return
     const fotos = await D().listarFotos(cur.client_uuid)
+    box.setAttribute('data-lb-scope', '')   // fotos da RAT navegam entre si no lightbox
     box.innerHTML = fotos.map(f => {
       // blob local → objectURL; foto hidratada (sem blob) → preview assinado; nunca usa o path cru.
       const src = f.blob ? URL.createObjectURL(f.blob) : (f.preview || f.url || '')
       return `<div class="thumb-card">
-        <div class="thumb"><img src="${src}" alt=""><button type="button" class="thumb-x" data-id="${esc(f.id)}">×</button></div>
+        <div class="thumb"><img src="${src}" data-lb="${src}"${f.legenda ? ` data-lb-cap="${esc(f.legenda)}"` : ''} alt=""><button type="button" class="thumb-x" data-id="${esc(f.id)}">×</button></div>
         <input type="text" class="thumb-leg" data-legid="${esc(f.id)}" placeholder="Legenda" value="${esc(f.legenda || '')}">
       </div>`
     }).join('')
