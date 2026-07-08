@@ -761,16 +761,18 @@ const TarefaApp = (() => {
         ;(signed || []).forEach(s => { if (s && s.signedUrl) urlByPath[s.path] = s.signedUrl })
       } catch (e) { /* offline/erro: cai pro ícone */ }
     }
-    const DOC = '<svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"><path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8z"/><path d="M14 3v5h5"/></svg>'
+    const DOC = '<svg viewBox="0 0 24 24" width="44" height="44" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"><path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8z"/><path d="M14 3v5h5"/></svg>'
     box.innerHTML = cur.anexos.map(a => {
       const url = urlByPath[a.url]
-      const ic = (url && ehImg(a.nome))
-        ? `<img class="cc-anx-thumb" data-anx="${esc(a.id)}" src="${url}" alt="">`
-        : `<span class="cc-anx-ic" data-anx="${esc(a.id)}">${DOC}</span>`
-      return `<div class="cc-anx-item">${ic}<a class="nome" data-anx="${esc(a.id)}">${esc(a.nome)}</a><span class="sz">${fmtSize(a.tamanho)}</span><button class="x" data-del="${esc(a.id)}" title="Remover">×</button></div>`
+      const inner = (url && ehImg(a.nome)) ? `<img src="${url}" alt="">` : `<span class="cc-anx-ic">${DOC}</span>`
+      return `<div class="cc-anx-card">
+          <div class="cc-anx-thumbwrap" data-anx="${esc(a.id)}">${inner}<button class="x" data-del="${esc(a.id)}" title="Remover">×</button></div>
+          <a class="nome" data-anx="${esc(a.id)}">${esc(a.nome)}</a>
+          <span class="sz">${fmtSize(a.tamanho)}</span>
+        </div>`
     }).join('')
     box.querySelectorAll('[data-anx]').forEach(el => el.onclick = () => baixarAnexo(el.dataset.anx))
-    box.querySelectorAll('[data-del]').forEach(b => b.onclick = () => removerAnexo(b.dataset.del))
+    box.querySelectorAll('[data-del]').forEach(b => b.onclick = (e) => { e.stopPropagation(); removerAnexo(b.dataset.del) })
   }
   async function adicionarAnexos(files) {
     if (!cur || !cur.id || !files || !files.length) return
