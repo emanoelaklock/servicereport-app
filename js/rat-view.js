@@ -256,7 +256,7 @@ window.RatView = (function () {
     if ((fotos && fotos.length) || adminEdit) {
       h += `<div class="rd-sec"><div class="rd-sec-t">Fotos</div><div class="det-fotos" id="rd-fotos">` +
         (fotos || []).map(f => `<figure class="det-foto" data-fotorow="${esc(f.id)}">
-          <a href="${f.url}" target="_blank"><img src="${f.url}" alt=""></a>
+          <img src="${f.url}" data-lb="${f.url}"${f.legenda ? ` data-lb-cap="${esc(f.legenda)}"` : ''} alt="" style="cursor:zoom-in">
           ${adminEdit
             ? `<button type="button" class="rd-fotodel" data-fotodel="${esc(f.id)}" title="Remover">×</button><input class="rd-fotoleg" data-fotoleg="${esc(f.id)}" value="${esc(f.legenda || '')}" placeholder="legenda">`
             : (f.legenda ? `<figcaption>${esc(f.legenda)}</figcaption>` : '')}

@@ -763,10 +763,14 @@ const TarefaApp = (() => {
     }
     box.innerHTML = cur.anexos.map(a => {
       const url = urlByPath[a.url]
-      const inner = (url && ehImg(a.nome)) ? `<img src="${url}" alt="">` : `<span class="cc-anx-ic">${fileIcon(a.nome, 46)}</span>`
-      return `<div class="cc-anx-card">
-          <div class="cc-anx-thumbwrap" data-anx="${esc(a.id)}">${inner}<button class="x" data-del="${esc(a.id)}" title="Remover">×</button></div>
-          <a class="nome" data-anx="${esc(a.id)}">${esc(a.nome)}</a>
+      const isImg = url && ehImg(a.nome)
+      const inner = isImg ? `<img src="${url}" alt="">` : `<span class="cc-anx-ic">${fileIcon(a.nome, 46)}</span>`
+      // imagem → o card abre o lightbox (data-lb); não-imagem → baixa (data-anx)
+      const card = isImg ? `data-lb="${url}" data-lb-cap="${esc(a.nome)}" style="cursor:zoom-in"` : ''
+      const trig = isImg ? '' : `data-anx="${esc(a.id)}"`
+      return `<div class="cc-anx-card" ${card}>
+          <div class="cc-anx-thumbwrap" ${trig}>${inner}<button class="x" data-del="${esc(a.id)}" title="Remover">×</button></div>
+          <a class="nome" ${trig}>${esc(a.nome)}</a>
           <span class="sz">${fmtSize(a.tamanho)}</span>
         </div>`
     }).join('')

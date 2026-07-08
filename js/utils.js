@@ -32,6 +32,70 @@ function fileIcon(nome, px) {
     '</svg>'
 }
 
+/* ─── Lightbox fullscreen (galeria: prev/próximo, teclado, swipe) — reusável ───
+   Uso: window.openLightbox([{url,legenda?}], startIdx). Ou marcação: qualquer elemento
+   [data-lb="url"] (opcional data-lb-cap="legenda") vira gatilho; agrupa pela galeria mais
+   próxima (.det-fotos, .cc-anexos ou [data-lb-scope]). Injeta o próprio CSS/DOM na 1ª vez. */
+;(function () {
+  var items = [], idx = 0, box, imgEl, capEl, cntEl, sx = null
+  function ensure() {
+    if (box) return
+    var st = document.createElement('style')
+    st.textContent = '.lb-ov{position:fixed;inset:0;z-index:9999;background:rgba(10,14,24,.93);display:none;align-items:center;justify-content:center}'
+      + '.lb-ov.on{display:flex}'
+      + '.lb-img{max-width:92vw;max-height:86vh;object-fit:contain;border-radius:6px;box-shadow:0 12px 44px rgba(0,0,0,.5);user-select:none;-webkit-user-drag:none}'
+      + '.lb-btn{position:absolute;top:50%;transform:translateY(-50%);width:52px;height:52px;border:none;border-radius:50%;background:rgba(255,255,255,.14);color:#fff;font-size:30px;line-height:1;cursor:pointer;display:grid;place-items:center}'
+      + '.lb-btn:hover{background:rgba(255,255,255,.26)}.lb-prev{left:18px}.lb-next{right:18px}'
+      + '.lb-x{position:absolute;top:16px;right:18px;width:44px;height:44px;border:none;border-radius:50%;background:rgba(255,255,255,.14);color:#fff;font-size:24px;line-height:1;cursor:pointer}'
+      + '.lb-x:hover{background:rgba(255,255,255,.26)}'
+      + '.lb-cnt{position:absolute;top:22px;left:50%;transform:translateX(-50%);color:#fff;font:600 13px/1 Manrope,system-ui,sans-serif;background:rgba(0,0,0,.4);padding:6px 12px;border-radius:20px}'
+      + '.lb-cap{position:absolute;bottom:20px;left:50%;transform:translateX(-50%);max-width:90vw;color:#fff;font:500 13px/1.4 Manrope,system-ui,sans-serif;background:rgba(0,0,0,.5);padding:8px 14px;border-radius:8px;text-align:center}'
+      + '@media(max-width:640px){.lb-btn{width:44px;height:44px;font-size:26px}.lb-prev{left:6px}.lb-next{right:6px}}'
+    document.head.appendChild(st)
+    box = document.createElement('div'); box.className = 'lb-ov'
+    box.innerHTML = '<button class="lb-x" aria-label="Fechar">×</button>'
+      + '<button class="lb-btn lb-prev" aria-label="Anterior">‹</button>'
+      + '<img class="lb-img" alt="">'
+      + '<button class="lb-btn lb-next" aria-label="Próxima">›</button>'
+      + '<div class="lb-cnt"></div><div class="lb-cap"></div>'
+    document.body.appendChild(box)
+    imgEl = box.querySelector('.lb-img'); cntEl = box.querySelector('.lb-cnt'); capEl = box.querySelector('.lb-cap')
+    box.querySelector('.lb-x').onclick = close
+    box.querySelector('.lb-prev').onclick = function (e) { e.stopPropagation(); nav(-1) }
+    box.querySelector('.lb-next').onclick = function (e) { e.stopPropagation(); nav(1) }
+    imgEl.onclick = function (e) { e.stopPropagation() }
+    box.onclick = function (e) { if (e.target === box) close() }
+    box.addEventListener('touchstart', function (e) { sx = e.touches[0].clientX }, { passive: true })
+    box.addEventListener('touchend', function (e) { if (sx == null) return; var dx = e.changedTouches[0].clientX - sx; if (Math.abs(dx) > 45) nav(dx < 0 ? 1 : -1); sx = null })
+  }
+  function render() {
+    var it = items[idx]; if (!it) return
+    imgEl.src = it.url
+    cntEl.textContent = (idx + 1) + ' / ' + items.length; cntEl.style.display = items.length > 1 ? '' : 'none'
+    capEl.textContent = it.legenda || ''; capEl.style.display = it.legenda ? '' : 'none'
+    var multi = items.length > 1
+    box.querySelector('.lb-prev').style.display = multi ? '' : 'none'
+    box.querySelector('.lb-next').style.display = multi ? '' : 'none'
+  }
+  function nav(d) { if (items.length) { idx = (idx + d + items.length) % items.length; render() } }
+  function close() { if (box) box.classList.remove('on'); document.removeEventListener('keydown', onKey) }
+  function onKey(e) { if (e.key === 'Escape') close(); else if (e.key === 'ArrowLeft') nav(-1); else if (e.key === 'ArrowRight') nav(1) }
+  window.openLightbox = function (list, start) {
+    if (!list || !list.length) return
+    ensure(); items = list; idx = Math.max(0, Math.min(start || 0, list.length - 1))
+    render(); box.classList.add('on'); document.addEventListener('keydown', onKey)
+  }
+  document.addEventListener('click', function (e) {
+    var trg = e.target.closest && e.target.closest('[data-lb]'); if (!trg) return
+    e.preventDefault(); e.stopPropagation()
+    var scope = trg.closest('[data-lb-scope], .det-fotos, .cc-anexos') || document
+    var els = Array.prototype.slice.call(scope.querySelectorAll('[data-lb]'))
+    var list = els.map(function (el) { return { url: el.getAttribute('data-lb'), legenda: el.getAttribute('data-lb-cap') || '' } })
+    var i = els.indexOf(trg)
+    window.openLightbox(list, i < 0 ? 0 : i)
+  })
+})()
+
 /* ─── Cor de texto legível sobre um tint claro do próprio matiz ──────────
    A "cor" de status (marca) pode ser clara (amarelo/laranja) e fica ilegível
    como TEXTO sobre o fundo tintado. Matiz escuro o suficiente → o próprio matiz.
