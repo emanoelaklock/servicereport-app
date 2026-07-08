@@ -746,13 +746,29 @@ const TarefaApp = (() => {
   async function carregarAnexos() {
     const { data, error } = await sb().from('tarefa_anexos').select('*').eq('tarefa_id', cur.id).order('criado_em')
     cur.anexos = error ? [] : (data || [])
-    renderAnexos()
+    await renderAnexos()
     renderSituacao()
   }
-  function renderAnexos() {
+  async function renderAnexos() {
     const box = document.getElementById('cc-anx-list')
     if (!cur.anexos || !cur.anexos.length) { box.innerHTML = '<span class="cc-empty-sm">Nenhum anexo.</span>'; return }
-    box.innerHTML = cur.anexos.map(a => `<div class="cc-anx-item"><span>📄</span><a class="nome" data-anx="${esc(a.id)}">${esc(a.nome)}</a><span class="sz">${fmtSize(a.tamanho)}</span><button class="x" data-del="${esc(a.id)}" title="Remover">×</button></div>`).join('')
+    const ehImg = (n) => /\.(jpe?g|png|gif|webp|bmp)$/i.test(n || '')
+    const urlByPath = {}
+    const imgs = cur.anexos.filter(a => ehImg(a.nome))
+    if (imgs.length) {
+      try {
+        const { data: signed } = await sb().storage.from('rat-anexos').createSignedUrls(imgs.map(a => a.url), 3600)
+        ;(signed || []).forEach(s => { if (s && s.signedUrl) urlByPath[s.path] = s.signedUrl })
+      } catch (e) { /* offline/erro: cai pro ícone */ }
+    }
+    const DOC = '<svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"><path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8z"/><path d="M14 3v5h5"/></svg>'
+    box.innerHTML = cur.anexos.map(a => {
+      const url = urlByPath[a.url]
+      const ic = (url && ehImg(a.nome))
+        ? `<img class="cc-anx-thumb" data-anx="${esc(a.id)}" src="${url}" alt="">`
+        : `<span class="cc-anx-ic" data-anx="${esc(a.id)}">${DOC}</span>`
+      return `<div class="cc-anx-item">${ic}<a class="nome" data-anx="${esc(a.id)}">${esc(a.nome)}</a><span class="sz">${fmtSize(a.tamanho)}</span><button class="x" data-del="${esc(a.id)}" title="Remover">×</button></div>`
+    }).join('')
     box.querySelectorAll('[data-anx]').forEach(el => el.onclick = () => baixarAnexo(el.dataset.anx))
     box.querySelectorAll('[data-del]').forEach(b => b.onclick = () => removerAnexo(b.dataset.del))
   }
