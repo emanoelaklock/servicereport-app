@@ -25,10 +25,14 @@
     if (typeof d === 'string' && /^\d{4}-\d{2}-\d{2}/.test(d)) return d.slice(0, 10)
     return diaBR(r.data_tarefa)
   }
-  // limites do mês em BR (offset fixo -03:00; Brasil sem horário de verão desde 2019)
+  // limites do mês em UTC. data_tarefa é gravado como MEIA-NOITE UTC da data declarada
+  // (respostas.data) — ex.: RAT de 01/07 tem data_tarefa='2026-07-01T00:00:00+00'. Se os limites
+  // fossem em BR (-03:00), julho começaria em 01/07T03:00Z e as RATs do dia 1º (00:00Z) cairiam
+  // ANTES do início → sumiriam (a query de junho pega, mas o grid de junho não tem célula "01/07").
+  // A exibição já usa respostas.data (ratDia), então o UTC casa query com exibição.
   function boundsMes(y, m) {
     const ny = m === 11 ? y + 1 : y, nm = m === 11 ? 0 : m + 1
-    return { start: `${y}-${pad(m + 1)}-01T00:00:00-03:00`, end: `${ny}-${pad(nm + 1)}-01T00:00:00-03:00` }
+    return { start: `${y}-${pad(m + 1)}-01T00:00:00Z`, end: `${ny}-${pad(nm + 1)}-01T00:00:00Z` }
   }
   // estrutura do calendário via UTC (fatos civis: dia-da-semana do 1º, dias no mês — independem de fuso)
   const firstDow = (y, m) => new Date(Date.UTC(y, m, 1)).getUTCDay()
