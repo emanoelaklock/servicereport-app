@@ -12,6 +12,26 @@ var esc = s => String(s || '')
   .replace(/"/g, '&quot;')
   .replace(/'/g, '&#39;')
 
+/* ─── Ícone SVG por tipo de arquivo (PDF/Word/Excel/…) — linha, rótulo colorido ─── */
+function fileIcon(nome, px) {
+  px = px || 44
+  var ext = String(nome || '').split('.').pop().toLowerCase()
+  var MAP = {
+    pdf: ['PDF', '#E5403A'],
+    doc: ['DOC', '#1E8AE0'], docx: ['DOC', '#1E8AE0'], rtf: ['DOC', '#1E8AE0'], odt: ['DOC', '#1E8AE0'],
+    xls: ['XLS', '#179A47'], xlsx: ['XLS', '#179A47'], ods: ['XLS', '#179A47'], csv: ['CSV', '#179A47'],
+    ppt: ['PPT', '#F4861F'], pptx: ['PPT', '#F4861F'],
+    zip: ['ZIP', '#8E45B5'], rar: ['ZIP', '#8E45B5'], '7z': ['ZIP', '#8E45B5'],
+    dwg: ['DWG', '#1E8AE0'], dxf: ['DXF', '#1E8AE0'], txt: ['TXT', '#5b6270']
+  }
+  var m = MAP[ext] || ['', '#5b6270'], label = m[0], cor = m[1]
+  return '<svg viewBox="0 0 24 24" width="' + px + '" height="' + px + '" fill="none">' +
+    '<path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8z" fill="#fff" stroke="' + cor + '" stroke-width="1.5" stroke-linejoin="round"/>' +
+    '<path d="M14 3v5h5" fill="#fff" stroke="' + cor + '" stroke-width="1.5" stroke-linejoin="round"/>' +
+    (label ? '<text x="11.5" y="17" text-anchor="middle" font-family="Manrope,sans-serif" font-size="5.2" font-weight="800" fill="' + cor + '">' + label + '</text>' : '') +
+    '</svg>'
+}
+
 /* ─── Cor de texto legível sobre um tint claro do próprio matiz ──────────
    A "cor" de status (marca) pode ser clara (amarelo/laranja) e fica ilegível
    como TEXTO sobre o fundo tintado. Matiz escuro o suficiente → o próprio matiz.

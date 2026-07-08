@@ -1131,13 +1131,12 @@
       } catch (e) { /* offline/erro: cai pro modo link (assina no clique) */ }
       // só formatos que o <img> renderiza (HEIC/HEIF não pintam no Android → ficam como link)
       const ehImg = (n) => /\.(jpe?g|png|gif|webp|bmp)$/i.test(n || '')
-      const DOC = '<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"><path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8z"/><path d="M14 3v5h5"/></svg>'
       box.innerHTML = data.map((a, i) => {
         const nome = esc(a.nome || 'arquivo')
         const url = urlByPath[a.url]
         return (url && ehImg(a.nome))
           ? `<div class="anx-card" data-anx="${i}" title="${nome}"><div class="thumb"><img src="${url}" alt="${nome}" loading="lazy"></div><span class="anx-nome">${nome}</span></div>`
-          : `<div class="t-det-anx" data-anx="${i}"><span class="anx-ic">${DOC}</span><a>${nome}</a></div>`
+          : `<div class="t-det-anx" data-anx="${i}"><span class="anx-ic">${fileIcon(a.nome, 18)}</span><a>${nome}</a></div>`
       }).join('')
       box.querySelectorAll('[data-anx]').forEach(el => el.onclick = async () => {
         const a = data[Number(el.dataset.anx)]

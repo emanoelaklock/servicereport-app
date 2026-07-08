@@ -761,10 +761,9 @@ const TarefaApp = (() => {
         ;(signed || []).forEach(s => { if (s && s.signedUrl) urlByPath[s.path] = s.signedUrl })
       } catch (e) { /* offline/erro: cai pro ícone */ }
     }
-    const DOC = '<svg viewBox="0 0 24 24" width="44" height="44" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"><path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8z"/><path d="M14 3v5h5"/></svg>'
     box.innerHTML = cur.anexos.map(a => {
       const url = urlByPath[a.url]
-      const inner = (url && ehImg(a.nome)) ? `<img src="${url}" alt="">` : `<span class="cc-anx-ic">${DOC}</span>`
+      const inner = (url && ehImg(a.nome)) ? `<img src="${url}" alt="">` : `<span class="cc-anx-ic">${fileIcon(a.nome, 46)}</span>`
       return `<div class="cc-anx-card">
           <div class="cc-anx-thumbwrap" data-anx="${esc(a.id)}">${inner}<button class="x" data-del="${esc(a.id)}" title="Remover">×</button></div>
           <a class="nome" data-anx="${esc(a.id)}">${esc(a.nome)}</a>
