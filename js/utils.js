@@ -41,6 +41,13 @@ function fileIcon(nome, px) {
   var scale = 1, tx = 0, ty = 0, drag = null
   function applyT() { imgEl.style.transform = 'translate(' + tx + 'px,' + ty + 'px) scale(' + scale + ')' }
   function resetZoom() { scale = 1; tx = 0; ty = 0; if (imgEl) { imgEl.classList.remove('zoomed', 'grabbing'); applyT() } }
+  function zoomBy(f) {
+    if (!imgEl) return
+    scale = Math.min(6, scale * f)
+    if (scale <= 1.001) { scale = 1; tx = 0; ty = 0 }
+    imgEl.classList.toggle('zoomed', scale > 1)
+    applyT()
+  }
   function ensure() {
     if (box) return
     var st = document.createElement('style')
@@ -76,11 +83,11 @@ function fileIcon(nome, px) {
     // zoom com scroll (desktop); sobre a tira, deixa rolar a tira
     box.addEventListener('wheel', function (e) {
       if (stripEl && stripEl.contains(e.target)) return
-      e.preventDefault()
-      scale = Math.min(6, Math.max(1, scale * (e.deltaY < 0 ? 1.2 : 1 / 1.2)))
-      if (scale === 1) { tx = 0; ty = 0; imgEl.classList.remove('zoomed') } else imgEl.classList.add('zoomed')
-      applyT()
+      e.preventDefault(); e.stopPropagation()
+      zoomBy(e.deltaY < 0 ? 1.25 : 1 / 1.25)
     }, { passive: false })
+    // duplo-clique alterna ampliar/ajustar (alternativa garantida ao scroll)
+    imgEl.addEventListener('dblclick', function (e) { e.stopPropagation(); e.preventDefault(); if (scale > 1) resetZoom(); else zoomBy(2.5) })
     // arrastar p/ deslocar quando ampliado
     imgEl.addEventListener('mousedown', function (e) { if (scale <= 1) return; e.preventDefault(); drag = { x: e.clientX, y: e.clientY, tx: tx, ty: ty }; imgEl.classList.add('grabbing') })
     window.addEventListener('mousemove', function (e) { if (!drag) return; tx = drag.tx + (e.clientX - drag.x); ty = drag.ty + (e.clientY - drag.y); applyT() })
