@@ -210,6 +210,12 @@ try{if(localStorage.getItem('sr_dark')==='1')document.documentElement.classList.
   .t-det-anx{display:flex;align-items:center;gap:8px;font-size:13px;padding:7px 0;border-bottom:1px solid var(--bd)}
   .t-det-anx a{color:var(--ac);text-decoration:none;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
   .t-det-anx a:hover{text-decoration:underline}
+  /* Anexos: imagens como MINIATURA visível (reusa .thumb 92x92); não-imagens como linha full-width */
+  #t-det-anexos{display:flex;flex-wrap:wrap;gap:10px;align-items:flex-start}
+  #t-det-anexos > .t-det-anx{flex:1 1 100%;cursor:pointer}
+  .t-det-anx .anx-ic{display:inline-flex;color:var(--tx3);flex:none}
+  .anx-card{width:92px;cursor:pointer;display:flex;flex-direction:column;gap:4px}
+  .anx-nome{font-size:11px;line-height:1.25;color:var(--tx2);word-break:break-word;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
 
   /* Form */
   .campo{margin-bottom:14px}

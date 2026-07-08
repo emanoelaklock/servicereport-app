@@ -1116,19 +1116,38 @@
     } catch (e) { sec.style.display = 'none' }
   }
 
-  // Anexos da tarefa — download por link assinado
+  // Anexos da tarefa — imagens viram MINIATURA visível (não link); assina todas em lote.
+  // Não-imagens (pdf etc.) seguem como linha com ícone. Clicar abre o arquivo assinado.
   async function carregarAnexosDaTarefa(id) {
     const sec = document.getElementById('t-det-anexos-sec')
     const box = document.getElementById('t-det-anexos')
     try {
       const { data } = await getSupabase().from('tarefa_anexos').select('nome,url').eq('tarefa_id', id).order('criado_em')
       if (!data || !data.length) { sec.style.display = 'none'; return }
-      box.innerHTML = data.map((a, i) => `<div class="t-det-anx"><span>📄</span><a data-anx="${i}">${esc(a.nome || 'arquivo')}</a></div>`).join('')
+      const urlByPath = {}
+      try {
+        const { data: signed } = await getSupabase().storage.from('rat-anexos').createSignedUrls(data.map(a => a.url), 3600)
+        ;(signed || []).forEach(s => { if (s && s.signedUrl) urlByPath[s.path] = s.signedUrl })
+      } catch (e) { /* offline/erro: cai pro modo link (assina no clique) */ }
+      // só formatos que o <img> renderiza (HEIC/HEIF não pintam no Android → ficam como link)
+      const ehImg = (n) => /\.(jpe?g|png|gif|webp|bmp)$/i.test(n || '')
+      const DOC = '<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"><path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8z"/><path d="M14 3v5h5"/></svg>'
+      box.innerHTML = data.map((a, i) => {
+        const nome = esc(a.nome || 'arquivo')
+        const url = urlByPath[a.url]
+        return (url && ehImg(a.nome))
+          ? `<div class="anx-card" data-anx="${i}" title="${nome}"><div class="thumb"><img src="${url}" alt="${nome}" loading="lazy"></div><span class="anx-nome">${nome}</span></div>`
+          : `<div class="t-det-anx" data-anx="${i}"><span class="anx-ic">${DOC}</span><a>${nome}</a></div>`
+      }).join('')
       box.querySelectorAll('[data-anx]').forEach(el => el.onclick = async () => {
         const a = data[Number(el.dataset.anx)]
-        const { data: s, error } = await getSupabase().storage.from('rat-anexos').createSignedUrl(a.url, 120)
-        if (error) return toast('Erro ao abrir: ' + error.message, 'err')
-        window.open(s.signedUrl, '_blank')
+        let url = urlByPath[a.url]
+        if (!url) {
+          const { data: s, error } = await getSupabase().storage.from('rat-anexos').createSignedUrl(a.url, 120)
+          if (error) return toast('Erro ao abrir: ' + error.message, 'err')
+          url = s.signedUrl
+        }
+        window.open(url, '_blank')
       })
       sec.style.display = 'block'
     } catch (e) { sec.style.display = 'none' }
