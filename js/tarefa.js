@@ -1334,7 +1334,7 @@ const TarefaApp = (() => {
       for (const a of anx) {
         const url = urlByPath[a.url]
         if (url && ehImg(a.nome)) {
-          const small = await RatView.shrinkImg(url, 1100, 0.72)
+          const small = await RatView.shrinkImg(url, 1600, 0.85)
           cards.push(`<figure class="det-foto"><img src="${small}" alt=""><figcaption>${esc(a.nome)}</figcaption></figure>`)
         } else nomes.push(esc(a.nome))
       }

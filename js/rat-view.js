@@ -360,7 +360,7 @@ window.RatView = (function () {
     const pdets = []
     for (const d of dets) {
       const fotos = []
-      for (const f of (d.fotos || [])) fotos.push(Object.assign({}, f, { url: await shrinkImg(f.url, 1100, 0.72) }))
+      for (const f of (d.fotos || [])) fotos.push(Object.assign({}, f, { url: await shrinkImg(f.url, 1600, 0.85) }))
       const sigUrl = d.sigUrl ? await shrinkImg(d.sigUrl, 700, 0.85) : null
       pdets.push(Object.assign({}, d, { fotos, sigUrl }))
     }
@@ -387,8 +387,8 @@ window.RatView = (function () {
       var sc=document.createElement('script');
       sc.src='https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js';
       sc.onload=function(){
-        html2pdf().set({filename:FN,margin:0,image:{type:'jpeg',quality:0.92},
-          html2canvas:{scale:2,useCORS:true,letterRendering:true},
+        html2pdf().set({filename:FN,margin:0,image:{type:'jpeg',quality:0.95},
+          html2canvas:{scale:3,useCORS:true,letterRendering:true},
           jsPDF:{unit:'mm',format:'a4',orientation:'portrait'},
           pagebreak:{mode:['css','legacy']}})
           .from(document.getElementById('sheets')).save()
