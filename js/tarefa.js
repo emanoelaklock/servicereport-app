@@ -565,23 +565,12 @@ const TarefaApp = (() => {
   }
 
   // Motivos da devolução — ESTRUTURADOS (código + label), em dois blocos orientados à escolha.
-  // Fase A: os "por RAT" ficam disponíveis no nível Tarefa (interim, Opção 2) e migram p/ o nível
-  // RAT na Fase B. Grava-se o CÓDIGO (motivo_devolucao_cats) + o detalhe; o texto renderizado
-  // (motivo_devolucao) segue p/ display no app e fallback dos registros antigos.
-  const MOTIVOS_TAREFA = [
-    ['material_divergente', 'Material divergente do que foi orçado/levado'],
-    ['rat_nao_preenchida', 'RAT não preenchida (faltou registrar o atendimento)'],
-    ['outro_tarefa', 'Outro problema na Tarefa'],
-  ]
-  const MOTIVOS_RAT = [
-    ['preenchimento_incompleto', 'Preenchimento incompleto (serviço, observações ou fotos)'],
-    ['produto_incorreto', 'Produtos incorretos ou incompletos (item, quantidade, código)'],
-    ['pausa_horario_incorreto', 'Pausa ou horário incorreto'],
-    ['descricao_insuficiente', 'Descrição do serviço insuficiente (não detalha o que foi feito)'],
-    ['pendencia_nao_registrada', 'Pendência não registrada (pré-orçamento, pendência ou observação)'],
-    ['outro_rat', 'Outro problema na RAT'],
-  ]
-  const MOTIVO_LABEL = Object.fromEntries([...MOTIVOS_TAREFA, ...MOTIVOS_RAT])
+  // Vocabulário oficial (fonte única) mora no utils.js (window.DEVOLUCAO_MOTIVOS / MOTIVO_LABEL);
+  // o app do técnico lê do mesmo lugar. Grava-se o CÓDIGO (motivo_devolucao_cats) + o detalhe; o
+  // texto renderizado (motivo_devolucao) segue p/ display no app e fallback dos registros antigos.
+  const MOTIVOS_TAREFA = window.DEVOLUCAO_MOTIVOS.tarefa
+  const MOTIVOS_RAT = window.DEVOLUCAO_MOTIVOS.rat
+  const MOTIVO_LABEL = window.MOTIVO_LABEL
   // Modal do motivo. Resolve com { cats:[códigos], detalhe, texto } — ou null se cancelar.
   function pedirMotivoDevolucao() {
     return new Promise((resolve) => {
