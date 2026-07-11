@@ -564,45 +564,61 @@ const TarefaApp = (() => {
     return u.respostas.volta_amanha === 'Não' && u.respostas.passagem_motivo === 'volto_depois'
   }
 
-  // Motivos pré-definidos da devolução (marca 1+). O técnico vê o texto resultante.
-  const MOTIVOS_DEVOL = [
-    'Preenchimento incompleto (serviço executado, observações, fotos faltando)',
-    'Produtos incorretos/incompletos (item, quantidade ou código errado)',
-    'Pausa ou horário incorreto',
-    'Descrição do serviço rasa (não detalha o que foi feito)',
-    'Pendência não registrada (necessário abrir pré-orçamento, pendência ou observação)',
+  // Motivos da devolução — ESTRUTURADOS (código + label), em dois blocos orientados à escolha.
+  // Fase A: os "por RAT" ficam disponíveis no nível Tarefa (interim, Opção 2) e migram p/ o nível
+  // RAT na Fase B. Grava-se o CÓDIGO (motivo_devolucao_cats) + o detalhe; o texto renderizado
+  // (motivo_devolucao) segue p/ display no app e fallback dos registros antigos.
+  const MOTIVOS_TAREFA = [
+    ['material_divergente', 'Material divergente do que foi orçado/levado'],
+    ['rat_nao_preenchida', 'RAT não preenchida (faltou registrar o atendimento)'],
+    ['outro_tarefa', 'Outro problema na Tarefa'],
   ]
-  // Modal para o motivo da devolução (obrigatório). Resolve com o texto, ou null se cancelar.
+  const MOTIVOS_RAT = [
+    ['preenchimento_incompleto', 'Preenchimento incompleto (serviço, observações ou fotos)'],
+    ['produto_incorreto', 'Produtos incorretos ou incompletos (item, quantidade, código)'],
+    ['pausa_horario_incorreto', 'Pausa ou horário incorreto'],
+    ['descricao_insuficiente', 'Descrição do serviço insuficiente (não detalha o que foi feito)'],
+    ['pendencia_nao_registrada', 'Pendência não registrada (pré-orçamento, pendência ou observação)'],
+    ['outro_rat', 'Outro problema na RAT'],
+  ]
+  const MOTIVO_LABEL = Object.fromEntries([...MOTIVOS_TAREFA, ...MOTIVOS_RAT])
+  // Modal do motivo. Resolve com { cats:[códigos], detalhe, texto } — ou null se cancelar.
   function pedirMotivoDevolucao() {
     return new Promise((resolve) => {
       const back = document.createElement('div')
       back.style.cssText = 'position:fixed;inset:0;background:rgba(20,30,55,.5);z-index:400;display:flex;align-items:center;justify-content:center;padding:20px'
-      const opts = MOTIVOS_DEVOL.map(p => `<label style="display:flex;gap:9px;align-items:flex-start;padding:9px 11px;border:1px solid #D7DCE6;border-radius:10px;cursor:pointer;font-size:13.5px;color:#2b3447;line-height:1.4">
-        <input type="checkbox" class="dv-opt" value="${esc(p)}" style="margin-top:2px;flex:none;width:17px;height:17px;accent-color:#E5403A">
-        <span>${esc(p)}</span></label>`).join('')
-      back.innerHTML = `<div style="background:#fff;border-radius:14px;max-width:520px;width:100%;padding:20px;max-height:90vh;overflow:auto;box-shadow:0 20px 50px rgba(20,30,55,.3)">
-        <div style="font-size:16px;font-weight:700;color:#1B2A4A;margin-bottom:6px">Devolver tarefa ao técnico</div>
-        <div style="font-size:13px;color:#5b6270;margin-bottom:12px">Marque o que precisa ser corrigido. <b>Aparece para o técnico.</b></div>
-        <div style="display:flex;flex-direction:column;gap:8px">${opts}</div>
-        <div style="margin-top:12px">
-          <label style="font-size:12px;color:#5b6270;font-weight:600">Detalhes (opcional)</label>
+      const opt = (m) => `<label style="display:flex;gap:9px;align-items:flex-start;padding:9px 11px;border:1px solid #D7DCE6;border-radius:10px;cursor:pointer;font-size:13.5px;color:#2b3447;line-height:1.4">
+        <input type="checkbox" class="dv-opt" value="${esc(m[0])}" style="margin-top:2px;flex:none;width:17px;height:17px;accent-color:#E5403A">
+        <span>${esc(m[1])}</span></label>`
+      const bloco = (titulo, arr) => `<div style="font-size:11.5px;font-weight:700;color:#7C8290;margin:0 0 6px">${titulo}</div>
+        <div style="display:flex;flex-direction:column;gap:8px">${arr.map(opt).join('')}</div>`
+      back.innerHTML = `<div style="background:#fff;border-radius:14px;max-width:540px;width:100%;padding:20px;max-height:90vh;overflow:auto;box-shadow:0 20px 50px rgba(20,30,55,.3)">
+        <div style="font-size:16px;font-weight:700;color:#1B2A4A;margin-bottom:8px">Devolver ao técnico</div>
+        <div style="font-size:12.5px;color:#2b3447;background:#F2F8FE;border:1px solid #cfe3f6;border-radius:9px;padding:9px 11px;line-height:1.45;margin-bottom:14px"><b>Editar ou devolver?</b> Se você <b>sabe</b> a informação certa, edite a RAT (fica auditado). Devolva só o que <b>só o técnico</b> sabe ou precisa refazer.</div>
+        ${bloco('Problema no conjunto da Tarefa', MOTIVOS_TAREFA)}
+        <div style="height:14px"></div>
+        ${bloco('Problema no preenchimento da RAT', MOTIVOS_RAT)}
+        <div style="margin-top:14px">
+          <label style="font-size:12px;color:#5b6270;font-weight:600">Detalhe <span style="font-weight:400;color:#7C8290">(obrigatório se marcar "Outro")</span></label>
           <textarea id="dv-det" rows="3" style="width:100%;box-sizing:border-box;border:1px solid #D7DCE6;border-radius:10px;padding:10px;font:inherit;font-size:14px;resize:vertical;margin-top:4px" placeholder="Ex.: faltou a foto do rack; cabo lançado divergente do orçado."></textarea>
         </div>
-        <div id="dv-err" style="display:none;color:#E5403A;font-size:12.5px;font-weight:600;margin-top:8px">Marque ao menos um motivo (ou escreva os detalhes).</div>
+        <div id="dv-err" style="display:none;color:#E5403A;font-size:12.5px;font-weight:600;margin-top:8px"></div>
         <div style="display:flex;gap:10px;justify-content:flex-end;margin-top:14px">
           <button id="dv-cancel" style="background:#EEF1F6;color:#5b6270;border:1px solid #D7DCE6;border-radius:10px;padding:9px 16px;cursor:pointer">Cancelar</button>
           <button id="dv-ok" style="background:#E5403A;color:#fff;border:none;border-radius:10px;padding:9px 16px;font-weight:700;cursor:pointer">Devolver</button>
         </div></div>`
       document.body.appendChild(back)
+      const err = back.querySelector('#dv-err')
+      const showErr = (msg) => { err.textContent = msg; err.style.display = 'block' }
       const close = (val) => { back.remove(); resolve(val) }
       back.querySelector('#dv-cancel').onclick = () => close(null)
       back.querySelector('#dv-ok').onclick = () => {
-        const sel = [...back.querySelectorAll('.dv-opt:checked')].map(c => c.value)
-        const det = back.querySelector('#dv-det').value.trim()
-        if (!sel.length && !det) { back.querySelector('#dv-err').style.display = 'block'; return }
-        let motivo = sel.map(s => '• ' + s).join('\n')
-        if (det) motivo += (motivo ? '\n\n' : '') + det
-        close(motivo)
+        const cats = [...back.querySelectorAll('.dv-opt:checked')].map(c => c.value)
+        const detalhe = back.querySelector('#dv-det').value.trim()
+        if (!cats.length) return showErr('Marque ao menos um motivo.')
+        if (cats.some(c => c === 'outro_tarefa' || c === 'outro_rat') && !detalhe) return showErr('Você marcou "Outro" — descreva o problema no detalhe abaixo.')
+        const texto = cats.map(c => '• ' + (MOTIVO_LABEL[c] || c)).join('\n') + (detalhe ? '\n\n' + detalhe : '')
+        close({ cats, detalhe: detalhe || null, texto })
       }
     })
   }
@@ -619,9 +635,11 @@ const TarefaApp = (() => {
     }
     // Devolver ao técnico exige MOTIVO (que aparece pra ele). Só ao ENTRAR em 'devolvida'.
     if (cur.id && patch.status === 'devolvida' && cur.status !== 'devolvida') {
-      const motivo = await pedirMotivoDevolucao()
-      if (!motivo) return   // cancelou → não salva
-      patch.motivo_devolucao = motivo
+      const dv = await pedirMotivoDevolucao()
+      if (!dv) return   // cancelou → não salva
+      patch.motivo_devolucao_cats = dv.cats
+      patch.motivo_devolucao_detalhe = dv.detalhe
+      patch.motivo_devolucao = dv.texto   // renderizado: display no app + fallback dos antigos
     }
     // Modo "nova": cria a tarefa agora (cliente é obrigatório) e reabre já carregada.
     if (!cur.id) {
@@ -648,7 +666,11 @@ const TarefaApp = (() => {
     const up = await sb().from('tarefas').update(patch).eq('id', cur.id)
     if (up.error) return toast('Erro ao salvar: ' + up.error.message, 'err')
     cur.status = patch.status
-    if (patch.motivo_devolucao !== undefined) cur.motivo_devolucao = patch.motivo_devolucao
+    if (patch.motivo_devolucao !== undefined) {
+      cur.motivo_devolucao = patch.motivo_devolucao
+      cur.motivo_devolucao_cats = patch.motivo_devolucao_cats
+      cur.motivo_devolucao_detalhe = patch.motivo_devolucao_detalhe
+    }
     setStatusBadge(cur.status)
     // sincroniza técnicos (N:N) por DIFERENÇA — evita ruído na auditoria (sem delete-all)
     const tecIds = getTecnicosChecked()
