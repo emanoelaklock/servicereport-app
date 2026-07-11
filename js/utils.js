@@ -32,6 +32,27 @@ function fileIcon(nome, px) {
     '</svg>'
 }
 
+/* ─── Vocabulário oficial dos motivos de devolução (índice) — FONTE ÚNICA (portal + app) ───
+   NÃO renomear códigos: vão pro banco (tarefas.motivo_devolucao_cats) e ao índice de assertividade.
+   Fase A: os "por RAT" ficam disponíveis no nível Tarefa (interim); migram p/ o nível RAT na Fase B.
+   Alterou aqui → portal (tarefa.js) e app (tecnico.js) já leem daqui; não há cópia a sincronizar. */
+window.DEVOLUCAO_MOTIVOS = {
+  tarefa: [
+    ['material_divergente', 'Material divergente do que foi orçado/levado'],
+    ['rat_nao_preenchida', 'RAT não preenchida (faltou registrar o atendimento)'],
+    ['outro_tarefa', 'Outro problema na Tarefa'],
+  ],
+  rat: [
+    ['preenchimento_incompleto', 'Preenchimento incompleto (serviço, observações ou fotos)'],
+    ['produto_incorreto', 'Produtos incorretos ou incompletos (item, quantidade, código)'],
+    ['pausa_horario_incorreto', 'Pausa ou horário incorreto'],
+    ['descricao_insuficiente', 'Descrição do serviço insuficiente (não detalha o que foi feito)'],
+    ['pendencia_nao_registrada', 'Pendência não registrada (pré-orçamento, pendência ou observação)'],
+    ['outro_rat', 'Outro problema na RAT'],
+  ],
+}
+window.MOTIVO_LABEL = Object.fromEntries([].concat(window.DEVOLUCAO_MOTIVOS.tarefa, window.DEVOLUCAO_MOTIVOS.rat))
+
 /* ─── Lightbox fullscreen (galeria: prev/próximo, teclado, swipe) — reusável ───
    Uso: window.openLightbox([{url,legenda?}], startIdx). Ou marcação: qualquer elemento
    [data-lb="url"] (opcional data-lb-cap="legenda") vira gatilho; agrupa pela galeria mais
