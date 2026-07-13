@@ -330,6 +330,26 @@ Referência visual: `docs/mockups/mockup-nova-rat-topo.html`. Reorganização co
 
 São **eixos diferentes** e podem coexistir (uma Tarefa "concluída c/ pendência" ainda pode ser devolvida pelo admin se houver erro de dado).
 
+#### Motivo estruturado da devolução (Fase A — no ar)
+
+Ao devolver, o admin escolhe **motivo(s)** de uma lista fechada (não texto livre) — o técnico vê exatamente o que corrigir. Dois níveis:
+- **Por Tarefa:** Material divergente do que foi orçado/levado · RAT não preenchida · Outro (detalhe obrigatório).
+- **Por RAT:** Preenchimento incompleto · Produto incorreto · Pausa/horário incorreto · Descrição insuficiente · Pendência não registrada · Outro (detalhe obrigatório).
+
+*Interim:* os motivos de RAT convivem no mesmo modal da devolução de Tarefa até a **Fase B** trazer a devolução por-RAT de verdade (aí os 5 granulares migram pro nível da RAT).
+
+- **Dados:** `tarefas.motivo_devolucao_cats text[]` (códigos) + `motivo_devolucao_detalhe` (o "Outro") + `motivo_devolucao` (texto renderizado, **retrocompatível** com registros anteriores à Fase A, usado como fallback). Vocabulário oficial em **fonte única** no `js/utils.js` (`DEVOLUCAO_MOTIVOS` / `MOTIVO_LABEL`), lido por portal e app; ambos exibem os motivos como **chips** na ordem gravada + o detalhe.
+- **Editar × Devolver (critério do admin):** se o admin **sabe** a informação correta → **edita** ele mesmo (auditado, via `rat_edicoes`); só **devolve** quando **apenas o técnico** sabe/pode corrigir. Devolver não é pra consertar o que o admin já tem em mãos.
+
+#### Lembrete de devolvida sem retorno (+1 dia — no ar)
+
+Toda devolução carimba `tarefas.devolvida_em`. Enquanto a tarefa seguir `Devolvida`:
+- **Portal** (Painel) — cartão de alerta "Devolvidas sem retorno há +1 dia" listando as vencidas (>24h).
+- **App do técnico** — idade "Devolvida há X dias — corrigir" no detalhe/contexto da tarefa e na label da home.
+- **Push** — Edge Function `lembrete-devolvida`, agendada por `pg_cron` a cada 4h, envia **no máximo 1 push/dia** aos técnicos da tarefa até ela sair de `Devolvida`; `tarefas.devolvida_notif_em` marca o último envio (evita spam). Autenticação da função por **segredo compartilhado** (`x-cron-secret` lido de `app_secrets`), não JWT — é chamada pelo cron, não por um usuário.
+
+*Pendente (Fases B/C/D, após 1–2 semanas de uso):* devolução por-RAT propriamente dita, célula vermelha no calendário pras devolvidas, e a formalização da "trava" de edição.
+
 ### Tempo por técnico (equipes compartilhadas e artefatos simultâneos) — casos "Marcelo" e "Pablo"
 
 **Princípio: tempo é da pessoa, não do documento — e vale para TODOS os artefatos com tempo (RAT, Deslocamento, futura jornada).** O artefato diz *o que* foi feito e *quem* participou; as **horas são por técnico**. Casos reais (levantados pela Thaís):
