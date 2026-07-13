@@ -9,7 +9,34 @@
     const sb = getSupabase()
     const { data: cRows } = await sb.from('clientes').select('id,nome')
     const cli = {}; (cRows || []).forEach(c => { cli[c.id] = c.nome })
-    await Promise.all([carregarDevolvidas(sb, cli), carregarPendExec(sb, cli)])
+    await Promise.all([carregarDevolvidas(sb, cli), carregarAcompanhamento(sb, cli), carregarPendExec(sb, cli)])
+  }
+
+  // Acompanhamento: tarefas EM EXECUÇÃO / EM PAUSA paradas há +5 dias (serviço começou e travou).
+  // Fonte única na view vw_tarefas_acompanhamento (dias_parada = hoje − última atividade). Só
+  // aparece quando houver.
+  async function carregarAcompanhamento(sb, cli) {
+    const { data, error } = await sb.from('vw_tarefas_acompanhamento')
+      .select('id,numero,cliente_id,status,dias_parada')
+      .gte('dias_parada', 5)
+      .order('dias_parada', { ascending: false })   // mais paradas primeiro
+    renderAcompanhamento(error ? [] : (data || []), cli)
+  }
+  function renderAcompanhamento(rows, cli) {
+    const box = document.getElementById('acomp-alerta'); if (!box) return
+    if (!rows.length) { box.innerHTML = ''; return }
+    const osNo = (n) => n == null ? '—' : String(n).padStart(5, '0')
+    const stLabel = (s) => s === 'em_pausa' ? 'Em pausa' : 'Em execução'
+    const ICON = '<svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>'
+    box.innerHTML = `<div class="acomp-alert">
+      <div class="acomp-alert-h">${ICON} Tarefas paradas há +5 dias · ${rows.length}</div>
+      <div class="devol-alert-grid">${rows.map(t => `
+        <a class="acomp-alert-card" href="tarefa.html?t=${esc(t.id)}" title="Abrir tarefa">
+          <div class="dac-no">Tarefa Nº ${esc(osNo(t.numero))}</div>
+          <div class="dac-cli">${esc(cli[t.cliente_id] || '—')}</div>
+          <div class="dac-age">${esc(stLabel(t.status))} · parada há ${t.dias_parada} dias</div>
+        </a>`).join('')}</div>
+    </div>`
   }
 
   // Lembrete: devolvidas SEM RETORNO há +1 dia (status devolvida + devolvida_em < now-24h). Só
