@@ -411,7 +411,7 @@ window.RatView = (function () {
           jsPDF:{unit:'mm',format:'a4',orientation:'portrait'},
           pagebreak:{mode:['css','legacy']}})
           .from(document.getElementById('sheets')).save()
-          .then(function(){document.title='PDF baixado — pode fechar esta aba';})
+          .then(function(){document.title='PDF baixado — pode fechar esta aba';setTimeout(function(){try{window.close()}catch(e){}},1200);})
           .catch(function(){window.focus();window.print();});
       };
       sc.onerror=function(){window.focus();window.print();};
