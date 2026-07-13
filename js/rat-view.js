@@ -418,7 +418,9 @@ window.RatView = (function () {
     }
     function el(t,c){var e=document.createElement(t);if(c)e.className=c;return e}
     var raw=document.getElementById('raw'),sheets=document.getElementById('sheets'),cur=null,ftrs=[],blocks=[];
-    var rds=raw.querySelectorAll('.rd');for(var ri=0;ri<rds.length;ri++){var ch=rds[ri].children;for(var i=0;i<ch.length;i++){blocks.push({h:ch[i].outerHTML,brk:false});}}
+    /* cada .rd (capa, depois cada RAT) começa em página nova: o 1º bloco de cada .rd após a capa
+       força newSheet — evita o header da RAT órfão no pé da capa. Quebras DENTRO da RAT seguem por overflow. */
+    var rds=raw.querySelectorAll('.rd');for(var ri=0;ri<rds.length;ri++){var ch=rds[ri].children;for(var i=0;i<ch.length;i++){blocks.push({h:ch[i].outerHTML,brk:(ri>0&&i===0)});}}
     function newSheet(){var first=ftrs.length===0;var s=el('div','sheet');var hd=el('div','hd');hd.innerHTML=first?HEADER:HEADERC;var bd=el('div','bd');var ft=el('div','ft');ft.innerHTML=FOOTER;s.appendChild(hd);s.appendChild(bd);s.appendChild(ft);sheets.appendChild(s);ftrs.push(ft);cur={bd:bd};}
     function over(){return cur.bd.scrollHeight>cur.bd.clientHeight+1;}
     function addHTML(h){var d=el('div');d.innerHTML=h;var n=d.firstElementChild;if(!n)return;cur.bd.appendChild(n);if(over()&&cur.bd.children.length>1){cur.bd.removeChild(n);newSheet();cur.bd.appendChild(n);}}
