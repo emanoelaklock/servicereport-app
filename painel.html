@@ -35,6 +35,15 @@
   .dac-no{font-size:12px;font-weight:800;letter-spacing:.4px;color:#A82A22;text-transform:uppercase;font-variant-numeric:tabular-nums}
   .dac-cli{font-weight:800;font-size:16px;margin:3px 0 5px;color:#2c1414;letter-spacing:-.2px}
   .dac-age{font-size:13px;font-weight:700;color:#C0362C}
+  /* Acompanhamento: tarefas paradas há +5 dias (âmbar = atenção) */
+  .acomp-alert{background:linear-gradient(135deg,#FEF6E0,#FBEECB);border:1px solid #F0DCA0;border-left:7px solid #F7B81E;border-radius:16px;padding:18px 20px;margin:2px 0 24px;box-shadow:0 2px 10px rgba(247,184,30,.14)}
+  .acomp-alert-h{display:flex;align-items:center;gap:9px;font-size:16px;font-weight:800;color:#8A6410;margin-bottom:14px;letter-spacing:-.2px}
+  .acomp-alert-h svg{width:20px;height:20px;stroke:currentColor;fill:none;stroke-width:2;stroke-linecap:round;stroke-linejoin:round;flex:none}
+  .acomp-alert-card{display:block;text-decoration:none;background:#fff;border:1px solid #F0DCA0;border-radius:12px;padding:13px 15px;transition:transform .12s ease,box-shadow .12s ease}
+  .acomp-alert-card:hover{transform:translateY(-2px);box-shadow:0 8px 18px rgba(247,184,30,.18)}
+  .acomp-alert .dac-no{color:#8A6410}
+  .acomp-alert .dac-cli{color:#2c2412}
+  .acomp-alert .dac-age{color:#9A7011}
   /* uma cor por card (decorativo — o status é o mesmo); ciclo na paleta oficial */
   .pe-c0{background:linear-gradient(135deg,#E7F1FC,#D4E6FB);border-color:#BFD9F5;border-left-color:#1E8AE0}
   .pe-c0 .pe-no{color:#1565C0}.pe-c0 .pe-cli{color:#15263a}.pe-c0 .pe-ori{color:#3d5168}
@@ -59,6 +68,7 @@
     <div class="topbar"><h1>Painel diário</h1></div>
     <div class="scrollarea">
       <div id="devol-alerta"></div>
+      <div id="acomp-alerta"></div>
       <h2 class="pe-title" id="pend-exec-lab">Tarefas pendentes de execução</h2>
       <div class="pe-grid" id="pend-exec"></div>
     </div>
