@@ -273,13 +273,20 @@ const RatPage = (() => {
   function abrirMotivo(alt) {
     pendentes = alt
     document.getElementById('mot-resumo').textContent = `${alt.length} alteração(ões) nesta RAT.`
-    document.getElementById('mot-sel').value = ''
+    const sel = document.getElementById('mot-sel'); sel.value = ''
+    const detWrap = document.getElementById('mot-det-wrap'), det = document.getElementById('mot-det')
+    if (det) det.value = ''
+    if (detWrap) detWrap.style.display = 'none'
+    // "Outro" revela (e exige) a descrição — senão a edição fica sem explicação no histórico.
+    sel.onchange = () => { if (detWrap) detWrap.style.display = (sel.value === 'outro') ? 'block' : 'none' }
     document.getElementById('modal-motivo').classList.add('open')
     document.getElementById('mot-confirmar').onclick = async () => {
-      const motivo = document.getElementById('mot-sel').value
+      const motivo = sel.value
       if (!motivo) return toast('Escolha o motivo do ajuste.', 'err')
+      const motivoDetalhe = det ? det.value.trim() : ''
+      if (motivo === 'outro' && !motivoDetalhe) { if (det) det.focus(); return toast('Descreva o motivo (Outro).', 'err') }
       fecharMotivo()
-      await chamarEditar({ rat_id: ratId, motivo, alteracoes: pendentes })
+      await chamarEditar({ rat_id: ratId, motivo, motivo_detalhe: motivoDetalhe || null, alteracoes: pendentes })
     }
   }
   function fecharMotivo() { document.getElementById('modal-motivo').classList.remove('open') }
@@ -304,7 +311,7 @@ const RatPage = (() => {
     const detVal = (e) => e.alvo === 'campo' ? ` · "${esc(String(e.valor_antigo ?? ''))}" → "${esc(String(e.valor_novo ?? ''))}"` : ''
     box.innerHTML = `<div class="rd-sec"><div class="rd-sec-t">Histórico de edições (gestão)</div>` +
       histLista.map(e => `<div class="rp-hrow">
-        <div class="rp-hmain"><b>${esc(alvoTxt(e))}</b> · ${esc(MOT_LABEL[e.motivo] || e.motivo)}<div class="rp-hsub">${esc(e.ator_nome || '—')} · ${fdt(e.em, { withTime: true })}${detVal(e)}</div></div>
+        <div class="rp-hmain"><b>${esc(alvoTxt(e))}</b> · ${esc(MOT_LABEL[e.motivo] || e.motivo)}${e.motivo === 'outro' && e.motivo_detalhe ? ': ' + esc(e.motivo_detalhe) : ''}<div class="rp-hsub">${esc(e.ator_nome || '—')} · ${fdt(e.em, { withTime: true })}${detVal(e)}</div></div>
         ${e.operacao !== 'restore' ? `<button class="btn" data-restaurar="${esc(e.id)}">Restaurar</button>` : '<span class="dim">restaurado</span>'}
       </div>`).join('') + `</div>`
     box.querySelectorAll('[data-restaurar]').forEach(b => b.onclick = async () => {

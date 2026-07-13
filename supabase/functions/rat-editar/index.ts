@@ -91,7 +91,7 @@ Deno.serve(async (req: Request) => {
       await admin.from("rat_edicoes").insert({
         rat_id: ed.rat_id, tarefa_id: ed.tarefa_id, alvo: ed.alvo, operacao: "restore",
         chave: ed.chave, campo: ed.campo, valor_antigo: ed.valor_novo, valor_novo: ed.valor_antigo,
-        motivo: ed.motivo, ator: uid, ator_nome: atorNome,
+        motivo: ed.motivo, motivo_detalhe: ed.motivo_detalhe ?? null, ator: uid, ator_nome: atorNome,
       })
       await recalcTempoEMarca(admin, ed.rat_id, uid)
       return json({ ok: true, restaurado: log })
@@ -100,9 +100,11 @@ Deno.serve(async (req: Request) => {
     // ───────────────── A) EDITAR (lote) ─────────────────
     const ratId = body.rat_id
     const motivo = body.motivo
+    const motivoDetalhe = (typeof body.motivo_detalhe === "string" ? body.motivo_detalhe.trim() : "") || null
     const alteracoes = Array.isArray(body.alteracoes) ? body.alteracoes : []
     if (!ratId) return json({ error: "rat_id obrigatorio" }, 400)
     if (!MOTIVOS.includes(motivo)) return json({ error: "motivo obrigatorio e válido" }, 400)
+    if (motivo === "outro" && !motivoDetalhe) return json({ error: "descreva o motivo (Outro)" }, 400)
     if (!alteracoes.length) return json({ error: "nada a alterar" }, 400)
 
     const { data: rat } = await admin.from("rats")
@@ -194,7 +196,7 @@ Deno.serve(async (req: Request) => {
         rat_id: ratId, tarefa_id: (rat as any).tarefa_id, alvo: l.alvo, operacao: l.operacao,
         chave: l.chave != null ? String(l.chave) : null, campo: l.campo || null,
         valor_antigo: l.valor_antigo ?? null, valor_novo: l.valor_novo ?? null,
-        motivo, ator: uid, ator_nome: atorNome,
+        motivo, motivo_detalhe: motivoDetalhe, ator: uid, ator_nome: atorNome,
       })))
     }
 
