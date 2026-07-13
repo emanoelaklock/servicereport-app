@@ -267,8 +267,8 @@ const TarefaApp = (() => {
     document.querySelectorAll('#cc-tabs .tab').forEach(b => b.onclick = () => mostrarPane(b.dataset.pane))
     // RATs
     document.getElementById('cc-rat-pdf').onclick = pdfUnificado
-    document.getElementById('cc-cliente').onclick = () => exportarTarefa('cliente')
-    document.getElementById('cc-interno').onclick = () => exportarTarefa('interno')
+    document.getElementById('cc-pdf-cliente').onclick = () => exportarTarefa('cliente')
+    document.getElementById('cc-pdf-interno').onclick = () => exportarTarefa('interno')
     document.getElementById('rat-x').onclick = () => fecharModal('modal-rat')
     document.getElementById('rat-fechar').onclick = () => fecharModal('modal-rat')
     // Editor único e auditado: o "Editar" abre o rat.html (admin-only, com motivo/histórico/restore).
