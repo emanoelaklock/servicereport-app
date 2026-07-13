@@ -137,7 +137,14 @@ window.RatView = (function () {
     const tarefaNo = baseNo ? (baseNo + (r.rat_seq != null ? '/' + String(r.rat_seq).padStart(2, '0') : '')) : null
 
     let h = `<div class="rd">`
-    if (!opts.noHeader) h += `
+    // PDF: cliente já está no topo do documento (capa) → header da RAT é enxuto, sem repetir
+    // cliente nem contrato. "RAT NNNNN/SS · Técnico · Data" + status/tempo.
+    if (opts.slim) h += `
+      <div class="rd-head rd-head-slim">
+        <div class="rd-sub">RAT ${tarefaNo ? esc(tarefaNo) : '—'} · ${esc(r.tecnico_nome || '—')} · ${fdt(r.data_tarefa, { numeric: true })}</div>
+        <div class="rd-meta"><span><b>Status:</b> ${esc(statusInfo(r.status).label)}</span><span><b>Tempo:</b> ${fmtMin(tempoRat(r))}</span></div>
+      </div>`
+    else if (!opts.noHeader) h += `
       <div class="rd-head">
         <div class="rd-cli">${esc(r.cliente_nome || '—')}</div>
         <div class="rd-sub">${esc(tipoNomeRat(r))}${tarefaNo ? ' · Tarefa Nº ' + tarefaNo : ''}</div>
@@ -233,24 +240,26 @@ window.RatView = (function () {
 
     // Produtos com preço (editável no modo edição) + Resumo de Valores
     const adminEdit = edit && opts && opts.adminEdit
-    if ((mats && mats.length) || adminEdit) {
-      const total = (mats || []).reduce((s, m) => s + (Number(m.subtotal) || 0), 0)
+    const mostrarValores = opts.valores !== false   // tela/editor mostram; PDF-cliente passa valores:false
+    const soUtilizados = opts.zerados === false      // esconde itens de qtd 0 só quando pedido (PDF)
+    const matsView = (mats || []).filter(m => !soUtilizados || (Number(m.quantidade) || 0) > 0)
+    if (matsView.length || adminEdit) {
+      const total = matsView.reduce((s, m) => s + (Number(m.subtotal) || 0), 0)
       // Conflito de material colaborativo: 2+ autores (created_by) na mesma RAT → avisa e rotula por autor.
-      const autores = [...new Set((mats || []).map(m => m.created_by).filter(Boolean))]
+      const autores = [...new Set(matsView.map(m => m.created_by).filter(Boolean))]
       const temConflito = adminEdit && autores.length >= 2   // só no editor admin (não no PDF/leitura)
-      h += `<div class="rd-sec"><div class="rd-sec-t">Produtos</div>` +
+      h += `<div class="rd-sec"><div class="rd-sec-t">Produtos${soUtilizados ? ' utilizados' : ''}</div>` +
         (temConflito ? `<div class="rd-conflito">⚠ Conflito de material — ${autores.length} técnicos lançaram produto nesta RAT. Mantenha um conjunto e remova o duplicado (×); ao sobrar um, o conflito some e o faturamento libera.</div>` : '') +
-        `<table class="rd-prodtbl"><thead><tr><th>Produto</th><th class="num">Qtd</th><th class="num">Valor unit.</th><th class="num">Subtotal</th>${adminEdit ? '<th></th>' : ''}</tr></thead><tbody id="rd-prodbody">` +
-        (mats || []).map(m => `<tr data-matrow="${esc(m.id)}">
+        `<table class="rd-prodtbl"><thead><tr><th>Produto</th><th class="num">Qtd</th>${mostrarValores ? '<th class="num">Valor unit.</th><th class="num">Subtotal</th>' : ''}${adminEdit ? '<th></th>' : ''}</tr></thead><tbody id="rd-prodbody">` +
+        matsView.map(m => `<tr data-matrow="${esc(m.id)}">
           <td>${esc(m.descricao || m.codigo || '—')}${(temConflito && m.autor) ? `<div class="rd-autor">por ${esc(m.autor)}</div>` : ''}</td>
           <td class="num">${adminEdit ? `<input class="rd-qtd" data-matqtd="${esc(m.id)}" type="number" step="any" min="0" value="${m.quantidade}">` : esc(String(m.quantidade))}</td>
-          <td class="num">${edit ? `<input class="rd-preco" data-mat="${esc(m.id)}" type="number" step="0.01" min="0" value="${m.preco}">` : money(m.preco)}</td>
-          <td class="num">${money(m.subtotal)}</td>
+          ${mostrarValores ? `<td class="num">${edit ? `<input class="rd-preco" data-mat="${esc(m.id)}" type="number" step="0.01" min="0" value="${m.preco}">` : money(m.preco)}</td><td class="num">${money(m.subtotal)}</td>` : ''}
           ${adminEdit ? `<td class="num"><button type="button" class="rd-matdel" data-matdel="${esc(m.id)}" title="Remover">×</button></td>` : ''}
         </tr>`).join('') +
         `</tbody></table>` +
         (adminEdit ? `<div class="rd-addprod"><input id="rd-prodbusca" placeholder="+ Adicionar produto (código ou descrição)…" autocomplete="off"><div id="rd-prodres" class="rd-prodres" hidden></div></div>` : '') +
-        `<div class="rd-total">Total <b id="rd-prodtot">${money(total)}</b></div></div>`
+        (mostrarValores ? `<div class="rd-total">Total <b id="rd-prodtot">${money(total)}</b></div>` : '') + `</div>`
     }
 
     if ((fotos && fotos.length) || adminEdit) {
@@ -355,7 +364,8 @@ window.RatView = (function () {
   // Abre a janela já (gesto do usuário), comprime as imagens e então escreve o doc.
   // modo: 'print' (padrão — abre o diálogo de impressão) | 'download' (baixa o .pdf;
   //        usa html2pdf por folha A4 já paginada, com fallback pro diálogo de impressão).
-  async function gerarPdf(dets, titulo, capaHTML, modo) {
+  async function gerarPdf(dets, titulo, capaHTML, modo, opts) {
+    opts = opts || {}
     const win = window.open('', '_blank')
     if (!win) { try { toast('Permita pop-ups para gerar o PDF.', 'err') } catch (e) {} return }
     try { win.document.write('<!doctype html><meta charset="utf-8"><body style="font-family:Inter,Arial,sans-serif;color:#1B2A4A;padding:28px">Gerando PDF…</body>') } catch (e) {}
@@ -370,10 +380,14 @@ window.RatView = (function () {
     }
 
     const capa = capaHTML ? `<div class="rd">${capaHTML}</div>` : ''
-    const bodies = capa + pdets.map(d => buildReportBody(d, false)).join('')
+    // Header enxuto da RAT só quando há capa (Tarefa) — no PDF de RAT avulsa o cliente precisa
+    // ficar no header. valores/zerados vêm do perfil (Cliente/Interno) escolhido ao gerar.
+    const bodyOpts = { slim: !!capaHTML, valores: opts.valores, zerados: opts.zerados }
+    const bodies = capa + pdets.map(d => buildReportBody(d, false, bodyOpts)).join('')
     const HEADER = `<div class="pdf-top"><div class="pdf-brand">TRADERS SERVICE</div><div class="pdf-doc">Relatório de Atendimento Técnico</div></div>`
     const HEADERC = `<div class="pdf-topc"><span>TRADERS SERVICE</span><span>Relatório de Atendimento Técnico</span></div>`
-    const FOOTER = `<div class="pdf-foot"><span>Documento gerado pela plataforma Service Report.</span><span class="pg"></span></div>`
+    const seloTxt = opts.selo ? ` · ${esc(opts.selo)}` : ''   // ex.: "versão com valores" (override ?valores=1)
+    const FOOTER = `<div class="pdf-foot"><span>Documento gerado pela plataforma Service Report.${seloTxt}</span><span class="pg"></span></div>`
     const doc = `<!doctype html><html lang="pt-BR"><head><meta charset="utf-8"><title>${esc(titulo || 'RAT')}</title>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
 <style>${PDF_CSS}${SHEET_CSS}</style></head><body>
@@ -408,7 +422,10 @@ window.RatView = (function () {
     function newSheet(){var first=ftrs.length===0;var s=el('div','sheet');var hd=el('div','hd');hd.innerHTML=first?HEADER:HEADERC;var bd=el('div','bd');var ft=el('div','ft');ft.innerHTML=FOOTER;s.appendChild(hd);s.appendChild(bd);s.appendChild(ft);sheets.appendChild(s);ftrs.push(ft);cur={bd:bd};}
     function over(){return cur.bd.scrollHeight>cur.bd.clientHeight+1;}
     function addHTML(h){var d=el('div');d.innerHTML=h;var n=d.firstElementChild;if(!n)return;cur.bd.appendChild(n);if(over()&&cur.bd.children.length>1){cur.bd.removeChild(n);newSheet();cur.bd.appendChild(n);}}
-    function build(){newSheet();for(var i=0;i<blocks.length;i++){if(blocks[i].brk)newSheet();addHTML(blocks[i].h);}if(raw.parentNode)raw.parentNode.removeChild(raw);var N=ftrs.length;for(var k=0;k<N;k++){var pg=ftrs[k].querySelector('.pg');if(pg)pg.textContent='Página '+(k+1)+' de '+N;}var imgs=Array.prototype.slice.call(document.images);var left=imgs.filter(function(im){return !im.complete});function go(){if(MODO==='download'){baixarPdf();}else{window.focus();window.print();}}if(!left.length){setTimeout(go,200);return;}var done=0,fired=false;function one(){done++;if(done>=left.length&&!fired){fired=true;setTimeout(go,150);}}left.forEach(function(im){im.addEventListener('load',one);im.addEventListener('error',one);});setTimeout(function(){if(!fired){fired=true;go();}},7000);}
+    function build(){newSheet();for(var i=0;i<blocks.length;i++){if(blocks[i].brk)newSheet();addHTML(blocks[i].h);}if(raw.parentNode)raw.parentNode.removeChild(raw);
+      /* remove folha final vazia (sem conteúdo no corpo) — não vira página em branco */
+      if(cur&&cur.bd&&cur.bd.children.length===0){var es=cur.bd.parentNode;if(es&&es.parentNode){es.parentNode.removeChild(es);ftrs.pop();}}
+      var N=ftrs.length;for(var k=0;k<N;k++){var pg=ftrs[k].querySelector('.pg');if(pg)pg.textContent='Página '+(k+1)+' de '+N;}var imgs=Array.prototype.slice.call(document.images);var left=imgs.filter(function(im){return !im.complete});function go(){if(MODO==='download'){baixarPdf();}else{window.focus();window.print();}}if(!left.length){setTimeout(go,200);return;}var done=0,fired=false;function one(){done++;if(done>=left.length&&!fired){fired=true;setTimeout(go,150);}}left.forEach(function(im){im.addEventListener('load',one);im.addEventListener('error',one);});setTimeout(function(){if(!fired){fired=true;go();}},7000);}
     if(document.fonts&&document.fonts.ready){document.fonts.ready.then(function(){setTimeout(build,80);});}else{setTimeout(build,400);}
   <\/script>
 </body></html>`
@@ -430,6 +447,9 @@ window.RatView = (function () {
     .rd-head{margin-bottom:6px}
     .rd-cli{font-size:18px;font-weight:700;color:#243456}
     .rd-sub{font-size:13px;color:#1E8AE0;font-weight:600;margin-top:2px}
+    .rd-head-slim{border-bottom:1px solid #EAEDF2;padding-bottom:6px;margin-bottom:2px}
+    .rd-head-slim .rd-sub{font-size:14px;font-weight:700;color:#243456}
+    .rd-head-slim .rd-meta{margin-top:3px}
     .rd-meta{display:flex;flex-wrap:wrap;gap:3px 18px;margin-top:7px;font-size:12px}
     .rd-meta b{color:#5b6b86;font-weight:500}
     .rd-edit-hint{display:none}
@@ -468,7 +488,12 @@ window.RatView = (function () {
     .pdf-top{margin-bottom:14px}
     .pdf-topc{display:flex;justify-content:space-between;align-items:center;border-bottom:2px solid #243456;padding-bottom:8px;margin-bottom:14px;font-size:11px;font-weight:700;color:#243456;text-transform:none;letter-spacing:normal}
     .pdf-foot{display:flex;justify-content:space-between;align-items:center;text-align:left}
-    @media print{ @page{size:A4;margin:0} body{margin:0;background:#fff} .sheet{box-shadow:none;margin:0;width:210mm;height:297mm;page-break-after:always} .sheet:last-child{page-break-after:auto} #raw{display:none} }`
+    @media print{ @page{size:A4;margin:0} html,body{margin:0;background:#fff}
+      /* Folha com altura NATURAL + min-height < página (296<297mm): o rodapé fica no pé sem a
+         folha ocupar a página inteira — o que, com page-break-after, gerava uma página EM BRANCO
+         depois de cada folha (bug das 3 páginas brancas). overflow:visible pra nada ser cortado. */
+      .sheet{box-shadow:none;margin:0;width:210mm;height:auto;min-height:296mm;overflow:visible;page-break-after:always;break-after:page}
+      .sheet:last-child{page-break-after:auto;break-after:auto} #raw{display:none} }`
 
   return {
     RAT_SELECT, ensureForms, loadDetalhe, buildReportBody, coletarEdicao, salvarPrecos, aplicarCondicionais,

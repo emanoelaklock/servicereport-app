@@ -267,8 +267,8 @@ const TarefaApp = (() => {
     document.querySelectorAll('#cc-tabs .tab').forEach(b => b.onclick = () => mostrarPane(b.dataset.pane))
     // RATs
     document.getElementById('cc-rat-pdf').onclick = pdfUnificado
-    document.getElementById('cc-print').onclick = () => exportarTarefa('print')
-    document.getElementById('cc-baixar').onclick = () => exportarTarefa('download')
+    document.getElementById('cc-cliente').onclick = () => exportarTarefa('cliente')
+    document.getElementById('cc-interno').onclick = () => exportarTarefa('interno')
     document.getElementById('rat-x').onclick = () => fecharModal('modal-rat')
     document.getElementById('rat-fechar').onclick = () => fecharModal('modal-rat')
     // Editor único e auditado: o "Editar" abre o rat.html (admin-only, com motivo/histórico/restore).
@@ -1293,10 +1293,21 @@ const TarefaApp = (() => {
     for (const r of rats) dets.push(await RatView.loadDetalhe(r))
     RatView.gerarPdf(dets, `RATs Tarefa ${osNo(cur.numero)}`)
   }
-  // Exporta a Tarefa: capa (dados + produtos) + todas as RATs.
-  // modo 'print' abre o diálogo de impressão; 'download' baixa o .pdf.
-  async function exportarTarefa(modo) {
+  // Exporta a Tarefa: capa (dados) + todas as RATs. Dois perfis de destinatário:
+  //  · 'cliente' (default): sem valores, sem conciliação, só produtos utilizados, sem campos internos.
+  //  · 'interno': tudo (valores, conciliação, zerados).
+  // Overrides finos pela URL (?valores=1/0, ?conciliacao=1/0, ?zerados=1/0, ?baixar=1). Ao gerar
+  // Cliente COM valores (override), põe selo discreto no rodapé pra não confundir os arquivos.
+  async function exportarTarefa(perfil) {
     if (!cur || !cur.id) return
+    const cliente = perfil !== 'interno'
+    const p = new URLSearchParams(location.search)
+    const flag = (name, base) => { const v = p.get(name); return v === '1' ? true : v === '0' ? false : base }
+    const valores = flag('valores', !cliente)        // base: interno mostra, cliente não
+    const conciliacao = flag('conciliacao', !cliente)
+    const zerados = flag('zerados', !cliente)         // mostrar itens de qtd 0
+    const modo = p.get('baixar') === '1' ? 'download' : 'print'
+    const selo = (cliente && valores) ? 'versão com valores' : null
     const t = tarefas.find(x => x.id === cur.id) || {}
     const tipoNome = (ref.tipos.find(p => p.id === t.tipo_servico_id) || {}).nome || '—'
     const q = (n) => { const v = Number(n) || 0; return v ? v.toLocaleString('pt-BR', { maximumFractionDigits: 3 }) : '—' }
@@ -1364,25 +1375,25 @@ const TarefaApp = (() => {
         <div class="rd-f"><label>Data agendada</label><div class="v">${dmy(t.data_agendada)}</div></div>
         <div class="rd-f"><label>Origem</label><div class="v">${t.orcamento_id ? 'Orçamento aprovado' : 'Criada direto (sem orçamento)'}</div></div>
         ${t.pedido_compra ? `<div class="rd-f"><label>Pedido de Compra (PC)</label><div class="v">${esc(t.pedido_compra)}</div></div>` : ''}
-        ${(t.modalidade || '') ? `<div class="rd-f"><label>Modalidade de faturamento</label><div class="v">${esc(MOD_LBL[t.modalidade] || t.modalidade)}</div></div>` : ''}
-        <div class="rd-f"><label>Faturamento</label><div class="v">${fatTxt}</div></div>
+        ${(!cliente && t.modalidade) ? `<div class="rd-f"><label>Modalidade de faturamento</label><div class="v">${esc(MOD_LBL[t.modalidade] || t.modalidade)}</div></div>` : ''}
+        ${!cliente ? `<div class="rd-f"><label>Faturamento</label><div class="v">${fatTxt}</div></div>` : ''}
         ${responsaveis ? `<div class="rd-f" style="grid-column:1/-1"><label>Responsáveis</label><div class="v">${esc(responsaveis)}</div></div>` : ''}
         ${t.orientacao ? `<div class="rd-f" style="grid-column:1/-1"><label>Orientação ao técnico</label><div class="v" style="white-space:pre-wrap">${esc(t.orientacao)}</div></div>` : ''}
-        ${t.observacoes ? `<div class="rd-f" style="grid-column:1/-1"><label>Observações internas</label><div class="v" style="white-space:pre-wrap">${esc(t.observacoes)}</div></div>` : ''}
-        ${t.pendencias ? `<div class="rd-f" style="grid-column:1/-1"><label>Pendências</label><div class="v" style="white-space:pre-wrap">${esc(t.pendencias)}</div></div>` : ''}
-        ${t.conciliacao_obs ? `<div class="rd-f" style="grid-column:1/-1"><label>Observações da conciliação</label><div class="v" style="white-space:pre-wrap">${esc(t.conciliacao_obs)}</div></div>` : ''}
+        ${(!cliente && t.observacoes) ? `<div class="rd-f" style="grid-column:1/-1"><label>Observações internas</label><div class="v" style="white-space:pre-wrap">${esc(t.observacoes)}</div></div>` : ''}
+        ${(!cliente && t.pendencias) ? `<div class="rd-f" style="grid-column:1/-1"><label>Pendências</label><div class="v" style="white-space:pre-wrap">${esc(t.pendencias)}</div></div>` : ''}
+        ${(!cliente && t.conciliacao_obs) ? `<div class="rd-f" style="grid-column:1/-1"><label>Observações da conciliação</label><div class="v" style="white-space:pre-wrap">${esc(t.conciliacao_obs)}</div></div>` : ''}
       </div></div>
       <div class="rd-sec"><div class="rd-sec-t">Resumo operacional</div><div class="rd-grid">
         <div class="rd-f"><label>RATs registradas</label><div class="v">${rats.length}</div></div>
         <div class="rd-f"><label>Horas registradas (RATs)</label><div class="v">${RatView.fmtMin(totalMin)}</div></div>
-        <div class="rd-f"><label>A devolver ao estoque</label><div class="v">${aDevolver ? aDevolver.toLocaleString('pt-BR', { maximumFractionDigits: 3 }) : '—'}</div></div>
-        <div class="rd-f"><label>Itens fora da proposta</label><div class="v">${foraProposta}</div></div>
+        ${!cliente ? `<div class="rd-f"><label>A devolver ao estoque</label><div class="v">${aDevolver ? aDevolver.toLocaleString('pt-BR', { maximumFractionDigits: 3 }) : '—'}</div></div>
+        <div class="rd-f"><label>Itens fora da proposta</label><div class="v">${foraProposta}</div></div>` : ''}
       </div></div>
       ${ratsHtml ? `<div class="rd-sec"><div class="rd-sec-t">RATs (resumo)</div>
         <table style="width:100%;border-collapse:collapse;font-size:12px;margin-top:4px">
           <thead><tr><th style="${thS}">RAT</th><th style="${thS}">Data</th><th style="${thS}">Técnico</th><th style="${thS}">Situação</th><th style="${thR}">Tempo</th></tr></thead>
           <tbody>${ratsHtml}</tbody></table></div>` : ''}
-      ${linhasHtml ? `<div class="rd-sec"><div class="rd-sec-t">Produtos (conciliação)</div>
+      ${(conciliacao && linhasHtml) ? `<div class="rd-sec"><div class="rd-sec-t">Produtos (conciliação)</div>
         <table style="width:100%;border-collapse:collapse;font-size:12px;margin-top:4px">
           <thead><tr>
             <th style="${thS}">Produto</th>
@@ -1398,7 +1409,7 @@ const TarefaApp = (() => {
       ${anexosHtml ? `<div class="rd-sec"><div class="rd-sec-t">Anexos</div>${anexosHtml}</div>` : ''}`
     const dets = []
     for (const r of (cur.rats || [])) dets.push(await RatView.loadDetalhe(r))
-    RatView.gerarPdf(dets, `Tarefa ${osNo(cur.numero)}`, capa, modo)
+    RatView.gerarPdf(dets, `Tarefa ${osNo(cur.numero)} ${cliente ? 'Cliente' : 'Interno'}`, capa, modo, { valores, zerados, selo })
   }
 
   // Nova tarefa a partir da pendência da TAREFA (botão na aba Dados quando concluída c/ pendência).
