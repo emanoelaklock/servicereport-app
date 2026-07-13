@@ -25,6 +25,16 @@
   .pe-cli{font-weight:800;font-size:19px;margin:5px 0 9px;letter-spacing:-.3px}
   .pe-ori{font-size:14px;line-height:1.5;white-space:pre-wrap;display:-webkit-box;-webkit-line-clamp:5;-webkit-box-orient:vertical;overflow:hidden}
   .pe-empty{color:#8A90A2;font-size:14px;padding:6px 2px}
+  /* Lembrete: devolvidas sem retorno há +1 dia (só aparece quando houver) */
+  .devol-alert{background:linear-gradient(135deg,#FDECEA,#FAD9D5);border:1px solid #F3B7B2;border-left:7px solid #E5403A;border-radius:16px;padding:18px 20px;margin:2px 0 24px;box-shadow:0 2px 10px rgba(229,64,58,.12)}
+  .devol-alert-h{display:flex;align-items:center;gap:9px;font-size:16px;font-weight:800;color:#A82A22;margin-bottom:14px;letter-spacing:-.2px}
+  .devol-alert-h svg{width:20px;height:20px;stroke:currentColor;fill:none;stroke-width:2;stroke-linecap:round;stroke-linejoin:round;flex:none}
+  .devol-alert-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(255px,1fr));gap:12px}
+  .devol-alert-card{display:block;text-decoration:none;background:#fff;border:1px solid #F0C6C1;border-radius:12px;padding:13px 15px;transition:transform .12s ease,box-shadow .12s ease}
+  .devol-alert-card:hover{transform:translateY(-2px);box-shadow:0 8px 18px rgba(229,64,58,.16)}
+  .dac-no{font-size:12px;font-weight:800;letter-spacing:.4px;color:#A82A22;text-transform:uppercase;font-variant-numeric:tabular-nums}
+  .dac-cli{font-weight:800;font-size:16px;margin:3px 0 5px;color:#2c1414;letter-spacing:-.2px}
+  .dac-age{font-size:13px;font-weight:700;color:#C0362C}
   /* uma cor por card (decorativo — o status é o mesmo); ciclo na paleta oficial */
   .pe-c0{background:linear-gradient(135deg,#E7F1FC,#D4E6FB);border-color:#BFD9F5;border-left-color:#1E8AE0}
   .pe-c0 .pe-no{color:#1565C0}.pe-c0 .pe-cli{color:#15263a}.pe-c0 .pe-ori{color:#3d5168}
@@ -48,6 +58,7 @@
   <div id="app-screen" style="display:none">
     <div class="topbar"><h1>Painel diário</h1></div>
     <div class="scrollarea">
+      <div id="devol-alerta"></div>
       <h2 class="pe-title" id="pend-exec-lab">Tarefas pendentes de execução</h2>
       <div class="pe-grid" id="pend-exec"></div>
     </div>
