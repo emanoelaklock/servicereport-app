@@ -102,11 +102,15 @@ const JornadaApp = (() => {
       sb().from('pre_orcamentos').select('id,numero,cliente_id,tecnico_id,respostas,tempo_trabalhado,data')
         .gte('data', dia + 'T00:00:00-03:00').lte('data', dia + 'T23:59:59.999-03:00'),
     ])
-    const preParts = (preo.data || []).map(p => ({
-      tecnico_id: p.tecnico_id, artefato_tipo: 'preorc', artefato_id: p.id,
-      referencia: p.numero != null ? String(p.numero) : '', cliente_id: p.cliente_id,
-      inicio: (p.respostas || {}).visita_inicio || null, fim: (p.respostas || {}).visita_termino || null,
-    })).filter(p => p.inicio && p.fim)
+    // Cada pré-orçamento vira até 2 participações: a VISITA (rosa) e o DESLOCAMENTO ida→retorno
+    // (laranja, cor = deslocamento). A união de intervalos deduplica sobreposição no total.
+    const preParts = []
+    for (const p of (preo.data || [])) {
+      const r = p.respostas || {}, ref = p.numero != null ? String(p.numero) : ''
+      const base = { tecnico_id: p.tecnico_id, artefato_id: p.id, referencia: ref, cliente_id: p.cliente_id }
+      if (r.visita_inicio && r.visita_termino) preParts.push({ ...base, artefato_tipo: 'preorc', inicio: r.visita_inicio, fim: r.visita_termino })
+      if (r.ida && r.retorno) preParts.push({ ...base, artefato_tipo: 'preorc_desloc', inicio: r.ida, fim: r.retorno })
+    }
     renderHorasDia([...(parts.data || []), ...preParts], alms.data || [], confs.data || [])
   }
   function renderHorasDia(parts, alms, confs) {
@@ -129,6 +133,11 @@ const JornadaApp = (() => {
           const href = ehDia ? `rat.html?id=${encodeURIComponent(p.artefato_id)}` : `deslocamentos.html?editar=${encodeURIComponent(p.artefato_id)}`
           const lbl = ehDia ? `RAT ${esc(p.referencia || '')}${p.rat_seq != null ? '/' + String(p.rat_seq).padStart(2, '0') : ''}` : 'Deslocamento'
           return `<a href="${href}" target="_blank" rel="noopener" class="hd-seg hd-desl" title="Abrir"><i></i>${lbl} · ${faixa}</a>`
+        }
+        if (p.artefato_tipo === 'preorc_desloc') {
+          // Deslocamento do levantamento — laranja (cor = deslocamento), sem link.
+          const refP = p.referencia ? `Pré-orç Nº ${esc(p.referencia)}` : 'Pré-orç'
+          return `<span class="hd-seg hd-desl" title="Deslocamento do pré-orçamento"><i></i>${refP} · desloc · ${faixa}</span>`
         }
         if (p.artefato_tipo === 'preorc') {
           // Levantamento comercial — chip rosa, sem link (não há visualizador de pré-orçamento no portal).
