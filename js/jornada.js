@@ -93,12 +93,21 @@ const JornadaApp = (() => {
   async function carregarHorasDia() {
     const dia = document.getElementById('j-data').value
     if (!dia) return
-    const [parts, alms, confs] = await Promise.all([
+    const [parts, alms, confs, preo] = await Promise.all([
       sb().from('vw_participacoes_dia').select('*').eq('dia', dia),
       sb().from('almocos').select('tecnico_id,inicio,fim,origem,artefato_tipo,artefato_id').eq('dia', dia),
       sb().from('almoco_conflitos').select('tecnico_id,inicio,fim,artefato_tipo,motivo').eq('dia', dia),
+      // Pré-orçamentos do dia (janela do dia em BR). Entram como participações sintéticas no mesmo
+      // motor de união/almoço — o levantamento é tempo de trabalho da pessoa, igual a uma RAT.
+      sb().from('pre_orcamentos').select('id,numero,cliente_id,tecnico_id,respostas,tempo_trabalhado,data')
+        .gte('data', dia + 'T00:00:00-03:00').lte('data', dia + 'T23:59:59.999-03:00'),
     ])
-    renderHorasDia(parts.data || [], alms.data || [], confs.data || [])
+    const preParts = (preo.data || []).map(p => ({
+      tecnico_id: p.tecnico_id, artefato_tipo: 'preorc', artefato_id: p.id,
+      referencia: p.numero != null ? String(p.numero) : '', cliente_id: p.cliente_id,
+      inicio: (p.respostas || {}).visita_inicio || null, fim: (p.respostas || {}).visita_termino || null,
+    })).filter(p => p.inicio && p.fim)
+    renderHorasDia([...(parts.data || []), ...preParts], alms.data || [], confs.data || [])
   }
   function renderHorasDia(parts, alms, confs) {
     const ab = document.getElementById('hd-alertas')
@@ -120,6 +129,11 @@ const JornadaApp = (() => {
           const href = ehDia ? `rat.html?id=${encodeURIComponent(p.artefato_id)}` : `deslocamentos.html?editar=${encodeURIComponent(p.artefato_id)}`
           const lbl = ehDia ? `RAT ${esc(p.referencia || '')}${p.rat_seq != null ? '/' + String(p.rat_seq).padStart(2, '0') : ''}` : 'Deslocamento'
           return `<a href="${href}" target="_blank" rel="noopener" class="hd-seg hd-desl" title="Abrir"><i></i>${lbl} · ${faixa}</a>`
+        }
+        if (p.artefato_tipo === 'preorc') {
+          // Levantamento comercial — chip rosa, sem link (não há visualizador de pré-orçamento no portal).
+          const refP = p.referencia ? `Pré-orç Nº ${esc(p.referencia)}` : 'Pré-orç'
+          return `<span class="hd-seg hd-preorc" title="Pré-orçamento (levantamento)"><i></i>${refP} · ${faixa}</span>`
         }
         if (!(p.artefato_id in corRat)) corRat[p.artefato_id] = 'hd-rat' + (nc++ % 3)
         const ref = p.referencia ? `RAT ${esc(p.referencia)}${p.rat_seq != null ? '/' + String(p.rat_seq).padStart(2, '0') : ''}` : 'RAT'
