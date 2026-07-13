@@ -155,8 +155,8 @@ window.srCriticalEnd = () => {
 
 // Instrumentação (Commit 3): loga a decisão do SIGNED_OUT no console E, com SR_AUTH_DEBUG on,
 // na TELA via toast — pro técnico ver a decisão no aparelho sem USB/devtools.
-// BRANCH de diagnóstico: default on. Desligar/remover na limpeza pré-merge (ver PR).
-var SR_AUTH_DEBUG = true
+// OFF em produção (só liga na investigação): sem toasts "auth: …" na tela. Log em console segue.
+var SR_AUTH_DEBUG = false
 function _authDbg(msg, nivel) {
   ;(nivel === 'warn' ? console.warn : console.info)('[auth] ' + msg)
   if (SR_AUTH_DEBUG && typeof toast === 'function') { try { toast('auth: ' + msg, nivel === 'warn' ? 'err' : '') } catch (e) { /* nada */ } }

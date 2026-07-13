@@ -62,8 +62,9 @@
   // ── Instrumentação de diagnóstico (branch diag/encerramento-hang-db) ──
   // Loga passos do DB/salvar no console e, com SR_DB_DEBUG on, na TELA via toast — localiza o
   // congelamento do encerramento no aparelho SEM CPU profile. Global pro tecnico.js reusar.
-  // Desligar/remover na limpeza (ver PR).
-  window.SR_DB_DEBUG = true
+  // OFF em produção (só liga na investigação): evita toasts/overlay "TRAVOU" na tela do técnico.
+  // Os breadcrumbs srStep/srDbg continuam gravando em console/localStorage — inofensivos.
+  window.SR_DB_DEBUG = false
   window.srDbg = function (msg, nivel) {
     ;(nivel === 'warn' ? console.warn : console.info)('[diag] ' + msg)
     if (window.SR_DB_DEBUG && typeof toast === 'function') { try { toast(msg, nivel === 'warn' ? 'err' : '') } catch (e) { /* nada */ } }
