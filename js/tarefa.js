@@ -1300,7 +1300,12 @@ const TarefaApp = (() => {
   // Cliente COM valores (override), põe selo discreto no rodapé pra não confundir os arquivos.
   async function exportarTarefa(perfil) {
     if (!cur || !cur.id) return
+    // Abre a janela JÁ, no gesto do clique. Se abrir depois do await (loadDetalhe), o Chrome bloqueia
+    // ou joga o pop-up pro fundo em silêncio — era o "PDF Cliente clica e não faz nada".
+    const win = window.open('', '_blank')
+    if (!win) return toast('Permita pop-ups para gerar o PDF.', 'err')
     try {
+    win.document.write('<!doctype html><meta charset="utf-8"><body style="font:15px sans-serif;padding:28px;color:#1B2A4A">Gerando PDF…</body>')
     const cliente = perfil !== 'interno'
     const p = new URLSearchParams(location.search)
     const flag = (name, base) => { const v = p.get(name); return v === '1' ? true : v === '0' ? false : base }
@@ -1410,8 +1415,8 @@ const TarefaApp = (() => {
       ${anexosHtml ? `<div class="rd-sec"><div class="rd-sec-t">Anexos</div>${anexosHtml}</div>` : ''}`
     const dets = []
     for (const r of (cur.rats || [])) dets.push(await RatView.loadDetalhe(r))
-    RatView.gerarPdf(dets, `Tarefa ${osNo(cur.numero)} ${cliente ? 'Cliente' : 'Interno'}`, capa, modo, { valores, zerados, selo })
-    } catch (e) { console.error('[PDF Tarefa]', e); toast('Não foi possível gerar o PDF: ' + ((e && e.message) || e), 'err') }
+    RatView.gerarPdf(dets, `Tarefa ${osNo(cur.numero)} ${cliente ? 'Cliente' : 'Interno'}`, capa, modo, { valores, zerados, selo, win })
+    } catch (e) { console.error('[PDF Tarefa]', e); try { win.close() } catch (_) {} toast('Não foi possível gerar o PDF: ' + ((e && e.message) || e), 'err') }
   }
 
   // Nova tarefa a partir da pendência da TAREFA (botão na aba Dados quando concluída c/ pendência).

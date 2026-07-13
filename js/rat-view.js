@@ -366,7 +366,8 @@ window.RatView = (function () {
   //        usa html2pdf por folha A4 já paginada, com fallback pro diálogo de impressão).
   async function gerarPdf(dets, titulo, capaHTML, modo, opts) {
     opts = opts || {}
-    const win = window.open('', '_blank')
+    // Reusa a janela aberta pelo chamador NO GESTO do clique (evita bloqueio de pop-up async); senão abre.
+    const win = opts.win || window.open('', '_blank')
     if (!win) { try { toast('Permita pop-ups para gerar o PDF.', 'err') } catch (e) {} return }
     try { win.document.write('<!doctype html><meta charset="utf-8"><body style="font-family:Inter,Arial,sans-serif;color:#1B2A4A;padding:28px">Gerando PDF…</body>') } catch (e) {}
 
