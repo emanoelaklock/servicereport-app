@@ -3439,6 +3439,12 @@
     const LIM = 720   // 12h: gap acima disso = ordem invertida (não é só virada de meia-noite)
     const dbtn = document.getElementById('form-desloc-btn'), pbtn = document.getElementById('form-pausa-btn')
     const ini = m('hora_inicio'), fim = m('hora_termino')
+    // Término numericamente ANTES do início + duração "rolada" > 12h = o "+1 dia" silencioso
+    // (ex.: 14:11→13:30 virava 23h19min). Atendimento noturno legítimo (< 12h) passa.
+    if (ini != null && fim != null && fim < ini && adiante(ini, fim) > LIM) {
+      return { btns: [], campos: ['hora_inicio', 'hora_termino'],
+        msg: `Hora de Término (${valorCampo('hora_termino')}) está antes da Hora de Início (${valorCampo('hora_inicio')}). Corrija o horário.` }
+    }
     if (ini != null) {
       for (const id of ['desloc_inicial_ida', 'desloc_final_ida']) {
         const t = m(id); if (t != null && adiante(t, ini) > LIM) return { btns: [dbtn], msg: 'Deslocamento de ida não pode ser depois da Hora de Início da execução.' }
@@ -3455,6 +3461,13 @@
       for (const id of ['pausa_inicio', 'pausa_termino']) {
         const t = m(id); if (t != null && adiante(dia0, t) > span) return { btns: [pbtn], msg: 'A pausa tem de ficar entre o deslocamento de ida e o de retorno.' }
       }
+    }
+    // Teto de plausibilidade: nenhuma RAT de um dia fatura ~14h+. Acima disso é quase certo erro
+    // de digitação (término/deslocamento) que inflou o tempo — backstop geral (pega o que os pares acima não pegam).
+    const totCron = calcTempo()
+    if (totCron != null && totCron > 14 * 60) {
+      return { btns: [], campos: ['hora_inicio', 'hora_termino'],
+        msg: `Tempo calculado (${fmtMin(totCron)}) improvável para um atendimento de um dia — confira os horários.` }
     }
     return null
   }
@@ -3500,7 +3513,21 @@
   }
   const fmtMin = (t) => t == null ? '—' : `${Math.floor(t / 60)}h ${String(t % 60).padStart(2, '0')}min`
   function atualizarTempo() {
-    const el = document.getElementById('f-tempo'); if (el) { const v = fmtMin(calcTempo()); if ('value' in el && el.tagName === 'INPUT') el.value = v; else el.textContent = v }
+    const el = document.getElementById('f-tempo'); if (!el) return
+    const t = calcTempo(), v = fmtMin(t)
+    if ('value' in el && el.tagName === 'INPUT') el.value = v; else el.textContent = v
+    // Aviso ao vivo: término antes do início, ou tempo implausível → sinaliza na hora (não só no salvar).
+    const ini = minutosDe(valorCampo('hora_inicio')), fim = minutosDe(valorCampo('hora_termino'))
+    const invert = ini != null && fim != null && fim < ini
+    const alto = t != null && t > 14 * 60
+    const calc = el.closest('.calc')
+    if (!calc) return
+    calc.classList.toggle('tempo-alerta', invert || alto)
+    let hint = calc.querySelector('.tempo-hint')
+    if (invert || alto) {
+      if (!hint) { hint = document.createElement('div'); hint.className = 'tempo-hint'; (el.parentElement || calc).appendChild(hint) }
+      hint.textContent = invert ? 'Hora de Término está antes da de Início — confira.' : 'Tempo muito alto — confira os horários.'
+    } else if (hint) hint.remove()
   }
 
   // ── Autosave: preserva o que foi digitado no rascunho local, a cada alteração ──
@@ -3688,7 +3715,7 @@
     if (sit === 'registrado') {
       window.srStep && window.srStep('salvar: erroCronologia + checkpoint')
       const ec = erroCronologia()
-      if (ec) { limparErros(); marcarErros([], ec.btns.filter(Boolean)); return toast(ec.msg, 'err') }
+      if (ec) { limparErros(); marcarErros(ec.campos || [], ec.btns.filter(Boolean)); return toast(ec.msg, 'err') }
       if (!voltaAmanha) return toast('Responda se volta amanhã pra continuar.', 'err')
       if (voltaAmanha === 'Não') {
         const m = passMotivoVal()
@@ -3782,7 +3809,7 @@
     if (mFim < mIni) { marcarErros(['hora_termino'], []); return toast('A Hora de Término não pode ser antes da de Início.', 'err') }
     if (horaTerminoNoFuturo()) { marcarErros(['hora_termino'], []); return toast('A Hora de Término não pode ser depois do horário atual.', 'err') }
     const ecImp = erroCronologia()
-    if (ecImp) { limparErros(); marcarErros([], ecImp.btns.filter(Boolean)); return toast(ecImp.msg, 'err') }
+    if (ecImp) { limparErros(); marcarErros(ecImp.campos || [], ecImp.btns.filter(Boolean)); return toast(ecImp.msg, 'err') }
     // Mantém o que já foi apontado no formulário (deslocamento, início/término).
     const { respostas } = coletarRespostas()
     const cli = ref.clientes.find(c => c.id === cliId)
