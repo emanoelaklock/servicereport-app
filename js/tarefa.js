@@ -1296,7 +1296,7 @@ const TarefaApp = (() => {
   // Exporta a Tarefa: capa (dados) + todas as RATs. Dois perfis de destinatário:
   //  · 'cliente' (default): sem valores, sem conciliação, só produtos utilizados, sem campos internos.
   //  · 'interno': tudo (valores, conciliação, zerados).
-  // Overrides finos pela URL (?valores=1/0, ?conciliacao=1/0, ?zerados=1/0, ?imprimir=1). Ao gerar
+  // Overrides finos pela URL (?valores=1/0, ?conciliacao=1/0, ?zerados=1/0, ?baixar=1). Ao gerar
   // Cliente COM valores (override), põe selo discreto no rodapé pra não confundir os arquivos.
   async function exportarTarefa(perfil) {
     if (!cur || !cur.id) return
@@ -1312,7 +1312,7 @@ const TarefaApp = (() => {
     const valores = flag('valores', !cliente)        // base: interno mostra, cliente não
     const conciliacao = flag('conciliacao', !cliente)
     const zerados = flag('zerados', !cliente)         // mostrar itens de qtd 0
-    const modo = p.get('imprimir') === '1' ? 'print' : 'download'   // padrão: baixa o .pdf direto; ?imprimir=1 → diálogo (vetorial)
+    const modo = p.get('baixar') === '1' ? 'download' : 'print'   // padrão: diálogo de impressão (vetorial, nítido); ?baixar=1 → download direto (raster)
     const selo = (cliente && valores) ? 'versão com valores' : null
     const t = tarefas.find(x => x.id === cur.id) || {}
     const tipoNome = (ref.tipos.find(p => p.id === t.tipo_servico_id) || {}).nome || '—'

@@ -495,7 +495,7 @@ window.RatView = (function () {
       /* Folha com altura NATURAL + min-height < página (296<297mm): o rodapé fica no pé sem a
          folha ocupar a página inteira — o que, com page-break-after, gerava uma página EM BRANCO
          depois de cada folha (bug das 3 páginas brancas). overflow:visible pra nada ser cortado. */
-      .sheet{box-shadow:none;margin:0;width:210mm;height:auto;min-height:296mm;overflow:visible;page-break-after:always;break-after:page}
+      .sheet{box-shadow:none;margin:0;width:210mm;height:auto;overflow:visible;page-break-after:always;break-after:page}
       .sheet:last-child{page-break-after:auto;break-after:auto} #raw{display:none} }`
 
   return {
