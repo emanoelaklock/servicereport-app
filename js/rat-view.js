@@ -314,6 +314,10 @@ window.RatView = (function () {
   function coletarEdicao(container, det) {
     const resp = Object.assign({}, det.r.respostas || {})
     container.querySelectorAll('[data-campo]').forEach(el => { resp[el.getAttribute('data-campo')] = el.value })
+    // Condicional oculto (ex.: Pausa=Não) → limpa os filhos, senão o horário fica ÓRFÃO no respostas
+    // e o cálculo continua descontando (calcTempoDe olha a presença do horário, não a flag). Espelha
+    // o coletarRespostas do app, que já pula campo oculto. Uma passada cobre condicional de 1 nível.
+    for (const c of (det.campos || [])) if (!campoVisivel(c, resp)) resp[c.id] = ''
     const precos = []
     container.querySelectorAll('[data-mat]').forEach(el => { precos.push({ id: el.getAttribute('data-mat'), preco: el.value === '' ? null : Number(el.value) }) })
     return { respostas: resp, tempo: calcTempoDe(resp), precos }
