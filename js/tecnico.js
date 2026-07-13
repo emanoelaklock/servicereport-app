@@ -59,13 +59,17 @@
   // portal) + o detalhe. Labels do vocabulário único (utils.js:MOTIVO_LABEL). Fallback pro texto
   // renderizado (motivo_devolucao) nos registros anteriores à Fase A (sem cats).
   const hasDevol = (t) => !!(t && ((Array.isArray(t.motivo_devolucao_cats) && t.motivo_devolucao_cats.length) || t.motivo_devolucao))
+  // Dias inteiros desde que a tarefa entrou em 'devolvida' (null se sem carimbo — devoluções antigas).
+  const devolvidaDias = (t) => (t && t.devolvida_em) ? Math.floor((Date.now() - new Date(t.devolvida_em).getTime()) / 86400000) : null
+  const devolvidaIdadeTxt = (dd) => dd <= 0 ? 'hoje' : (dd === 1 ? 'há 1 dia' : 'há ' + dd + ' dias')
   function devolMotivoHTML(t) {
     const cats = t && t.motivo_devolucao_cats, det = t && t.motivo_devolucao_detalhe, L = window.MOTIVO_LABEL || {}
-    if (Array.isArray(cats) && cats.length) {
-      return `<div class="devol-chips">${cats.map(c => `<span class="devol-chip">${esc(L[c] || c)}</span>`).join('')}</div>`
-        + (det ? `<div class="devol-det">${esc(det)}</div>` : '')
-    }
-    return (t && t.motivo_devolucao) ? `<div class="devol-det">${esc(t.motivo_devolucao)}</div>` : ''
+    const dd = devolvidaDias(t)
+    const idade = dd == null ? '' : `<div class="devol-idade${dd >= 1 ? ' urg' : ''}">Devolvida ${devolvidaIdadeTxt(dd)}${dd >= 1 ? ' · corrija o quanto antes' : ''}</div>`
+    const corpo = (Array.isArray(cats) && cats.length)
+      ? `<div class="devol-chips">${cats.map(c => `<span class="devol-chip">${esc(L[c] || c)}</span>`).join('')}</div>` + (det ? `<div class="devol-det">${esc(det)}</div>` : '')
+      : ((t && t.motivo_devolucao) ? `<div class="devol-det">${esc(t.motivo_devolucao)}</div>` : '')
+    return idade + corpo
   }
   // Checkpoint de passagem: revelado ao tocar "Encerrar a RAT do dia". "Volta amanhã?"; se Não, o que falta/levar.
   let voltaAmanha = null
@@ -782,7 +786,7 @@
       // mais antigo é alcançável pela busca (3 meses, online). RLS (os_tecnico_sel) já escopa ao técnico.
       const d14 = new Date(Date.now() - 14 * 86400000).toISOString().slice(0, 10)
       const { data, error } = await sb.from('tarefas')
-        .select('id,numero,status,data_agendada,cliente_id,orientacao,observacoes,tipo_servico_id,local_servico,previsao_dias,motivo_devolucao,motivo_devolucao_cats,motivo_devolucao_detalhe')
+        .select('id,numero,status,data_agendada,cliente_id,orientacao,observacoes,tipo_servico_id,local_servico,previsao_dias,motivo_devolucao,motivo_devolucao_cats,motivo_devolucao_detalhe,devolvida_em')
         .neq('status', 'faturada')
         .or(`data_agendada.gte.${d14},data_agendada.is.null,status.in.(aguardando_execucao,em_execucao,em_pausa,devolvida)`)
         .order('data_agendada', { ascending: true, nullsFirst: false })
@@ -898,7 +902,7 @@
   function estadoAgenda(t, temRatHoje) {
     if (t.status === 'em_execucao') return { sk: 'info', txt: temRatHoje ? 'Atendimento continua' : 'Em execução' }
     if (t.status === 'em_pausa') return { sk: 'pausa', txt: temRatHoje ? 'Atendimento continua' : 'Em pausa — retomar' }
-    if (t.status === 'devolvida') return { sk: 'pend', txt: 'Devolvida — corrigir' }
+    if (t.status === 'devolvida') { const dd = devolvidaDias(t); return { sk: 'pend', txt: (dd != null && dd >= 1) ? `Devolvida ${devolvidaIdadeTxt(dd)} — corrigir` : 'Devolvida — corrigir' } }
     return { sk: 'aguard', txt: 'Aguardando' }
   }
 

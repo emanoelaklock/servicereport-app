@@ -629,6 +629,7 @@ const TarefaApp = (() => {
       patch.motivo_devolucao_cats = dv.cats
       patch.motivo_devolucao_detalhe = dv.detalhe
       patch.motivo_devolucao = dv.texto   // renderizado: display no app + fallback dos antigos
+      patch.devolvida_em = new Date().toISOString()   // carimbo p/ o lembrete "sem retorno há +1 dia"
     }
     // Modo "nova": cria a tarefa agora (cliente é obrigatório) e reabre já carregada.
     if (!cur.id) {
