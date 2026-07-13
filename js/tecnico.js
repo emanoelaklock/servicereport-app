@@ -3812,6 +3812,10 @@
     if (ecImp) { limparErros(); marcarErros(ecImp.campos || [], ecImp.btns.filter(Boolean)); return toast(ecImp.msg, 'err') }
     // Mantém o que já foi apontado no formulário (deslocamento, início/término).
     const { respostas } = coletarRespostas()
+    // Improdutiva não tem pausa/almoço (não houve execução) → remove resquício de rascunho, pra não
+    // vazar dado sujo pro PDF/relatório. Não afeta a conta: o tempo aqui é só o tempo no local (mFim−mIni).
+    for (const k of ['pausa', 'pausa_inicio', 'pausa_termino', 'pausa_motivo',
+                     'almoco', 'almoco_inicio', 'almoco_termino']) delete respostas[k]
     const cli = ref.clientes.find(c => c.id === cliId)
     await D().salvarRat(cur.client_uuid, {
       tarefa_id: cur.tarefa_id || null,
