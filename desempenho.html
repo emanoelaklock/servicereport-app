@@ -18,11 +18,10 @@
      A sidebar (.side, 240px) já ocupa espaço no fluxo flex do body; o
      margin-left global de .sb-main (--sb) compensaria uma sidebar FIXED —
      aqui só empurrava o conteúdo pra direita. Zera nesta página e o
-     conteúdo ocupa toda a largura útil (limite só em monitores muito
-     largos, encostado à esquerda — nunca centralizado com margin auto). */
-  body > .sb-main{margin-left:0}
-  .sb-main .content{width:min(100%, 1440px);max-width:1440px;margin-left:0;margin-right:auto;
-                    padding-left:24px;padding-right:24px;box-sizing:border-box}
+     conteúdo usa TODA a largura útil até ~24px da borda direita
+     (sem max-width, sem margin auto — o main já desconta a sidebar). */
+  body > .sb-main{margin-left:0;width:100%;max-width:none;min-width:0}
+  .sb-main .content{width:100%;max-width:none;margin:0;padding:16px 24px 32px;box-sizing:border-box}
 
   /* Cabeçalho: título + subtítulo à esquerda; mês/carimbo/estado numa linha (quebra no mobile) */
   .dp-head{display:flex;align-items:flex-end;justify-content:space-between;gap:14px;flex-wrap:wrap;margin-bottom:16px}
@@ -43,7 +42,7 @@
   .dp-b-info{background:var(--sr-info-bg);color:var(--sr-info-fg);border:1px solid var(--sr-info-m);border-left:4px solid var(--sr-info-m)}
   .dp-b-car{background:var(--sr-warn-bg);color:var(--sr-warn-fg);border:1px solid var(--sr-warn-m);border-left:4px solid var(--sr-warn-m)}
   /* KPIs — 4 cards brancos: cor semântica só na barra superior, ícone e valor */
-  #dp-kpis{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:12px}
+  #dp-kpis{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px;margin-bottom:12px}
   #dp-kpis:empty{display:none}
   @media(max-width:980px){#dp-kpis{grid-template-columns:repeat(2,1fr)}}
   .dp-kpi{background:var(--sr-card);border:1px solid var(--bd);border-top:3px solid var(--bd2);border-radius:12px;padding:12px 14px}
@@ -64,8 +63,19 @@
   .dp-lg{display:inline-flex;align-items:center;gap:6px}
   .dp-lg i{width:10px;height:10px;border-radius:3px;display:inline-block}
   /* Ranking */
-  #dp-rk{background:var(--sur);border:1px solid var(--bd);border-radius:12px;overflow:hidden;box-shadow:var(--sh)}
+  #dp-rk{background:var(--sur);border:1px solid var(--bd);border-radius:12px;overflow-x:auto;box-shadow:var(--sh)}
   #dp-rk table{width:100%;border-collapse:collapse;font-size:12.5px}
+  /* Redistribuição: mais espaço pra Preenchimento Online e Principais ocorrências;
+     menos pra índice/composição/tendência. Números nunca quebram; descritivos podem. */
+  #dp-rk th:nth-child(1){width:22%;min-width:210px}
+  #dp-rk th:nth-child(2){width:90px}
+  #dp-rk th:nth-child(3){width:125px}
+  #dp-rk th:nth-child(4){width:120px}
+  #dp-rk th:nth-child(5){min-width:210px}
+  #dp-rk th:nth-child(6){min-width:240px}
+  #dp-rk th:nth-child(7){width:100px}
+  #dp-rk th:nth-child(8){width:32px}
+  #dp-rk td:nth-child(2),#dp-rk td:nth-child(3),#dp-rk td:nth-child(7){white-space:nowrap}
   #dp-rk th{text-align:left;font-size:10.5px;font-weight:700;letter-spacing:.03em;text-transform:none;color:var(--sr-info-fg);background:var(--sr-info-bg);padding:9px 12px;border-bottom:1px solid var(--bd);cursor:default}
   #dp-rk td{padding:10px 12px;border-bottom:1px solid var(--bd);vertical-align:middle}
   .dp-linha{cursor:pointer}
@@ -82,7 +92,7 @@
   .dp-nt{font-size:17px;font-weight:800;color:var(--sr-title);font-variant-numeric:tabular-nums;white-space:nowrap}
   .dp-de{font-size:11px;font-weight:700;color:var(--tx3)}
   .dp-amostra{font-size:9.5px;font-weight:800;background:var(--sur2);color:var(--tx3);border-radius:999px;padding:2px 8px;margin-left:8px;letter-spacing:.02em;white-space:nowrap}
-  .dp-comp{display:flex;height:8px;border-radius:4px;overflow:hidden;background:var(--sur2);min-width:130px}
+  .dp-comp{display:flex;height:8px;border-radius:4px;overflow:hidden;background:var(--sur2);width:110px;min-width:0}
   .dp-comp i{display:block;height:100%}
   .dp-po{font-size:12px;color:var(--tx2)}
   .dp-po b{color:var(--tx)}
@@ -128,7 +138,7 @@
 <div id="sidebar-container"></div>
 
 <div class="sb-main"><div class="page">
-  <div class="topbar"><div class="topbar-title">Desempenho da equipe</div></div>
+  <!-- sem topbar: título único mora no conteúdo (dp-head), com mês/nav/carimbo à direita -->
   <div class="content">
     <div class="dp-head">
       <div class="dp-h-t">
