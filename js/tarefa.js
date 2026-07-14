@@ -1268,9 +1268,31 @@ const TarefaApp = (() => {
     ratEdit = false; renderRatModal(); renderRats()
     toast('RAT atualizada.', 'ok')
   }
+  // Modelo do PDF vetorial SÓ de RATs (sem capa da Tarefa): RAT avulsa e PDF unificado.
+  // Mesmo perfil do documento antigo dessas telas: com valores e todos os itens (uso interno).
+  function modeloRatsPdf(dets, headerRight, arquivo) {
+    return {
+      numeroFmt: osNo(cur.numero), headerRight, arquivo, selo: null,
+      flags: { cliente: false, valores: true, conciliacao: false, zerados: true },
+      motivoImprodutiva: RatView.motivoImprodutivaLabel,
+      capa: null, dets,
+    }
+  }
+  // Gera com estado de "gerando…" no botão + toast padrão de erro.
+  async function gerarRatsPdf(dets, headerRight, arquivo, btnId) {
+    const btn = btnId ? document.getElementById(btnId) : null
+    const antes = btn ? btn.textContent : ''
+    if (btn) { btn.disabled = true; btn.textContent = 'Gerando PDF…' }
+    try { await PdfTarefa.gerar(modeloRatsPdf(dets, headerRight, arquivo)) }
+    catch (e) { console.error('[PDF RATs]', e); toast('Não foi possível gerar o PDF. Tente novamente.', 'err') }
+    finally { if (btn) { btn.disabled = false; btn.textContent = antes } }
+  }
   function ratPdf() {
-    if (ratMulti) RatView.gerarPdf(ratList, `RATs Tarefa ${osNo(cur.numero)}`)
-    else if (ratDet) RatView.gerarPdf([ratDet], `RAT ${cur.cliente_nome || ''} ${osNo(cur.numero)}`.trim())
+    if (ratMulti) gerarRatsPdf(ratList, `Tarefa Nº ${osNo(cur.numero)} · RATs`, `Tarefa_${osNo(cur.numero)}_RATs.pdf`, 'rat-pdf')
+    else if (ratDet) {
+      const seq = ratDet.r.rat_seq != null ? String(ratDet.r.rat_seq).padStart(2, '0') : null
+      gerarRatsPdf([ratDet], `RAT Nº ${osNo(cur.numero)}${seq ? '/' + seq : ''}`, `RAT_${osNo(cur.numero)}${seq ? '_' + seq : ''}.pdf`, 'rat-pdf')
+    }
   }
   async function ratExcluir() {
     if (!ratDet) return
@@ -1295,9 +1317,16 @@ const TarefaApp = (() => {
   async function pdfUnificado() {
     const rats = cur.rats || []
     if (!rats.length) return toast('Nenhuma RAT para gerar PDF.', 'err')
-    const dets = []
-    for (const r of rats) dets.push(await RatView.loadDetalhe(r))
-    RatView.gerarPdf(dets, `RATs Tarefa ${osNo(cur.numero)}`)
+    const btn = document.getElementById('cc-rat-pdf')
+    const antes = btn.textContent
+    btn.disabled = true; btn.textContent = 'Gerando PDF…'
+    try {
+      const dets = []
+      for (const r of rats) dets.push(await RatView.loadDetalhe(r))
+      await PdfTarefa.gerar(modeloRatsPdf(dets, `Tarefa Nº ${osNo(cur.numero)} · RATs`, `Tarefa_${osNo(cur.numero)}_RATs.pdf`))
+    } catch (e) {
+      console.error('[PDF unificado]', e); toast('Não foi possível gerar o PDF. Tente novamente.', 'err')
+    } finally { btn.disabled = false; btn.textContent = antes }
   }
 
   // ── PDF VETORIAL (pdfmake local) — botão "Gerar PDF" ─────────────────────

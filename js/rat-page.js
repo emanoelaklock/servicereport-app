@@ -103,9 +103,24 @@ const RatPage = (() => {
     document.getElementById('rp-salvar').onclick = salvar
     document.getElementById('mot-x').onclick = fecharMotivo
     document.getElementById('mot-cancelar').onclick = fecharMotivo
-    document.getElementById('rp-pdf').onclick = () => {
-      const t = det.r.tarefa && det.r.tarefa.numero != null ? String(det.r.tarefa.numero).padStart(5, '0') : ''
-      RatView.gerarPdf([det], `RAT ${det.r.cliente_nome || ''} ${t}`.trim())
+    // PDF vetorial (pdfmake local) — mesmo motor do documento da Tarefa, sem capa.
+    document.getElementById('rp-pdf').onclick = async () => {
+      const btn = document.getElementById('rp-pdf')
+      const antes = btn.textContent
+      btn.disabled = true; btn.textContent = 'Gerando PDF…'
+      try {
+        const t = det.r.tarefa && det.r.tarefa.numero != null ? String(det.r.tarefa.numero).padStart(5, '0') : ''
+        const seq = det.r.rat_seq != null ? String(det.r.rat_seq).padStart(2, '0') : null
+        const ratNo = (t || '—') + (seq ? '/' + seq : '')
+        await PdfTarefa.gerar({
+          numeroFmt: t || '—', headerRight: `RAT Nº ${ratNo}`,
+          arquivo: `RAT_${t || 'SR'}${seq ? '_' + seq : ''}.pdf`, selo: null,
+          flags: { cliente: false, valores: true, conciliacao: false, zerados: true },
+          motivoImprodutiva: RatView.motivoImprodutivaLabel,
+          capa: null, dets: [det],
+        })
+      } catch (e) { console.error('[PDF RAT]', e); toast('Não foi possível gerar o PDF. Tente novamente.', 'err') }
+      finally { btn.disabled = false; btn.textContent = antes }
     }
     document.getElementById('rp-excluir').onclick = excluir
     document.getElementById('rp-encerrar').onclick = encerrar
