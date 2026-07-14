@@ -68,7 +68,10 @@
     const idade = dd == null ? '' : `<div class="devol-idade${dd >= 1 ? ' urg' : ''}">Devolvida ${devolvidaIdadeTxt(dd)}${dd >= 1 ? ' · corrija o quanto antes' : ''}</div>`
     const corpo = (Array.isArray(cats) && cats.length)
       ? `<div class="devol-chips">${cats.map(c => `<span class="devol-chip">${esc(L[c] || c)}</span>`).join('')}</div>` + (det ? `<div class="devol-det">${esc(det)}</div>` : '')
-      : ((t && t.motivo_devolucao) ? `<div class="devol-det">${esc(t.motivo_devolucao)}</div>` : '')
+      : ((t && t.motivo_devolucao)
+          // fallback pré-Fase A (texto renderizado com bullets): vira um chip por item, como no portal
+          ? `<div class="devol-chips">${String(t.motivo_devolucao).split('•').map(s => s.trim()).filter(Boolean).map(s => `<span class="devol-chip">${esc(s)}</span>`).join('')}</div>`
+          : '')
     return idade + corpo
   }
   // Checkpoint de passagem: revelado ao tocar "Encerrar a RAT do dia". "Volta amanhã?"; se Não, o que falta/levar.
