@@ -1,0 +1,116 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Desempenho — Service Report</title>
+<link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="css/theme.css">
+<link rel="stylesheet" href="css/design-system-admin.css">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="js/utils.js"></script>
+<script src="js/supabase-client.js"></script>
+<script src="js/auth.js"></script>
+<script src="js/sidebar.js"></script>
+<script src="js/desempenho.js"></script>
+<style>
+  /* Toolbar do mês */
+  .dp-tool{display:flex;align-items:center;gap:10px;margin-bottom:14px;flex-wrap:wrap}
+  .dp-tool .pb{width:32px;height:32px}
+  #dp-mes{font-size:15px;font-weight:800;color:var(--sr-title);min-width:150px;text-align:center}
+  .dp-cong{font-size:11px;background:var(--sr-info-bg);color:var(--sr-info-fg);border-radius:999px;padding:4px 11px;font-weight:700}
+  .dp-parcial{font-size:11px;background:var(--sur2);color:var(--tx3);border-radius:999px;padding:4px 11px;font-weight:700}
+  /* Banner de estado */
+  .dp-banner{border-radius:10px;padding:9px 13px;font-size:12.5px;font-weight:600;margin-bottom:14px}
+  .dp-banner:empty{display:none}
+  .dp-b-car{background:var(--sr-warn-bg);color:var(--sr-warn-fg);border:1px solid var(--sr-warn-m);border-left:4px solid var(--sr-warn-m)}
+  .dp-b-off{background:var(--sur2);color:var(--tx2);border:1px solid var(--bd);border-left:4px solid var(--tx3)}
+  #dp-banner:has(.dp-banner:empty){display:none}
+  /* KPIs — agregados apenas (sem nomes) */
+  #dp-kpis{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:14px}
+  #dp-kpis:empty{display:none}
+  @media(max-width:900px){#dp-kpis{grid-template-columns:repeat(2,1fr)}}
+  .dp-kpi{background:var(--sur);border:1px solid var(--bd);border-radius:12px;padding:12px 14px}
+  .dp-kpi .l{font-size:10.5px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--tx3)}
+  .dp-kpi .v{font-size:24px;font-weight:800;color:var(--sr-title);letter-spacing:-1px;font-variant-numeric:tabular-nums;margin-top:2px}
+  .dp-kpi .s{font-size:11px;color:var(--tx3)}
+  /* Ranking */
+  #dp-rk{background:var(--sur);border:1px solid var(--bd);border-radius:12px;overflow:hidden;box-shadow:var(--sh)}
+  #dp-rk table{width:100%;border-collapse:collapse;font-size:12.5px}
+  #dp-rk th{text-align:left;font-size:10.5px;font-weight:700;letter-spacing:.04em;text-transform:none;color:var(--sr-info-fg);background:var(--sr-info-bg);padding:9px 12px;border-bottom:1px solid var(--bd);cursor:default}
+  #dp-rk td{padding:10px 12px;border-bottom:1px solid var(--bd);vertical-align:middle}
+  .dp-linha{cursor:pointer}
+  .dp-linha:hover td{background:var(--sur2)}
+  .dp-linha.on td{background:var(--sr-info-bg)!important}
+  .dp-tec{display:flex;align-items:center;gap:9px;font-weight:700;color:var(--tx);white-space:nowrap}
+  .dp-av{width:28px;height:28px;border-radius:50%;background:var(--sr-info-bg);color:var(--sr-info-fg);display:grid;place-items:center;font-size:10px;font-weight:800;flex:none;overflow:hidden}
+  .dp-av img{width:100%;height:100%;object-fit:cover}
+  .dp-nt{font-size:17px;font-weight:800;color:var(--sr-title);font-variant-numeric:tabular-nums}
+  .dp-comp{display:flex;height:8px;border-radius:4px;overflow:hidden;background:var(--sur2);min-width:130px}
+  .dp-comp i{display:block;height:100%}
+  .dp-fj{font-size:10.5px;background:var(--sur2);color:var(--tx3);border-radius:999px;padding:3px 8px;font-weight:700;white-space:nowrap}
+  .dp-tend{font-size:11.5px;font-weight:700;color:var(--sr-exec-fg);white-space:nowrap}
+  .dp-tend.dn{color:var(--sr-pend-fg)}
+  .dp-vazio{padding:22px;font-size:13px;color:var(--tx3)}
+  /* Drill-down */
+  .dp-dd td{background:var(--sur);padding:0 12px 14px}
+  .dp-ddbox{padding-top:12px}
+  .dp-ddgrid{display:grid;grid-template-columns:1.2fr 1fr;gap:14px}
+  @media(max-width:900px){.dp-ddgrid{grid-template-columns:1fr}}
+  .dp-bloco{border:1px solid var(--bd);border-radius:11px;padding:12px 13px}
+  .dp-bt{display:flex;align-items:center;gap:7px;font-size:12px;font-weight:800;color:var(--sr-title);margin-bottom:8px}
+  .dp-bt::before{content:"";width:3px;height:13px;border-radius:2px;background:var(--sr-info-m)}
+  .dp-b-dev .dp-bt::before{background:var(--sr-pend-m)}
+  .dp-rrow{display:flex;align-items:center;gap:9px;padding:6px 0;border-bottom:1px dashed var(--bd);font-size:12px}
+  .dp-rrow:last-of-type{border-bottom:0}
+  .dp-rrow a{color:var(--sr-info-fg);font-weight:700;text-decoration:none;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .dp-chip{flex:none;font-size:9.5px;font-weight:800;padding:3px 8px;border-radius:999px;margin-left:auto}
+  .dp-c-d0{background:var(--sr-exec-bg);color:var(--sr-exec-fg)}
+  .dp-c-d1{background:var(--sr-warn-bg);color:var(--sr-warn-fg)}
+  .dp-c-atr{background:var(--sr-pend-bg);color:var(--sr-pend-fg)}
+  .dp-c-ab{background:var(--sur2);color:var(--tx3)}
+  .dp-mini{font-size:11.5px;color:var(--tx2);line-height:1.6;padding:2px 0}
+  .dp-mini b{color:var(--tx)}
+  .dp-rec{color:var(--sr-pend-fg);font-weight:700}
+  .dp-mut{color:var(--tx3)}
+  .dp-sub{font-size:10.5px;font-weight:800;color:var(--tx3);text-transform:uppercase;letter-spacing:.05em;margin:10px 0 4px}
+  .dp-catrow{display:flex;align-items:center;gap:8px;padding:4px 0;font-size:12px}
+  .dp-catl{width:170px;color:var(--tx2);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .dp-catbar{flex:1;height:7px;border-radius:4px;background:var(--sur2);overflow:hidden}
+  .dp-catbar i{display:block;height:100%;background:var(--sr-pend-m);border-radius:4px}
+  .dp-ress{margin-top:10px;font-size:10.5px;color:var(--tx3);background:var(--sur2);border-radius:7px;padding:6px 9px;line-height:1.5}
+  /* Go-live */
+  .dp-cfgbox{display:flex;align-items:center;gap:12px;background:var(--sur);border:1px dashed var(--bd2);border-radius:12px;padding:11px 14px;font-size:12.5px;color:var(--tx2);margin-top:14px;flex-wrap:wrap}
+  .dp-cfgbox b{color:var(--tx)}
+  #dp-golive{margin-left:auto}
+</style>
+</head>
+<body>
+<div id="sidebar-container"></div>
+
+<div class="sb-main"><div class="page">
+  <div class="topbar"><div class="topbar-title">Desempenho — Preenchimento online</div></div>
+  <div class="content">
+    <div class="dp-tool">
+      <button class="pb" id="dp-prev" title="Mês anterior">‹</button>
+      <span id="dp-mes">—</span>
+      <button class="pb" id="dp-next" title="Próximo mês">›</button>
+      <span id="dp-fonte"></span>
+    </div>
+    <div id="dp-banner"></div>
+    <div id="dp-kpis"></div>
+    <div id="dp-rk"><div class="dp-vazio">Carregando…</div></div>
+    <div class="dp-cfgbox"><span id="dp-cfg">—</span><button class="btn btn-p" id="dp-golive" style="display:none">Definir data de go-live…</button></div>
+  </div>
+</div></div>
+
+<div class="tc" id="tc"></div>
+
+<script>
+  window.PAGE_ALLOWED = ['admin', 'gestor_axis']
+  async function onPostLogin() { renderSidebar('desempenho'); await DesempenhoApp.init() }
+  renderSidebar('desempenho')
+  initAuth()
+</script>
+</body>
+</html>
