@@ -69,6 +69,28 @@ window.RatView = (function () {
   const fmtDataBR = (s) => { const m = String(s == null ? '' : s).match(/^(\d{4})-(\d{2})-(\d{2})/); return m ? `${m[3]}/${m[2]}/${m[1]}` : esc(String(s == null ? '' : s)) }
   const tipoNomeRat = (r) => (r.tarefa && r.tarefa.tipo && r.tarefa.tipo.nome) || (r.tipos_servico && r.tipos_servico.nome) || '—'
 
+  // ── Snapshot estático do Local (GPS): satélite montado com tiles públicos (Esri World
+  // Imagery, atribuição obrigatória) + pino desenhado no ponto. Sem chave de API; as
+  // imagens são lazy e o clique abre o Google Maps. Projeção Web Mercator, zoom fixo.
+  function mapaSnapHTML(lat, lng) {
+    const z = 16, T = 256, n = Math.pow(2, z)
+    const rad = lat * Math.PI / 180
+    const px = (lng + 180) / 360 * n * T
+    const py = (1 - Math.log(Math.tan(rad) + 1 / Math.cos(rad)) / Math.PI) / 2 * n * T
+    const COLS = 7, ROWS = 3            // 1792×768 px de tiles — cobre o card em qualquer largura
+    const tx0 = Math.floor(px / T) - Math.floor(COLS / 2)
+    const ty0 = Math.floor(py / T) - Math.floor(ROWS / 2)
+    const dx = Math.round(px - tx0 * T), dy = Math.round(py - ty0 * T)   // ponto → centro do quadro
+    let tiles = ''
+    for (let rw = 0; rw < ROWS; rw++) for (let c = 0; c < COLS; c++) {
+      tiles += `<img decoding="async" alt="" src="https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/${z}/${ty0 + rw}/${tx0 + c}" style="position:absolute;left:${c * T}px;top:${rw * T}px;width:${T}px;height:${T}px;max-width:none;max-height:none;border-radius:0;margin:0;display:block">`
+    }
+    return `<a class="rd-mapa-snap" href="https://www.google.com/maps?q=${lat},${lng}" target="_blank" rel="noopener" title="Abrir no Google Maps">
+      <span class="rd-mapa-tiles" style="position:absolute;left:50%;top:50%;display:block;width:0;height:0;margin-left:${-dx}px;margin-top:${-dy}px">${tiles}</span>
+      <svg class="rd-mapa-pin" viewBox="0 0 24 24"><path d="M12 2a7 7 0 0 0-7 7c0 5 7 13 7 13s7-8 7-13a7 7 0 0 0-7-7z" fill="#E5403A" stroke="#fff" stroke-width="1.5"/><circle cx="12" cy="9" r="2.6" fill="#fff"/></svg>
+      <span class="rd-mapa-attr">Imagens © Esri · Maxar</span></a>`
+  }
+
   const STATUS = {
     em_andamento:        { label: 'Em andamento',           cls: 'st-run' },
     registrado:          { label: 'Atendimento Realizado',  cls: 'st-ok' },
@@ -206,11 +228,7 @@ window.RatView = (function () {
       ${campoOS('tag', 'Tipo de tarefa', esc(tipoNomeRat(r)))}
       ${campoOS('clock', 'Duração', fmtMin(tempoRat(r)))}
       ${(r.checkin_lat != null && r.checkin_lng != null) ? campoOS('pin', 'Local (GPS)', `<a href="https://www.google.com/maps?q=${r.checkin_lat},${r.checkin_lng}" target="_blank" rel="noopener">abrir no Google Maps ↗</a>${r.checkin_precisao ? ` <span class="dim">(±${Math.round(r.checkin_precisao)} m)</span>` : ''}`) : ''}
-    </div>${(r.checkin_lat != null && r.checkin_lng != null)
-      ? `<details class="rd-mapa"><summary>${fic('pin')} Ver o local no mapa</summary>
-          <iframe loading="lazy" title="Local (GPS) da RAT" referrerpolicy="no-referrer-when-downgrade"
-            src="https://maps.google.com/maps?q=${encodeURIComponent(r.checkin_lat + ',' + r.checkin_lng)}&z=17&t=k&hl=pt-BR&output=embed"></iframe></details>`
-      : ''}</div>`
+    </div>${(r.checkin_lat != null && r.checkin_lng != null) ? mapaSnapHTML(r.checkin_lat, r.checkin_lng) : ''}</div>`
     // Orientação: mesmo conteúdo, agora como seção própria em bloco branco com bullets
     if (tf.orientacao) h += `<div class="rd-sec"><div class="rd-sec-t">Orientação</div><div class="rd-caixa rd-rich">${multiRico(tf.orientacao)}</div></div>`
 

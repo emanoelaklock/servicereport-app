@@ -181,10 +181,9 @@
 .rd-prodopt:hover{background:var(--sur2)}
 .rd-matdel{border:none;background:none;color:var(--sr-pend-m);font-size:18px;line-height:1;cursor:pointer;padding:0 4px}
 
-/* ── Local (GPS): preview do mapa embutido (satélite, expansível) ── */
-.rd-mapa{margin-top:10px}
-.rd-mapa summary{cursor:pointer;display:inline-flex;align-items:center;gap:6px;font-size:12px;font-weight:700;color:var(--sr-blue);list-style:none;user-select:none}
-.rd-mapa summary::-webkit-details-marker{display:none}
-.rd-mapa summary svg{width:13px;height:13px}
-.rd-mapa[open] summary{margin-bottom:8px}
-.rd-mapa iframe{width:100%;height:300px;border:1px solid var(--sr-line);border-radius:12px;display:block;background:var(--sur2)}
+/* ── Local (GPS): snapshot estático do satélite (tiles + pino), clique abre o Google Maps ── */
+.rd-mapa-snap{position:relative;display:block;height:240px;overflow:hidden;border-radius:12px;border:1px solid var(--sr-line);margin-top:10px;background:var(--sur2)}
+.rd-mapa-tiles{position:absolute;left:50%;top:50%;display:block}
+.rd-mapa-tiles img{position:absolute;width:256px;height:256px;max-width:none}
+.rd-mapa-pin{position:absolute;left:50%;top:50%;width:30px;height:30px;transform:translate(-50%,-100%);filter:drop-shadow(0 2px 3px rgba(0,0,0,.35))}
+.rd-mapa-attr{position:absolute;right:6px;bottom:5px;font-size:9px;color:var(--sr-card);background:rgba(0,0,0,.45);border-radius:6px;padding:1px 7px;letter-spacing:.02em}
