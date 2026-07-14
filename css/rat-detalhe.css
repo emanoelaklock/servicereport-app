@@ -3,17 +3,20 @@
    Visual compartilhado do detalhe da RAT no portal (modal da Tarefa + rat.html).
    Substitui os blocos .rd-* e .det-* duplicados que viviam no <style> de cada página.
    (Cuidado com "asterisco-barra" dentro de comentário: fecha o comentário no meio!)
-   CORES: exclusivamente tokens do theme.css (var(--sur/--sur2/--acl/--bd/--bd2/--tx/
-   --tx2/--tx3/--ac/--acm/--gr/--am/--re/--sh/--r)); translúcidos derivados por
-   color-mix dos próprios tokens — nenhum hexadecimal local.
+   CORES: exclusivamente tokens oficiais (theme.css + tokens.css) — nenhum
+   hexadecimal local e nenhum color-mix. Contraste vem de bordas, filetes,
+   ícones e pequenos fundos sur2; grandes áreas ficam brancas (sur).
 ═══════════════════════════════════════════════ */
 
-/* ── Cabeçalho da RAT: nº em destaque · data · técnico · duração + badge ──
-   Destaque informativo suave (azul do sistema) + única sombra do componente. */
+/* ── Card externo da RAT: superfície branca única com borda e sombra ── */
+.rd{background:var(--sur);border:1px solid var(--bd);border-radius:var(--r);box-shadow:var(--sh);
+    padding:0 18px 18px}
+
+/* ── Cabeçalho da RAT: faixa sur2 no topo do card, nº em destaque + badge ── */
 .rd-head{display:flex;align-items:flex-start;justify-content:space-between;gap:10px 16px;flex-wrap:wrap;
-         background:color-mix(in srgb, var(--ac) 6%, var(--sur));
-         border:1px solid color-mix(in srgb, var(--ac) 20%, var(--bd));
-         border-radius:var(--r);box-shadow:var(--sh);padding:14px 18px;margin-bottom:18px}
+         background:var(--sur2);border-bottom:1px solid var(--bd);
+         border-radius:calc(var(--r) - 1px) calc(var(--r) - 1px) 0 0;
+         padding:14px 18px;margin:0 -18px 18px}
 .rd-head-main{display:flex;align-items:baseline;gap:6px 10px;flex-wrap:wrap;min-width:0}
 .rd-num{font-size:19px;font-weight:800;color:var(--tx);letter-spacing:-.3px;line-height:1.2}
 .rd-hmeta{display:inline-flex;align-items:baseline;gap:6px 10px;flex-wrap:wrap;font-size:13px;color:var(--tx2);font-weight:600}
@@ -21,7 +24,7 @@
 .rd-head .rd-sub{flex-basis:100%;font-size:12.5px;color:var(--tx2);font-weight:500;margin-top:2px}
 .rd-head > .rd-pill{margin-left:auto}
 .rd-pill{display:inline-flex;align-items:center;align-self:center;padding:4px 13px;border-radius:999px;font-size:12px;font-weight:700;white-space:nowrap}
-.st-ok{background:color-mix(in srgb, var(--gr) 12%, var(--sur));color:color-mix(in srgb, var(--gr) 85%, var(--tx))}
+.st-ok{background:var(--sr-exec-bg);color:var(--sr-exec-fg)}
 .st-pend{background:var(--sur2);color:var(--am)}
 .st-run{background:var(--acl);color:var(--ac)}
 
@@ -43,8 +46,8 @@
 .rd-f .v .dim{color:var(--tx3);font-weight:500}
 .rd-f input,.rd-f select{width:100%;font:inherit;font-size:13px;margin-top:3px;padding:5px 7px;border:1px solid var(--ac);border-radius:6px;background:var(--sur);color:var(--tx);box-sizing:border-box}
 
-/* "RAT — dados do atendimento": um cartão só (sur2), divisórias internas leves */
-.rd-sec-atend .rd-grid{grid-template-columns:1fr 1fr;gap:0;background:var(--sur2);border:1px solid var(--bd2);border-radius:var(--r);overflow:hidden}
+/* "RAT — dados do atendimento": um cartão só, branco, com divisórias internas */
+.rd-sec-atend .rd-grid{grid-template-columns:1fr 1fr;gap:0;background:var(--sur);border:1px solid var(--bd);border-radius:var(--r);overflow:hidden}
 .rd-sec-atend .rd-f{background:none;border:0;border-radius:0;border-bottom:1px solid var(--bd);padding:11px 14px}
 .rd-sec-atend .rd-f:nth-child(odd){border-right:1px solid var(--bd)}
 .rd-sec-atend .rd-f:nth-last-child(1){border-bottom:0}
@@ -55,8 +58,10 @@
   .rd-sec-atend .rd-f:nth-last-child(2):nth-child(odd){border-bottom:1px solid var(--bd)}
 }
 
-/* ── Blocos de texto (Orientação, Serviço executado, Observações) ── */
-.rd-caixa{background:var(--sur);border:1px solid var(--bd2);border-radius:var(--r);padding:13px 16px}
+/* ── Blocos de texto (Orientação, Serviço executado, Observações):
+   caixa branca com filete azul à esquerda; Observações leva filete neutro ── */
+.rd-caixa{background:var(--sur);border:1px solid var(--bd);border-left:3px solid var(--ac);border-radius:var(--r);padding:13px 16px}
+.rd-sec[data-cwrap="observacoes"] .rd-caixa{border-left-color:var(--tx3)}
 .rd-rich{font-size:13px;color:var(--tx);line-height:1.65}
 .rd-rich p{margin:0 0 7px}
 .rd-rich p:last-child{margin-bottom:0}
@@ -69,7 +74,7 @@
 
 /* ── Passagem — volta depois pra terminar: card branco com filete âmbar à esquerda ──
    Âmbar SÓ como detalhe de alerta (ícone, título e filete) — nunca como fundo. */
-.rd-sec-alerta{background:var(--sur);border:1px solid var(--bd);border-left:3px solid var(--am);
+.rd-sec-alerta{background:var(--sur);border:1px solid var(--bd);border-left:4px solid var(--am);
                border-radius:var(--r);padding:13px 16px}
 .rd-sec-alerta .rd-sec-t{color:var(--am);border-bottom:0;padding-bottom:0;margin-bottom:10px}
 .rd-sec-alerta .rd-sec-t::before{display:none}
@@ -86,17 +91,17 @@
 .rd-prod{display:flex;flex-direction:column;gap:4px}
 .rd-prod div{font-size:13px;color:var(--tx)}
 .rd-emit{font-size:12.5px;line-height:1.5;color:var(--tx)}
-.rd-conflito{background:color-mix(in srgb, var(--re) 8%, var(--sur));border:1px solid color-mix(in srgb, var(--re) 30%, var(--bd));
-             color:color-mix(in srgb, var(--re) 75%, var(--tx));border-radius:var(--r);padding:10px 12px;font-size:13px;line-height:1.45;margin-bottom:10px}
+.rd-conflito{background:var(--sur);border:1px solid var(--bd);border-left:4px solid var(--re);
+             color:var(--sr-pend-fg);border-radius:var(--r);padding:10px 12px;font-size:13px;line-height:1.45;margin-bottom:10px}
 .rd-autor{font-size:11px;color:var(--re);font-weight:700;margin-top:2px}
 
-/* ── Produtos: cabeçalho cinza-azulado, zebra discreta, números à direita, total em destaque ── */
-.rd-prodtbl{width:100%;border-collapse:collapse;font-size:12.5px;background:var(--sur);border:1px solid var(--bd2);border-radius:var(--r);overflow:hidden}
+/* ── Produtos: cabeçalho sur2, zebra vem do padrão global de tabela (theme.css),
+   números à direita, total em destaque ── */
+.rd-prodtbl{width:100%;border-collapse:collapse;font-size:12.5px;background:var(--sur);border:1px solid var(--bd);border-radius:var(--r);overflow:hidden}
 .rd-prodtbl th{text-align:left;font-size:10.5px;text-transform:none;letter-spacing:.02em;color:var(--tx2);font-weight:700;
-               background:color-mix(in srgb, var(--ac) 6%, var(--sur));padding:9px 11px;border-bottom:1px solid var(--bd)}
+               background:var(--sur2);padding:9px 11px;border-bottom:1px solid var(--bd)}
 .rd-prodtbl th.num,.rd-prodtbl td.num{text-align:right;font-family:var(--mono);white-space:nowrap}
 .rd-prodtbl td{padding:9px 11px;border-bottom:1px solid var(--bd);color:var(--tx)}
-.rd-prodtbl tbody tr:nth-child(even) td{background:color-mix(in srgb, var(--sur2) 55%, var(--sur))}
 .rd-prodtbl tbody tr:last-child td{border-bottom:0}
 .rd-prodtbl input.rd-preco{width:104px;text-align:right;font:inherit;font-family:var(--mono);padding:5px 7px;border:1px solid var(--ac);border-radius:6px;box-sizing:border-box}
 .rd-prodtbl input.rd-qtd{width:74px;text-align:right;font:inherit;font-family:var(--mono);padding:5px 7px;border:1px solid var(--ac);border-radius:6px;box-sizing:border-box}
@@ -106,24 +111,24 @@
 .rd-total b{font-family:var(--mono);font-size:15px;color:var(--tx)}
 
 /* ── Pausas e almoço ── */
-.rd-pausas{width:100%;border-collapse:collapse;font-size:12.5px;background:var(--sur);border:1px solid var(--bd2);border-radius:var(--r);overflow:hidden}
+.rd-pausas{width:100%;border-collapse:collapse;font-size:12.5px;background:var(--sur);border:1px solid var(--bd);border-radius:var(--r);overflow:hidden}
 .rd-pausas th{text-align:left;font-size:10.5px;letter-spacing:.02em;color:var(--tx2);font-weight:700;
-              background:color-mix(in srgb, var(--ac) 6%, var(--sur));padding:8px 11px;border-bottom:1px solid var(--bd)}
+              background:var(--sur2);padding:8px 11px;border-bottom:1px solid var(--bd)}
 .rd-pausas td{padding:8px 11px;border-bottom:1px solid var(--bd);color:var(--tx)}
 .rd-pausas tbody tr:last-child td{border-bottom:0}
 .rd-resumo-pausa{display:flex;align-items:center;gap:8px;font-size:13px;color:var(--tx)}
 .rd-resumo-pausa .rd-fic{margin-top:0}
 
-/* ── Fotos: miniaturas maiores e uniformes, raio 8, legenda abaixo ── */
+/* ── Fotos: miniaturas maiores e uniformes, raio do sistema, legenda abaixo ── */
 .det-fotos{display:flex;flex-wrap:wrap;gap:12px;margin-top:6px}
 .det-foto{display:flex;flex-direction:column;gap:4px;width:148px;margin:0}
-.det-fotos img{width:148px;height:111px;object-fit:cover;border-radius:8px;border:1px solid var(--bd)}
+.det-fotos img{width:148px;height:111px;object-fit:cover;border-radius:var(--r);border:1px solid var(--bd)}
 .det-foto figcaption{font-size:11px;color:var(--tx2);line-height:1.25}
-.det-sig{margin-top:6px;max-width:100%;border:1px solid var(--bd);border-radius:8px;background:var(--sur)}
+.det-sig{margin-top:6px;max-width:100%;border:1px solid var(--bd);border-radius:var(--r);background:var(--sur)}
 
 /* Edição de fotos (rat.html) */
 #rd-fotos .det-foto{position:relative}
-.rd-fotodel{position:absolute;top:4px;right:4px;width:22px;height:22px;border:none;border-radius:50%;background:color-mix(in srgb, var(--re) 92%, transparent);color:var(--sur);font-size:14px;line-height:1;cursor:pointer}
+.rd-fotodel{position:absolute;top:4px;right:4px;width:22px;height:22px;border:none;border-radius:50%;background:var(--re);color:var(--sur);font-size:14px;line-height:1;cursor:pointer}
 .rd-fotoleg,.rd-fotonewleg{width:148px;box-sizing:border-box;margin-top:3px;font:inherit;font-size:11px;padding:4px 6px;border:1px solid var(--bd);border-radius:6px}
 .rd-fotoadd{display:inline-flex;align-items:center;margin-top:10px;padding:9px 14px;border:1px dashed var(--ac);border-radius:8px;font-size:13px;font-weight:700;color:var(--ac);cursor:pointer}
 .rd-addprod{position:relative;margin-top:10px}
