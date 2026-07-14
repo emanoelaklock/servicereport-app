@@ -71,7 +71,7 @@ const DesempenhoApp = (() => {
   function bannerHTML() {
     if (!status || !status.inicio) return `<div class="dp-banner dp-b-info">
       <div class="dp-b-tx"><b>Painel ainda não liberado aos técnicos</b>
-      <span>Os técnicos ainda não visualizam o próprio placar. A ativação depende da confirmação da versão necessária nos aparelhos da frota.</span></div>
+      <span>Os técnicos ainda não visualizam o próprio placar. A versão do app já foi validada na frota — a ativação depende apenas da definição da data de go-live.</span></div>
       <button class="btn btn-p" id="dp-golive">Definir data de go-live</button></div>`
     const hoje = new Date().toISOString().slice(0, 10)
     if (status.carencia_ate && hoje <= String(status.carencia_ate)) return `<div class="dp-banner dp-b-car">
@@ -164,7 +164,7 @@ const DesempenhoApp = (() => {
   }
 
   async function definirGoLive() {
-    const v = prompt('Data de go-live do placar (AAAA-MM-DD).\n\nA partir dela: técnicos passam a VER o card; carência de 28 dias; nada anterior entra no placar.\n\nPré-requisito combinado: versão necessária confirmada nos aparelhos da frota.')
+    const v = prompt('Data de go-live do placar (AAAA-MM-DD).\n\nA partir dela: técnicos passam a VER o card; carência de 28 dias; nada anterior entra no placar.\n\nVersão do app já validada na frota — este clique é a última chave.')
     if (!v) return
     if (!/^\d{4}-\d{2}-\d{2}$/.test(v.trim())) return toast('Data inválida — use AAAA-MM-DD.', 'err')
     if (!confirm(`Ligar o painel com go-live em ${fmtD(v.trim())}? Os técnicos passam a ver o próprio placar no app.`)) return
