@@ -413,6 +413,17 @@ O técnico às vezes esquece algo (um técnico a bordo, um produto, uma foto) e 
 - **Só portal (admin online):** não entra na fila offline; o app do técnico segue offline-first intacto — a RAT do técnico é a origem, o admin corrige por cima, com rastro.
 - **Sync pós-ajuste também deixa rastro (07/26, migração 0095):** caso real (Tarefa 04828): a gestão ajustou um campo e depois o técnico reabriu a MESMA RAT no app ("edição pós-confirmação"); o sync faz upsert da RAT inteira e sobrescrevia o ajuste **em silêncio** — o histórico mentia. Agora o trigger `trg_audita_sync_pos_ajuste` (AFTER UPDATE de `respostas` em `rats`) grava o diff campo a campo em `rat_edicoes` com **motivo `sync_app`** e ator = técnico autenticado, sempre que uma escrita não-service-role alterar `respostas` de RAT com `ajustada_gestao=true`. Ninguém é bloqueado (a última palavra é de quem editou por último), mas o admin vê a reedição no histórico e pode **Restaurar**. *(Trigger é seguro aqui — só INSERE em `rat_edicoes`, sem UPDATE em rats/tarefas; não conflita com a decisão "sem trigger" do conflito de material, que envolvia `rat_inicia_tarefa`.)*
 
+### Painel de Desempenho (motor — Fase 1, migração 0097, 07/26)
+
+Nota mensal 0–100 por técnico: **65% encerramento-no-dia** (COLETIVA — a RAT pontua todos os `rat_tecnicos`; régua: **D+0 = 1 · D+1 ÚTIL = 0,5 · depois/nunca = 0**, sexta→segunda conta meio ponto; "em andamento" nunca conta como encerrada) **+ 15% reedição pós-encerramento em dia posterior** (INDIVIDUAL — device→técnico via `vw_device_tecnico`) **+ 20% devoluções** (COLETIVA — técnicos das RATs da tarefa devolvida; `devolvida_em` guarda só a última devolução, limitação v1).
+
+- **Timezone:** dia declarado (`respostas.data`, âncora = dia do TRABALHO) × encerramento real convertidos pra `America/Sao_Paulo` **antes** de extrair a data — encerrar 23h em Brasília é D+0 (testado; o `em` dos `sync_eventos` é o relógio do aparelho no momento do ato, então offline não é punido). v1 usa a proxy "último `salvo pelo técnico`"; **v2 trocará pelo carimbo local `respostas_ts`** (0096).
+- **Privacidade por construção:** views sem grant pra clientes; acesso SÓ por RPC — `meu_placar()` devolve a linha do próprio `auth.uid()`; `desempenho_time()`/`desempenho_rats()` exigem admin/gestor.
+- **Corte do go-live no servidor:** `desempenho_config.inicio` (**NULL = painel desligado — estado atual**); os RPCs e o snapshot recusam meses anteriores — retroativo nunca entra no placar. **Pré-requisito pra ligar: v575 confirmada estável no Android real da frota.** Carência = início + 28 dias (selo no card via `desempenho_status()`).
+- **Snapshot mensal** (`desempenho_snapshots` + `gerar_snapshot_desempenho(mes)`, admin-only): placar oficial congelado, histórico imutável.
+- **Janelas de instabilidade** (`app_instabilidade_janelas`, semeada com 30/06→06/07 v559→v575): flag informativa por RAT no drill-down — blinda a conversa da defesa "o app travava"; **não altera nota**.
+- Fases seguintes: F2 card do técnico (só o próprio placar; textos coletivos "da tua equipe"; selo de carência), F3 ranking admin com drill-down, F4 go-live, F5 proteção por campo + métrica v2.
+
 ### RAT improdutiva (visita sem execução)
 
 Acontece (cliente não liberou, local não pronto, falta de peça, clima, equipamento do cliente indisponível...). A RAT ganha o eixo **"Atendimento executado? Sim/Não"**:
