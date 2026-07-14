@@ -237,7 +237,7 @@
   // Merge parcial de campos numa RAT existente. Atualiza atualizado_em.
   // Carimbo local por campo (respostas_ts): quando `respostas` muda, cada chave
   // alterada ganha o horário do aparelho NAQUELE momento — matéria-prima da
-  // métrica de preenchimento em tempo real e da proteção de campos (registra
+  // métrica "Preenchimento online" (v2.1) e da proteção de campos (registra
   // QUANDO o técnico realmente preencheu cada coisa, independente do sync).
   async function salvarRat(client_uuid, patch = {}) {
     return tx([ST_RATS], 'readwrite', (t) => {
