@@ -235,12 +235,26 @@
   }
 
   // Merge parcial de campos numa RAT existente. Atualiza atualizado_em.
+  // Carimbo local por campo (respostas_ts): quando `respostas` muda, cada chave
+  // alterada ganha o horário do aparelho NAQUELE momento — matéria-prima da
+  // métrica de preenchimento em tempo real e da proteção de campos (registra
+  // QUANDO o técnico realmente preencheu cada coisa, independente do sync).
   async function salvarRat(client_uuid, patch = {}) {
     return tx([ST_RATS], 'readwrite', (t) => {
       const s = t.objectStore(ST_RATS)
       reqP(s.get(client_uuid)).then((cur) => {
         if (!cur) return
         const next = { ...cur, ...patch, client_uuid, atualizado_em: agora() }
+        if (patch.respostas !== undefined) {
+          const antes = cur.respostas || {}
+          const depois = patch.respostas || {}
+          const ts = { ...(cur.respostas_ts || {}) }
+          const chaves = new Set([...Object.keys(antes), ...Object.keys(depois)])
+          for (const k of chaves) {
+            if (String(depois[k] ?? '') !== String(antes[k] ?? '')) ts[k] = agora()
+          }
+          next.respostas_ts = ts
+        }
         // recomputa relatorio_completo localmente (espelho do server)
         next.relatorio_completo = !!(next.tem_foto && next.tem_assinatura && next.questionario_ok)
         s.put(next)

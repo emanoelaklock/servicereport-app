@@ -22,6 +22,7 @@
     'equipamento_id', 'contrato_id', 'tipo_servico_id', 'formulario_id',
     'cliente_nome', 'tecnico_nome', 'data_tarefa', 'status', 'valor',
     'checkin_lat', 'checkin_lng', 'checkin_precisao', 'checkin_em', 'assinatura_url', 'respostas',
+    'respostas_ts',   // carimbo local por campo (quando o técnico preencheu — métrica tempo-real v2)
     'tem_foto', 'tem_assinatura', 'questionario_ok', 'pendencias',
     'sync_status', 'device_id', 'os_omie', 'observacoes', 'tempo_trabalhado',
     'atendimento_executado', 'motivo_improdutiva', 'motivo_texto',   // visita improdutiva
