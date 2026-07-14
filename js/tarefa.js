@@ -1741,6 +1741,11 @@ const TarefaApp = (() => {
       </div>`
     } else if (nHist) {
       box.innerHTML = `<div class="cc-devol-past"><div class="cc-devol-pt">Histórico de devoluções (${nHist})</div>${linhas}</div>`
+    } else if (cur.motivo_devolucao || (Array.isArray(cur.motivo_devolucao_cats) && cur.motivo_devolucao_cats.length)) {
+      // Devolução anterior à série 0099 (sem linha no histórico): o motivo fica nos campos
+      // da tarefa — exibe como registro parcial pra informação nunca sumir da tela.
+      box.innerHTML = `<div class="cc-devol-past"><div class="cc-devol-pt">Histórico de devoluções</div>
+        <div class="cc-devol-h">${cur.devolvida_em ? esc(fdt2(cur.devolvida_em)) + ' · ' : ''}${esc(catsTxt(cur.motivo_devolucao_cats, cur.motivo_devolucao))}${cur.motivo_devolucao_detalhe ? ' · ' + esc(cur.motivo_devolucao_detalhe) : ''} <span class="cc-devol-mut">(registro parcial — anterior à série de 14/07)</span></div></div>`
     } else box.innerHTML = ''
   }
 

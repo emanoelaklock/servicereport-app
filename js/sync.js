@@ -132,6 +132,14 @@
         const aplicar = atual && !terminal.includes(atual) && !ehPausa &&
           (atual === 'aguardando_execucao' || atual === 'em_pausa')
         if (aplicar) await sb.from('tarefas').update({ status: novo }).eq('id', rat.tarefa_id)
+        // Tarefa DEVOLVIDA + técnico salvou a RAT ('registrado' = correção enviada) →
+        // volta pra 'concluida' (o serviço já era concluído; a devolução é de preenchimento).
+        // O trigger 0099 carimba resolvida_em sozinho ao sair de 'devolvida'; a gestão
+        // confere e pode re-devolver (2ª devolução conta reincidência). "Vou voltar
+        // depois" não dispara (é pausa, não correção).
+        if (atual === 'devolvida' && rat.status === 'registrado' && !ehPausa) {
+          await sb.from('tarefas').update({ status: 'concluida' }).eq('id', rat.tarefa_id)
+        }
       }
     }
 
