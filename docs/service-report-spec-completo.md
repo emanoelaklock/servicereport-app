@@ -283,6 +283,7 @@ Referência visual: `docs/mockups/mockup-admin-tarefa-completa.html`. É o **hub
 - Em tela menor, as duas colunas, a faixa de situação e a timeline **empilham**.
 - **Abrir em nova aba (06/26):** nas listas e calendários do portal (Tarefas, RATs, Deslocamentos) dá pra abrir um item em **nova aba** — ícone dedicado e **Ctrl/Cmd-clique** no chip/linha (os chips viraram links nativos). O **título do top bar** no detalhe mostra **`Tarefa Nº NNNNN`** (não só "Tarefa").
 - **Ordenação por cabeçalho (06/26):** clicar no cabeçalho de qualquer coluna ordena a tabela (em todas as listas do portal).
+- **Visual do detalhe da RAT (07/26):** só aparência, mesma estrutura/dados/fluxos — CSS compartilhado `css/rat-detalhe.css` (modal da Tarefa + rat.html). Cabeçalho com **nº da RAT em destaque** (data · técnico · duração na mesma linha + badge de status); títulos de seção com **barra azul**; campos com **ícones SVG discretos**; "RAT — dados do atendimento" em cartão único com divisórias; **Orientação e Serviço executado com bullets** (linha iniciada por `-`/`*` vira lista, `*` aninhado sob `-`); **Passagem — volta depois pra terminar** como card de alerta âmbar; tabela de produtos com cabeçalho cinza-azulado, zebra e total em navy (zerados preservados na tela); **"Fotos (n)"** com miniaturas 148px uniformes. *(Pegadinha registrada: "asterisco-barra" dentro de comentário CSS fecha o comentário no meio e derruba a regra seguinte.)*
 
 ### PDF da Tarefa — "Gerar PDF" vetorial (07/26)
 
