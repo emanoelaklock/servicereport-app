@@ -22,7 +22,7 @@
 .rd-head > .rd-pill{margin-left:auto}
 .rd-pill{display:inline-flex;align-items:center;align-self:center;padding:4px 13px;border-radius:999px;font-size:12px;font-weight:700;white-space:nowrap}
 .st-ok{background:color-mix(in srgb, var(--gr) 12%, var(--sur));color:color-mix(in srgb, var(--gr) 85%, var(--tx))}
-.st-pend{background:color-mix(in srgb, var(--am) 14%, var(--sur));color:color-mix(in srgb, var(--am) 60%, var(--tx))}
+.st-pend{background:var(--sur2);color:var(--am)}
 .st-run{background:var(--acl);color:var(--ac)}
 
 /* ── Títulos de seção: barra azul + texto principal + divisória clara ── */
@@ -67,18 +67,18 @@
 .rd-ul ul{margin:3px 0 0;padding-left:17px;list-style:disc}
 .rd-long{white-space:pre-wrap;line-height:1.6;color:var(--tx)}
 
-/* ── Passagem — volta depois pra terminar: card de alerta (pendência = âmbar) ── */
-.rd-sec-alerta{background:color-mix(in srgb, var(--am) 8%, var(--sur));
-               border:1px solid color-mix(in srgb, var(--am) 28%, var(--bd));
+/* ── Passagem — volta depois pra terminar: card branco com filete âmbar à esquerda ──
+   Âmbar SÓ como detalhe de alerta (ícone, título e filete) — nunca como fundo. */
+.rd-sec-alerta{background:var(--sur);border:1px solid var(--bd);border-left:3px solid var(--am);
                border-radius:var(--r);padding:13px 16px}
-.rd-sec-alerta .rd-sec-t{color:color-mix(in srgb, var(--am) 60%, var(--tx));border-bottom:0;padding-bottom:0;margin-bottom:10px}
+.rd-sec-alerta .rd-sec-t{color:var(--am);border-bottom:0;padding-bottom:0;margin-bottom:10px}
 .rd-sec-alerta .rd-sec-t::before{display:none}
-.rd-sec-alerta .rd-sec-t .rd-fic{color:color-mix(in srgb, var(--am) 80%, var(--tx));opacity:1}
+.rd-sec-alerta .rd-sec-t .rd-fic{color:var(--am);opacity:1}
 .rd-sec-alerta .rd-grid{display:block}
 .rd-sec-alerta .rd-f{background:none;border:0;border-radius:0;padding:6px 0}
-.rd-sec-alerta .rd-f + .rd-f{border-top:1px dashed color-mix(in srgb, var(--am) 32%, var(--bd));margin-top:4px;padding-top:10px}
-.rd-sec-alerta .rd-f label{color:color-mix(in srgb, var(--am) 55%, var(--tx2));font-weight:600}
-.rd-sec-alerta .rd-f .v{color:color-mix(in srgb, var(--am) 25%, var(--tx))}
+.rd-sec-alerta .rd-f + .rd-f{border-top:1px dashed var(--bd);margin-top:4px;padding-top:10px}
+.rd-sec-alerta .rd-f label{color:var(--tx3);font-weight:600}
+.rd-sec-alerta .rd-f .v{color:var(--tx)}
 
 /* ── Edição (mantém o comportamento atual) ── */
 .rd-edit{width:100%;min-height:96px;resize:vertical;font:inherit;line-height:1.55;padding:10px 12px;border:1px solid var(--ac);border-radius:8px;background:var(--sur);color:var(--tx);box-sizing:border-box}
