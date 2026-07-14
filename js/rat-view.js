@@ -1,7 +1,8 @@
 /* ═══════════════════════════════════════════════
    Service Report — rat-view.js
    Renderização compartilhada do detalhe da RAT (back-office):
-   layout de relatório, edição de campos, PDF (1 RAT ou várias unificadas).
+   layout de relatório (tela) e edição de campos. A geração de PDF mora em
+   pdf-tarefa.js (motor vetorial pdfmake — Tarefa, RAT avulsa e unificado).
    Usado dentro da tela de Tarefas (Conciliação). Depende de: utils.js (esc, fdt),
    supabase-client.js (getSupabase). Exposto como window.RatView.
 ═══════════════════════════════════════════════ */
@@ -339,167 +340,9 @@ window.RatView = (function () {
     for (const p of precos) await sb.from('materiais').update({ preco_unitario: p.preco }).eq('id', p.id)
   }
 
-  // Reduz/comprime uma imagem (foto/assinatura) para o PDF não ficar pesado.
-  // Redimensiona p/ no máx maxPx no maior lado e recomprime em JPEG.
-  function shrinkImg(url, maxPx, q) {
-    return new Promise((resolve) => {
-      const img = new Image()
-      img.crossOrigin = 'anonymous'
-      img.onload = () => {
-        try {
-          let w = img.naturalWidth || img.width, h = img.naturalHeight || img.height
-          const scale = Math.min(1, maxPx / Math.max(w, h))
-          w = Math.max(1, Math.round(w * scale)); h = Math.max(1, Math.round(h * scale))
-          const c = document.createElement('canvas'); c.width = w; c.height = h
-          c.getContext('2d').drawImage(img, 0, 0, w, h)
-          resolve(c.toDataURL('image/jpeg', q))
-        } catch (e) { resolve(url) }   // CORS/canvas "tainted" → mantém original
-      }
-      img.onerror = () => resolve(url)
-      img.src = url
-    })
-  }
-
-  // PDF: 1 ou várias RATs no mesmo documento (para envio manual ao cliente).
-  // Abre a janela já (gesto do usuário), comprime as imagens e então escreve o doc.
-  // modo: 'print' (padrão — abre o diálogo de impressão) | 'download' (baixa o .pdf;
-  //        usa html2pdf por folha A4 já paginada, com fallback pro diálogo de impressão).
-  async function gerarPdf(dets, titulo, capaHTML, modo, opts) {
-    opts = opts || {}
-    // Reusa a janela aberta pelo chamador NO GESTO do clique (evita bloqueio de pop-up async); senão abre.
-    const win = opts.win || window.open('', '_blank')
-    if (!win) { try { toast('Permita pop-ups para gerar o PDF.', 'err') } catch (e) {} return }
-    try { win.document.write('<!doctype html><meta charset="utf-8"><body style="font-family:Inter,Arial,sans-serif;color:#1B2A4A;padding:28px">Gerando PDF…</body>') } catch (e) {}
-
-    // Versão dos dets com imagens reduzidas (fotos ~1100px / assinatura ~700px).
-    const pdets = []
-    for (const d of dets) {
-      const fotos = []
-      for (const f of (d.fotos || [])) fotos.push(Object.assign({}, f, { url: await shrinkImg(f.url, 1600, 0.85) }))
-      const sigUrl = d.sigUrl ? await shrinkImg(d.sigUrl, 700, 0.85) : null
-      pdets.push(Object.assign({}, d, { fotos, sigUrl }))
-    }
-
-    const capa = capaHTML ? `<div class="rd">${capaHTML}</div>` : ''
-    // Header enxuto da RAT só quando há capa (Tarefa) — no PDF de RAT avulsa o cliente precisa
-    // ficar no header. valores/zerados vêm do perfil (Cliente/Interno) escolhido ao gerar.
-    const bodyOpts = { slim: !!capaHTML, valores: opts.valores, zerados: opts.zerados }
-    const bodies = capa + pdets.map(d => buildReportBody(d, false, bodyOpts)).join('')
-    const HEADER = `<div class="pdf-top"><div class="pdf-brand">TRADERS SERVICE</div><div class="pdf-doc">Relatório de Atendimento Técnico</div></div>`
-    const HEADERC = `<div class="pdf-topc"><span>TRADERS SERVICE</span><span>Relatório de Atendimento Técnico</span></div>`
-    const seloTxt = opts.selo ? ` · ${esc(opts.selo)}` : ''   // ex.: "versão com valores" (override ?valores=1)
-    const FOOTER = `<div class="pdf-foot"><span>Documento gerado pela plataforma Service Report.${seloTxt}</span><span class="pg"></span></div>`
-    const doc = `<!doctype html><html lang="pt-BR"><head><meta charset="utf-8"><title>${esc(titulo || 'RAT')}</title>
-<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
-<style>${PDF_CSS}${SHEET_CSS}</style></head><body>
-  <div id="raw">${bodies}</div>
-  <div id="sheets"></div>
-  <script>
-    var HEADER=${JSON.stringify(HEADER)},HEADERC=${JSON.stringify(HEADERC)},FOOTER=${JSON.stringify(FOOTER)};
-    var MODO=${JSON.stringify(modo === 'download' ? 'download' : 'print')};
-    var FN=${JSON.stringify(String(titulo || 'documento').replace(/[\\/:*?"<>|]+/g, '-') + '.pdf')};
-    // download de verdade: html2pdf renderiza cada folha A4 já paginada; se o CDN
-    // falhar, cai no diálogo de impressão (dá pra salvar como PDF por lá)
-    function baixarPdf(){
-      document.title='Gerando o arquivo PDF…';
-      var st=document.createElement('style');st.textContent='.sheet{margin:0;box-shadow:none;page-break-after:always;break-after:page}';document.head.appendChild(st);
-      var sc=document.createElement('script');
-      sc.src='https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js';
-      sc.onload=function(){
-        html2pdf().set({filename:FN,margin:0,image:{type:'jpeg',quality:0.95},
-          html2canvas:{scale:3,useCORS:true,letterRendering:true},
-          jsPDF:{unit:'mm',format:'a4',orientation:'portrait'},
-          pagebreak:{mode:['css','legacy']}})
-          .from(document.getElementById('sheets')).save()
-          .then(function(){document.title='PDF baixado — pode fechar esta aba';setTimeout(function(){try{window.close()}catch(e){}},1200);})
-          .catch(function(){window.focus();window.print();});
-      };
-      sc.onerror=function(){window.focus();window.print();};
-      document.head.appendChild(sc);
-    }
-    function el(t,c){var e=document.createElement(t);if(c)e.className=c;return e}
-    var raw=document.getElementById('raw'),sheets=document.getElementById('sheets'),cur=null,ftrs=[],blocks=[];
-    /* cada .rd (capa, depois cada RAT) começa em página nova: o 1º bloco de cada .rd após a capa
-       força newSheet — evita o header da RAT órfão no pé da capa. Quebras DENTRO da RAT seguem por overflow. */
-    var rds=raw.querySelectorAll('.rd');for(var ri=0;ri<rds.length;ri++){var ch=rds[ri].children;for(var i=0;i<ch.length;i++){blocks.push({h:ch[i].outerHTML,brk:(ri>0&&i===0)});}}
-    function newSheet(){var first=ftrs.length===0;var s=el('div','sheet');var hd=el('div','hd');hd.innerHTML=first?HEADER:HEADERC;var bd=el('div','bd');var ft=el('div','ft');ft.innerHTML=FOOTER;s.appendChild(hd);s.appendChild(bd);s.appendChild(ft);sheets.appendChild(s);ftrs.push(ft);cur={bd:bd};}
-    function over(){return cur.bd.scrollHeight>cur.bd.clientHeight+1;}
-    function addHTML(h){var d=el('div');d.innerHTML=h;var n=d.firstElementChild;if(!n)return;cur.bd.appendChild(n);if(over()&&cur.bd.children.length>1){cur.bd.removeChild(n);newSheet();cur.bd.appendChild(n);}}
-    function build(){newSheet();for(var i=0;i<blocks.length;i++){if(blocks[i].brk)newSheet();addHTML(blocks[i].h);}if(raw.parentNode)raw.parentNode.removeChild(raw);
-      /* remove folha final vazia (sem conteúdo no corpo) — não vira página em branco */
-      if(cur&&cur.bd&&cur.bd.children.length===0){var es=cur.bd.parentNode;if(es&&es.parentNode){es.parentNode.removeChild(es);ftrs.pop();}}
-      var N=ftrs.length;for(var k=0;k<N;k++){var pg=ftrs[k].querySelector('.pg');if(pg)pg.textContent='Página '+(k+1)+' de '+N;}var imgs=Array.prototype.slice.call(document.images);var left=imgs.filter(function(im){return !im.complete});function go(){if(MODO==='download'){baixarPdf();}else{window.focus();window.print();}}if(!left.length){setTimeout(go,200);return;}var done=0,fired=false;function one(){done++;if(done>=left.length&&!fired){fired=true;setTimeout(go,150);}}left.forEach(function(im){im.addEventListener('load',one);im.addEventListener('error',one);});setTimeout(function(){if(!fired){fired=true;go();}},7000);}
-    if(document.fonts&&document.fonts.ready){document.fonts.ready.then(function(){setTimeout(build,80);});}else{setTimeout(build,400);}
-  <\/script>
-</body></html>`
-    win.document.open(); win.document.write(doc); win.document.close()
-  }
-
-  const PDF_CSS = `
-    *{box-sizing:border-box}
-    body{font-family:Inter,Arial,sans-serif;color:#1B2A4A;margin:12px 14px;font-size:12.5px}
-    /* tabela-envelope: cabeçalho/rodapé repetem em todas as páginas (print) */
-    .pdf-sheet{width:100%;border-collapse:collapse}
-    .pdf-sheet>thead{display:table-header-group}
-    .pdf-sheet>tfoot{display:table-footer-group}
-    .pdf-sheet>thead>tr>td,.pdf-sheet>tfoot>tr>td,.pdf-sheet>tbody>tr>td{padding:0;border:0;vertical-align:top}
-    .pdf-top{display:flex;justify-content:space-between;align-items:flex-end;border-bottom:3px solid #243456;padding-bottom:10px;margin-bottom:16px}
-    .pdf-brand{font-size:20px;font-weight:800;letter-spacing:.04em;color:#243456}
-    .pdf-doc{font-size:12px;color:#7C8290;font-weight:600;text-transform:none;letter-spacing:normal}
-    .rat-sep{font-size:11px;font-weight:700;text-transform:none;letter-spacing:normal;color:#9aa7bd;margin:0 0 8px}
-    .rd-head{margin-bottom:6px}
-    .rd-cli{font-size:18px;font-weight:700;color:#243456}
-    .rd-sub{font-size:13px;color:#1E8AE0;font-weight:600;margin-top:2px}
-    .rd-head-slim{border-bottom:1px solid #EAEDF2;padding-bottom:6px;margin-bottom:2px}
-    .rd-head-slim .rd-sub{font-size:14px;font-weight:700;color:#243456}
-    .rd-head-slim .rd-meta{margin-top:3px}
-    .rd-meta{display:flex;flex-wrap:wrap;gap:3px 18px;margin-top:7px;font-size:12px}
-    .rd-meta b{color:#5b6b86;font-weight:500}
-    .rd-edit-hint{display:none}
-    .rd-sec{margin-top:16px;page-break-inside:avoid}
-    .rd-sec-t{font-size:12px;font-weight:700;text-transform:none;letter-spacing:normal;color:#243456;border-bottom:1px solid #EAEDF2;padding-bottom:5px;margin-bottom:9px}
-    .rd-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px}
-    .rd-f{background:#f7f9fc;border:1px solid #EAEDF2;border-radius:7px;padding:7px 10px}
-    .rd-f label{display:block;font-size:10.5px;text-transform:none;letter-spacing:normal;color:#7C8290;margin-bottom:2px}
-    .rd-f .v{font-size:12.5px}
-    .rd-long{white-space:pre-wrap;line-height:1.5}
-    .rd-emit{font-size:12px;line-height:1.5}
-    .rd-prodtbl{width:100%;border-collapse:collapse;font-size:12px}
-    .rd-prodtbl th{text-align:left;font-size:10.5px;text-transform:none;letter-spacing:normal;color:#7C8290;padding:0 8px 6px;border-bottom:1px solid #EAEDF2}
-    .rd-prodtbl th.num,.rd-prodtbl td.num{text-align:right;white-space:nowrap}
-    .rd-prodtbl td{padding:6px 8px;border-bottom:1px solid #eef2f8}
-    .rd-total{display:flex;justify-content:flex-end;gap:12px;margin-top:9px;font-size:13px}
-    .rd-pausas{width:100%;border-collapse:collapse;font-size:12px}
-    .rd-pausas th{text-align:left;font-size:10.5px;text-transform:none;letter-spacing:normal;color:#7C8290;padding:0 8px 6px;border-bottom:1px solid #EAEDF2}
-    .rd-pausas td{padding:6px 8px;border-bottom:1px solid #eef2f8}
-    .det-fotos{display:flex;flex-wrap:wrap;gap:12px}
-    .det-foto{display:flex;flex-direction:column;gap:4px;width:150px;margin:0}
-    .det-fotos img{width:150px;height:150px;object-fit:cover;border-radius:8px;border:1px solid #d6deea}
-    .det-foto figcaption{font-size:10px;color:#5b6b86;line-height:1.2}
-    .det-sig{max-width:280px;border:1px solid #d6deea;border-radius:8px;background:#fff}
-    .pdf-foot{margin-top:14px;border-top:1px solid #d6deea;padding-top:8px;font-size:10px;color:#9aa7bd;text-align:center}
-    @media print{ a{color:inherit;text-decoration:none} }`
-
-  // Layout paginado em folhas A4 (cabeçalho/rodapé por página, via JS).
-  const SHEET_CSS = `
-    body{margin:0;background:#eceff3}
-    #raw{position:absolute;left:-99999px;top:0;width:726px}
-    .sheet{width:794px;height:1123px;margin:16px auto;background:#fff;padding:32px 34px;display:flex;flex-direction:column;box-shadow:0 10px 30px rgba(20,30,55,.12);overflow:hidden}
-    .sheet .hd{flex:none}
-    .sheet .bd{flex:1 1 auto;min-height:0;overflow:hidden}
-    .sheet .ft{flex:none}
-    .pdf-top{margin-bottom:14px}
-    .pdf-topc{display:flex;justify-content:space-between;align-items:center;border-bottom:2px solid #243456;padding-bottom:8px;margin-bottom:14px;font-size:11px;font-weight:700;color:#243456;text-transform:none;letter-spacing:normal}
-    .pdf-foot{display:flex;justify-content:space-between;align-items:center;text-align:left}
-    @media print{ @page{size:A4;margin:0} html,body{margin:0;background:#fff}
-      /* Folha com altura NATURAL + min-height < página (296<297mm): o rodapé fica no pé sem a
-         folha ocupar a página inteira — o que, com page-break-after, gerava uma página EM BRANCO
-         depois de cada folha (bug das 3 páginas brancas). overflow:visible pra nada ser cortado. */
-      .sheet{box-shadow:none;margin:0;width:210mm;height:auto;overflow:visible;page-break-after:always;break-after:page}
-      .sheet:last-child{page-break-after:auto;break-after:auto} #raw{display:none} }`
 
   return {
     RAT_SELECT, ensureForms, loadDetalhe, buildReportBody, coletarEdicao, salvarPrecos, aplicarCondicionais,
-    gerarPdf, shrinkImg, calcTempoDe, tempoRat, fmtMin, tipoNomeRat, statusInfo, campoVisivel, motivoImprodutivaLabel,
+    calcTempoDe, tempoRat, fmtMin, tipoNomeRat, statusInfo, campoVisivel, motivoImprodutivaLabel,
   }
 })()

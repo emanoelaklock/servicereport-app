@@ -1,6 +1,9 @@
 /* ═══════════════════════════════════════════════
    Service Report — pdf-tarefa.js
-   PDF VETORIAL da Tarefa (capa + RATs) via pdfmake local (js/vendor/, offline).
+   PDF VETORIAL dos atendimentos via pdfmake local (js/vendor/, offline):
+   · Tarefa (m.capa preenchida): capa/dossiê + todas as RATs;
+   · RAT avulsa / PDF unificado (m.capa = null): só os corpos de RAT, com o
+     cliente na faixa de cada RAT e m.headerRight no cabeçalho das páginas.
    Texto real (selecionável/pesquisável), tabelas e linhas vetoriais, fonte Roboto
    embutida (subset). Fotos/assinatura são as ÚNICAS imagens — reduzidas e
    comprimidas em canvas (1600px, JPEG q0.85). O canvas é usado SÓ para isso;
@@ -244,19 +247,26 @@ window.PdfTarefa = (function () {
     const tempo = RatView.fmtMin(RatView.tempoRat(r))
     const c = []
 
-    // faixa de identificação da RAT
-    c.push({ table: { widths: ['*', 'auto'], body: [[
-      { stack: [
+    // faixa de identificação da RAT. Sem capa (RAT avulsa / PDF unificado) o cliente ainda
+    // não apareceu no documento → entra na faixa; com capa, faixa enxuta (cliente já no topo).
+    const faixaEsq = m.capa
+      ? [
         { text: `RAT ${ratNo}`, bold: true, fontSize: 12, color: AZ },
         { text: `${r.tecnico_nome || '—'}  ·  ${fmtDataBR(r.data_tarefa)}`, fontSize: 8.5, color: GRAY, margin: [0, 2, 0, 0] },
-      ] },
+      ]
+      : [
+        { text: r.cliente_nome || '—', bold: true, fontSize: 12, color: AZ },
+        { text: `RAT ${ratNo}  ·  ${r.tecnico_nome || '—'}  ·  ${fmtDataBR(r.data_tarefa)}`, fontSize: 8.5, color: GRAY, margin: [0, 2, 0, 0] },
+      ]
+    c.push({ table: { widths: ['*', 'auto'], body: [[
+      { stack: faixaEsq },
       { stack: [
         Object.assign(pill(st.label, stCor), { alignment: 'right' }),
         { text: `Tempo: ${tempo}`, fontSize: 8.5, color: GRAY, alignment: 'right', margin: [0, 4, 0, 0] },
       ] },
     ]] },
     layout: { hLineWidth: () => 0, vLineWidth: () => 0, paddingLeft: () => 10, paddingRight: () => 10, paddingTop: () => 9, paddingBottom: () => 9, fillColor: () => BG },
-    margin: [0, 22, 0, 2], unbreakable: true })
+    margin: [0, (!m.capa && ratIdx === 0) ? 2 : 22, 0, 2], unbreakable: true })
 
     // Dados da OS
     c.push(...sec('Dados da OS'))
@@ -353,8 +363,8 @@ window.PdfTarefa = (function () {
 
   // ── documento completo ──
   function docDefinition(m, contSet) {
-    const content = [...capa(m)]
-    content.push(...anexosSection(m, contSet))
+    const content = []
+    if (m.capa) { content.push(...capa(m)); content.push(...anexosSection(m, contSet)) }
     m.dets.forEach((det, i) => content.push(...corpoRat(m, det, i, contSet)))
     return {
       pageSize: 'A4', pageMargins: [MARG, TOPM, MARG, BOTM],
@@ -370,7 +380,7 @@ window.PdfTarefa = (function () {
           ] },
           { width: 'auto', stack: [
             { text: 'RELATÓRIO DE ATENDIMENTO TÉCNICO', alignment: 'right', color: '#D4DEF1', bold: true, fontSize: 7.5, characterSpacing: 0.8 },
-            { text: `Tarefa Nº ${m.numeroFmt}`, alignment: 'right', color: '#ffffff', bold: true, fontSize: 10, margin: [0, 3, 0, 0] },
+            { text: m.headerRight || `Tarefa Nº ${m.numeroFmt}`, alignment: 'right', color: '#ffffff', bold: true, fontSize: 10, margin: [0, 3, 0, 0] },
           ] },
         ], margin: [MARG, -41, MARG, 0] },
       ] }),
@@ -403,7 +413,7 @@ window.PdfTarefa = (function () {
     // clona o modelo com todas as imagens trocadas pela 1×1 (largura/altura são declaradas
     // nos nós, então o layout não muda)
     const clone = Object.assign({}, m)
-    clone.capa = Object.assign({}, m.capa, { anexosImgs: m.capa.anexosImgs.map(f => ({ legenda: f.legenda, dataUrl: dataUrlFake })) })
+    if (m.capa) clone.capa = Object.assign({}, m.capa, { anexosImgs: m.capa.anexosImgs.map(f => ({ legenda: f.legenda, dataUrl: dataUrlFake })) })
     clone.dets = m.dets.map(d => Object.assign({}, d, {
       fotosPdf: (d.fotosPdf || []).map(f => ({ legenda: f.legenda, dataUrl: dataUrlFake })),
       sigPdf: d.sigPdf ? dataUrlFake : null,
@@ -414,7 +424,7 @@ window.PdfTarefa = (function () {
     // doc auxiliar: cada linha de fotos numa página própria, com sentinela logo depois —
     // altura exata = top(sentinela) − top(linha). Idem pro bloco de título de seção.
     const grupos = []
-    if (mLeve.capa.anexosImgs.length) grupos.push({ secIdx: 0, fotos: mLeve.capa.anexosImgs, titulo: 'Anexos' })
+    if (mLeve.capa && mLeve.capa.anexosImgs.length) grupos.push({ secIdx: 0, fotos: mLeve.capa.anexosImgs, titulo: 'Anexos' })
     mLeve.dets.forEach((d, i) => { if (d.fotosPdf && d.fotosPdf.length) grupos.push({ secIdx: i + 1, fotos: d.fotosPdf, titulo: 'Fotos' }) })
     if (!grupos.length) return null
     const content = []
@@ -482,12 +492,14 @@ window.PdfTarefa = (function () {
       }
       det.sigPdf = det.sigUrl ? await imgParaPdf(det.sigUrl, 700, false) : null
     }
-    const anexosImgs = []
-    for (const a of (m.capa.anexosUrls || [])) {
-      const du = await imgParaPdf(a.url, 1600, true)
-      if (du) anexosImgs.push({ dataUrl: du, legenda: a.nome || '' })
+    if (m.capa) {
+      const anexosImgs = []
+      for (const a of (m.capa.anexosUrls || [])) {
+        const du = await imgParaPdf(a.url, 1600, true)
+        if (du) anexosImgs.push({ dataUrl: du, legenda: a.nome || '' })
+      }
+      m.capa.anexosImgs = anexosImgs
     }
-    m.capa.anexosImgs = anexosImgs
 
     const contSet = await calcularContinuacoes(m)
     const dd = docDefinition(m, contSet)
