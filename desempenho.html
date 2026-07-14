@@ -14,6 +14,16 @@
 <script src="js/sidebar.js"></script>
 <script src="js/desempenho.js"></script>
 <style>
+  /* ── Alinhamento da página ─────────────────────────────────────────────
+     A sidebar (.side, 240px) já ocupa espaço no fluxo flex do body; o
+     margin-left global de .sb-main (--sb) compensaria uma sidebar FIXED —
+     aqui só empurrava o conteúdo pra direita. Zera nesta página e o
+     conteúdo ocupa toda a largura útil (limite só em monitores muito
+     largos, encostado à esquerda — nunca centralizado com margin auto). */
+  body > .sb-main{margin-left:0}
+  .sb-main .content{width:min(100%, 1440px);max-width:1440px;margin-left:0;margin-right:auto;
+                    padding-left:24px;padding-right:24px;box-sizing:border-box}
+
   /* Cabeçalho: título + subtítulo à esquerda; mês/carimbo/estado numa linha (quebra no mobile) */
   .dp-head{display:flex;align-items:flex-end;justify-content:space-between;gap:14px;flex-wrap:wrap;margin-bottom:16px}
   .dp-h-t h2{font-size:18px;font-weight:800;color:var(--sr-title);letter-spacing:-.3px}
