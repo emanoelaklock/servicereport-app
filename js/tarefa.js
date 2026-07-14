@@ -1729,13 +1729,17 @@ const TarefaApp = (() => {
     const L = window.MOTIVO_LABEL || {}
     const t = tarefas.find(x => x.id === cur.id) || {}
     const fdt2 = (iso) => iso ? fdt(iso, { withTime: true }) : '—'
-    const catsTxt = (cats, fallback) => (Array.isArray(cats) && cats.length) ? cats.map(c => L[c] || c).join(' · ') : (fallback || '—')
+    // Categorias SEMPRE em chips vermelhos (fallback de texto renderizado: um chip por linha/bullet)
+    const chip = (txt) => `<span class="cc-devol-chip">${esc(txt)}</span>`
+    const catsChips = (cats, fallback) => (Array.isArray(cats) && cats.length)
+      ? cats.map(c => chip(L[c] || c)).join('')
+      : String(fallback || '—').split('•').map(s => s.trim()).filter(Boolean).map(chip).join('')
     const nHist = hist.length
-    const linhas = hist.map((d, i) => `<div class="cc-devol-h"><b>${nHist - i}ª</b> · ${esc(fdt2(d.devolvida_em))} · ${esc(catsTxt(d.cats, d.motivo))} · ${d.resolvida_em ? 'resolvida em ' + esc(fdt2(d.resolvida_em)) : '<b>em aberto</b>'}${d.origem === 'backfill' ? ' <span class="cc-devol-mut">(registro parcial — anterior a 14/07)</span>' : ''}</div>`).join('')
+    const linhas = hist.map((d, i) => `<div class="cc-devol-h"><b>${nHist - i}ª</b> · ${esc(fdt2(d.devolvida_em))} · ${catsChips(d.cats, d.motivo)} · ${d.resolvida_em ? 'resolvida em ' + esc(fdt2(d.resolvida_em)) : '<b>em aberto</b>'}${d.origem === 'backfill' ? ' <span class="cc-devol-mut">(registro parcial — anterior a 14/07)</span>' : ''}</div>`).join('')
     if (t.status === 'devolvida') {
       box.innerHTML = `<div class="cc-devol-ban">
         <div class="cc-devol-t">Tarefa devolvida ao técnico${cur.devolvida_em ? ' — ' + esc(fdt2(cur.devolvida_em)) : ''}${nHist > 1 ? `<span class="cc-devol-re">${nHist}ª devolução desta tarefa</span>` : ''}</div>
-        <div class="cc-devol-m">${esc(catsTxt(cur.motivo_devolucao_cats, cur.motivo_devolucao))}</div>
+        <div class="cc-devol-m">${catsChips(cur.motivo_devolucao_cats, cur.motivo_devolucao)}</div>
         ${cur.motivo_devolucao_detalhe ? `<div class="cc-devol-d">${esc(cur.motivo_devolucao_detalhe)}</div>` : ''}
         ${nHist > 1 ? `<div class="cc-devol-hs">${linhas}</div>` : ''}
       </div>`
@@ -1745,7 +1749,7 @@ const TarefaApp = (() => {
       // Devolução anterior à série 0099 (sem linha no histórico): o motivo fica nos campos
       // da tarefa — exibe como registro parcial pra informação nunca sumir da tela.
       box.innerHTML = `<div class="cc-devol-past"><div class="cc-devol-pt">Histórico de devoluções</div>
-        <div class="cc-devol-h">${cur.devolvida_em ? esc(fdt2(cur.devolvida_em)) + ' · ' : ''}${esc(catsTxt(cur.motivo_devolucao_cats, cur.motivo_devolucao))}${cur.motivo_devolucao_detalhe ? ' · ' + esc(cur.motivo_devolucao_detalhe) : ''} <span class="cc-devol-mut">(registro parcial — anterior à série de 14/07)</span></div></div>`
+        <div class="cc-devol-h">${cur.devolvida_em ? esc(fdt2(cur.devolvida_em)) + ' · ' : ''}${catsChips(cur.motivo_devolucao_cats, cur.motivo_devolucao)}${cur.motivo_devolucao_detalhe ? ' · ' + esc(cur.motivo_devolucao_detalhe) : ''} <span class="cc-devol-mut">(registro parcial — anterior à série de 14/07)</span></div></div>`
     } else box.innerHTML = ''
   }
 
