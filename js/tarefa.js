@@ -23,6 +23,7 @@ const TarefaApp = (() => {
   let ratDet = null          // RAT aberta no modal { r, campos, ... }
   let ratEdit = false        // modo edição do modal de RAT
   let pendRat = null         // RAT base do modal "nova tarefa da pendência"
+  let souAdmin = false       // só admin edita RAT (mesma regra do rat.html)
 
   const RAT_SIT = { em_andamento: 'Em andamento', registrado: 'Atendimento Realizado', concluida: 'Concluída', concluida_pendencia: 'Concluída c/ pendência', improdutiva: 'Visita improdutiva' }
   const ratSit = (s) => RAT_SIT[s] || s || '—'
@@ -173,6 +174,7 @@ const TarefaApp = (() => {
     ])
     ref.produtos = prod.data || []
     ref.tecnicos = (tec.data || []).filter(u => u.ativo)   // responsáveis atribuíveis (admin + técnico do SR)
+    souAdmin = ((ref.tecnicos.find(x => x.id === user.id) || {}).role) === 'admin'
     ref.tipos = tip.data || []
     ref.equip = eq.data || []
     ref.clientes = cli.data || []
@@ -272,8 +274,11 @@ const TarefaApp = (() => {
     const pdfBtn = document.getElementById('cc-pdf-btn')
     const pdfPop = document.getElementById('cc-pdf-pop')
     pdfBtn.onclick = (e) => { e.stopPropagation(); if (!pdfBtn.disabled) pdfPop.hidden = !pdfPop.hidden }
-    document.addEventListener('click', (e) => { if (!pdfPop.hidden && !pdfPop.contains(e.target)) pdfPop.hidden = true })
-    document.addEventListener('keydown', (e) => { if (e.key === 'Escape') pdfPop.hidden = true })
+    document.addEventListener('click', (e) => {
+      if (!pdfPop.hidden && !pdfPop.contains(e.target)) pdfPop.hidden = true
+      if (!e.target.closest('#cc-rat-list .pdfmenu')) fecharRatMenus()   // menu ⋮ dos cards de RAT
+    })
+    document.addEventListener('keydown', (e) => { if (e.key === 'Escape') { pdfPop.hidden = true; fecharRatMenus() } })
     pdfPop.querySelectorAll('[data-pdf]').forEach(b => b.onclick = () => { pdfPop.hidden = true; gerarPdfVetorial(b.dataset.pdf) })
     document.getElementById('rat-x').onclick = () => fecharModal('modal-rat')
     document.getElementById('rat-fechar').onclick = () => fecharModal('modal-rat')
@@ -283,7 +288,7 @@ const TarefaApp = (() => {
     document.getElementById('rat-salvar').onclick = ratSalvarEdicao
     document.getElementById('rat-pdf').onclick = ratPdf
     document.getElementById('rat-excluir').onclick = ratExcluir
-    document.getElementById('rat-nova-tarefa').onclick = abrirPend
+    document.getElementById('rat-nova-tarefa').onclick = () => abrirPend()
     document.getElementById('cc-d-pend-tarefa').onclick = abrirPendTarefa
     document.getElementById('cc-d-status-sel').addEventListener('change', (e) => {
       document.getElementById('cc-d-pend-tarefa').style.display = (e.target.value === 'concluida_pendencia') ? '' : 'none'
@@ -1190,23 +1195,10 @@ const TarefaApp = (() => {
     box.innerHTML = '<span class="cc-empty-sm">Carregando RATs…</span>'
     const dets = []
     for (const r of rats) dets.push(await RatView.loadDetalhe(r))
-    box.innerHTML = dets.map(d => {
-      const r = d.r
-      return `<div class="rat-open" data-rat-id="${esc(r.id)}">
-        <div class="rat-open-h">
-          <div><b>RAT ${cur && cur.numero != null ? osNo(cur.numero) + (r.rat_seq != null ? '/' + String(r.rat_seq).padStart(2, '0') : '') : ''} · ${esc(fmtDataRat(r))}</b> · ${esc(r.tecnico_nome || '—')} · ${RatView.fmtMin(RatView.tempoRat(r))}</div>
-          <div style="display:flex;align-items:center;gap:10px">
-            ${ratNaoEncerrada(r)
-              ? `<span class="ri-sit" style="color:#B7791F;font-weight:700" title="O técnico iniciou o atendimento e não encerrou">⚠ Não encerrada · ${esc(diasTxt(diasAberta(r)))}</span>`
-              : `<span class="ri-sit">${esc(ratSit(r.status))}</span>`}
-            ${r.status === 'em_andamento' ? `<button class="btn btn-sm btn-g" data-encerrar="${esc(r.id)}">✓ Encerrar</button>` : ''}
-            <a class="btn btn-sm" href="rat.html?id=${encodeURIComponent(r.id)}" target="_blank" rel="noopener">Abrir ↗</a>
-          </div>
-        </div>
-        ${RatView.buildReportBody(d, false, { noHeader: true })}
-      </div>`
-    }).join('')
-    box.querySelectorAll('[data-encerrar]').forEach(b => b.onclick = () => encerrarRat(b.dataset.encerrar))
+    ratDets = dets
+    ratTabEditId = null
+    box.innerHTML = dets.map(d => `<div class="rat-open" data-rat-id="${esc(d.r.id)}">${ratCardInner(d)}</div>`).join('')
+    dets.forEach(d => { const card = box.querySelector(`[data-rat-id="${CSS.escape(d.r.id)}"]`); if (card) bindRatCard(card, d) })
     if (focoRatId) {   // veio de ?rat= (calendário): rola até a RAT e destaca por ~2,6s
       const alvo = box.querySelector(`[data-rat-id="${CSS.escape(focoRatId)}"]`)
       if (alvo) {
@@ -1218,11 +1210,103 @@ const TarefaApp = (() => {
     }
   }
 
+  // ── Ações diretas no card da RAT (aba RATs): Editar · PDF · Pendência · menu ⋮ ──
+  // O rat.html continua existindo (acesso direto/compatibilidade), mas deixa de ser
+  // o fluxo obrigatório: as ações principais rodam aqui, com o MESMO editor auditado.
+  let ratDets = []           // detalhes carregados da aba (base dos handlers)
+  let ratTabEditId = null    // RAT em edição direta no card (uma por vez)
+  let ratTabEdInst = null
+  const ratTabEd = () => ratTabEdInst || (ratTabEdInst = RatEditor.criar({
+    sb,
+    getUsuarios: () => ref.tecnicos,
+    container: () => document.querySelector(`#cc-rat-list .rat-open[data-rat-id="${CSS.escape(ratTabEditId || '')}"] .rat-open-b`),
+    onSaved: async () => { ratTabEditId = null; await Promise.all([carregarRats(), carregarLinhas()]) },   // "Utilizada" depende das RATs
+  }))
+  // Pendência de retorno (passagem): mesmo critério do card âmbar do detalhe.
+  const temPendenciaRetorno = (r) => { const resp = r.respostas || {}; return resp.volta_amanha === 'Não' && resp.passagem_motivo === 'volto_depois' }
+  // Ícones SVG de linha (nunca emoji) das ações do card.
+  const RAT_IC = {
+    check: '<svg viewBox="0 0 24 24"><path d="M21 11.5a9 9 0 1 1-5.3-8.2"/><path d="m9 11 3 3L22 4"/></svg>',
+    edit: '<svg viewBox="0 0 24 24"><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg>',
+    pdf: '<svg viewBox="0 0 24 24"><path d="M12 3v12m0 0 4-4m-4 4-4-4M5 21h14"/></svg>',
+    pend: '<svg viewBox="0 0 24 24"><path d="M14 3v4a1 1 0 0 0 1 1h4"/><path d="M17 21H7a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h7l5 5v11a2 2 0 0 1-2 2Z"/><path d="M12 11v6M9 14h6"/></svg>',
+    dots: '<svg viewBox="0 0 24 24"><circle cx="12" cy="5" r="1.4"/><circle cx="12" cy="12" r="1.4"/><circle cx="12" cy="19" r="1.4"/></svg>',
+  }
+  function ratAcoesHTML(r) {
+    if (ratTabEditId === r.id) return `
+      <button class="btn btn-sm" data-rat-cancelar>Cancelar</button>
+      <button class="btn btn-sm btn-g" data-rat-salvar>${RAT_IC.check}Salvar</button>`
+    return `
+      ${ratNaoEncerrada(r)
+        ? `<span class="ri-sit" style="color:#B7791F;font-weight:700" title="O técnico iniciou o atendimento e não encerrou">⚠ Não encerrada · ${esc(diasTxt(diasAberta(r)))}</span>`
+        : `<span class="ri-sit">${esc(ratSit(r.status))}</span>`}
+      ${r.status === 'em_andamento' ? `<button class="btn btn-sm btn-g" data-encerrar>${RAT_IC.check}Encerrar</button>` : ''}
+      ${souAdmin ? `<button class="btn btn-sm" data-rat-editar>${RAT_IC.edit}Editar</button>` : ''}
+      <button class="btn btn-sm" data-rat-pdf>${RAT_IC.pdf}PDF</button>
+      ${temPendenciaRetorno(r) ? `<button class="btn btn-sm" data-rat-pend>${RAT_IC.pend}Nova tarefa da pendência</button>` : ''}
+      <div class="pdfmenu">
+        <button class="btn btn-sm" data-rat-menu title="Mais ações">${RAT_IC.dots}</button>
+        <div class="pm-pop pm-compact" hidden>
+          <a class="pm-item" href="rat.html?id=${encodeURIComponent(r.id)}" target="_blank" rel="noopener"><b>Ver em página completa ↗</b></a>
+          <button class="pm-item" data-rat-del><b style="color:var(--re)">Excluir RAT</b></button>
+        </div>
+      </div>`
+  }
+  function ratCardInner(d) {
+    const r = d.r, editando = ratTabEditId === r.id
+    return `
+      <div class="rat-open-h">
+        <div><b>RAT ${cur && cur.numero != null ? osNo(cur.numero) + (r.rat_seq != null ? '/' + String(r.rat_seq).padStart(2, '0') : '') : ''} · ${esc(fmtDataRat(r))}</b> · ${esc(r.tecnico_nome || '—')} · ${RatView.fmtMin(RatView.tempoRat(r))}</div>
+        <div class="roh-a">${ratAcoesHTML(r)}</div>
+      </div>
+      <div class="rat-open-b">${editando ? ratTabEd().tecnicosHTML() : ''}${RatView.buildReportBody(d, editando, { noHeader: true, adminEdit: editando })}</div>`
+  }
+  function renderRatCard(d) {
+    const card = document.querySelector(`#cc-rat-list .rat-open[data-rat-id="${CSS.escape(d.r.id)}"]`)
+    if (!card) return
+    card.innerHTML = ratCardInner(d)
+    bindRatCard(card, d)
+  }
+  function fecharRatMenus() { document.querySelectorAll('#cc-rat-list .pm-pop').forEach(p => { p.hidden = true }) }
+  function bindRatCard(card, d) {
+    const r = d.r
+    const q = (s) => card.querySelector(s)
+    const bEn = q('[data-encerrar]'); if (bEn) bEn.onclick = () => encerrarRat(r.id)
+    const bEd = q('[data-rat-editar]'); if (bEd) bEd.onclick = async () => {
+      // uma edição por vez: se outro card estava em edição, volta pra leitura antes
+      const prev = (ratTabEditId && ratTabEditId !== r.id) ? ratDets.find(x => x.r.id === ratTabEditId) : null
+      ratTabEditId = r.id
+      if (prev) renderRatCard(prev)
+      await ratTabEd().iniciar(d)
+      renderRatCard(d)
+      ratTabEd().bind()
+    }
+    const bCa = q('[data-rat-cancelar]'); if (bCa) bCa.onclick = () => { ratTabEditId = null; renderRatCard(d) }
+    const bSa = q('[data-rat-salvar]'); if (bSa) bSa.onclick = () => ratTabEd().salvar()
+    const bPdf = q('[data-rat-pdf]'); if (bPdf) bPdf.onclick = () => {
+      const seq = r.rat_seq != null ? String(r.rat_seq).padStart(2, '0') : null
+      gerarRatsPdf([d], `RAT Nº ${osNo(cur.numero)}${seq ? '/' + seq : ''}`, `RAT_${osNo(cur.numero)}${seq ? '_' + seq : ''}.pdf`, bPdf)
+    }
+    const bPe = q('[data-rat-pend]'); if (bPe) bPe.onclick = () => abrirPend(r)
+    const bMe = q('[data-rat-menu]'); if (bMe) {
+      const pop = bMe.parentElement.querySelector('.pm-pop')
+      bMe.onclick = (e) => { e.stopPropagation(); const abrir = pop.hidden; fecharRatMenus(); pop.hidden = !abrir }
+    }
+    const bDel = q('[data-rat-del]'); if (bDel) bDel.onclick = () => { fecharRatMenus(); excluirRatTab(r.id) }
+  }
+  async function excluirRatTab(id) {
+    if (!confirm('Excluir esta RAT? Remove os produtos e fotos dela. Esta ação não pode ser desfeita.')) return
+    const { error } = await sb().rpc('admin_excluir_rat', { p_rat: id })
+    if (error) return toast('Erro ao excluir: ' + error.message, 'err')
+    toast('RAT excluída.', 'ok')
+    await Promise.all([carregarRats(), carregarLinhas()])   // "Utilizada" depende das RATs
+  }
+
   // Encerra (conclui) uma RAT presa "em andamento" — destrava a tarefa quando o técnico
   // esqueceu de fechar o atendimento. RLS: tarefas_admin_all permite o update.
   async function encerrarRat(ratId) {
     const r = (cur.rats || []).find(x => x.id === ratId); if (!r) return
-    if (!confirm('Encerrar esta RAT em andamento e marcá-la como Atendimento Realizado (fecha o dia)?\n\nUse "Abrir ↗" para acertar horários/tempo antes, se precisar. Encerrar a RAT não conclui o serviço — isso é feito na Tarefa.')) return
+    if (!confirm('Encerrar esta RAT em andamento e marcá-la como Atendimento Realizado (fecha o dia)?\n\nUse "Editar" para acertar horários/tempo antes, se precisar. Encerrar a RAT não conclui o serviço — isso é feito na Tarefa.')) return
     const upd = { status: 'registrado' }
     const tm = RatView.tempoRat(r)
     if (tm != null) upd.tempo_trabalhado = tm
@@ -1278,9 +1362,9 @@ const TarefaApp = (() => {
       capa: null, dets,
     }
   }
-  // Gera com estado de "gerando…" no botão + toast padrão de erro.
+  // Gera com estado de "gerando…" no botão (id ou elemento) + toast padrão de erro.
   async function gerarRatsPdf(dets, headerRight, arquivo, btnId) {
-    const btn = btnId ? document.getElementById(btnId) : null
+    const btn = typeof btnId === 'string' ? document.getElementById(btnId) : (btnId || null)
     const antes = btn ? btn.textContent : ''
     if (btn) { btn.disabled = true; btn.textContent = 'Gerando PDF…' }
     try { await PdfTarefa.gerar(modeloRatsPdf(dets, headerRight, arquivo)) }
@@ -1481,8 +1565,8 @@ const TarefaApp = (() => {
     abrirModal('modal-pend')
   }
   // Nova tarefa a partir da pendência de uma RAT.
-  function abrirPend() {
-    const r = ratDet && ratDet.r; if (!r) return
+  function abrirPend(rr) {
+    const r = rr || (ratDet && ratDet.r); if (!r) return
     pendRat = r
     const resp = r.respostas || {}
     const pend = (r.pendencias && r.pendencias.trim()) || (resp.observacoes && String(resp.observacoes).trim()) || ''

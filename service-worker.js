@@ -9,7 +9,7 @@
    não do cache do SW.
 ═══════════════════════════════════════════════ */
 
-const CACHE = 'sr-shell-v605'
+const CACHE = 'sr-shell-v606'
 
 const SHELL = [
   'index.html',
@@ -42,6 +42,7 @@ const SHELL = [
   'js/rat-lista.js',
   'js/deslocamento-calendario.js',
   'js/rat-view.js',
+  'js/rat-editor.js',
   'js/rat-page.js',
   'js/jornada.js',
   'js/deslocamentos.js',

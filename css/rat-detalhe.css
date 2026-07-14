@@ -85,6 +85,18 @@
 .rd-sec-alerta .rd-f label{color:var(--tx3);font-weight:600}
 .rd-sec-alerta .rd-f .v{color:var(--tx)}
 
+/* ── Edição — técnicos participantes (RatEditor: rat.html + aba RATs da Tarefa) ── */
+.rp-tecs{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:12px}
+.rp-av{width:26px;height:26px;border-radius:50%;background:var(--acl);color:var(--ac);display:grid;place-items:center;font-weight:700;font-size:10px;overflow:hidden;flex:none}
+.rp-av img{width:100%;height:100%;object-fit:cover}
+.rp-tnm{font-size:13px;font-weight:600;color:var(--tx);white-space:nowrap}
+.rp-tec{display:inline-flex;align-items:center;gap:8px;background:var(--sur2);border:1px solid var(--bd);border-radius:999px;padding:4px 6px 4px 5px}
+.rp-tecx{border:none;background:none;color:var(--re);font-size:16px;line-height:1;cursor:pointer;padding:0 4px}
+.rp-pick-l{font-size:11px;text-transform:uppercase;letter-spacing:.04em;color:var(--tx3);font-weight:700;margin:2px 0 7px}
+.rp-tecpick{display:flex;flex-wrap:wrap;gap:8px}
+.rp-tecopt{display:inline-flex;align-items:center;gap:8px;background:var(--sur);border:1px dashed var(--ac);border-radius:999px;padding:4px 12px 4px 5px;cursor:pointer;transition:background .12s}
+.rp-tecopt:hover{background:var(--sur2)}
+
 /* ── Edição (mantém o comportamento atual) ── */
 .rd-edit{width:100%;min-height:96px;resize:vertical;font:inherit;line-height:1.55;padding:10px 12px;border:1px solid var(--ac);border-radius:8px;background:var(--sur);color:var(--tx);box-sizing:border-box}
 .rd-edit-hint{font-size:11.5px;color:var(--ac);margin:8px 0 14px}
