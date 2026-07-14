@@ -500,6 +500,6 @@ window.RatView = (function () {
 
   return {
     RAT_SELECT, ensureForms, loadDetalhe, buildReportBody, coletarEdicao, salvarPrecos, aplicarCondicionais,
-    gerarPdf, shrinkImg, calcTempoDe, tempoRat, fmtMin, tipoNomeRat, statusInfo,
+    gerarPdf, shrinkImg, calcTempoDe, tempoRat, fmtMin, tipoNomeRat, statusInfo, campoVisivel, motivoImprodutivaLabel,
   }
 })()

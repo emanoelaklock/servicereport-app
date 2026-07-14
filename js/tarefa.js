@@ -267,8 +267,16 @@ const TarefaApp = (() => {
     document.querySelectorAll('#cc-tabs .tab').forEach(b => b.onclick = () => mostrarPane(b.dataset.pane))
     // RATs
     document.getElementById('cc-rat-pdf').onclick = pdfUnificado
-    document.getElementById('cc-pdf-cliente').onclick = () => exportarTarefa('cliente')
-    document.getElementById('cc-pdf-interno').onclick = () => exportarTarefa('interno')
+    // Gerar PDF (vetorial, download direto) — botão único + dropdown Cliente/Interno.
+    // A exportação antiga (impressão) fica no rodapé do menu como contingência.
+    const pdfBtn = document.getElementById('cc-pdf-btn')
+    const pdfPop = document.getElementById('cc-pdf-pop')
+    pdfBtn.onclick = (e) => { e.stopPropagation(); if (!pdfBtn.disabled) pdfPop.hidden = !pdfPop.hidden }
+    document.addEventListener('click', (e) => { if (!pdfPop.hidden && !pdfPop.contains(e.target)) pdfPop.hidden = true })
+    document.addEventListener('keydown', (e) => { if (e.key === 'Escape') pdfPop.hidden = true })
+    pdfPop.querySelectorAll('[data-pdf]').forEach(b => b.onclick = () => { pdfPop.hidden = true; gerarPdfVetorial(b.dataset.pdf) })
+    document.getElementById('cc-pdf-old-cli').onclick = (e) => { e.preventDefault(); pdfPop.hidden = true; exportarTarefa('cliente') }
+    document.getElementById('cc-pdf-old-int').onclick = (e) => { e.preventDefault(); pdfPop.hidden = true; exportarTarefa('interno') }
     document.getElementById('rat-x').onclick = () => fecharModal('modal-rat')
     document.getElementById('rat-fechar').onclick = () => fecharModal('modal-rat')
     // Editor único e auditado: o "Editar" abre o rat.html (admin-only, com motivo/histórico/restore).
@@ -1417,6 +1425,128 @@ const TarefaApp = (() => {
     for (const r of (cur.rats || [])) dets.push(await RatView.loadDetalhe(r))
     RatView.gerarPdf(dets, `Tarefa ${osNo(cur.numero)} ${cliente ? 'Cliente' : 'Interno'}`, capa, modo, { valores, zerados, selo, win })
     } catch (e) { console.error('[PDF Tarefa]', e); try { win.close() } catch (_) {} toast('Não foi possível gerar o PDF: ' + ((e && e.message) || e), 'err') }
+  }
+
+  // ── PDF VETORIAL (pdfmake local) — botão "Gerar PDF" ─────────────────────
+  // Texto real, tabelas vetoriais, fonte embutida, download direto (sem aba nova,
+  // sem diálogo de impressão). Mesmos perfis/overrides do exportarTarefa antigo,
+  // que segue disponível no menu como contingência até a validação completa.
+  async function gerarPdfVetorial(perfil) {
+    if (!cur || !cur.id) return
+    const btn = document.getElementById('cc-pdf-btn')
+    const txt = document.getElementById('cc-pdf-btn-txt')
+    btn.disabled = true; txt.textContent = 'Gerando PDF…'
+    try {
+      const m = await montarModeloPdf(perfil)
+      await PdfTarefa.gerar(m)
+    } catch (e) {
+      console.error('[PDF vetorial]', e)
+      toast('Não foi possível gerar o PDF. Tente novamente.', 'err')
+    } finally {
+      btn.disabled = false; txt.textContent = 'Gerar PDF'
+    }
+  }
+
+  // Monta o modelo de dados do PDF vetorial (capa resolvida + dets das RATs).
+  // Espelha 1:1 o conteúdo do exportarTarefa: mesmos campos, mesmas regras
+  // Cliente/Interno e mesmos overrides de URL (?valores/?conciliacao/?zerados).
+  async function montarModeloPdf(perfil) {
+    const cliente = perfil !== 'interno'
+    const p = new URLSearchParams(location.search)
+    const flag = (name, base) => { const v = p.get(name); return v === '1' ? true : v === '0' ? false : base }
+    const flags = {
+      cliente,
+      valores: flag('valores', !cliente),
+      conciliacao: flag('conciliacao', !cliente),
+      zerados: flag('zerados', !cliente),
+    }
+    const t = tarefas.find(x => x.id === cur.id) || {}
+    const tipoNome = (ref.tipos.find(x => x.id === t.tipo_servico_id) || {}).nome || '—'
+    const MOD_LBL = { por_hora: 'Por hora', projeto_fechado: 'Projeto fechado / orçamento', contrato: 'Contrato (locação/manutenção)', nao_faturavel: 'Não-faturável' }
+    const responsaveis = [...respSel].map(id => tecNomes[id] || (ref.tecnicos.find(x => x.id === id) || {}).nome).filter(Boolean).join(', ')
+    const rats = cur.rats || []
+    const totalMin = rats.reduce((s, r) => s + (Number(RatView.tempoRat(r)) || 0), 0)
+    const aDevolver = (linhas || []).reduce((s, l) => s + Math.max(0, Number(l.qtd_devolvida) || 0), 0)
+    const foraProposta = (linhas || []).filter(l => !(Number(l.qtd_orcada) || 0) && ((Number(l.qtd_utilizada) || 0) > 0 || (Number(l.qtd_levada) || 0) > 0)).length
+    const fatTxt = t.faturado
+      ? `Faturada${t.numero_nota ? ' · Nota ' + t.numero_nota : ''}${t.data_faturamento ? ' · ' + dmy(t.data_faturamento) : ''}`
+      : 'Não faturada'
+
+    // Dados da Tarefa (pares [label, valor]; {0,1,full} ocupa a linha inteira)
+    const campos = [
+      ['Tipo de tarefa', tipoNome],
+      ['Data agendada', dmy(t.data_agendada)],
+      ['Origem', t.orcamento_id ? 'Orçamento aprovado' : 'Criada direto (sem orçamento)'],
+    ]
+    if (t.pedido_compra) campos.push(['Pedido de Compra (PC)', t.pedido_compra])
+    if (!cliente && t.modalidade) campos.push(['Modalidade de faturamento', MOD_LBL[t.modalidade] || t.modalidade])
+    if (!cliente) campos.push(['Faturamento', fatTxt])
+    if (responsaveis) campos.push({ 0: 'Responsáveis', 1: responsaveis, full: true })
+    if (t.orientacao) campos.push({ 0: 'Orientação ao técnico', 1: t.orientacao, full: true })
+    if (!cliente && t.observacoes) campos.push({ 0: 'Observações internas', 1: t.observacoes, full: true })
+    if (!cliente && t.pendencias) campos.push({ 0: 'Pendências', 1: t.pendencias, full: true })
+    if (!cliente && t.conciliacao_obs) campos.push({ 0: 'Observações da conciliação', 1: t.conciliacao_obs, full: true })
+
+    const resumo = [['RATs registradas', String(rats.length)], ['Horas registradas', RatView.fmtMin(totalMin)]]
+    if (!cliente) {
+      resumo.push(['A devolver ao estoque', aDevolver ? aDevolver.toLocaleString('pt-BR', { maximumFractionDigits: 3 }) : '—'])
+      resumo.push(['Fora da proposta', String(foraProposta)])
+    }
+
+    const ratsResumo = rats.map(r => ({
+      ratNo: osNo(cur.numero) + (r.rat_seq != null ? '/' + String(r.rat_seq).padStart(2, '0') : ''),
+      data: dmy(r.data_tarefa), tecnico: r.tecnico_nome || '—',
+      situacao: ratSit(r.status), ok: r.status === 'registrado' || r.status === 'concluida',
+      tempo: RatView.fmtMin(RatView.tempoRat(r)),
+    }))
+
+    const q = (n) => { const v = Number(n) || 0; return v ? v.toLocaleString('pt-BR', { maximumFractionDigits: 3 }) : '—' }
+    const conciliacao = (flags.conciliacao ? (linhas || []) : []).map(l => ({
+      descricao: l.descricao || l.codigo_produto || '—',
+      orcada: q(l.qtd_orcada), levada: q(l.qtd_levada), utilizada: q(l.qtd_utilizada),
+      devolvida: q(Math.max(0, Number(l.qtd_devolvida) || 0)),
+    }))
+
+    const equipIds = (cur.equip || []).map(x => x.equipamento_id || x)
+    const equipamentos = equipIds.map(id => {
+      const e = (ref.equip || []).find(x => x.id === id)
+      return e ? { tipo: e.tipo || '—', modelo: e.modelo || '—', part: e.part_number || '—', serial: e.serial || '—' } : null
+    }).filter(Boolean)
+
+    // Anexos: imagens viram URLs assinadas (o PdfTarefa reduz/comprime); demais ficam como nome
+    const anexosUrls = [], anexosNomes = []
+    const anx = cur.anexos || []
+    const ehImg = (n) => /\.(jpe?g|png|gif|webp|bmp)$/i.test(n || '')
+    const imgs = anx.filter(a => ehImg(a.nome))
+    const urlByPath = {}
+    if (imgs.length) {
+      try {
+        const { data: signed } = await sb().storage.from('rat-anexos').createSignedUrls(imgs.map(a => a.url), 3600)
+        ;(signed || []).forEach(s => { if (s && s.signedUrl) urlByPath[s.path] = s.signedUrl })
+      } catch (e) { /* offline/erro: anexo cai pro nome */ }
+    }
+    for (const a of anx) {
+      if (ehImg(a.nome) && urlByPath[a.url]) anexosUrls.push({ url: urlByPath[a.url], nome: a.nome })
+      else anexosNomes.push(a.nome)
+    }
+
+    const dets = []
+    for (const r of rats) dets.push(await RatView.loadDetalhe(r))
+
+    return {
+      numeroFmt: osNo(cur.numero),
+      arquivo: `Tarefa_${osNo(cur.numero)}_${cliente ? 'Cliente' : 'Interno'}.pdf`,
+      selo: (cliente && flags.valores) ? 'versão com valores' : null,
+      flags,
+      motivoImprodutiva: RatView.motivoImprodutivaLabel,
+      capa: {
+        clienteNome: cur.cliente_nome || '—',
+        statusLabel: statusLabel(cur.status), statusCor: statusCor(cur.status),
+        dataAgendada: t.data_agendada ? dmy(t.data_agendada) : null,
+        campos, resumo, ratsResumo, conciliacao, equipamentos, anexosUrls, anexosNomes,
+      },
+      dets,
+    }
   }
 
   // Nova tarefa a partir da pendência da TAREFA (botão na aba Dados quando concluída c/ pendência).
