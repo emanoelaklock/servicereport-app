@@ -1,151 +1,172 @@
 /* ═══════════════════════════════════════════════
    Service Report — rat-detalhe.css
-   Visual compartilhado do detalhe da RAT no portal (modal da Tarefa + rat.html).
-   Substitui os blocos .rd-* e .det-* duplicados que viviam no <style> de cada página.
+   Visual compartilhado do detalhe da RAT no portal (aba RATs da Tarefa + rat.html).
    (Cuidado com "asterisco-barra" dentro de comentário: fecha o comentário no meio!)
-   CORES: exclusivamente tokens oficiais (theme.css + tokens.css) — nenhum
-   hexadecimal local e nenhum color-mix. Contraste vem de bordas, filetes,
-   ícones e pequenos fundos sur2; grandes áreas ficam brancas (sur).
+   CORES: tokens semânticos OFICIAIS de css/tokens.css (famílias --sr-*), usados
+   direto — nenhum hexadecimal local, nenhum color-mix, nenhuma cor nova.
+   Cor = significado, em detalhes pontuais (filetes, ícones, chips); os cards
+   permanecem predominantemente brancos (--sr-card). Famílias por seção:
+   info (OS/Orientação/Fotos) · pend (Passagem) · exec (atendimento/status ok) ·
+   warn (pausas) · jrny (serviço executado). Neutro --sur2 vem do theme.css.
 ═══════════════════════════════════════════════ */
 
-/* ── Card externo da RAT: superfície branca única com borda e sombra ── */
-.rd{background:var(--sur);border:1px solid var(--bd);border-radius:var(--r);box-shadow:var(--sh);
-    padding:0 18px 18px}
+/* ── Card externo da RAT: branco, borda firme e detalhe superior azul (info) ── */
+.rd{background:var(--sr-card);border:1px solid var(--sr-line-strong);border-top:3px solid var(--sr-info-m);
+    border-radius:var(--r);box-shadow:var(--sh);padding:0 18px 18px}
 
-/* ── Cabeçalho da RAT: faixa sur2 no topo do card, nº em destaque + badge ── */
+/* ── Cabeçalho da RAT: fundo branco, título azul-tinta, secundários em muted ── */
 .rd-head{display:flex;align-items:flex-start;justify-content:space-between;gap:10px 16px;flex-wrap:wrap;
-         background:var(--sur2);border-bottom:1px solid var(--bd);
+         background:var(--sr-card);border-bottom:1px solid var(--sr-line-strong);
          border-radius:calc(var(--r) - 1px) calc(var(--r) - 1px) 0 0;
          padding:14px 18px;margin:0 -18px 18px}
 .rd-head-main{display:flex;align-items:baseline;gap:6px 10px;flex-wrap:wrap;min-width:0}
-.rd-num{font-size:19px;font-weight:800;color:var(--tx);letter-spacing:-.3px;line-height:1.2}
-.rd-hmeta{display:inline-flex;align-items:baseline;gap:6px 10px;flex-wrap:wrap;font-size:13px;color:var(--tx2);font-weight:600}
-.rd-hmeta .sep{color:var(--tx3);font-weight:400}
-.rd-head .rd-sub{flex-basis:100%;font-size:12.5px;color:var(--tx2);font-weight:500;margin-top:2px}
+.rd-num{font-size:19px;font-weight:800;color:var(--sr-title);letter-spacing:-.3px;line-height:1.2}
+.rd-hmeta{display:inline-flex;align-items:baseline;gap:6px 10px;flex-wrap:wrap;font-size:13px;color:var(--sr-muted);font-weight:600}
+.rd-hmeta .sep{color:var(--sr-muted);font-weight:400}
+.rd-head .rd-sub{flex-basis:100%;font-size:12.5px;color:var(--sr-muted);font-weight:500;margin-top:2px}
 .rd-head > .rd-pill{margin-left:auto}
 .rd-pill{display:inline-flex;align-items:center;align-self:center;padding:4px 13px;border-radius:999px;font-size:12px;font-weight:700;white-space:nowrap}
-.st-ok{background:var(--sr-exec-bg);color:var(--sr-exec-fg)}
-.st-pend{background:var(--sur2);color:var(--am)}
-.st-run{background:var(--acl);color:var(--ac)}
+/* status com as famílias completas (fundo · texto · marca) */
+.st-ok{background:var(--sr-exec-bg);color:var(--sr-exec-fg);border:1px solid var(--sr-exec-m)}
+.st-pend{background:var(--sr-warn-bg);color:var(--sr-warn-fg)}
+.st-run{background:var(--sr-info-bg);color:var(--sr-info-fg)}
 
-/* ── Títulos de seção: barra azul + texto principal + divisória clara ── */
+/* ── Títulos de seção: barra na cor da família (padrão = info) ── */
 .rd-sec{margin-top:20px}
-.rd-sec-t{display:flex;align-items:center;gap:9px;font-size:13.5px;font-weight:700;letter-spacing:-.1px;color:var(--tx);
-          border-bottom:1px solid var(--bd);padding-bottom:8px;margin-bottom:12px}
-.rd-sec-t::before{content:"";flex:none;width:3px;height:15px;border-radius:2px;background:var(--ac)}
+.rd-sec-t{display:flex;align-items:center;gap:9px;font-size:13.5px;font-weight:700;letter-spacing:-.1px;color:var(--sr-title);
+          border-bottom:1px solid var(--sr-line);padding-bottom:8px;margin-bottom:12px}
+.rd-sec-t::before{content:"";flex:none;width:3px;height:15px;border-radius:2px;background:var(--sr-info-m)}
 
-/* ── Campos (grade): fundo alternativo (sur2), ícone azul, rótulo discreto, valor escuro ── */
+/* ── Dados da OS (família info): campos brancos, ícone em chip azul suave ── */
 .rd-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(210px,1fr));gap:9px}
-.rd-f{display:flex;gap:9px;align-items:flex-start;background:var(--sur2);border:1px solid var(--bd);border-radius:9px;padding:9px 11px}
-.rd-fic{flex:none;width:17px;height:17px;color:var(--ac);opacity:.9;margin-top:1px}
-.rd-fic svg{width:100%;height:100%;fill:none;stroke:currentColor;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}
+.rd-f{display:flex;gap:9px;align-items:flex-start;background:var(--sr-card);border:1px solid var(--sr-line);border-radius:9px;padding:9px 11px}
+.rd-fic{flex:none;width:26px;height:26px;padding:5px;border-radius:7px;background:var(--sr-info-bg);color:var(--sr-info-m)}
+.rd-fic svg{display:block;width:100%;height:100%;fill:none;stroke:currentColor;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}
 .rd-fc{min-width:0;flex:1}
-.rd-f label{display:block;font-size:10.5px;text-transform:none;letter-spacing:normal;color:var(--tx3);margin-bottom:2px}
-.rd-f .v{font-size:13px;color:var(--tx);font-weight:600;line-height:1.35;overflow-wrap:anywhere}
-.rd-f .v a{color:var(--ac)}
-.rd-f .v .dim{color:var(--tx3);font-weight:500}
-.rd-f input,.rd-f select{width:100%;font:inherit;font-size:13px;margin-top:3px;padding:5px 7px;border:1px solid var(--ac);border-radius:6px;background:var(--sur);color:var(--tx);box-sizing:border-box}
+.rd-f label{display:block;font-size:10.5px;text-transform:none;letter-spacing:normal;color:var(--sr-muted);margin-bottom:2px}
+.rd-f .v{font-size:13px;color:var(--sr-ink);font-weight:600;line-height:1.35;overflow-wrap:anywhere}
+.rd-f .v a{color:var(--sr-info-fg)}
+.rd-f .v .dim{color:var(--sr-muted);font-weight:500}
+.rd-f input,.rd-f select{width:100%;font:inherit;font-size:13px;margin-top:3px;padding:5px 7px;border:1px solid var(--sr-info-m);border-radius:6px;background:var(--sr-card);color:var(--sr-ink);box-sizing:border-box}
 
-/* "RAT — dados do atendimento": um cartão só, branco, com divisórias internas */
-.rd-sec-atend .rd-grid{grid-template-columns:1fr 1fr;gap:0;background:var(--sur);border:1px solid var(--bd);border-radius:var(--r);overflow:hidden}
-.rd-sec-atend .rd-f{background:none;border:0;border-radius:0;border-bottom:1px solid var(--bd);padding:11px 14px}
-.rd-sec-atend .rd-f:nth-child(odd){border-right:1px solid var(--bd)}
+/* ── "RAT — dados do atendimento" (família exec): card branco, detalhes verdes ── */
+.rd-sec-atend .rd-sec-t::before{background:var(--sr-exec-m)}
+.rd-sec-atend .rd-grid{grid-template-columns:1fr 1fr;gap:0;background:var(--sr-card);border:1px solid var(--sr-line-strong);border-radius:var(--r);overflow:hidden}
+.rd-sec-atend .rd-f{background:none;border:0;border-radius:0;border-bottom:1px solid var(--sr-line);padding:11px 14px}
+.rd-sec-atend .rd-fic{background:var(--sr-exec-bg);color:var(--sr-exec-m)}
+.rd-sec-atend .rd-f .v{color:var(--sr-exec-fg)}
+.rd-sec-atend .rd-f:nth-child(odd){border-right:1px solid var(--sr-line)}
 .rd-sec-atend .rd-f:nth-last-child(1){border-bottom:0}
 .rd-sec-atend .rd-f:nth-last-child(2):nth-child(odd){border-bottom:0}
 @media (max-width:640px){
   .rd-sec-atend .rd-grid{grid-template-columns:1fr}
   .rd-sec-atend .rd-f:nth-child(odd){border-right:0}
-  .rd-sec-atend .rd-f:nth-last-child(2):nth-child(odd){border-bottom:1px solid var(--bd)}
+  .rd-sec-atend .rd-f:nth-last-child(2):nth-child(odd){border-bottom:1px solid var(--sr-line)}
 }
 
-/* ── Blocos de texto (Orientação, Serviço executado, Observações):
-   caixa branca com filete azul à esquerda; Observações leva filete neutro ── */
-.rd-caixa{background:var(--sur);border:1px solid var(--bd);border-left:3px solid var(--ac);border-radius:var(--r);padding:13px 16px}
-.rd-sec[data-cwrap="observacoes"] .rd-caixa{border-left-color:var(--tx3)}
-.rd-rich{font-size:13px;color:var(--tx);line-height:1.65}
+/* ── Blocos de texto: Orientação (info) · Serviço executado (jrny) · Observações (neutro) ── */
+.rd-caixa{background:var(--sr-card);border:1px solid var(--sr-line-strong);border-left:3px solid var(--sr-info-m);border-radius:var(--r);padding:13px 16px}
+.rd-rich{font-size:13px;color:var(--sr-ink);line-height:1.65}
 .rd-rich p{margin:0 0 7px}
 .rd-rich p:last-child{margin-bottom:0}
 .rd-ul{margin:0 0 7px;padding-left:19px}
 .rd-ul:last-child{margin-bottom:0}
 .rd-ul li{margin:3px 0}
-.rd-ul li::marker{color:var(--ac)}
+.rd-ul li::marker{color:var(--sr-info-m)}
 .rd-ul ul{margin:3px 0 0;padding-left:17px;list-style:disc}
-.rd-long{white-space:pre-wrap;line-height:1.6;color:var(--tx)}
+.rd-long{white-space:pre-wrap;line-height:1.6;color:var(--sr-ink)}
+/* Serviço executado = jornada/serviço (roxo) só nos detalhes */
+.rd-sec[data-cwrap="servico_executado"] .rd-sec-t{color:var(--sr-jrny-fg)}
+.rd-sec[data-cwrap="servico_executado"] .rd-sec-t::before{background:var(--sr-jrny-m)}
+.rd-sec[data-cwrap="servico_executado"] .rd-caixa{border-left:4px solid var(--sr-jrny-m)}
+.rd-sec[data-cwrap="servico_executado"] .rd-ul li::marker{color:var(--sr-jrny-m)}
+/* Observações: filete neutro (cinza da família aguardando) */
+.rd-sec[data-cwrap="observacoes"] .rd-caixa{border-left-color:var(--sr-aguard-m)}
+.rd-sec[data-cwrap="observacoes"] .rd-ul li::marker{color:var(--sr-aguard-m)}
 
-/* ── Passagem — volta depois pra terminar: card branco com filete âmbar à esquerda ──
-   Âmbar SÓ como detalhe de alerta (ícone, título e filete) — nunca como fundo. */
-.rd-sec-alerta{background:var(--sur);border:1px solid var(--bd);border-left:4px solid var(--am);
+/* ── Passagem — volta depois pra terminar (família pend: é pendência, não aviso) ── */
+.rd-sec-alerta{background:var(--sr-card);border:1px solid var(--sr-line-strong);border-left:4px solid var(--sr-pend-m);
                border-radius:var(--r);padding:13px 16px}
-.rd-sec-alerta .rd-sec-t{color:var(--am);border-bottom:0;padding-bottom:0;margin-bottom:10px}
+.rd-sec-alerta .rd-sec-t{color:var(--sr-pend-fg);border-bottom:0;padding-bottom:0;margin-bottom:10px}
 .rd-sec-alerta .rd-sec-t::before{display:none}
-.rd-sec-alerta .rd-sec-t .rd-fic{color:var(--am);opacity:1}
+.rd-sec-alerta .rd-sec-t .rd-fic{background:var(--sr-pend-bg);color:var(--sr-pend-fg)}
 .rd-sec-alerta .rd-grid{display:block}
 .rd-sec-alerta .rd-f{background:none;border:0;border-radius:0;padding:6px 0}
-.rd-sec-alerta .rd-f + .rd-f{border-top:1px dashed var(--bd);margin-top:4px;padding-top:10px}
-.rd-sec-alerta .rd-f label{color:var(--tx3);font-weight:600}
-.rd-sec-alerta .rd-f .v{color:var(--tx)}
+.rd-sec-alerta .rd-f + .rd-f{border-top:1px dashed var(--sr-line);margin-top:4px;padding-top:10px}
+.rd-sec-alerta .rd-f label{color:var(--sr-muted);font-weight:600}
+.rd-sec-alerta .rd-f .v{color:var(--sr-ink)}
 
 /* ── Edição — técnicos participantes (RatEditor: rat.html + aba RATs da Tarefa) ── */
 .rp-tecs{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:12px}
-.rp-av{width:26px;height:26px;border-radius:50%;background:var(--acl);color:var(--ac);display:grid;place-items:center;font-weight:700;font-size:10px;overflow:hidden;flex:none}
+.rp-av{width:26px;height:26px;border-radius:50%;background:var(--sr-info-bg);color:var(--sr-info-fg);display:grid;place-items:center;font-weight:700;font-size:10px;overflow:hidden;flex:none}
 .rp-av img{width:100%;height:100%;object-fit:cover}
-.rp-tnm{font-size:13px;font-weight:600;color:var(--tx);white-space:nowrap}
-.rp-tec{display:inline-flex;align-items:center;gap:8px;background:var(--sur2);border:1px solid var(--bd);border-radius:999px;padding:4px 6px 4px 5px}
-.rp-tecx{border:none;background:none;color:var(--re);font-size:16px;line-height:1;cursor:pointer;padding:0 4px}
-.rp-pick-l{font-size:11px;text-transform:uppercase;letter-spacing:.04em;color:var(--tx3);font-weight:700;margin:2px 0 7px}
+.rp-tnm{font-size:13px;font-weight:600;color:var(--sr-ink);white-space:nowrap}
+.rp-tec{display:inline-flex;align-items:center;gap:8px;background:var(--sur2);border:1px solid var(--sr-line-strong);border-radius:999px;padding:4px 6px 4px 5px}
+.rp-tecx{border:none;background:none;color:var(--sr-pend-m);font-size:16px;line-height:1;cursor:pointer;padding:0 4px}
+.rp-pick-l{font-size:11px;text-transform:uppercase;letter-spacing:.04em;color:var(--sr-muted);font-weight:700;margin:2px 0 7px}
 .rp-tecpick{display:flex;flex-wrap:wrap;gap:8px}
-.rp-tecopt{display:inline-flex;align-items:center;gap:8px;background:var(--sur);border:1px dashed var(--ac);border-radius:999px;padding:4px 12px 4px 5px;cursor:pointer;transition:background .12s}
-.rp-tecopt:hover{background:var(--sur2)}
+.rp-tecopt{display:inline-flex;align-items:center;gap:8px;background:var(--sr-card);border:1px dashed var(--sr-info-m);border-radius:999px;padding:4px 12px 4px 5px;cursor:pointer;transition:background .12s}
+.rp-tecopt:hover{background:var(--sr-info-bg)}
 
 /* ── Edição (mantém o comportamento atual) ── */
-.rd-edit{width:100%;min-height:96px;resize:vertical;font:inherit;line-height:1.55;padding:10px 12px;border:1px solid var(--ac);border-radius:8px;background:var(--sur);color:var(--tx);box-sizing:border-box}
-.rd-edit-hint{font-size:11.5px;color:var(--ac);margin:8px 0 14px}
+.rd-edit{width:100%;min-height:96px;resize:vertical;font:inherit;line-height:1.55;padding:10px 12px;border:1px solid var(--sr-info-m);border-radius:8px;background:var(--sr-card);color:var(--sr-ink);box-sizing:border-box}
+.rd-edit-hint{font-size:11.5px;color:var(--sr-info-fg);margin:8px 0 14px}
 .rd-prod{display:flex;flex-direction:column;gap:4px}
-.rd-prod div{font-size:13px;color:var(--tx)}
-.rd-emit{font-size:12.5px;line-height:1.5;color:var(--tx)}
-.rd-conflito{background:var(--sur);border:1px solid var(--bd);border-left:4px solid var(--re);
+.rd-prod div{font-size:13px;color:var(--sr-ink)}
+.rd-emit{font-size:12.5px;line-height:1.5;color:var(--sr-ink)}
+.rd-conflito{background:var(--sr-card);border:1px solid var(--sr-line-strong);border-left:4px solid var(--sr-pend-m);
              color:var(--sr-pend-fg);border-radius:var(--r);padding:10px 12px;font-size:13px;line-height:1.45;margin-bottom:10px}
-.rd-autor{font-size:11px;color:var(--re);font-weight:700;margin-top:2px}
+.rd-autor{font-size:11px;color:var(--sr-pend-fg);font-weight:700;margin-top:2px}
 
-/* ── Produtos: cabeçalho sur2, zebra vem do padrão global de tabela (theme.css),
-   números à direita, total em destaque ── */
-.rd-prodtbl{width:100%;border-collapse:collapse;font-size:12.5px;background:var(--sur);border:1px solid var(--bd);border-radius:var(--r);overflow:hidden}
-.rd-prodtbl th{text-align:left;font-size:10.5px;text-transform:none;letter-spacing:.02em;color:var(--tx2);font-weight:700;
-               background:var(--sur2);padding:9px 11px;border-bottom:1px solid var(--bd)}
+/* ── Produtos: neutro — cabeçalho sur2 com texto azul-tinta, total em info ── */
+.rd-prodtbl{width:100%;border-collapse:collapse;font-size:12.5px;background:var(--sr-card);border:1px solid var(--sr-line);border-radius:var(--r);overflow:hidden}
+.rd-prodtbl th{text-align:left;font-size:10.5px;text-transform:none;letter-spacing:.02em;color:var(--sr-title);font-weight:700;
+               background:var(--sur2);padding:9px 11px;border-bottom:1px solid var(--sr-line)}
 .rd-prodtbl th.num,.rd-prodtbl td.num{text-align:right;font-family:var(--mono);white-space:nowrap}
-.rd-prodtbl td{padding:9px 11px;border-bottom:1px solid var(--bd);color:var(--tx)}
+.rd-prodtbl td{padding:9px 11px;border-bottom:1px solid var(--sr-line);color:var(--sr-ink)}
 .rd-prodtbl tbody tr:last-child td{border-bottom:0}
-.rd-prodtbl input.rd-preco{width:104px;text-align:right;font:inherit;font-family:var(--mono);padding:5px 7px;border:1px solid var(--ac);border-radius:6px;box-sizing:border-box}
-.rd-prodtbl input.rd-qtd{width:74px;text-align:right;font:inherit;font-family:var(--mono);padding:5px 7px;border:1px solid var(--ac);border-radius:6px;box-sizing:border-box}
-/* total com destaque informativo (azul suave do sistema) */
-.rd-total{display:flex;justify-content:flex-end;align-items:baseline;gap:12px;margin-top:10px;font-size:13.5px;color:var(--tx2);
-          background:var(--acl);border:1px solid var(--acm);border-radius:8px;padding:6px 14px;width:max-content;margin-left:auto}
-.rd-total b{font-family:var(--mono);font-size:15px;color:var(--tx)}
+.rd-prodtbl input.rd-preco{width:104px;text-align:right;font:inherit;font-family:var(--mono);padding:5px 7px;border:1px solid var(--sr-info-m);border-radius:6px;box-sizing:border-box}
+.rd-prodtbl input.rd-qtd{width:74px;text-align:right;font:inherit;font-family:var(--mono);padding:5px 7px;border:1px solid var(--sr-info-m);border-radius:6px;box-sizing:border-box}
+.rd-total{display:flex;justify-content:flex-end;align-items:baseline;gap:12px;margin-top:10px;font-size:13.5px;color:var(--sr-muted);
+          background:var(--sr-info-bg);border:1px solid var(--sr-info-bg);border-radius:8px;padding:6px 14px;width:max-content;margin-left:auto}
+.rd-total b{font-family:var(--mono);font-size:15px;color:var(--sr-info-fg)}
 
-/* ── Pausas e almoço ── */
-.rd-pausas{width:100%;border-collapse:collapse;font-size:12.5px;background:var(--sur);border:1px solid var(--bd);border-radius:var(--r);overflow:hidden}
-.rd-pausas th{text-align:left;font-size:10.5px;letter-spacing:.02em;color:var(--tx2);font-weight:700;
-              background:var(--sur2);padding:8px 11px;border-bottom:1px solid var(--bd)}
-.rd-pausas td{padding:8px 11px;border-bottom:1px solid var(--bd);color:var(--tx)}
+/* ── Pausas e almoço (família warn): amarelo só na faixa compacta do resumo ── */
+.rd-sec:has(.rd-resumo-pausa) .rd-sec-t::before,
+.rd-sec:has(.rd-pausas) .rd-sec-t::before{background:var(--sr-warn-m)}
+.rd-pausas{width:100%;border-collapse:collapse;font-size:12.5px;background:var(--sr-card);border:1px solid var(--sr-line);border-radius:var(--r);overflow:hidden}
+.rd-pausas th{text-align:left;font-size:10.5px;letter-spacing:.02em;color:var(--sr-title);font-weight:700;
+              background:var(--sur2);padding:8px 11px;border-bottom:1px solid var(--sr-line)}
+.rd-pausas td{padding:8px 11px;border-bottom:1px solid var(--sr-line);color:var(--sr-ink)}
 .rd-pausas tbody tr:last-child td{border-bottom:0}
-.rd-resumo-pausa{display:flex;align-items:center;gap:8px;font-size:13px;color:var(--tx)}
-.rd-resumo-pausa .rd-fic{margin-top:0}
+.rd-resumo-pausa{display:inline-flex;align-items:center;gap:8px;font-size:13px;color:var(--sr-warn-fg);font-weight:600;
+                 background:var(--sr-warn-bg);border-radius:9px;padding:7px 12px;width:max-content;max-width:100%}
+.rd-resumo-pausa .rd-fic{margin-top:0;width:17px;height:17px;padding:0;border-radius:0;background:none;color:var(--sr-warn-m)}
 
-/* ── Fotos: miniaturas maiores e uniformes, raio do sistema, legenda abaixo ── */
+/* ── Fotos (família info nos detalhes): miniaturas uniformes, hover azul ── */
 .det-fotos{display:flex;flex-wrap:wrap;gap:12px;margin-top:6px}
 .det-foto{display:flex;flex-direction:column;gap:4px;width:148px;margin:0}
-.det-fotos img{width:148px;height:111px;object-fit:cover;border-radius:var(--r);border:1px solid var(--bd)}
-.det-foto figcaption{font-size:11px;color:var(--tx2);line-height:1.25}
-.det-sig{margin-top:6px;max-width:100%;border:1px solid var(--bd);border-radius:var(--r);background:var(--sur)}
+.det-fotos img{width:148px;height:111px;object-fit:cover;border-radius:var(--r);border:1px solid var(--sr-line-strong);transition:border-color .12s}
+.det-fotos img:hover{border-color:var(--sr-blue)}
+.det-foto figcaption{font-size:11px;color:var(--sr-muted);line-height:1.25}
+.det-sig{margin-top:6px;max-width:100%;border:1px solid var(--sr-line-strong);border-radius:var(--r);background:var(--sr-card)}
+
+/* ── Ações no cabeçalho do card (aba RATs): cor = papel da ação ── */
+.rat-open-h [data-rat-editar]{background:var(--sr-blue);border-color:var(--sr-blue);color:var(--sr-card)}
+.rat-open-h [data-rat-editar]:hover{background:var(--sr-info-fg);border-color:var(--sr-info-fg);color:var(--sr-card)}
+.rat-open-h [data-rat-pdf]{background:var(--sr-info-bg);border-color:var(--sr-info-bg);color:var(--sr-info-fg)}
+.rat-open-h [data-rat-pdf]:hover{background:var(--sr-info-bg);border-color:var(--sr-info-m);color:var(--sr-info-fg)}
+.rat-open-h [data-rat-pend]{background:var(--sr-pend-bg);border-color:var(--sr-pend-bg);color:var(--sr-pend-fg)}
+.rat-open-h [data-rat-pend]:hover{background:var(--sr-pend-bg);border-color:var(--sr-pend-m);color:var(--sr-pend-fg)}
 
 /* Edição de fotos (rat.html) */
 #rd-fotos .det-foto{position:relative}
-.rd-fotodel{position:absolute;top:4px;right:4px;width:22px;height:22px;border:none;border-radius:50%;background:var(--re);color:var(--sur);font-size:14px;line-height:1;cursor:pointer}
-.rd-fotoleg,.rd-fotonewleg{width:148px;box-sizing:border-box;margin-top:3px;font:inherit;font-size:11px;padding:4px 6px;border:1px solid var(--bd);border-radius:6px}
-.rd-fotoadd{display:inline-flex;align-items:center;margin-top:10px;padding:9px 14px;border:1px dashed var(--ac);border-radius:8px;font-size:13px;font-weight:700;color:var(--ac);cursor:pointer}
+.rd-fotodel{position:absolute;top:4px;right:4px;width:22px;height:22px;border:none;border-radius:50%;background:var(--sr-pend-m);color:var(--sr-card);font-size:14px;line-height:1;cursor:pointer}
+.rd-fotoleg,.rd-fotonewleg{width:148px;box-sizing:border-box;margin-top:3px;font:inherit;font-size:11px;padding:4px 6px;border:1px solid var(--sr-line-strong);border-radius:6px}
+.rd-fotoadd{display:inline-flex;align-items:center;margin-top:10px;padding:9px 14px;border:1px dashed var(--sr-info-m);border-radius:8px;font-size:13px;font-weight:700;color:var(--sr-info-fg);cursor:pointer}
 .rd-addprod{position:relative;margin-top:10px}
-.rd-addprod input{width:100%;box-sizing:border-box;padding:8px 11px;border:1px dashed var(--ac);border-radius:8px;font:inherit;font-size:13px}
-.rd-prodres{position:absolute;left:0;right:0;top:100%;z-index:20;background:var(--sur);border:1px solid var(--bd);border-radius:8px;box-shadow:var(--sh);max-height:260px;overflow:auto;margin-top:3px}
-.rd-prodopt{padding:8px 11px;font-size:12.5px;cursor:pointer;border-bottom:1px solid var(--sur2)}
+.rd-addprod input{width:100%;box-sizing:border-box;padding:8px 11px;border:1px dashed var(--sr-info-m);border-radius:8px;font:inherit;font-size:13px}
+.rd-prodres{position:absolute;left:0;right:0;top:100%;z-index:20;background:var(--sr-card);border:1px solid var(--sr-line-strong);border-radius:8px;box-shadow:var(--sh);max-height:260px;overflow:auto;margin-top:3px}
+.rd-prodopt{padding:8px 11px;font-size:12.5px;cursor:pointer;border-bottom:1px solid var(--sr-line)}
 .rd-prodopt:hover{background:var(--sur2)}
-.rd-matdel{border:none;background:none;color:var(--re);font-size:18px;line-height:1;cursor:pointer;padding:0 4px}
+.rd-matdel{border:none;background:none;color:var(--sr-pend-m);font-size:18px;line-height:1;cursor:pointer;padding:0 4px}
