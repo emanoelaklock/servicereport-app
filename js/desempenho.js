@@ -23,6 +23,7 @@ const DesempenhoApp = (() => {
   let anterior = {}          // tecnico_id -> nota do mês anterior (tendência)
   let fonte = null           // { tipo: 'snapshot'|'parcial', carimbo? }
   let aberto = null          // tecnico_id com drill-down aberto
+  let binario = {}           // tecnico_id -> {elegiveis, sem_problema, com_problema} (RPC desempenho_binario — vivo)
 
   const mesNome = (iso) => `${MESES[Number(iso.slice(5, 7)) - 1]} ${iso.slice(0, 4)}`
   function mesISO(d) { return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}` }
@@ -59,6 +60,10 @@ const DesempenhoApp = (() => {
     linhas = atual.linhas; fonte = atual.fonte
     const ant = await dadosDoMes(somaMes(mes, -1))
     anterior = {}; for (const l of ant.linhas) anterior[l.tecnico_id] = Number(l.nota)
+    // Percentual de RATs sem problema (o indicador do app) — calculado AO VIVO; pode divergir
+    // do índice congelado: são indicadores diferentes (comportamento esperado, não bug).
+    binario = {}
+    try { const b = await sb().rpc('desempenho_binario', { p_mes: mes }); for (const x of (b.data || [])) binario[x.tecnico_id] = x } catch (e) {}
     render()
   }
 
@@ -100,7 +105,7 @@ const DesempenhoApp = (() => {
       <div class="dp-k-v">${valor}</div><div class="dp-k-d">${det}</div></div>`
     document.getElementById('dp-kpis').innerHTML = n ? [
       kpi('title', '<svg viewBox="0 0 24 24"><path d="M12 2 4 5v6c0 5 3.4 9.4 8 11 4.6-1.6 8-6 8-11V5l-8-3z"/></svg>',
-        'Nota média da equipe', 'composição 65·15·20', media === '—' ? '—' : `${media}<span class="dp-de">/100</span>`, `${n} técnico${n > 1 ? 's' : ''} avaliado${n > 1 ? 's' : ''} no mês`),
+        'Índice interno de disciplina', 'média da equipe · composição 65·15·20', media === '—' ? '—' : `${media}<span class="dp-de">/100</span>`, `${n} técnico${n > 1 ? 's' : ''} avaliado${n > 1 ? 's' : ''} no mês · só do portal — o app mostra o % de RATs sem problema`),
       kpi('info', '<svg viewBox="0 0 24 24"><path d="M21 11.5a9 9 0 1 1-5.3-8.2"/><path d="m9 11 3 3L22 4"/></svg>',
         'Preenchimento Online', 'RATs encerradas no dia do trabalho', ratsReg ? Math.round(100 * d0 / ratsReg) + '%' : '—',
         `${d0} em D+0 de ${ratsReg} avaliadas · ${fora} fora da régua (app/improdutiva)`),
@@ -118,7 +123,7 @@ const DesempenhoApp = (() => {
     const box = document.getElementById('dp-rk')
     if (!n) { box.innerHTML = `<div class="dp-vazio">${(!status || !status.inicio) && fonte.tipo !== 'snapshot' ? 'Sem dados: painel desligado e nenhum snapshot deste mês.' : 'Nenhum técnico com RATs neste mês.'}</div>`; return }
     const w = (p, comp) => Math.round(p * (Number(comp) || 0) / 100)
-    box.innerHTML = `<table><thead><tr><th>Técnico</th><th>Nota</th><th>Composição da nota</th><th>Preenchimento Online</th><th>Principais ocorrências</th><th>Tendência</th><th></th></tr></thead><tbody>` +
+    box.innerHTML = `<table><thead><tr><th>Técnico</th><th>Índice interno</th><th>RATs sem problema</th><th>Composição do índice</th><th>Preenchimento Online</th><th>Principais ocorrências</th><th>Tendência</th><th></th></tr></thead><tbody>` +
       linhas.map(l => {
         const u = uDe(l.tecnico_id)
         const antN = anterior[l.tecnico_id]
@@ -138,16 +143,22 @@ const DesempenhoApp = (() => {
         // selo de amostra (três níveis; ninguém sai do placar) — reavaliar com 2-3 meses de série
         const amostra = Number(l.rats) < 3 ? '<span class="dp-amostra">Amostra muito baixa</span>'
           : (Number(l.rats) <= 4 ? '<span class="dp-amostra">Amostra limitada</span>' : '')
+        // % de RATs sem problema (indicador do app) — vivo; divergir do índice congelado é esperado
+        const b = binario[l.tecnico_id]
+        const pctBin = b && Number(b.elegiveis)
+          ? `<b>${Math.round(100 * Number(b.sem_problema) / Number(b.elegiveis))}%</b> <span class="dp-na">(${Number(b.sem_problema)} de ${Number(b.elegiveis)})</span>`
+          : '<span class="dim">—</span>'
         return `<tr class="dp-linha${aberto === l.tecnico_id ? ' on' : ''}" data-tec="${esc(l.tecnico_id)}">
           <td><span class="dp-tec"><span class="dp-av">${av(u || { nome: l.tecnico_nome })}</span>${esc(l.tecnico_nome)}${amostra}</span></td>
           <td class="dp-nt">${esc(l.nota)}<span class="dp-de">/100</span></td>
+          <td class="dp-po">${pctBin}</td>
           <td><span class="dp-comp" title="Preenchimento ${esc(l.comp_pontualidade)} · Reedições ${esc(l.comp_reedicao)} · Devoluções ${esc(l.comp_devolucao)}"><i style="width:${w(65, l.comp_pontualidade)}%;background:var(--sr-info-m)"></i><i style="width:${w(15, l.comp_reedicao)}%;background:var(--sr-warn-m)"></i><i style="width:${w(20, l.comp_devolucao)}%;background:var(--sr-pend-m)"></i></span></td>
           <td class="dp-po">${po}</td>
           <td class="dp-po">${ocor}</td>
           <td>${tend}</td>
           <td class="dp-chev">${IC_CHEV}</td>
         </tr>
-        <tr class="dp-dd" data-dd="${esc(l.tecnico_id)}" hidden><td colspan="7"><div class="dp-ddbox">Carregando…</div></td></tr>`
+        <tr class="dp-dd" data-dd="${esc(l.tecnico_id)}" hidden><td colspan="8"><div class="dp-ddbox">Carregando…</div></td></tr>`
       }).join('') + '</tbody></table>'
     box.querySelectorAll('.dp-linha').forEach(tr => tr.onclick = () => toggleDrill(tr.dataset.tec))
   }
