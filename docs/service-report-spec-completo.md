@@ -284,6 +284,18 @@ Referência visual: `docs/mockups/mockup-admin-tarefa-completa.html`. É o **hub
 - **Abrir em nova aba (06/26):** nas listas e calendários do portal (Tarefas, RATs, Deslocamentos) dá pra abrir um item em **nova aba** — ícone dedicado e **Ctrl/Cmd-clique** no chip/linha (os chips viraram links nativos). O **título do top bar** no detalhe mostra **`Tarefa Nº NNNNN`** (não só "Tarefa").
 - **Ordenação por cabeçalho (06/26):** clicar no cabeçalho de qualquer coluna ordena a tabela (em todas as listas do portal).
 
+### PDF da Tarefa — "Gerar PDF" vetorial (07/26)
+
+O documento da Tarefa (capa + todas as RATs) é gerado **no navegador, 100% vetorial**, via **pdfmake vendorizado** (`js/vendor/`, sem CDN — precacheado pelo SW, funciona **offline**; só as fotos exigem rede). Texto selecionável/pesquisável, fonte **Roboto embutida** (subset, PT-BR completo), download direto — sem aba nova nem diálogo de impressão. Módulo `js/pdf-tarefa.js`; a tela monta o modelo (`montarModeloPdf` em `tarefa.js`).
+
+- **UI:** botão azul único **"Gerar PDF"** + dropdown com **"PDF para o cliente"** e **"PDF interno"** (descrição em cada opção). Enquanto gera: "Gerando PDF…" + botão desabilitado. Erro → toast *"Não foi possível gerar o PDF. Tente novamente."*. Menu fecha em Esc/clique-fora. Arquivo: `Tarefa_NNNNN_Cliente.pdf` / `Tarefa_NNNNN_Interno.pdf`.
+- **Perfis:** *Cliente* = sem valores, sem conciliação, só produtos com qtd>0, sem campos internos (modalidade/faturamento/observações internas/pendências/obs. conciliação). *Interno* = tudo. Overrides finos pela URL (`?valores=1/0`, `?conciliacao=1/0`, `?zerados=1/0`); Cliente com valores ganha selo "versão com valores" no rodapé.
+- **Badge de status (capa):** deriva do **flag real `tarefas.faturado`**, não do rótulo do status. Cliente: tarefa encerrada → sempre **FINALIZADA** (faturamento é informação interna). Interno: **FATURADA/FINALIZADA** só com `faturado=true`; encerrada sem faturar → **FINALIZADA**. Demais status seguem rótulo/cor de `status_tarefa`.
+- **Layout (aprovado na PoC da Tarefa 04826):** cabeçalho em faixa navy com nº da Tarefa em todas as páginas; capa (hero + dados + cards de resumo + RATs resumo + conciliação/equipamentos/anexos no interno) fluindo direto pra 1ª RAT; cada RAT com faixa própria (nº, técnico, badge, tempo); seções com barra azul; tabelas zebradas com cabeçalho repetido nas quebras; "Serviço Executado" em caixa; seções de **visita improdutiva** e **passagem** quando existirem; assinatura ao fim.
+- **Fotos:** grade adaptável à quantidade (1→1 col grande, 2→2, 3→3, **4→2×2**, 5+→3 colunas), moldura fina + legenda **só abaixo** da imagem; título "Fotos" indivisível com a 1ª linha; páginas seguintes ganham **"Fotos — continuação"** (posição medida em passes de layout com imagem 1×1 — custo ~zero). "RAT — dados do atendimento" é bloco **indivisível**.
+- **Canvas só para imagem** (regra dura): fotos/anexos são cortados em 4:3 e reduzidos a **1600px JPEG q0.85** (assinatura 700px, proporção mantida), **uma imagem por vez** (memória controlada). O relatório em si **nunca é rasterizado**.
+- **Escopo:** por ora só o documento da **Tarefa**. O PDF de **RAT avulsa** (modal/rat.html) e o **"PDF unificado"** da aba RATs ainda usam o gerador HTML antigo (`RatView.gerarPdf`) — migração prevista (§13). A exportação antiga da Tarefa foi removida após validação em produção (07/26).
+
 **Visões de RAT e Deslocamento no portal (06/26).** Além da aba dentro da Tarefa, o portal tem páginas próprias:
 - **RATs** — alterna **Calendário** (visão mensal, agrupa pela **data da RAT**) e **Lista** (busca no banco inteiro). Filtros: cliente (combobox), técnicos (multi, mostra co-responsáveis), busca livre. O chip mostra o **Nº da RAT** `{tarefa}/{seq}`. Atalho direto pra aba RATs da Tarefa.
 - **Deslocamentos** — **Calendário** com **1 chip por TRECHO** no dia do trecho (origem→destino; a **base** Joinville aparece como "Traders"); clicar na linha/chip abre o **detalhe (leitura)** ou o editor. Conferência: alerta de **"deslocamento de ida sem volta"** no dia.
@@ -603,6 +615,7 @@ O **técnico nunca escolhe a modalidade** — ela é **derivada** (do contrato/o
 
 1. **Faturamento — escrita no Omie:** criar a OS **"a Faturar"** ao aprovar a Tarefa (idempotente) + retorno do status *Faturada* (webhook ou checagem periódica). Hoje "A faturar" existe só como **filtro local** na lista de tarefas — a integração de escrita não foi construída.
 2. **E-mail da RAT concluída** → adm@tsrv.com.br (o serviço `documentos` hoje cobre o pré-orçamento; estender para a RAT).
+2b. **Migrar os demais relatórios pro PDF vetorial (§7 "PDF da Tarefa"):** o documento da Tarefa já é pdfmake vetorial (07/26); falta migrar o PDF de **RAT avulsa** (modal/rat.html) e o **"PDF unificado"** da aba RATs, que ainda usam o gerador HTML antigo (`RatView.gerarPdf`). Depois disso, avaliar pré-orçamento/orçamento no mesmo motor.
 3. **Modalidade de faturamento por contrato/obra** (§10.1): o filtro "pendente de classificação" já existe (`tarefas.modalidade` vazia); falta o cadastro/derivação da modalidade no contrato.
 4. **Modo "dia contínuo"** (WestRock-FBTB): linha do tempo contínua, handoff, arredondamento de 5 min — desenhado (§10.1), não construído.
 5. **Câmbio US$/PTAX** no material do orçamento — futuro desenhado (§5), é só plugar.
