@@ -10,13 +10,14 @@
    warn (pausas) · jrny (serviço executado). Neutro --sur2 vem do theme.css.
 ═══════════════════════════════════════════════ */
 
-/* ── Card externo da RAT: branco, borda firme e detalhe superior azul (info) ── */
-.rd{background:var(--sr-card);border:1px solid var(--sr-line-strong);border-top:3px solid var(--sr-info-m);
+/* ── Card externo da RAT: branco com borda firme ── */
+.rd{background:var(--sr-card);border:1px solid var(--sr-line-strong);
     border-radius:var(--r);box-shadow:var(--sh);padding:0 18px 18px}
 
-/* ── Cabeçalho da RAT: fundo branco, título azul-tinta, secundários em muted ── */
+/* ── Cabeçalho da RAT: faixa info com filete lateral, título azul-tinta ── */
 .rd-head{display:flex;align-items:flex-start;justify-content:space-between;gap:10px 16px;flex-wrap:wrap;
-         background:var(--sr-card);border-bottom:1px solid var(--sr-line-strong);
+         background:var(--sr-info-bg);border-left:4px solid var(--sr-info-m);
+         border-bottom:1px solid var(--sr-line-strong);
          border-radius:calc(var(--r) - 1px) calc(var(--r) - 1px) 0 0;
          padding:14px 18px;margin:0 -18px 18px}
 .rd-head-main{display:flex;align-items:baseline;gap:6px 10px;flex-wrap:wrap;min-width:0}
@@ -37,24 +38,27 @@
           border-bottom:1px solid var(--sr-line);padding-bottom:8px;margin-bottom:12px}
 .rd-sec-t::before{content:"";flex:none;width:3px;height:15px;border-radius:2px;background:var(--sr-info-m)}
 
-/* ── Dados da OS (família info): campos brancos, ícone em chip azul suave ── */
+/* ── Dados da OS (família info): fundo suave, rótulo/ícone azuis, valor escuro ── */
 .rd-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(210px,1fr));gap:9px}
-.rd-f{display:flex;gap:9px;align-items:flex-start;background:var(--sr-card);border:1px solid var(--sr-line);border-radius:9px;padding:9px 11px}
-.rd-fic{flex:none;width:26px;height:26px;padding:5px;border-radius:7px;background:var(--sr-info-bg);color:var(--sr-info-m)}
+.rd-f{display:flex;gap:9px;align-items:flex-start;background:var(--sr-info-bg);border:1px solid var(--sr-line-strong);border-radius:9px;padding:9px 11px}
+.rd-fic{flex:none;width:26px;height:26px;padding:5px;border-radius:7px;background:var(--sr-card);color:var(--sr-info-fg)}
 .rd-fic svg{display:block;width:100%;height:100%;fill:none;stroke:currentColor;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}
 .rd-fc{min-width:0;flex:1}
-.rd-f label{display:block;font-size:10.5px;text-transform:none;letter-spacing:normal;color:var(--sr-muted);margin-bottom:2px}
+.rd-f label{display:block;font-size:10.5px;text-transform:none;letter-spacing:normal;color:var(--sr-info-fg);margin-bottom:2px}
 .rd-f .v{font-size:13px;color:var(--sr-ink);font-weight:600;line-height:1.35;overflow-wrap:anywhere}
 .rd-f .v a{color:var(--sr-info-fg)}
 .rd-f .v .dim{color:var(--sr-muted);font-weight:500}
 .rd-f input,.rd-f select{width:100%;font:inherit;font-size:13px;margin-top:3px;padding:5px 7px;border:1px solid var(--sr-info-m);border-radius:6px;background:var(--sr-card);color:var(--sr-ink);box-sizing:border-box}
 
-/* ── "RAT — dados do atendimento" (família exec): card branco, detalhes verdes ── */
+/* ── "RAT — dados do atendimento" (família exec): fundo suave identifica a seção;
+   os DADOS (horas/técnicos/veículo) seguem escuros — verde só no entorno ── */
+.rd-sec-atend .rd-sec-t{color:var(--sr-exec-fg)}
 .rd-sec-atend .rd-sec-t::before{background:var(--sr-exec-m)}
-.rd-sec-atend .rd-grid{grid-template-columns:1fr 1fr;gap:0;background:var(--sr-card);border:1px solid var(--sr-line-strong);border-radius:var(--r);overflow:hidden}
+.rd-sec-atend .rd-grid{grid-template-columns:1fr 1fr;gap:0;background:var(--sr-exec-bg);border:1px solid var(--sr-line-strong);border-left:4px solid var(--sr-exec-m);border-radius:var(--r);overflow:hidden}
 .rd-sec-atend .rd-f{background:none;border:0;border-radius:0;border-bottom:1px solid var(--sr-line);padding:11px 14px}
-.rd-sec-atend .rd-fic{background:var(--sr-exec-bg);color:var(--sr-exec-m)}
-.rd-sec-atend .rd-f .v{color:var(--sr-exec-fg)}
+.rd-sec-atend .rd-fic{background:var(--sr-card);color:var(--sr-exec-fg)}
+.rd-sec-atend .rd-f label{color:var(--sr-muted)}
+.rd-sec-atend .rd-f .v{color:var(--sr-ink)}
 .rd-sec-atend .rd-f:nth-child(odd){border-right:1px solid var(--sr-line)}
 .rd-sec-atend .rd-f:nth-last-child(1){border-bottom:0}
 .rd-sec-atend .rd-f:nth-last-child(2):nth-child(odd){border-bottom:0}
@@ -64,8 +68,10 @@
   .rd-sec-atend .rd-f:nth-last-child(2):nth-child(odd){border-bottom:1px solid var(--sr-line)}
 }
 
-/* ── Blocos de texto: Orientação (info) · Serviço executado (jrny) · Observações (neutro) ── */
-.rd-caixa{background:var(--sr-card);border:1px solid var(--sr-line-strong);border-left:3px solid var(--sr-info-m);border-radius:var(--r);padding:13px 16px}
+/* ── Blocos de texto: Orientação (info) · Serviço executado (jrny) · Observações (neutro) ──
+   Fundo suave da família dá presença ao bloco; o texto segue escuro. */
+.rd-sec:has(> .rd-caixa) .rd-sec-t{color:var(--sr-info-fg)}
+.rd-caixa{background:var(--sr-info-bg);border:1px solid var(--sr-line-strong);border-left:4px solid var(--sr-info-m);border-radius:var(--r);padding:14px 17px}
 .rd-rich{font-size:13px;color:var(--sr-ink);line-height:1.65}
 .rd-rich p{margin:0 0 7px}
 .rd-rich p:last-child{margin-bottom:0}
@@ -75,13 +81,14 @@
 .rd-ul li::marker{color:var(--sr-info-m)}
 .rd-ul ul{margin:3px 0 0;padding-left:17px;list-style:disc}
 .rd-long{white-space:pre-wrap;line-height:1.6;color:var(--sr-ink)}
-/* Serviço executado = jornada/serviço (roxo) só nos detalhes */
+/* Serviço executado = jornada/serviço (roxo): fundo suave + filete, texto escuro */
 .rd-sec[data-cwrap="servico_executado"] .rd-sec-t{color:var(--sr-jrny-fg)}
 .rd-sec[data-cwrap="servico_executado"] .rd-sec-t::before{background:var(--sr-jrny-m)}
-.rd-sec[data-cwrap="servico_executado"] .rd-caixa{border-left:4px solid var(--sr-jrny-m)}
-.rd-sec[data-cwrap="servico_executado"] .rd-ul li::marker{color:var(--sr-jrny-m)}
-/* Observações: filete neutro (cinza da família aguardando) */
-.rd-sec[data-cwrap="observacoes"] .rd-caixa{border-left-color:var(--sr-aguard-m)}
+.rd-sec[data-cwrap="servico_executado"] .rd-caixa{background:var(--sr-jrny-bg);border-left:4px solid var(--sr-jrny-m);padding:15px 18px}
+.rd-sec[data-cwrap="servico_executado"] .rd-ul li::marker{color:var(--sr-jrny-fg)}
+/* Observações: neutra — caixa branca com filete cinza (família aguardando) */
+.rd-sec[data-cwrap="observacoes"] .rd-sec-t{color:var(--sr-title)}
+.rd-sec[data-cwrap="observacoes"] .rd-caixa{background:var(--sr-card);border-left:3px solid var(--sr-aguard-m)}
 .rd-sec[data-cwrap="observacoes"] .rd-ul li::marker{color:var(--sr-aguard-m)}
 
 /* ── Passagem — volta depois pra terminar (família pend: é pendência, não aviso) ── */
@@ -118,10 +125,10 @@
              color:var(--sr-pend-fg);border-radius:var(--r);padding:10px 12px;font-size:13px;line-height:1.45;margin-bottom:10px}
 .rd-autor{font-size:11px;color:var(--sr-pend-fg);font-weight:700;margin-top:2px}
 
-/* ── Produtos: neutro — cabeçalho sur2 com texto azul-tinta, total em info ── */
+/* ── Produtos: corpo neutro — cabeçalho e total na família info ── */
 .rd-prodtbl{width:100%;border-collapse:collapse;font-size:12.5px;background:var(--sr-card);border:1px solid var(--sr-line);border-radius:var(--r);overflow:hidden}
-.rd-prodtbl th{text-align:left;font-size:10.5px;text-transform:none;letter-spacing:.02em;color:var(--sr-title);font-weight:700;
-               background:var(--sur2);padding:9px 11px;border-bottom:1px solid var(--sr-line)}
+.rd-prodtbl th{text-align:left;font-size:10.5px;text-transform:none;letter-spacing:.02em;color:var(--sr-info-fg);font-weight:700;
+               background:var(--sr-info-bg);padding:9px 11px;border-bottom:1px solid var(--sr-line)}
 .rd-prodtbl th.num,.rd-prodtbl td.num{text-align:right;font-family:var(--mono);white-space:nowrap}
 .rd-prodtbl td{padding:9px 11px;border-bottom:1px solid var(--sr-line);color:var(--sr-ink)}
 .rd-prodtbl tbody tr:last-child td{border-bottom:0}
@@ -139,11 +146,14 @@
               background:var(--sur2);padding:8px 11px;border-bottom:1px solid var(--sr-line)}
 .rd-pausas td{padding:8px 11px;border-bottom:1px solid var(--sr-line);color:var(--sr-ink)}
 .rd-pausas tbody tr:last-child td{border-bottom:0}
-.rd-resumo-pausa{display:inline-flex;align-items:center;gap:8px;font-size:13px;color:var(--sr-warn-fg);font-weight:600;
-                 background:var(--sr-warn-bg);border-radius:9px;padding:7px 12px;width:max-content;max-width:100%}
-.rd-resumo-pausa .rd-fic{margin-top:0;width:17px;height:17px;padding:0;border-radius:0;background:none;color:var(--sr-warn-m)}
+.rd-resumo-pausa{display:flex;align-items:center;gap:8px;font-size:13px;color:var(--sr-on-warn);font-weight:600;
+                 background:var(--sr-warn-bg);border:1px solid var(--sr-warn-m);border-left:4px solid var(--sr-warn-m);
+                 border-radius:var(--r);padding:9px 13px;width:auto}
+.rd-resumo-pausa .rd-fic{margin-top:0;width:17px;height:17px;padding:0;border-radius:0;background:none;color:var(--sr-warn-fg)}
 
-/* ── Fotos (família info nos detalhes): miniaturas uniformes, hover azul ── */
+/* ── Fotos (família info nos detalhes): título com leve fundo azul, hover azul ── */
+.rd-sec:has(.det-fotos) .rd-sec-t{color:var(--sr-info-fg);background:var(--sr-info-bg);
+                                  border-bottom:0;border-radius:8px;padding:8px 11px}
 .det-fotos{display:flex;flex-wrap:wrap;gap:12px;margin-top:6px}
 .det-foto{display:flex;flex-direction:column;gap:4px;width:148px;margin:0}
 .det-fotos img{width:148px;height:111px;object-fit:cover;border-radius:var(--r);border:1px solid var(--sr-line-strong);transition:border-color .12s}
