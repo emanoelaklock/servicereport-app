@@ -163,6 +163,7 @@ const DesempenhoApp = (() => {
           atrRats ? `<span class="dp-oc dp-oc-warn" title="RAT encerrada depois do prazo D+1 — desconta pra equipe toda da RAT."><b>${atrRats}</b> RAT${atrRats > 1 ? 's' : ''} com atraso</span>` : null,
           reedEv ? `<span class="dp-oc dp-oc-warn" title="Eventos de edição em dia posterior ao trabalho — descontam só de quem editou."><b>${reedEv}</b> reediç${reedEv > 1 ? 'ões' : 'ão'}${reedRats != null ? ` (${reedRats} RAT${reedRats === 1 ? '' : 's'})` : ''}</span>` : null,
           devRats ? `<span class="dp-oc dp-oc-pend" title="RATs do técnico em tarefas devolvidas — uma tarefa pode conter várias RATs; desconta pra equipe toda da RAT."><b>${devRats}</b> RAT${devRats > 1 ? 's' : ''} devolvida${devRats > 1 ? 's' : ''}</span>` : null,
+          (b && Number(b.r_ajuste)) ? `<span class="dp-oc dp-oc-warn" title="RAT corrigida pela gestão por falha do técnico (esquecimento/completação) — desconta pra equipe toda da RAT. Correção de texto, mudança de processo e pedido do cliente não contam."><b>${Number(b.r_ajuste)}</b> corrigida${Number(b.r_ajuste) > 1 ? 's' : ''} pela gestão</span>` : null,
         ].filter(Boolean).join(' ') || '<span class="dp-oc dp-oc-ok" title="Nenhuma RAT do mês descontou: sem atraso, reedição própria ou devolução.">sem ocorrências</span>'
         // FORA DA CONTA em chips-fantasma (outline, sem fundo): informam, não descontam.
         // Ícones SVG de linha (regra do projeto: nunca emoji).

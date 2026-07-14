@@ -9,7 +9,8 @@
    · Fonte: meu_resultado_rats() (0103) — só as RATs do próprio técnico,
      com flags por RAT (auth.uid no servidor).
    · RAT com problema: encerrada depois de D+1 · aberta com prazo vencido ·
-     reeditada em dia posterior pelo PRÓPRIO técnico · tarefa devolvida.
+     reeditada em dia posterior pelo PRÓPRIO técnico · tarefa devolvida ·
+     corrigida pela gestão por falha do técnico (esquecimento/completação — 0107).
      D+0 e D+1 não sujam (D+1 = tardia, informativo).
    · Tendência em PONTOS PERCENTUAIS (nunca "+15%"); <3 avaliadas =
      "Amostra limitada", percentual aparece mas tendência não.
@@ -107,7 +108,7 @@ window.PlacarCard = (() => {
 
   // Classificação binária de UMA RAT (mesmos critérios do 0103 — exibição)
   const AVALIAVEIS = { D0: 1, D1: 1, atrasada: 1 }
-  const temProblema = (r) => r.faixa === 'atrasada' || !!r.reeditada_por_mim || !!r.devolvida
+  const temProblema = (r) => r.faixa === 'atrasada' || !!r.reeditada_por_mim || !!r.devolvida || !!r.corrigida_gestao
   function resumo(rows) {
     const aval = (rows || []).filter(r => AVALIAVEIS[r.faixa])
     const prob = aval.filter(temProblema)
@@ -118,6 +119,7 @@ window.PlacarCard = (() => {
       atraso: aval.filter(r => r.faixa === 'atrasada').length,
       reed: aval.filter(r => r.reeditada_por_mim).length,
       dev: aval.filter(r => r.devolvida).length,
+      corr: aval.filter(r => r.corrigida_gestao).length,
       tardias: aval.filter(r => r.faixa === 'D1').length,
     }
   }
@@ -177,6 +179,7 @@ window.PlacarCard = (() => {
       R.atraso ? `<span class="pl-prob">${e_(R.atraso)} ${plural(R.atraso, 'encerrada com atraso', 'encerradas com atraso')}</span>` : null,
       R.reed ? `<span class="pl-prob">${e_(R.reed)} ${plural(R.reed, 'reedição em dia posterior', 'reedições em dia posterior')}</span>` : null,
       R.dev ? `<span class="pl-prob">${e_(R.dev)} ${plural(R.dev, 'devolução', 'devoluções')}</span>` : null,
+      R.corr ? `<span class="pl-prob">${e_(R.corr)} ${plural(R.corr, 'corrigida pela gestão', 'corrigidas pela gestão')}</span>` : null,
     ].filter(Boolean).join(' · ')
     const tardias = R.tardias
       ? `<div class="pl-nota-multi">${e_(R.tardias)} ${plural(R.tardias, 'RAT encerrada em D+1, considerada sem problema nesta versão.', 'RATs encerradas em D+1, consideradas sem problema nesta versão.')}</div>`
@@ -189,7 +192,8 @@ window.PlacarCard = (() => {
     const probList = R.prob.map(r => {
       const motivos = [r.faixa === 'atrasada' ? 'encerrada com atraso (conta pra equipe toda)' : null,
                        r.reeditada_por_mim ? 'reeditada por você em dia posterior' : null,
-                       r.devolvida ? 'tarefa devolvida pela gestão (conta pra equipe toda)' : null].filter(Boolean).join(' + ')
+                       r.devolvida ? 'tarefa devolvida pela gestão (conta pra equipe toda)' : null,
+                       r.corrigida_gestao ? 'corrigida pela gestão (conta pra equipe toda)' : null].filter(Boolean).join(' + ')
       return `Tarefa ${r.tarefa_numero != null ? e_(String(r.tarefa_numero).padStart(5, '0')) : '—'} (${e_(String(r.dia).slice(8, 10))}/${e_(String(r.dia).slice(5, 7))}): <span class="pl-prob">${motivos}</span>`
     }).join('<br>')
     return `<div class="pl-card">
@@ -205,7 +209,7 @@ window.PlacarCard = (() => {
         <div class="pl-e-t">Como o percentual é calculado</div>
         <div class="pl-e-x">${e_(R.nSem)} sem problema ÷ ${e_(R.nAval)} avaliadas × 100 = <b>${e_(R.pct)}%</b>. Cada RAT pesa igual; uma RAT com dois ou três motivos conta uma vez só.</div>
         <div class="pl-e-t">O que faz uma RAT contar como problema</div>
-        <div class="pl-e-x">Encerrada depois de D+1 · ainda aberta com o prazo vencido · reeditada em dia posterior por você · tarefa devolvida pela gestão. Encerrar no dia (vale até 04:00) ou até 12:00 do dia útil seguinte NÃO conta como problema — D+1 aparece só como "tardia". Atraso e devolução contam pra equipe toda da RAT; reedição conta só pra quem editou. ${e_(CONTRATO)}</div>
+        <div class="pl-e-x">Encerrada depois de D+1 · ainda aberta com o prazo vencido · reeditada em dia posterior por você · tarefa devolvida pela gestão · corrigida pela gestão por falha da equipe (esquecimento ou preenchimento incompleto — correção de texto não conta). Encerrar no dia (vale até 04:00) ou até 12:00 do dia útil seguinte NÃO conta como problema — D+1 aparece só como "tardia". Atraso, devolução e correção contam pra equipe toda da RAT; reedição conta só pra quem editou. ${e_(CONTRATO)}</div>
         <div class="pl-e-t">O que produziu o resultado deste mês</div>
         <div class="pl-e-x">${probList || 'Nenhuma RAT com problema — resultado 100%.'}</div>
         <div class="pl-e-t">Fora da conta</div>
@@ -232,13 +236,14 @@ window.PlacarCard = (() => {
       if (r.faixa === 'fora_janela_bug') chips.push('<span class="pl-chip pl-c-neutro">Não avaliada — app instável</span>')
       if (r.reeditada_por_mim) chips.push('<span class="pl-chip pl-c-prob">Reedição em dia posterior</span>')
       if (r.devolvida) chips.push('<span class="pl-chip pl-c-prob">Devolvida</span>')
+      if (r.corrigida_gestao) chips.push('<span class="pl-chip pl-c-prob">Corrigida pela gestão</span>')
       return `<div class="pl-rrow"><span class="pl-dia"><b>${String(d.getDate()).padStart(2, '0')}</b><span>${DIAS[d.getDay()]}</span></span>
         <span class="pl-inf"><b>${r.tarefa_numero != null ? 'Tarefa ' + e_(String(r.tarefa_numero).padStart(5, '0')) + ' · ' : ''}${e_(r.cliente_nome || '—')}</b></span>
         <span class="pl-chips">${chips.join('')}</span></div>`
     }).join('') : '<div class="pl-vazio">Nada aqui neste mês.</div>'
     ov.innerHTML = `<div class="pl-dh"><button type="button" class="pl-back">${IC.voltar}</button>
         <div><div class="pl-dt">${filtroProblema ? 'RATs com problema' : 'Minhas RATs'} — ${e_(mesNome(mes))}</div><div class="pl-ds">Só as suas: dados de colegas não aparecem</div></div></div>
-      <p class="pl-leg">Problema = encerrada depois de D+1 · aberta com prazo vencido · reedição sua em dia posterior · tarefa devolvida. Encerrada no dia ou em D+1 não conta como problema. Uma mesma RAT pode ter mais de um motivo. ${e_(CONTRATO)}</p>
+      <p class="pl-leg">Problema = encerrada depois de D+1 · aberta com prazo vencido · reedição sua em dia posterior · tarefa devolvida · corrigida pela gestão por falha da equipe. Encerrada no dia ou em D+1 não conta como problema. Uma mesma RAT pode ter mais de um motivo. ${e_(CONTRATO)}</p>
       <div class="pl-rlist">${linhas}</div>`
     ov.classList.add('aberto')
     ov.querySelector('.pl-back').onclick = () => ov.classList.remove('aberto')
