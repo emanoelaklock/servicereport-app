@@ -107,15 +107,23 @@ window.PdfTarefa = (function () {
     stack: [{ text: String(label).toUpperCase(), fontSize: 6.8, color: GRAY, characterSpacing: 0.4, margin: [0, 0, 0, 2] },
             { text: (value == null || value === '') ? '—' : String(value), fontSize: 9.5, color: INK, lineHeight: 1.15 }],
     margin: [0, 0, 0, 8] })
+  // cada linha da grade é INDIVISÍVEL: par rótulo+valor nunca separa entre páginas
   function grid(items) {
     const rows = [], buf = []
+    const fecha = () => { rows.push({ columns: buf.slice(), columnGap: 16, unbreakable: true }); buf.length = 0 }
     for (const it of items) {
-      if (it.full) { if (buf.length) { rows.push({ columns: buf.slice(), columnGap: 16 }); buf.length = 0 } rows.push({ columns: [field(it[0], it[1])] }); continue }
+      if (it.full) { if (buf.length) fecha(); rows.push({ columns: [field(it[0], it[1])], unbreakable: true }); continue }
       buf.push(field(it[0], it[1]))
-      if (buf.length === 2) { rows.push({ columns: buf.slice(), columnGap: 16 }); buf.length = 0 }
+      if (buf.length === 2) fecha()
     }
-    if (buf.length) { if (buf.length === 1) buf.push({ text: '', width: '*' }); rows.push({ columns: buf.slice(), columnGap: 16 }) }
+    if (buf.length) { if (buf.length === 1) buf.push({ text: '', width: '*' }); fecha() }
     return rows
+  }
+  // seção de campos: o título fica preso à 1ª linha da grade (nunca órfão no pé da página)
+  function secGrid(titulo, items) {
+    const rows = grid(items)
+    if (!rows.length) return sec(titulo)
+    return [{ stack: [...sec(titulo), rows[0]], unbreakable: true }, ...rows.slice(1)]
   }
   function statCards(items) {
     return { columns: items.map(([label, value]) => ({
@@ -146,6 +154,36 @@ window.PdfTarefa = (function () {
         paddingLeft: () => 10, paddingRight: () => 10, paddingTop: () => 8, paddingBottom: () => 8, fillColor: () => ZEBRA },
       margin: [0, 2, 0, 0] }
   }
+  // seção "título + tabela/caixa" movida inteira se não couber (título nunca fica órfão)
+  const secBloco = (titulo, nodes) => ({ stack: [...sec(titulo), ...nodes], unbreakable: true })
+
+  // ── tabela "fluida": título + cabeçalho + linhas viram blocos independentes com LARGURAS
+  //    FIXAS (mini-tabelas alinhadas). Linha que abre página nova ganha "TÍTULO — CONTINUAÇÃO"
+  //    + cabeçalho repetido — mesma medição de layout das fotos (ids fx{sec}_{i}). ──
+  function tabelaFluida(m, titulo, heads, rows, widths, contSet, totalRow) {
+    const secIdx = m._fluxos.length
+    m._fluxos.push({ secIdx, n: rows.length })
+    // células de cabeçalho SEMPRE novas por uso: reutilizar os mesmos objetos-célula em duas
+    // tabelas faz o pdfmake renderizar a segunda vazia (faixa cinza sem texto)
+    const headCells = () => heads.map(h => ({ text: String(h.t).toUpperCase(), alignment: h.a || 'left', bold: true, fontSize: 7.2, color: GRAY, characterSpacing: 0.4, fillColor: BG }))
+    const linha = (cells, top, bot) => ({ table: { widths, body: [cells] },
+      layout: { hLineWidth: (i) => i === 0 ? top : bot,
+        hLineColor: (i) => ((i === 0 ? top : bot) >= 0.8) ? '#D3DBE8' : LINE,
+        vLineWidth: () => 0, paddingLeft: () => 6, paddingRight: () => 6, paddingTop: () => 5, paddingBottom: () => 5 } })
+    const cabecalho = (t) => [...sec(t), linha(headCells(), 0.8, 0.8)]
+    const blocos = []
+    rows.forEach((r, i) => {
+      const cells = (i % 2 === 1) ? r.map(c => c.fillColor ? c : Object.assign({}, c, { fillColor: ZEBRA })) : r
+      const ultima = i === rows.length - 1
+      const linhaNode = linha(cells, 0, (ultima && !totalRow) ? 0.8 : 0.5)
+      const id = 'fx' + secIdx + '_' + i
+      if (i === 0) blocos.push({ stack: [...cabecalho(titulo), linhaNode], unbreakable: true, id })
+      else if (contSet && contSet.has(id)) blocos.push({ stack: [...cabecalho(titulo + ' — continuação'), linhaNode], unbreakable: true, id })
+      else blocos.push({ stack: [linhaNode], unbreakable: true, id })
+      if (ultima && totalRow) blocos[blocos.length - 1].stack.push(linha(totalRow, 0, 0.8))
+    })
+    return blocos
+  }
   const cel = (txt, extra) => Object.assign({ text: (txt == null || txt === '') ? '—' : String(txt), fontSize: 8.5 }, extra || {})
   const celNum = (txt) => cel(txt, { alignment: 'right' })
 
@@ -156,8 +194,8 @@ window.PdfTarefa = (function () {
     if (perRow === 1) W = Math.min(W, 340)
     return { perRow, W }
   }
-  // linhas da grade (indivisíveis). ids p/ medição de página: f{sec}_{row}
-  function fotoRows(fotos, secIdx) {
+  // linhas da grade de fotos (indivisíveis)
+  function fotoRows(fotos) {
     const { perRow, W } = fotoLayout(fotos.length)
     const rows = []
     for (let i = 0; i < fotos.length; i += perRow) {
@@ -170,11 +208,14 @@ window.PdfTarefa = (function () {
     }
     return rows
   }
-  // seção "titulo" + linhas; contSet = índices de linha que abrem página nova (ganham "— continuação")
-  function fotosSection(titulo, fotos, secIdx, contSet) {
-    const rows = fotoRows(fotos, secIdx), nodes = []
+  // seção "titulo" + linhas de fotos; contSet marca as linhas que abrem página nova
+  // (ganham "TÍTULO — CONTINUAÇÃO" — página nunca começa com imagens sem indicar a seção)
+  function fotosSection(m, titulo, fotos, contSet) {
+    const secIdx = m._fluxos.length
+    m._fluxos.push({ secIdx, n: Math.ceil(fotos.length / fotoLayout(fotos.length).perRow) })
+    const rows = fotoRows(fotos), nodes = []
     rows.forEach((row, i) => {
-      const id = 'f' + secIdx + '_' + i
+      const id = 'fx' + secIdx + '_' + i
       if (i === 0) nodes.push({ stack: [...sec(titulo), row], unbreakable: true, id })
       else if (contSet && contSet.has(id)) nodes.push({ stack: [...sec(titulo + ' — continuação'), row], unbreakable: true, id })
       else nodes.push({ stack: [row], unbreakable: true, id })
@@ -193,37 +234,38 @@ window.PdfTarefa = (function () {
       Object.assign(pill(m.capa.statusLabel || '—', m.capa.statusCor || AZ), { margin: [0, 4, 0, 0] }),
     ], margin: [0, 2, 0, 2] })
 
-    c.push(...sec('Dados da Tarefa'))
-    c.push(...grid(m.capa.campos))
+    c.push(...secGrid('Dados da Tarefa', m.capa.campos))
 
-    c.push(...sec('Resumo operacional'))
-    c.push(statCards(m.capa.resumo))
+    c.push(secBloco('Resumo operacional', [statCards(m.capa.resumo)]))
 
     if (m.capa.ratsResumo.length) {
-      c.push(...sec('RATs (resumo)'))
-      c.push(tabela([{ t: 'RAT' }, { t: 'Data' }, { t: 'Técnico' }, { t: 'Situação' }, { t: 'Tempo', a: 'right' }],
+      c.push(secBloco('RATs (resumo)', [tabela([{ t: 'RAT' }, { t: 'Data' }, { t: 'Técnico' }, { t: 'Situação' }, { t: 'Tempo', a: 'right' }],
         m.capa.ratsResumo.map(r => [cel(r.ratNo, { bold: true, color: AZ }), cel(r.data), cel(r.tecnico),
           cel(r.situacao, { color: r.ok ? GREEN : INK, bold: !!r.ok }), celNum(r.tempo)]),
-        ['auto', 'auto', '*', 'auto', 'auto']))
-    }
-    if (m.flags.conciliacao && m.capa.conciliacao.length) {
-      c.push(...sec('Produtos (conciliação)'))
-      c.push(tabela([{ t: 'Produto' }, { t: 'Orçada', a: 'right' }, { t: 'Disponibilizada', a: 'right' }, { t: 'Utilizada', a: 'right' }, { t: 'Devolvida', a: 'right' }],
-        m.capa.conciliacao.map(l => [cel(l.descricao), celNum(l.orcada), celNum(l.levada), celNum(l.utilizada), celNum(l.devolvida)]),
-        ['*', 'auto', 'auto', 'auto', 'auto']))
-    }
-    if (m.capa.equipamentos.length) {
-      c.push(...sec('Equipamentos'))
-      c.push(tabela([{ t: 'Tipo' }, { t: 'Modelo' }, { t: 'Part number' }, { t: 'Serial' }],
-        m.capa.equipamentos.map(e => [cel(e.tipo), cel(e.modelo), cel(e.part), cel(e.serial)]),
-        ['auto', '*', 'auto', 'auto']))
+        ['auto', 'auto', '*', 'auto', 'auto'])]))
     }
     return c
   }
-  // Anexos da capa: imagens em grade (mesma lógica das fotos, seção 0) + nomes de não-imagens
+  // Conciliação (tabela fluida: continua com cabeçalho repetido + "— continuação") + equipamentos
+  function capaTabelas(m, contSet) {
+    const c = []
+    if (m.flags.conciliacao && m.capa.conciliacao.length) {
+      c.push(...tabelaFluida(m, 'Produtos (conciliação)',
+        [{ t: 'Produto' }, { t: 'Orçada', a: 'right' }, { t: 'Disponibilizada', a: 'right' }, { t: 'Utilizada', a: 'right' }, { t: 'Devolvida', a: 'right' }],
+        m.capa.conciliacao.map(l => [cel(l.descricao), celNum(l.orcada), celNum(l.levada), celNum(l.utilizada), celNum(l.devolvida)]),
+        ['*', 45, 78, 52, 58], contSet))
+    }
+    if (m.capa.equipamentos.length) {
+      c.push(secBloco('Equipamentos', [tabela([{ t: 'Tipo' }, { t: 'Modelo' }, { t: 'Part number' }, { t: 'Serial' }],
+        m.capa.equipamentos.map(e => [cel(e.tipo), cel(e.modelo), cel(e.part), cel(e.serial)]),
+        ['auto', '*', 'auto', 'auto'])]))
+    }
+    return c
+  }
+  // Anexos da capa: imagens em grade (mesma lógica das fotos) + nomes de não-imagens
   function anexosSection(m, contSet) {
     const c = []
-    if (m.capa.anexosImgs.length) c.push(...fotosSection('Anexos', m.capa.anexosImgs, 0, contSet))
+    if (m.capa.anexosImgs.length) c.push(...fotosSection(m, 'Anexos', m.capa.anexosImgs, contSet))
     if (m.capa.anexosNomes.length) {
       if (!m.capa.anexosImgs.length) c.push(...sec('Anexos'))
       c.push({ text: m.capa.anexosNomes.join(' · '), fontSize: 8.5, color: GRAY, margin: [0, 2, 0, 0] })
@@ -258,7 +300,7 @@ window.PdfTarefa = (function () {
         { text: r.cliente_nome || '—', bold: true, fontSize: 12, color: AZ },
         { text: `RAT ${ratNo}  ·  ${r.tecnico_nome || '—'}  ·  ${fmtDataBR(r.data_tarefa)}`, fontSize: 8.5, color: GRAY, margin: [0, 2, 0, 0] },
       ]
-    c.push({ table: { widths: ['*', 'auto'], body: [[
+    const faixa = { table: { widths: ['*', 'auto'], body: [[
       { stack: faixaEsq },
       { stack: [
         Object.assign(pill(st.label, stCor), { alignment: 'right' }),
@@ -266,34 +308,40 @@ window.PdfTarefa = (function () {
       ] },
     ]] },
     layout: { hLineWidth: () => 0, vLineWidth: () => 0, paddingLeft: () => 10, paddingRight: () => 10, paddingTop: () => 9, paddingBottom: () => 9, fillColor: () => BG },
-    margin: [0, (!m.capa && ratIdx === 0) ? 2 : 22, 0, 2], unbreakable: true })
+    margin: [0, (!m.capa && ratIdx === 0) ? 2 : 22, 0, 2] }
 
-    // Dados da OS
-    c.push(...sec('Dados da OS'))
+    // Dados da OS — junto da faixa da RAT: o bloco inteiro (faixa + título + campos) só
+    // quebra se não couber, e aí desce inteiro pra próxima página.
     const tf = r.tarefa || {}
     const osFields = [['Nº da OS', '#' + ratNo], ['Data da Tarefa', fmtDataBR(r.data_tarefa)],
       ['Tipo de tarefa', RatView.tipoNomeRat(r)], ['Duração', tempo]]
     if (r.checkin_lat != null && r.checkin_lng != null)
       osFields.push(['Local (GPS)', `${Number(r.checkin_lat).toFixed(5)}, ${Number(r.checkin_lng).toFixed(5)}${r.checkin_precisao ? ` (±${Math.round(r.checkin_precisao)} m)` : ''}`])
-    if (tf.orientacao) osFields.push({ 0: 'Orientação', 1: tf.orientacao, full: true })
-    c.push(...grid(osFields))
+    if (tf.orientacao) {
+      // Orientação idêntica à orientação geral da tarefa (que já está na capa) não se repete
+      // em cada RAT — vira uma referência. RAT avulsa (sem capa) mostra o texto completo.
+      const norm = (s) => String(s || '').replace(/\s+/g, ' ').trim()
+      const igualGeral = m.capa && m.orientacaoGeral && norm(tf.orientacao) === norm(m.orientacaoGeral)
+      osFields.push({ 0: 'Orientação', 1: igualGeral ? 'Conforme orientação geral da tarefa.' : tf.orientacao, full: true })
+    }
+    c.push({ stack: [faixa, ...sec('Dados da OS'), ...grid(osFields)], unbreakable: true })
 
-    // Visita improdutiva
+    // Visita improdutiva — bloco inteiro indivisível (título + campos + nota)
     if (r.status === 'improdutiva' || r.atendimento_executado === false) {
-      c.push(...sec('Visita improdutiva'))
       const imp = [{ 0: 'Motivo de não ter executado', 1: m.motivoImprodutiva(r), full: true }]
       if (resp.hora_inicio && resp.hora_termino) imp.push({ 0: 'Tempo no local (início–término)', 1: `${resp.hora_inicio} – ${resp.hora_termino} · ${durStr(resp.hora_inicio, resp.hora_termino)}`, full: true })
-      c.push(...grid(imp))
-      c.push({ text: 'Deslocamento e tempo no local ficam registrados (faturáveis); a execução foi zerada e a tarefa continua aguardando reagendamento.', fontSize: 8.5, color: GRAY, margin: [0, 0, 0, 4] })
+      c.push({ stack: [...sec('Visita improdutiva'), ...grid(imp),
+        { text: 'Deslocamento e tempo no local ficam registrados (faturáveis); a execução foi zerada e a tarefa continua aguardando reagendamento.', fontSize: 8.5, color: GRAY, margin: [0, 0, 0, 4] }],
+        unbreakable: true })
     }
 
-    // Passagem (volta depois pra terminar)
-    if (resp.volta_amanha === 'Não' && resp.passagem_motivo === 'volto_depois') {
-      c.push(...sec('Passagem — volta depois pra terminar'))
+    // Passagem (volta depois pra terminar) — informação operacional interna: fora do PDF Cliente.
+    // Bloco inteiro indivisível ("O que falta" e "O que levar" nunca se separam).
+    if (!flags.cliente && resp.volta_amanha === 'Não' && resp.passagem_motivo === 'volto_depois') {
       const pg = []
       if (resp.passagem_falta) pg.push({ 0: 'O que falta', 1: resp.passagem_falta, full: true })
       if (resp.passagem_levar) pg.push({ 0: 'O que levar', 1: resp.passagem_levar, full: true })
-      c.push(...grid(pg))
+      if (pg.length) c.push({ stack: [...sec('Passagem — volta depois pra terminar'), ...grid(pg)], unbreakable: true })
     }
 
     // Campos dinâmicos do formulário (mesmas regras do modo leitura do buildReportBody)
@@ -302,6 +350,8 @@ window.PdfTarefa = (function () {
     const gridItems = [], longSecs = []
     for (const cp of campos) {
       if (SKIP[cp.tipo] || EXC[cp.id]) continue
+      // "Observações" da RAT é anotação operacional interna (ex.: "precisamos retornar…") — fora do Cliente
+      if (flags.cliente && cp.id === 'observacoes') continue
       const val = resp[cp.id]
       if (val == null || String(val).trim() === '') continue
       if (!RatView.campoVisivel(cp, resp)) continue
@@ -310,49 +360,50 @@ window.PdfTarefa = (function () {
     }
     if (gridItems.length) c.push({ stack: [...sec('RAT — dados do atendimento'), ...grid(gridItems)], unbreakable: true })
 
-    // Pausas e almoço
+    // Pausas e almoço (bloco indivisível: título + resumo + tabela)
     if ((resp.almoco != null && resp.almoco !== '') || (resp.pausa != null && resp.pausa !== '')) {
-      c.push(...sec('Pausas e almoço'))
       const resumo = []
       if (resp.almoco != null && resp.almoco !== '') resumo.push({ text: 'Almoço: ', color: INK }, { text: resp.almoco, bold: true, color: AZ }, { text: '      ' })
       if (resp.pausa != null && resp.pausa !== '') resumo.push({ text: 'Pausa: ', color: INK }, { text: resp.pausa, bold: true, color: AZ })
-      c.push({ text: resumo, fontSize: 9, margin: [0, 0, 0, 6] })
+      const nodes = [{ text: resumo, fontSize: 9, margin: [0, 0, 0, 6] }]
       const pausas = []
       if (resp.almoco === 'Sim' && (resp.almoco_inicio || resp.almoco_termino)) pausas.push({ ini: resp.almoco_inicio, fim: resp.almoco_termino, motivo: 'Almoço' })
       if (resp.pausa === 'Sim' && (resp.pausa_inicio || resp.pausa_termino || resp.pausa_motivo)) pausas.push({ ini: resp.pausa_inicio, fim: resp.pausa_termino, motivo: resp.pausa_motivo || 'Pausa' })
-      if (pausas.length) c.push(tabela([{ t: 'Início' }, { t: 'Fim' }, { t: 'Tempo' }, { t: 'Justificativa/Motivo' }],
+      if (pausas.length) nodes.push(tabela([{ t: 'Início' }, { t: 'Fim' }, { t: 'Tempo' }, { t: 'Justificativa/Motivo' }],
         pausas.map(p => [cel(p.ini), cel(p.fim), cel(durStr(p.ini, p.fim)), cel(p.motivo)]),
         ['auto', 'auto', 'auto', '*']))
+      c.push(secBloco('Pausas e almoço', nodes))
     }
 
-    // Textos longos (Serviço Executado etc.) em caixa destacada
-    for (const ls of longSecs) { c.push(...sec(ls.label)); c.push(textBox(ls.val)) }
+    // Textos longos (Serviço Executado etc.): título preso à caixa (bloco move inteiro)
+    for (const ls of longSecs) c.push(secBloco(ls.label, [textBox(ls.val)]))
 
-    // Produtos: cliente = só utilizados (qtd>0) sem valores; interno = todos com valores
+    // Produtos da RAT: SÓ os efetivamente utilizados (qtd > 0) — itens zerados moram na
+    // conciliação geral, não se repetem por RAT. (?zerados=1 na URL ainda força mostrar tudo.)
     const mats = (det.mats || []).filter(mm => flags.zerados || (Number(mm.quantidade) || 0) > 0)
     if (mats.length) {
-      c.push(...sec(flags.zerados ? 'Produtos' : 'Produtos utilizados'))
       const heads = [{ t: 'Produto' }, { t: 'Qtd', a: 'right' }]
       if (flags.valores) heads.push({ t: 'Valor unit.', a: 'right' }, { t: 'Subtotal', a: 'right' })
-      const widths = flags.valores ? ['*', 'auto', 'auto', 'auto'] : ['*', 'auto']
+      const widths = flags.valores ? ['*', 40, 68, 75] : ['*', 45]
       const rows = mats.map(mm => {
         const row = [cel(mm.descricao || mm.codigo), celNum(mm.quantidade)]
         if (flags.valores) row.push(celNum(money(mm.preco)), celNum(money(mm.subtotal)))
         return row
       })
+      let totalRow = null
       if (flags.valores) {
         const total = mats.reduce((s, mm) => s + (Number(mm.subtotal) || 0), 0)
-        rows.push([
+        totalRow = [
           { text: 'TOTAL', bold: true, fontSize: 8, color: AZ, characterSpacing: 0.4, fillColor: BG },
           { text: '', fillColor: BG }, { text: '', fillColor: BG },
           { text: money(total), alignment: 'right', bold: true, fontSize: 9.5, color: AZ, fillColor: BG },
-        ])
+        ]
       }
-      c.push(tabela(heads, rows, widths))
+      c.push(...tabelaFluida(m, flags.zerados ? 'Produtos' : 'Produtos utilizados', heads, rows, widths, contSet, totalRow))
     }
 
     // Fotos (grade adaptável + continuação medida)
-    if (det.fotosPdf && det.fotosPdf.length) c.push(...fotosSection('Fotos', det.fotosPdf, ratIdx + 1, contSet))
+    if (det.fotosPdf && det.fotosPdf.length) c.push(...fotosSection(m, 'Fotos', det.fotosPdf, contSet))
 
     // Assinatura
     if (det.sigPdf) {
@@ -363,8 +414,9 @@ window.PdfTarefa = (function () {
 
   // ── documento completo ──
   function docDefinition(m, contSet) {
+    m._fluxos = []   // seções "fluidas" (fotos/tabelas) registradas durante a construção
     const content = []
-    if (m.capa) { content.push(...capa(m)); content.push(...anexosSection(m, contSet)) }
+    if (m.capa) { content.push(...capa(m)); content.push(...capaTabelas(m, contSet)); content.push(...anexosSection(m, contSet)) }
     m.dets.forEach((det, i) => content.push(...corpoRat(m, det, i, contSet)))
     return {
       pageSize: 'A4', pageMargins: [MARG, TOPM, MARG, BOTM],
@@ -420,54 +472,48 @@ window.PdfTarefa = (function () {
     }))
     return clone
   }
-  async function medirAlturas(mLeve) {
-    // doc auxiliar: cada linha de fotos numa página própria, com sentinela logo depois —
-    // altura exata = top(sentinela) − top(linha). Idem pro bloco de título de seção.
-    const grupos = []
-    if (mLeve.capa && mLeve.capa.anexosImgs.length) grupos.push({ secIdx: 0, fotos: mLeve.capa.anexosImgs, titulo: 'Anexos' })
-    mLeve.dets.forEach((d, i) => { if (d.fotosPdf && d.fotosPdf.length) grupos.push({ secIdx: i + 1, fotos: d.fotosPdf, titulo: 'Fotos' }) })
-    if (!grupos.length) return null
+  // Mede a altura REAL de cada bloco fluido do documento corrente (cada bloco numa página
+  // própria + sentinela logo depois; altura = top(sentinela) − top(bloco)). Blocos já vêm
+  // com título/cabeçalho embutidos quando é o caso — nada de aritmética por fora.
+  async function medirBlocos(mLeve, contSet) {
+    const dd = docDefinition(mLeve, contSet)
+    const blocos = dd.content.filter(n => n.id && n.id.indexOf('fx') === 0)
+    if (!blocos.length) return null
+    // ATENÇÃO: o pdfmake NÃO chama pageBreakBefore para nós com pageBreak explícito —
+    // a quebra vai num separador próprio, e o bloco (sem pageBreak) é medido no topo da página.
     const content = []
-    let primeiro = true
-    for (const g of grupos) {
-      const rows = fotoRows(g.fotos, g.secIdx)
-      rows.forEach((row, ri) => {
-        content.push(Object.assign({}, row, { id: `m_f${g.secIdx}_${ri}`, pageBreak: primeiro ? undefined : 'before' })); primeiro = false
-        content.push({ text: '.', fontSize: 0.1, color: '#ffffff', id: `m_e${g.secIdx}_${ri}` })
-      })
-    }
-    content.push({ stack: sec('Fotos — continuação'), id: 'm_tit', pageBreak: 'before' })
-    content.push({ text: '.', fontSize: 0.1, color: '#ffffff', id: 'm_tit_e' })
-    const pos = await renderLayout({ pageSize: 'A4', pageMargins: [MARG, TOPM, MARG, BOTM], defaultStyle: { font: 'Roboto', fontSize: 9 }, content })
-    const alturas = {}
-    for (const g of grupos) {
-      const n = fotoRows(g.fotos, g.secIdx).length
-      alturas['s' + g.secIdx] = []
-      for (let ri = 0; ri < n; ri++) {
-        const a = pos[`m_f${g.secIdx}_${ri}`], b = pos[`m_e${g.secIdx}_${ri}`]
-        alturas['s' + g.secIdx].push((a && b) ? (b.top - a.top) : 160)
-      }
-    }
-    alturas.titulo = (pos.m_tit && pos.m_tit_e) ? (pos.m_tit_e.top - pos.m_tit.top) : 40
-    return { grupos, alturas }
+    blocos.forEach((b, k) => {
+      if (k) content.push({ text: '', fontSize: 0.1, pageBreak: 'before' })
+      content.push(b)
+      content.push({ text: '.', fontSize: 0.1, color: '#ffffff', id: 'e_' + b.id })
+    })
+    const pos = await renderLayout({ pageSize: 'A4', pageMargins: [MARG, TOPM, MARG, BOTM],
+      defaultStyle: { font: 'Roboto', fontSize: 9, color: INK }, content })
+    const H = {}
+    blocos.forEach(b => { const a = pos[b.id], e = pos['e_' + b.id]; H[b.id] = (a && e) ? (e.top - a.top) : 200 })
+    if (window.PDF_DEBUG) console.log('[pdf] medirBlocos: pos keys', Object.keys(pos).length, 'blocos', blocos.length, 'exemplo pos:', JSON.stringify(Object.keys(pos).slice(0, 6)))
+    return H
   }
+  // Decide onde entram os "— continuação": posição tentada de cada bloco + altura real →
+  // página final (cabe = fica; não cabe = bloco indivisível desce inteiro). Itera até
+  // estabilizar (inserir título desloca os blocos seguintes).
   async function calcularContinuacoes(m) {
     const mLeve = trocaImgs(m, PIX)
-    const med = await medirAlturas(mLeve)
-    if (!med) return new Set()
     let contSet = new Set()
-    for (let passo = 0; passo < 4; passo++) {
+    for (let passo = 0; passo < 5; passo++) {
+      const H = await medirBlocos(mLeve, contSet)
+      if (!H) return contSet
       const pos = await renderLayout(docDefinition(mLeve, contSet))
       const next = new Set()
-      for (const g of med.grupos) {
-        const hs = med.alturas['s' + g.secIdx]
-        let fimAnt = null   // página final da linha anterior
-        for (let ri = 0; ri < hs.length; ri++) {
-          const id = 'f' + g.secIdx + '_' + ri
+      for (const fl of mLeve._fluxos) {
+        let fimAnt = null
+        for (let i = 0; i < fl.n; i++) {
+          const id = 'fx' + fl.secIdx + '_' + i
           const p = pos[id]; if (!p) continue
-          let h = hs[ri] + ((ri === 0 || contSet.has(id)) ? med.alturas.titulo : 0)
-          const fim = (p.top + h <= BOTTOM) ? p.page : p.page + 1
-          if (ri > 0 && fimAnt != null && fim > fimAnt) next.add(id)
+          // a altura medida inclui as margens do bloco — o pdfmake conta tudo no teste de quebra
+          const fim = (p.top + (H[id] || 0) <= BOTTOM + 0.5) ? p.page : p.page + 1
+          if (window.PDF_DEBUG) console.log('[pdf]', 'passo', passo, id, 'pág', p.page, 'top', Math.round(p.top), 'H', Math.round(H[id] || 0), '→ fim', fim, (i > 0 && fimAnt != null && fim > fimAnt) ? 'CONT' : '')
+          if (i > 0 && fimAnt != null && fim > fimAnt) next.add(id)
           fimAnt = fim
         }
       }

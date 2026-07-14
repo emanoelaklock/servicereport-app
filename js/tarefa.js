@@ -1359,7 +1359,9 @@ const TarefaApp = (() => {
       cliente,
       valores: flag('valores', !cliente),
       conciliacao: flag('conciliacao', !cliente),
-      zerados: flag('zerados', !cliente),
+      // A tabela por RAT lista SÓ o utilizado (qtd>0) nos DOIS perfis — item zerado mora na
+      // conciliação geral e não se repete por RAT. ?zerados=1 força mostrar tudo (debug).
+      zerados: flag('zerados', false),
     }
     const t = tarefas.find(x => x.id === cur.id) || {}
     const tipoNome = (ref.tipos.find(x => x.id === t.tipo_servico_id) || {}).nome || '—'
@@ -1451,6 +1453,7 @@ const TarefaApp = (() => {
       selo: (cliente && flags.valores) ? 'versão com valores' : null,
       flags,
       motivoImprodutiva: RatView.motivoImprodutivaLabel,
+      orientacaoGeral: t.orientacao || null,   // RAT com orientação idêntica vira "Conforme orientação geral…"
       capa: {
         clienteNome: cur.cliente_nome || '—',
         statusLabel: pdfStatusLabel, statusCor: pdfStatusCor,
