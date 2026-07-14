@@ -47,12 +47,25 @@ window.PlacarCard = (() => {
 .pl-selo{display:flex;align-items:center;gap:8px;background:var(--sr-warn-bg);color:var(--sr-warn-fg);border:1px solid var(--sr-warn-m);border-left:4px solid var(--sr-warn-m);border-radius:10px;padding:8px 11px;font-size:12px;font-weight:600;margin-bottom:12px}
 .pl-oficial{display:flex;align-items:center;gap:8px;background:var(--sr-info-bg);color:var(--sr-info-fg);border-radius:10px;padding:8px 11px;font-size:12px;font-weight:600;margin-bottom:12px}
 .pl-selo svg,.pl-oficial svg{width:15px;height:15px;flex:none}
-.pl-notal{display:flex;align-items:baseline;gap:12px;margin-bottom:3px}
-.pl-nota{font-size:46px;font-weight:800;letter-spacing:-2px;color:var(--sr-title);line-height:1;font-variant-numeric:tabular-nums}
+.pl-contagem{font-size:14px;font-weight:700;color:var(--sr-ink);margin-bottom:6px}
+.pl-contagem b{color:var(--sr-title)}
+.pl-contagem .pl-prob{color:var(--sr-pend-fg)}
+.pl-notal{display:flex;align-items:baseline;gap:10px;margin-bottom:3px;flex-wrap:wrap}
+.pl-nlabel{font-size:11px;font-weight:700;letter-spacing:.05em;text-transform:uppercase;color:var(--sr-muted)}
+.pl-nota{font-size:40px;font-weight:800;letter-spacing:-1.5px;color:var(--sr-title);line-height:1;font-variant-numeric:tabular-nums}
+.pl-de{font-size:17px;font-weight:700;color:var(--sr-muted);letter-spacing:0}
 .pl-tend{display:inline-flex;align-items:center;gap:4px;font-size:12.5px;font-weight:700;color:var(--sr-exec-fg)}
 .pl-tend.pl-baixa{color:var(--sr-pend-fg)}
 .pl-tend svg{width:12px;height:12px}
-.pl-cap{font-size:12px;color:var(--sr-aguard-fg);margin-bottom:14px}
+.pl-amostra{font-size:10px;font-weight:800;background:var(--sr-aguard-bg);color:var(--sr-aguard-fg);border-radius:999px;padding:3px 9px;letter-spacing:.02em}
+.pl-ocor{font-size:12px;color:var(--sr-ink);font-weight:600;margin-bottom:12px}
+.pl-ocor .pl-prob{color:var(--sr-pend-fg)}
+.pl-entender{margin-top:11px;border:1px solid var(--sr-line);border-radius:10px;padding:11px 12px;background:var(--sr-bg)}
+.pl-entender[hidden]{display:none}
+.pl-e-t{font-size:10.5px;font-weight:800;letter-spacing:.05em;text-transform:uppercase;color:var(--sr-muted);margin:8px 0 3px}
+.pl-e-t:first-child{margin-top:0}
+.pl-e-x{font-size:11.5px;color:var(--sr-ink);line-height:1.55}
+.pl-e-x .pl-mut{color:var(--sr-aguard-fg)}
 .pl-comp{display:flex;flex-direction:column;gap:11px}
 .pl-chead{display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:5px}
 .pl-cl{display:flex;align-items:center;gap:7px;font-size:12.5px;font-weight:700;color:var(--sr-ink)}
@@ -136,7 +149,13 @@ window.PlacarCard = (() => {
     el.innerHTML = `<div class="sec">Meu placar — ${e_(mesNome(mes))}</div>` + cardHTML(dados, anterior, status, atualizadoEm, doCache, agora())
     const btn = el.querySelector('.pl-ver')
     if (btn) btn.onclick = () => abrirDetalhe(rpc, mes, doCache)
+    const ent = el.querySelector('.pl-abre-entender'), box = el.querySelector('.pl-entender')
+    if (ent && box) ent.onclick = () => { box.hidden = !box.hidden }
   }
+
+  // Selo de amostra (três níveis; ninguém sai do placar) — reavaliar com 2-3 meses de série.
+  const seloAmostra = (n) => n < 3 ? '<span class="pl-amostra">Amostra muito baixa</span>'
+    : (n <= 4 ? '<span class="pl-amostra">Amostra limitada</span>' : '')
 
   function cardHTML(d, ant, status, atualizadoEm, doCache, hoje) {
     const emCarencia = status.carencia_ate && (hoje.toISOString().slice(0, 10) <= String(status.carencia_ate))
@@ -144,36 +163,58 @@ window.PlacarCard = (() => {
       ? `<div class="pl-selo">${IC.grafico}Período de adaptação — placar informativo</div>`
       : `<div class="pl-oficial">${IC.selo}Placar oficial · válido desde ${e_(String(status.inicio).slice(8, 10))}/${e_(String(status.inicio).slice(5, 7))}</div>`
     if (!d) return `<div class="pl-card">${faixa}<div class="pl-vazio">Ainda sem RATs contadas neste mês — o placar aparece com o primeiro atendimento.</div></div>`
+    const nRats = Number(d.rats) || 0
     const atras = (Number(d.atrasadas) || 0)
+    const limpas = Math.max(0, nRats - atras)   // leitura de contagem: limpa = encerrada na régua (D+0/D+1)
     const tend = (ant && ant.nota != null)
       ? `<span class="pl-tend${Number(d.nota) < Number(ant.nota) ? ' pl-baixa' : ''}">${Number(d.nota) < Number(ant.nota) ? IC.desce : IC.sobe}${Number(d.nota) >= Number(ant.nota) ? '+' : ''}${Number(d.nota) - Number(ant.nota)} vs. ${e_(mesNome(mesAnteriorISO(d.mes)))}</span>`
       : ''
     const pPont = perda(65, d.comp_pontualidade), pReed = perda(15, d.comp_reedicao), pDev = perda(20, d.comp_devolucao)
+    // linha de ocorrências (só o que existe; formatos distintos: nota é XX/100, contagem é "Y de X")
+    const ocor = [
+      atras ? `<span class="pl-prob">${e_(atras)} com atraso</span>` : null,
+      Number(d.reedicoes) ? `${e_(d.reedicoes)} ${plural(Number(d.reedicoes), 'reedição', 'reedições')}` : null,
+      Number(d.devolucoes) ? `${e_(d.devolucoes)} ${plural(Number(d.devolucoes), 'devolução', 'devoluções')}` : null,
+      Number(d.pendentes) ? `<span class="pl-mut" style="color:var(--sr-aguard-fg)">${e_(d.pendentes)} em aberto</span>` : null,
+    ].filter(Boolean).join(' · ') || 'Sem ocorrências no mês.'
     return `<div class="pl-card">
       ${faixa}
-      <div class="pl-notal"><span class="pl-nota">${e_(d.nota)}</span>${tend}</div>
-      <div class="pl-cap">Nota do mês até agora · ${e_(d.rats)} ${plural(Number(d.rats), 'RAT da tua equipe', 'RATs da tua equipe')}${Number(d.pendentes) ? ` · ${e_(d.pendentes)} em aberto` : ''}</div>
+      <div class="pl-contagem"><b>${e_(nRats)} ${plural(nRats, 'RAT avaliada', 'RATs avaliadas')}</b> · ${e_(limpas)} ${plural(limpas, 'limpa', 'limpas')} · <span class="${atras ? 'pl-prob' : ''}">${e_(atras)} com problema</span></div>
+      <div class="pl-notal"><span class="pl-nlabel">Nota do mês</span><span class="pl-nota">${e_(d.nota)}<span class="pl-de">/100</span></span>${tend}${seloAmostra(nRats)}</div>
+      <div class="pl-ocor">${ocor}</div>
       <div class="pl-comp">
         <div>
           <div class="pl-chead"><span class="pl-cl">${IC.check}Preenchimento online</span><span class="pl-cv">${e_(d.d0)} D+0 · ${e_(d.d1)} D+1 · ${e_(atras)} ${plural(atras, 'atrasada', 'atrasadas')}</span></div>
           <div class="pl-bar"><i style="width:${Number(d.comp_pontualidade) || 0}%;background:var(--sr-exec-m)"></i></div>
-          ${atras > 0 ? `<div class="pl-impacto">${e_(atras)} ${plural(atras, 'RAT da tua equipe encerrada com atraso', 'RATs da tua equipe encerradas com atraso')}: −${pPont} pts</div>` : ''}
           <div class="pl-sub">${e_(CONTRATO)}</div>
         </div>
         <div>
           <div class="pl-chead"><span class="pl-cl">${IC.lapis}Reedições após encerrar</span><span class="pl-cv">${Number(d.reedicoes) ? e_(d.reedicoes) + ' em dia posterior' : 'nenhuma'}</span></div>
           <div class="pl-bar"><i style="width:${Number(d.comp_reedicao) || 0}%;background:var(--sr-warn-m)"></i></div>
-          ${Number(d.reedicoes) ? `<div class="pl-impacto">${e_(d.reedicoes)} ${plural(Number(d.reedicoes), 'reedição sua em dia posterior', 'reedições suas em dia posterior')}: −${pReed} pts</div>` : ''}
         </div>
         <div>
           <div class="pl-chead"><span class="pl-cl">${IC.volta}Devoluções</span><span class="pl-cv">${Number(d.devolucoes) ? e_(d.devolucoes) + ' ' + plural(Number(d.devolucoes), 'tarefa', 'tarefas') : 'nenhuma'}</span></div>
           <div class="pl-bar"><i style="width:${Number(d.comp_devolucao) || 0}%;background:${Number(d.devolucoes) ? 'var(--sr-pend-m)' : 'var(--sr-exec-m)'}"></i></div>
-          ${Number(d.devolucoes)
-            ? `<div class="pl-impacto">${e_(d.devolucoes)} ${plural(Number(d.devolucoes), 'tarefa da tua equipe devolvida', 'tarefas da tua equipe devolvidas')} pela gestão: −${pDev} pts</div>`
-            : '<div class="pl-sub">Nenhuma RAT da tua equipe devolvida pela gestão neste mês.</div>'}
+          ${Number(d.devolucoes) ? '' : '<div class="pl-sub">Nenhuma RAT da tua equipe devolvida pela gestão neste mês.</div>'}
         </div>
       </div>
-      <div class="pl-rod">${IC.reloop}Atualizado em ${e_(fmtDH(atualizadoEm))}${doCache ? ' · offline — último placar sincronizado' : ''}<button type="button" class="pl-ver">Ver minhas RATs${IC.seta}</button></div>
+      <div class="pl-rod">${IC.reloop}Atualizado em ${e_(fmtDH(atualizadoEm))}${doCache ? ' · offline — último placar sincronizado' : ''}
+        <button type="button" class="pl-ver pl-abre-entender" style="margin-left:auto">Entender minha nota</button>
+        <button type="button" class="pl-ver" style="margin-left:10px">Ver minhas RATs${IC.seta}</button></div>
+      <div class="pl-entender" hidden>
+        <div class="pl-e-t">Como a nota é calculada</div>
+        <div class="pl-e-x">Nota = 65% Preenchimento online + 15% Reedições após encerrar + 20% Devoluções. A nota é sempre <b>XX/100</b>; a contagem "${e_(limpas)} de ${e_(nRats)} RATs limpas" é outro indicador — não são a mesma coisa.</div>
+        <div class="pl-e-t">Regra aplicada</div>
+        <div class="pl-e-x">Encerrada no dia (vale até 04:00 da madrugada seguinte) = nota cheia · até 12:00 do próximo dia útil = meio ponto · depois = zero · em aberto no prazo = não conta ainda. ${e_(CONTRATO)}</div>
+        <div class="pl-e-t">O que pesou neste mês</div>
+        <div class="pl-e-x">${[
+          atras ? `${e_(atras)} ${plural(atras, 'RAT da tua equipe encerrada com atraso', 'RATs da tua equipe encerradas com atraso')}: −${pPont} pts` : null,
+          Number(d.reedicoes) ? `${e_(d.reedicoes)} ${plural(Number(d.reedicoes), 'reedição sua em dia posterior', 'reedições suas em dia posterior')}: −${pReed} pts (teto 6/mês)` : null,
+          Number(d.devolucoes) ? `${e_(d.devolucoes)} ${plural(Number(d.devolucoes), 'tarefa da tua equipe devolvida', 'tarefas da tua equipe devolvidas')} pela gestão: −${pDev} pts` : null,
+        ].filter(Boolean).join('<br>') || 'Nada pesou contra — nota cheia nos três componentes.'}</div>
+        <div class="pl-e-t">Versão e período da regra</div>
+        <div class="pl-e-x"><span class="pl-mut">Régua v2 · placar válido desde ${e_(String(status.inicio).slice(8, 10))}/${e_(String(status.inicio).slice(5, 7))} · atrasos em janelas de instabilidade do app não são avaliados.</span></div>
+      </div>
     </div>`
   }
 
