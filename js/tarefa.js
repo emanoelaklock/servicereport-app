@@ -1237,6 +1237,7 @@ const TarefaApp = (() => {
         <button class="btn btn-sm" data-rat-menu title="Mais ações">${RAT_IC.dots}</button>
         <div class="pm-pop pm-compact" hidden>
           <a class="pm-item" href="rat.html?id=${encodeURIComponent(r.id)}" target="_blank" rel="noopener"><b>Ver em página completa ↗</b></a>
+          ${souAdmin && r.status !== 'improdutiva' ? `<button class="pm-item" data-rat-improd><b>Reclassificar como visita improdutiva</b></button>` : ''}
           ${souAdmin ? `<button class="pm-item" data-rat-del><b style="color:var(--re)">Excluir RAT</b></button>` : ''}
         </div>
       </div>`
@@ -1282,6 +1283,10 @@ const TarefaApp = (() => {
       bMe.onclick = (e) => { e.stopPropagation(); const abrir = pop.hidden; fecharRatMenus(); pop.hidden = !abrir }
     }
     const bDel = q('[data-rat-del]'); if (bDel) bDel.onclick = () => { fecharRatMenus(); excluirRatTab(r.id) }
+    const bIm = q('[data-rat-improd]'); if (bIm) bIm.onclick = () => {
+      fecharRatMenus()
+      RatEditor.reclassificarImprodutiva({ sb, rat: r, onDone: async () => { await Promise.all([carregarRats(), carregarLinhas()]) } })
+    }
   }
   async function excluirRatTab(id) {
     if (!confirm('Excluir esta RAT? Remove os produtos e fotos dela. Esta ação não pode ser desfeita.')) return

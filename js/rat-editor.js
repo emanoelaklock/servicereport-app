@@ -201,5 +201,68 @@ window.RatEditor = (() => {
     return { iniciar, tecnicosHTML, bind, salvar }
   }
 
-  return { criar }
+  // ── Reclassificar como VISITA IMPRODUTIVA (ação auditada, compartilhada) ──
+  // Modal próprio (não-bloqueante) → Edge rat-editar (alvo 'status'), que valida no
+  // servidor (admin-only, sem material lançado) e grava em rat_edicoes com Restaurar.
+  const MOTIVOS_IMPRODUTIVA = {
+    cliente_nao_liberou: 'Cliente não liberou acesso',
+    local_nao_pronto: 'Local não estava pronto',
+    falta_material: 'Falta de peça / material',
+    clima: 'Condições climáticas',
+    equip_cliente_indisponivel: 'Equipamento do cliente indisponível',
+    outro: 'Outro motivo',
+  }
+  function reclassificarImprodutiva({ sb, rat, onDone }) {
+    const antigo = document.getElementById('modal-improd'); if (antigo) antigo.remove()
+    // Família de classes do modal da página hospedeira (tarefa.html = cc-modal; rat.html = rp-modal),
+    // detectada pelo modal-motivo que o editor auditado já exige em ambas.
+    const M = (document.getElementById('modal-motivo') || {}).className === 'rp-modal' ? 'rp-modal' : 'cc-modal'
+    const wrap = document.createElement('div')
+    wrap.className = M + ' open'; wrap.id = 'modal-improd'
+    wrap.innerHTML = `<div class="${M}-box">
+      <div class="${M}-h"><span>Reclassificar como visita improdutiva</span><button class="${M}-x" id="imp-x">✕</button></div>
+      <div class="${M}-b">
+        <p class="muted" style="margin-top:0;font-size:12.5px;color:var(--tx2);line-height:1.5">A RAT passa a valer como <b>visita improdutiva</b> (o técnico foi e não pôde executar): sai da régua de desempenho (não é avaliada) e não altera produtos nem faturamento. A mudança fica no histórico da gestão, com Restaurar.</p>
+        <label>Por que a visita foi improdutiva? <span style="color:var(--re)">*</span></label>
+        <select id="imp-sel" style="width:100%;padding:10px 12px;border:1px solid var(--bd);border-radius:8px;font:inherit;font-size:14px"><option value=""></option>${Object.entries(MOTIVOS_IMPRODUTIVA).map(([k, v]) => `<option value="${k}">${esc(v)}</option>`).join('')}</select>
+        <div id="imp-txt-wrap" style="display:none;margin-top:10px">
+          <label>Descreva o motivo <span style="color:var(--re)">*</span></label>
+          <textarea id="imp-txt" rows="3" style="width:100%;padding:10px 12px;border:1px solid var(--bd);border-radius:8px;font:inherit;font-size:14px;box-sizing:border-box" placeholder="Ex.: cliente precisava montar andaime para o acesso"></textarea>
+        </div>
+      </div>
+      <div class="${M}-f">
+        <button class="btn" id="imp-cancelar">Cancelar</button>
+        <button class="btn btn-p" id="imp-confirmar">Reclassificar</button>
+      </div>
+    </div>`
+    document.body.appendChild(wrap)
+    const fechar = () => wrap.remove()
+    wrap.querySelector('#imp-x').onclick = fechar
+    wrap.querySelector('#imp-cancelar').onclick = fechar
+    const sel = wrap.querySelector('#imp-sel'), txtWrap = wrap.querySelector('#imp-txt-wrap'), txt = wrap.querySelector('#imp-txt')
+    sel.onchange = () => { txtWrap.style.display = sel.value === 'outro' ? 'block' : 'none' }
+    wrap.querySelector('#imp-confirmar').onclick = async () => {
+      const motivo = sel.value
+      if (!motivo) return toast('Escolha o motivo da visita improdutiva.', 'err')
+      const motivoTexto = (txt.value || '').trim() || null
+      if (motivo === 'outro' && !motivoTexto) { txt.focus(); return toast('Descreva o motivo.', 'err') }
+      fechar()
+      // motivo do LOTE em rat_edicoes: 'outro' com a descrição da reclassificação (legível no histórico)
+      const { data, error } = await sb().functions.invoke('rat-editar', {
+        body: {
+          rat_id: rat.id, motivo: 'outro',
+          motivo_detalhe: `Reclassificada como visita improdutiva — ${MOTIVOS_IMPRODUTIVA[motivo]}${motivoTexto ? ': ' + motivoTexto : ''}`,
+          alteracoes: [{ alvo: 'status', operacao: 'update', valor_novo: { status: 'improdutiva', motivo_improdutiva: motivo, motivo_texto: motivoTexto } }],
+        },
+      })
+      let msg = null
+      if (error) { msg = error.message; try { if (error.context) { const j = await error.context.json(); if (j?.error) msg = j.error } } catch (e) {} }
+      else if (data && data.error) msg = data.error
+      if (msg) return toast('Não foi possível reclassificar: ' + msg, 'err')
+      toast('RAT reclassificada como visita improdutiva.', 'ok')
+      if (onDone) await onDone()
+    }
+  }
+
+  return { criar, reclassificarImprodutiva }
 })()

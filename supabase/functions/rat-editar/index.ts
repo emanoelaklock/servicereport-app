@@ -23,6 +23,8 @@ const CORS = {
   "Access-Control-Allow-Methods": "POST, OPTIONS",
 }
 const MOTIVOS = ["esquecimento_tecnico", "completacao", "mudanca_processo", "pedido_cliente", "outro"]
+// Motivos de visita improdutiva — MESMAS chaves do app do técnico (tecnico.js MOTIVO_IMPRODUTIVA)
+const IMPROD_MOTIVOS = ["cliente_nao_liberou", "local_nao_pronto", "falta_material", "clima", "equip_cliente_indisponivel", "outro"]
 const FATURADO_LOCK = ["aprovada_faturamento", "faturada"]   // tem OS no Omie → trava o financeiro
 const TIME_FIELDS = ["hora_inicio", "hora_termino", "desloc_inicial_ida", "desloc_final_ida",
   "desloc_inicial_retorno", "desloc_final_retorno", "almoco_inicio", "almoco_termino",
@@ -163,6 +165,26 @@ Deno.serve(async (req: Request) => {
         const { data: cur } = await admin.from("relatorio_fotos").select("legenda").eq("id", a.chave).maybeSingle()
         await admin.from("relatorio_fotos").update({ legenda: a.valor_novo?.legenda ?? null }).eq("id", a.chave)
         logs.push({ alvo: "foto", operacao: "update", chave: a.chave, campo: "legenda", valor_antigo: cur?.legenda ?? null, valor_novo: a.valor_novo?.legenda ?? null })
+      } else if (a.alvo === "status" && a.operacao === "update") {
+        // ÚNICA transição de status permitida por aqui: reclassificar como VISITA IMPRODUTIVA
+        // (o técnico foi e não pôde executar, mas a RAT fechou de outro jeito — ex.: resolvedor
+        // de pausa esquecida). Tira a RAT da régua de desempenho; Restaurar desfaz.
+        if (a.valor_novo?.status !== "improdutiva") return json({ error: "transição de status não suportada" }, 400)
+        const { data: curSt } = await admin.from("rats").select("status,atendimento_executado,motivo_improdutiva,motivo_texto").eq("id", ratId).maybeSingle()
+        if (curSt?.status === "improdutiva") return json({ error: "a RAT já é visita improdutiva" }, 409)
+        const motImp = a.valor_novo?.motivo_improdutiva
+        if (!IMPROD_MOTIVOS.includes(motImp)) return json({ error: "motivo da visita improdutiva é obrigatório" }, 400)
+        const motTxt = (typeof a.valor_novo?.motivo_texto === "string" ? a.valor_novo.motivo_texto.trim() : "") || null
+        if (motImp === "outro" && !motTxt) return json({ error: "descreva o motivo da visita improdutiva" }, 400)
+        // Improdutiva não tem execução: com material lançado a reclassificação não faz sentido.
+        const { count: nMat } = await admin.from("materiais").select("id", { count: "exact", head: true }).eq("rat_id", ratId)
+        if ((nMat || 0) > 0) return json({ error: "esta RAT tem material lançado — visita improdutiva não tem execução. Confira os produtos antes." }, 409)
+        await admin.from("rats").update({ status: "improdutiva", atendimento_executado: false, motivo_improdutiva: motImp, motivo_texto: motTxt }).eq("id", ratId)
+        logs.push({
+          alvo: "status", operacao: "update", chave: "status", campo: "status",
+          valor_antigo: { status: curSt?.status ?? null, atendimento_executado: curSt?.atendimento_executado ?? null, motivo_improdutiva: curSt?.motivo_improdutiva ?? null, motivo_texto: curSt?.motivo_texto ?? null },
+          valor_novo: { status: "improdutiva", atendimento_executado: false, motivo_improdutiva: motImp, motivo_texto: motTxt },
+        })
       } else {
         return json({ error: "alteração inválida: " + JSON.stringify(a) }, 400)
       }
@@ -222,6 +244,16 @@ async function aplicarRestore(admin: any, ed: any) {
     if (ed.operacao === "delete") { const v = ed.valor_antigo || {}; await admin.from("materiais").insert({ id: v.id, rat_id: ed.rat_id, origem: v.origem || "usado", produto_id: v.produto_id || null, codigo_produto: v.codigo_produto || null, descricao: v.descricao || null, quantidade: v.quantidade || 0, preco_unitario: v.preco_unitario ?? null }); return "produto re-inserido" }
     if (ed.operacao === "insert") { await admin.from("materiais").delete().eq("id", ed.chave); return "produto removido" }
     if (ed.operacao === "update") { await admin.from("materiais").update({ quantidade: ed.valor_antigo?.quantidade, preco_unitario: ed.valor_antigo?.preco_unitario }).eq("id", ed.chave); return "produto revertido" }
+  }
+  if (ed.alvo === "status") {
+    const v = ed.valor_antigo || {}
+    await admin.from("rats").update({
+      status: v.status || "registrado",
+      atendimento_executado: v.atendimento_executado ?? true,
+      motivo_improdutiva: v.motivo_improdutiva ?? null,
+      motivo_texto: v.motivo_texto ?? null,
+    }).eq("id", ed.rat_id)
+    return "status revertido"
   }
   if (ed.alvo === "foto") {
     if (ed.operacao === "delete") { const v = ed.valor_antigo || {}; await admin.from("relatorio_fotos").insert({ id: v.id, rat_id: ed.rat_id, url: v.url, legenda: v.legenda || null }); return "foto re-inserida" }

@@ -117,6 +117,8 @@ const RatPage = (() => {
       finally { btn.disabled = false; btn.textContent = antes }
     }
     document.getElementById('rp-excluir').onclick = excluir
+    document.getElementById('rp-improd').onclick = () =>
+      RatEditor.reclassificarImprodutiva({ sb, rat: det.r, onDone: recarregar })
     document.getElementById('rp-encerrar').onclick = encerrar
     document.getElementById('rp-nova').onclick = abrirPend
     document.getElementById('pend-x').onclick = fecharPend
@@ -136,6 +138,7 @@ const RatPage = (() => {
     show('rp-nova', !editMode)
     show('rp-pdf', !editMode)
     show('rp-excluir', !editMode && souAdmin)   // excluir é admin-only (RPC admin_excluir_rat); UI acompanha
+    show('rp-improd', !editMode && souAdmin && det.r.status !== 'improdutiva')   // reclassificação auditada (Edge valida)
     // RAT presa "em andamento" (técnico não encerrou): o admin pode concluir e destravar a tarefa
     show('rp-encerrar', !editMode && det.r.status === 'em_andamento')
   }
