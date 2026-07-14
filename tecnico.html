@@ -63,6 +63,7 @@ try{if(localStorage.getItem('sr_dark')==='1')document.documentElement.classList.
 <script src="js/db-local.js" crossorigin="anonymous"></script>
 <script src="js/sync.js" crossorigin="anonymous"></script>
 <script src="js/push.js" crossorigin="anonymous"></script>
+<script src="js/placar-card.js" crossorigin="anonymous"></script>
 <script src="js/tecnico.js" crossorigin="anonymous"></script>
 <style>
   /* SEM height:100% aqui: no iOS, 100% = viewport GRANDE (barra recolhida) e o shell usa 100dvh
@@ -793,6 +794,9 @@ try{if(localStorage.getItem('sr_dark')==='1')document.documentElement.classList.
         <!-- Fila de tarefas abertas (sem responsável) -->
         <div class="sec">Fila — tarefas abertas <span class="ct num" id="home-fila-ct"></span></div>
         <div id="home-fila"></div>
+
+        <!-- Meu Placar (F2): o módulo só renderiza com o painel LIGADO (desempenho_status) -->
+        <div id="home-placar"></div>
 
         <div class="sec">Áreas</div>
         <div class="grid">

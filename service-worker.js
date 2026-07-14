@@ -9,7 +9,7 @@
    não do cache do SW.
 ═══════════════════════════════════════════════ */
 
-const CACHE = 'sr-shell-v611'
+const CACHE = 'sr-shell-v612'
 
 const SHELL = [
   'index.html',
@@ -37,6 +37,7 @@ const SHELL = [
   'js/tecnico.js',
   'js/sync.js',
   'js/push.js',
+  'js/placar-card.js',
   'js/painel.js',
   'js/rat-calendario.js',
   'js/rat-lista.js',

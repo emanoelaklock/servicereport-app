@@ -937,6 +937,9 @@
     // (2) Fila — em função própria: ela se atualiza sozinha (visibilitychange/online/tick no bind()),
     //     já que mudança de responsável no portal não passa pelo SYNC_MAP (RATs/deslocamentos).
     await renderFila()
+    // (3) Meu Placar (F2) — fire-and-forget: gate no servidor (painel desligado = invisível)
+    //     e cache offline dentro do módulo; NUNCA bloqueia a home.
+    try { window.PlacarCard && PlacarCard.montarHome(document.getElementById('home-placar')) } catch (e) { /* placar é opcional */ }
   }
 
   // Fila — tarefas abertas (sem responsável). Só online (consulta o servidor via RPC).
