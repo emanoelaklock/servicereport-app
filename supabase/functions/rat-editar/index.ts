@@ -22,7 +22,8 @@ const CORS = {
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
   "Access-Control-Allow-Methods": "POST, OPTIONS",
 }
-const MOTIVOS = ["esquecimento_tecnico", "completacao", "mudanca_processo", "pedido_cliente", "outro"]
+// 'correcao_texto' = ajuste cosmético — fica FORA de qualquer métrica de desempenho/assertividade
+const MOTIVOS = ["esquecimento_tecnico", "completacao", "mudanca_processo", "pedido_cliente", "correcao_texto", "outro"]
 // Motivos de visita improdutiva — MESMAS chaves do app do técnico (tecnico.js MOTIVO_IMPRODUTIVA)
 const IMPROD_MOTIVOS = ["cliente_nao_liberou", "local_nao_pronto", "falta_material", "clima", "equip_cliente_indisponivel", "outro"]
 const FATURADO_LOCK = ["aprovada_faturamento", "faturada"]   // tem OS no Omie → trava o financeiro

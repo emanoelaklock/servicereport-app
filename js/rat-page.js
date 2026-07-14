@@ -14,7 +14,7 @@ const RatPage = (() => {
   let usuarios = []          // técnicos do SR (p/ adicionar à RAT)
   let histLista = []         // rat_edicoes carregadas
   let souAdmin = false       // só admin edita (gestor vê o histórico, não edita)
-  const MOT_LABEL = { esquecimento_tecnico: 'Esquecimento do técnico', completacao: 'Completação', mudanca_processo: 'Mudança de processo', pedido_cliente: 'Pedido do cliente', outro: 'Outro', sync_app: 'Reeditada pelo técnico no app (sync)' }
+  const MOT_LABEL = { esquecimento_tecnico: 'Esquecimento do técnico', completacao: 'Completação', mudanca_processo: 'Mudança de processo', pedido_cliente: 'Pedido do cliente', correcao_texto: 'Correção de texto (fora do desempenho)', outro: 'Outro', sync_app: 'Reeditada pelo técnico no app (sync)' }
 
   // Editor auditado compartilhado (estado da edição + motivo + Edge rat-editar).
   const ed = RatEditor.criar({
