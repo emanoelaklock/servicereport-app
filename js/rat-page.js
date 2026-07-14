@@ -135,7 +135,7 @@ const RatPage = (() => {
     show('rp-cancelar', editMode)
     show('rp-nova', !editMode)
     show('rp-pdf', !editMode)
-    show('rp-excluir', !editMode)
+    show('rp-excluir', !editMode && souAdmin)   // excluir é admin-only (RPC admin_excluir_rat); UI acompanha
     // RAT presa "em andamento" (técnico não encerrou): o admin pode concluir e destravar a tarefa
     show('rp-encerrar', !editMode && det.r.status === 'em_andamento')
   }

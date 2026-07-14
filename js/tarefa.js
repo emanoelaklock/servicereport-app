@@ -1237,7 +1237,7 @@ const TarefaApp = (() => {
         <button class="btn btn-sm" data-rat-menu title="Mais ações">${RAT_IC.dots}</button>
         <div class="pm-pop pm-compact" hidden>
           <a class="pm-item" href="rat.html?id=${encodeURIComponent(r.id)}" target="_blank" rel="noopener"><b>Ver em página completa ↗</b></a>
-          <button class="pm-item" data-rat-del><b style="color:var(--re)">Excluir RAT</b></button>
+          ${souAdmin ? `<button class="pm-item" data-rat-del><b style="color:var(--re)">Excluir RAT</b></button>` : ''}
         </div>
       </div>`
   }
