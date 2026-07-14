@@ -205,8 +205,12 @@ window.RatView = (function () {
       ${campoOS('cal', 'Data da Tarefa', fdt(r.data_tarefa, { numeric: true }))}
       ${campoOS('tag', 'Tipo de tarefa', esc(tipoNomeRat(r)))}
       ${campoOS('clock', 'Duração', fmtMin(tempoRat(r)))}
-      ${(r.checkin_lat != null && r.checkin_lng != null) ? campoOS('pin', 'Local (GPS)', `<a href="https://www.google.com/maps?q=${r.checkin_lat},${r.checkin_lng}" target="_blank" rel="noopener">ver no mapa</a>${r.checkin_precisao ? ` <span class="dim">(±${Math.round(r.checkin_precisao)} m)</span>` : ''}`) : ''}
-    </div></div>`
+      ${(r.checkin_lat != null && r.checkin_lng != null) ? campoOS('pin', 'Local (GPS)', `<a href="https://www.google.com/maps?q=${r.checkin_lat},${r.checkin_lng}" target="_blank" rel="noopener">abrir no Google Maps ↗</a>${r.checkin_precisao ? ` <span class="dim">(±${Math.round(r.checkin_precisao)} m)</span>` : ''}`) : ''}
+    </div>${(r.checkin_lat != null && r.checkin_lng != null)
+      ? `<details class="rd-mapa"><summary>${fic('pin')} Ver o local no mapa</summary>
+          <iframe loading="lazy" title="Local (GPS) da RAT" referrerpolicy="no-referrer-when-downgrade"
+            src="https://maps.google.com/maps?q=${encodeURIComponent(r.checkin_lat + ',' + r.checkin_lng)}&z=17&t=k&hl=pt-BR&output=embed"></iframe></details>`
+      : ''}</div>`
     // Orientação: mesmo conteúdo, agora como seção própria em bloco branco com bullets
     if (tf.orientacao) h += `<div class="rd-sec"><div class="rd-sec-t">Orientação</div><div class="rd-caixa rd-rich">${multiRico(tf.orientacao)}</div></div>`
 
