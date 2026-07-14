@@ -27,10 +27,6 @@
   .pm-item:hover{background:var(--sur2,#f4f7fb)}
   .pm-item b{display:block;font-size:13px;color:var(--tx)}
   .pm-item span{display:block;font-size:11.5px;color:var(--tx3);margin-top:1px}
-  .pm-sep{height:1px;background:var(--bd);margin:6px 4px}
-  .pm-legacy{font-size:11px;color:var(--tx3);padding:6px 11px 7px}
-  .pm-legacy a{color:var(--tx3);text-decoration:underline}
-
   /* Toolbar / filtros */
   .cc-toolbar{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:16px;flex-wrap:wrap}
   .cc-filtros{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
@@ -376,9 +372,6 @@
               <div class="pm-pop" id="cc-pdf-pop" hidden>
                 <button type="button" class="pm-item" data-pdf="cliente"><b>PDF para o cliente</b><span>Sem valores nem conciliação; só produtos utilizados</span></button>
                 <button type="button" class="pm-item" data-pdf="interno"><b>PDF interno</b><span>Completo: valores, conciliação e itens zerados</span></button>
-                <div class="pm-sep"></div>
-                <div class="pm-legacy">Contingência (versão antiga, impressão):
-                  <a href="#" id="cc-pdf-old-cli">cliente</a> · <a href="#" id="cc-pdf-old-int">interno</a></div>
               </div>
             </div>
           </div>

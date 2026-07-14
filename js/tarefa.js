@@ -275,8 +275,6 @@ const TarefaApp = (() => {
     document.addEventListener('click', (e) => { if (!pdfPop.hidden && !pdfPop.contains(e.target)) pdfPop.hidden = true })
     document.addEventListener('keydown', (e) => { if (e.key === 'Escape') pdfPop.hidden = true })
     pdfPop.querySelectorAll('[data-pdf]').forEach(b => b.onclick = () => { pdfPop.hidden = true; gerarPdfVetorial(b.dataset.pdf) })
-    document.getElementById('cc-pdf-old-cli').onclick = (e) => { e.preventDefault(); pdfPop.hidden = true; exportarTarefa('cliente') }
-    document.getElementById('cc-pdf-old-int').onclick = (e) => { e.preventDefault(); pdfPop.hidden = true; exportarTarefa('interno') }
     document.getElementById('rat-x').onclick = () => fecharModal('modal-rat')
     document.getElementById('rat-fechar').onclick = () => fecharModal('modal-rat')
     // Editor único e auditado: o "Editar" abre o rat.html (admin-only, com motivo/histórico/restore).
@@ -1301,136 +1299,11 @@ const TarefaApp = (() => {
     for (const r of rats) dets.push(await RatView.loadDetalhe(r))
     RatView.gerarPdf(dets, `RATs Tarefa ${osNo(cur.numero)}`)
   }
-  // Exporta a Tarefa: capa (dados) + todas as RATs. Dois perfis de destinatário:
-  //  · 'cliente' (default): sem valores, sem conciliação, só produtos utilizados, sem campos internos.
-  //  · 'interno': tudo (valores, conciliação, zerados).
-  // Overrides finos pela URL (?valores=1/0, ?conciliacao=1/0, ?zerados=1/0, ?baixar=1). Ao gerar
-  // Cliente COM valores (override), põe selo discreto no rodapé pra não confundir os arquivos.
-  async function exportarTarefa(perfil) {
-    if (!cur || !cur.id) return
-    // Abre a janela JÁ, no gesto do clique. Se abrir depois do await (loadDetalhe), o Chrome bloqueia
-    // ou joga o pop-up pro fundo em silêncio — era o "PDF Cliente clica e não faz nada".
-    const win = window.open('', '_blank')
-    if (!win) return toast('Permita pop-ups para gerar o PDF.', 'err')
-    try {
-    win.document.write('<!doctype html><meta charset="utf-8"><body style="font:15px sans-serif;padding:28px;color:#1B2A4A">Gerando PDF…</body>')
-    const cliente = perfil !== 'interno'
-    const p = new URLSearchParams(location.search)
-    const flag = (name, base) => { const v = p.get(name); return v === '1' ? true : v === '0' ? false : base }
-    const valores = flag('valores', !cliente)        // base: interno mostra, cliente não
-    const conciliacao = flag('conciliacao', !cliente)
-    const zerados = flag('zerados', !cliente)         // mostrar itens de qtd 0
-    const modo = p.get('baixar') === '1' ? 'download' : 'print'   // padrão: diálogo de impressão (vetorial, nítido); ?baixar=1 → download direto (raster)
-    const selo = (cliente && valores) ? 'versão com valores' : null
-    const t = tarefas.find(x => x.id === cur.id) || {}
-    const tipoNome = (ref.tipos.find(p => p.id === t.tipo_servico_id) || {}).nome || '—'
-    const q = (n) => { const v = Number(n) || 0; return v ? v.toLocaleString('pt-BR', { maximumFractionDigits: 3 }) : '—' }
-    const linhasHtml = (linhas || []).map(l => `<tr>
-        <td style="padding:5px 6px;border-bottom:1px solid #eee">${esc(l.descricao || l.codigo_produto || '—')}</td>
-        <td style="text-align:right;padding:5px 6px;border-bottom:1px solid #eee">${q(l.qtd_orcada)}</td>
-        <td style="text-align:right;padding:5px 6px;border-bottom:1px solid #eee">${q(l.qtd_levada)}</td>
-        <td style="text-align:right;padding:5px 6px;border-bottom:1px solid #eee">${q(l.qtd_utilizada)}</td>
-        <td style="text-align:right;padding:5px 6px;border-bottom:1px solid #eee">${q(Math.max(0, Number(l.qtd_devolvida) || 0))}</td>
-      </tr>`).join('')
-    // ── capa rica: dossiê da tarefa (dados, equipe, resumo, RATs, produtos, equipamentos, anexos) ──
-    const MOD_LBL = { por_hora: 'Por hora', projeto_fechado: 'Projeto fechado / orçamento', contrato: 'Contrato (locação/manutenção)', nao_faturavel: 'Não-faturável' }
-    const thS = 'text-align:left;padding:5px 6px;border-bottom:2px solid #ddd'
-    const thR = 'text-align:right;padding:5px 6px;border-bottom:2px solid #ddd'
-    const tdS = 'padding:5px 6px;border-bottom:1px solid #eee'
-    const responsaveis = [...respSel].map(id => tecNomes[id] || (ref.tecnicos.find(x => x.id === id) || {}).nome).filter(Boolean).join(', ')
-    const rats = cur.rats || []
-    const totalMin = rats.reduce((s, r) => s + (Number(RatView.tempoRat(r)) || 0), 0)
-    const aDevolver = (linhas || []).reduce((s, l) => s + Math.max(0, Number(l.qtd_devolvida) || 0), 0)
-    const foraProposta = (linhas || []).filter(l => !(Number(l.qtd_orcada) || 0) && ((Number(l.qtd_utilizada) || 0) > 0 || (Number(l.qtd_levada) || 0) > 0)).length
-    const ratsHtml = rats.map(r => `<tr>
-        <td style="${tdS}">${osNo(cur.numero)}${r.rat_seq != null ? '/' + String(r.rat_seq).padStart(2, '0') : ''}</td>
-        <td style="${tdS}">${fdt(r.data_tarefa)}</td>
-        <td style="${tdS}">${esc(r.tecnico_nome || '—')}</td>
-        <td style="${tdS}">${esc(ratSit(r.status))}</td>
-        <td style="${tdS};text-align:right">${RatView.fmtMin(RatView.tempoRat(r))}</td>
-      </tr>`).join('')
-    const equipIds = (cur.equip || []).map(x => x.equipamento_id || x)
-    const equipHtml = equipIds.map(id => {
-      const e = (ref.equip || []).find(x => x.id === id)
-      return e ? `<tr><td style="${tdS}">${esc(e.tipo || '—')}</td><td style="${tdS}">${esc(e.modelo || '—')}</td><td style="${tdS}">${esc(e.part_number || '—')}</td><td style="${tdS}">${esc(e.serial || '—')}</td></tr>` : ''
-    }).join('')
-    // Anexos: imagens (jpg/png/…) viram <img> reduzida — VISÍVEL no PDF (reusa .det-foto, 150px);
-    // não-imagens (pdf etc.) ficam como nome. Assina em lote e reduz p/ o PDF não pesar.
-    const anexosHtml = await (async () => {
-      const anx = cur.anexos || []; if (!anx.length) return ''
-      const ehImg = (n) => /\.(jpe?g|png|gif|webp|bmp)$/i.test(n || '')
-      const urlByPath = {}
-      const imgs = anx.filter(a => ehImg(a.nome))
-      if (imgs.length) {
-        try {
-          const { data: signed } = await sb().storage.from('rat-anexos').createSignedUrls(imgs.map(a => a.url), 3600)
-          ;(signed || []).forEach(s => { if (s && s.signedUrl) urlByPath[s.path] = s.signedUrl })
-        } catch (e) { /* offline/erro: cai pro nome */ }
-      }
-      const cards = [], nomes = []
-      for (const a of anx) {
-        const url = urlByPath[a.url]
-        if (url && ehImg(a.nome)) {
-          const small = await RatView.shrinkImg(url, 1600, 0.85)
-          cards.push(`<figure class="det-foto"><img src="${small}" alt=""><figcaption>${esc(a.nome)}</figcaption></figure>`)
-        } else nomes.push(esc(a.nome))
-      }
-      return (cards.length ? `<div class="det-fotos">${cards.join('')}</div>` : '')
-        + (nomes.length ? `<div style="font-size:12px;color:#5b6b86${cards.length ? ';margin-top:8px' : ''}">${nomes.join(' · ')}</div>` : '')
-    })()
-    const fatTxt = t.faturado
-      ? `Faturada${t.numero_nota ? ' · Nota ' + esc(t.numero_nota) : ''}${t.data_faturamento ? ' · ' + dmy(t.data_faturamento) : ''}`
-      : 'Não faturada'
-    const capa = `
-      <div class="rd-head"><div class="rd-cli">${esc(cur.cliente_nome || '—')}</div>
-        <div class="rd-sub">Tarefa Nº ${osNo(cur.numero)} · ${esc(statusLabel(cur.status))}</div></div>
-      <div class="rd-sec"><div class="rd-sec-t">Dados da Tarefa</div><div class="rd-grid">
-        <div class="rd-f"><label>Tipo de tarefa</label><div class="v">${esc(tipoNome)}</div></div>
-        <div class="rd-f"><label>Data agendada</label><div class="v">${dmy(t.data_agendada)}</div></div>
-        <div class="rd-f"><label>Origem</label><div class="v">${t.orcamento_id ? 'Orçamento aprovado' : 'Criada direto (sem orçamento)'}</div></div>
-        ${t.pedido_compra ? `<div class="rd-f"><label>Pedido de Compra (PC)</label><div class="v">${esc(t.pedido_compra)}</div></div>` : ''}
-        ${(!cliente && t.modalidade) ? `<div class="rd-f"><label>Modalidade de faturamento</label><div class="v">${esc(MOD_LBL[t.modalidade] || t.modalidade)}</div></div>` : ''}
-        ${!cliente ? `<div class="rd-f"><label>Faturamento</label><div class="v">${fatTxt}</div></div>` : ''}
-        ${responsaveis ? `<div class="rd-f" style="grid-column:1/-1"><label>Responsáveis</label><div class="v">${esc(responsaveis)}</div></div>` : ''}
-        ${t.orientacao ? `<div class="rd-f" style="grid-column:1/-1"><label>Orientação ao técnico</label><div class="v" style="white-space:pre-wrap">${esc(t.orientacao)}</div></div>` : ''}
-        ${(!cliente && t.observacoes) ? `<div class="rd-f" style="grid-column:1/-1"><label>Observações internas</label><div class="v" style="white-space:pre-wrap">${esc(t.observacoes)}</div></div>` : ''}
-        ${(!cliente && t.pendencias) ? `<div class="rd-f" style="grid-column:1/-1"><label>Pendências</label><div class="v" style="white-space:pre-wrap">${esc(t.pendencias)}</div></div>` : ''}
-        ${(!cliente && t.conciliacao_obs) ? `<div class="rd-f" style="grid-column:1/-1"><label>Observações da conciliação</label><div class="v" style="white-space:pre-wrap">${esc(t.conciliacao_obs)}</div></div>` : ''}
-      </div></div>
-      <div class="rd-sec"><div class="rd-sec-t">Resumo operacional</div><div class="rd-grid">
-        <div class="rd-f"><label>RATs registradas</label><div class="v">${rats.length}</div></div>
-        <div class="rd-f"><label>Horas registradas (RATs)</label><div class="v">${RatView.fmtMin(totalMin)}</div></div>
-        ${!cliente ? `<div class="rd-f"><label>A devolver ao estoque</label><div class="v">${aDevolver ? aDevolver.toLocaleString('pt-BR', { maximumFractionDigits: 3 }) : '—'}</div></div>
-        <div class="rd-f"><label>Itens fora da proposta</label><div class="v">${foraProposta}</div></div>` : ''}
-      </div></div>
-      ${ratsHtml ? `<div class="rd-sec"><div class="rd-sec-t">RATs (resumo)</div>
-        <table style="width:100%;border-collapse:collapse;font-size:12px;margin-top:4px">
-          <thead><tr><th style="${thS}">RAT</th><th style="${thS}">Data</th><th style="${thS}">Técnico</th><th style="${thS}">Situação</th><th style="${thR}">Tempo</th></tr></thead>
-          <tbody>${ratsHtml}</tbody></table></div>` : ''}
-      ${(conciliacao && linhasHtml) ? `<div class="rd-sec"><div class="rd-sec-t">Produtos (conciliação)</div>
-        <table style="width:100%;border-collapse:collapse;font-size:12px;margin-top:4px">
-          <thead><tr>
-            <th style="${thS}">Produto</th>
-            <th style="${thR}">Orçada</th>
-            <th style="${thR}">Disponibilizada</th>
-            <th style="${thR}">Utilizada</th>
-            <th style="${thR}">Devolvida</th>
-          </tr></thead><tbody>${linhasHtml}</tbody></table></div>` : ''}
-      ${equipHtml ? `<div class="rd-sec"><div class="rd-sec-t">Equipamentos</div>
-        <table style="width:100%;border-collapse:collapse;font-size:12px;margin-top:4px">
-          <thead><tr><th style="${thS}">Tipo</th><th style="${thS}">Modelo</th><th style="${thS}">Part number</th><th style="${thS}">Serial</th></tr></thead>
-          <tbody>${equipHtml}</tbody></table></div>` : ''}
-      ${anexosHtml ? `<div class="rd-sec"><div class="rd-sec-t">Anexos</div>${anexosHtml}</div>` : ''}`
-    const dets = []
-    for (const r of (cur.rats || [])) dets.push(await RatView.loadDetalhe(r))
-    RatView.gerarPdf(dets, `Tarefa ${osNo(cur.numero)} ${cliente ? 'Cliente' : 'Interno'}`, capa, modo, { valores, zerados, selo, win })
-    } catch (e) { console.error('[PDF Tarefa]', e); try { win.close() } catch (_) {} toast('Não foi possível gerar o PDF: ' + ((e && e.message) || e), 'err') }
-  }
 
   // ── PDF VETORIAL (pdfmake local) — botão "Gerar PDF" ─────────────────────
   // Texto real, tabelas vetoriais, fonte embutida, download direto (sem aba nova,
-  // sem diálogo de impressão). Mesmos perfis/overrides do exportarTarefa antigo,
-  // que segue disponível no menu como contingência até a validação completa.
+  // sem diálogo de impressão). Perfis Cliente/Interno + overrides finos pela URL
+  // (?valores=1/0, ?conciliacao=1/0, ?zerados=1/0); Cliente com valores ganha selo.
   async function gerarPdfVetorial(perfil) {
     if (!cur || !cur.id) return
     const btn = document.getElementById('cc-pdf-btn')
@@ -1447,9 +1320,8 @@ const TarefaApp = (() => {
     }
   }
 
-  // Monta o modelo de dados do PDF vetorial (capa resolvida + dets das RATs).
-  // Espelha 1:1 o conteúdo do exportarTarefa: mesmos campos, mesmas regras
-  // Cliente/Interno e mesmos overrides de URL (?valores/?conciliacao/?zerados).
+  // Monta o modelo de dados do PDF vetorial (capa resolvida + dets das RATs),
+  // com as regras Cliente/Interno e os overrides de URL (?valores/?conciliacao/?zerados).
   async function montarModeloPdf(perfil) {
     const cliente = perfil !== 'interno'
     const p = new URLSearchParams(location.search)
