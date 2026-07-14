@@ -10,8 +10,8 @@
      nunca nota; sem exclusão manual.
    · Go-live: banner único (família info) quando desligado, com o botão
      "Definir data de go-live" (dupla confirmação, admin-only no servidor).
-   · Impactos exibidos no drill-down são DERIVADOS da própria nota
-     (65/15/20 e contadores) — exibição, não cálculo novo.
+   · A página NÃO exibe pontos, descontos nem o índice composto (que segue
+     intacto no banco/snapshots): só percentuais, contagens, situação e motivos.
 ═══════════════════════════════════════════════ */
 const DesempenhoApp = (() => {
   const sb = () => getSupabase()
@@ -20,7 +20,6 @@ const DesempenhoApp = (() => {
   let usuarios = []          // sr_usuarios (foto/role) — avatar padrão do portal
   let status = null          // { inicio, carencia_ate }
   let linhas = []            // ranking do mês
-  let anterior = {}          // tecnico_id -> nota do mês anterior (tendência)
   let fonte = null           // { tipo: 'snapshot'|'parcial', carimbo? }
   let aberto = null          // tecnico_id com drill-down aberto
   let binario = {}           // tecnico_id -> {elegiveis, sem_problema, com_problema, r_*} (RPC desempenho_binario — vivo)
@@ -32,7 +31,6 @@ const DesempenhoApp = (() => {
   function somaMes(iso, n) { const d = new Date(Number(iso.slice(0, 4)), Number(iso.slice(5, 7)) - 1 + n, 1); return mesISO(d) }
   const fmtDH = (iso) => { const d = new Date(iso); return `${String(d.getDate()).padStart(2, '0')}/${String(d.getMonth() + 1).padStart(2, '0')} · ${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}` }
   const fmtD = (iso) => iso ? `${String(iso).slice(8, 10)}/${String(iso).slice(5, 7)}` : '—'
-  const pts1 = (v) => (Math.round(v * 10) / 10).toLocaleString('pt-BR')   // pontos com 1 casa
   const av = (u) => { const f = (typeof avatarUrl === 'function') ? avatarUrl(u && u.foto_url) : ''; return f ? `<img src="${esc(f)}" alt="">` : esc(String((u && u.nome) || '—').trim().split(/\s+/).slice(0, 2).map(p => p[0] || '').join('').toUpperCase()) }
   const uDe = (id) => usuarios.find(u => u.id === id)
   const IC_CHEV = '<svg viewBox="0 0 24 24"><path d="m6 9 6 6 6-6"/></svg>'
@@ -60,8 +58,6 @@ const DesempenhoApp = (() => {
     document.getElementById('dp-mes').textContent = mesNome(mes)
     const atual = await dadosDoMes(mes)
     linhas = atual.linhas; fonte = atual.fonte
-    const ant = await dadosDoMes(somaMes(mes, -1))
-    anterior = {}; for (const l of ant.linhas) anterior[l.tecnico_id] = Number(l.nota)
     // Percentual de RATs sem problema (o indicador principal da página) — vivo, e também
     // do mês anterior (tendência percentual vs. percentual).
     binario = {}; binarioAnt = {}
@@ -117,7 +113,7 @@ const DesempenhoApp = (() => {
         'Preenchimento Online', 'RATs encerradas no dia do trabalho', ratsReg ? Math.round(100 * d0 / ratsReg) + '%' : '—',
         `${d0} em D+0 de ${ratsReg} avaliadas · ${fora} fora da régua (app/improdutiva)`),
       kpi('warn', '<svg viewBox="0 0 24 24"><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg>',
-        'Reedições após encerrar', 'em dia posterior ao trabalho', reed, `evento${reed === 1 ? '' : 's'} no mês · teto 6 por técnico`),
+        'Reedições após encerrar', 'em dia posterior ao trabalho', reed, `evento${reed === 1 ? '' : 's'} no mês`),
       kpi('pend', '<svg viewBox="0 0 24 24"><path d="M9 14 4 9l5-5"/><path d="M4 9h10.5a5.5 5.5 0 0 1 0 11H11"/></svg>',
         'Devoluções', 'tarefas devolvidas pela gestão', dev, `tarefa${dev === 1 ? '' : 's'} no mês`),
     ].join('') : ''
@@ -230,62 +226,50 @@ const DesempenhoApp = (() => {
   // Chips (textos oficiais por extenso)
   const CHIP = {
     D0: ['dp-c-d0', 'Encerrada no dia'],
-    D1: ['dp-c-d1', 'Encerrada em D+1 (meio ponto)'],
+    D1: ['dp-c-d1', 'Encerrada em D+1'],
     atrasada: ['dp-c-atr', 'Encerrada com atraso'],
     pendente: ['dp-c-ab', 'Ainda em aberto'],
     fora_janela_bug: ['dp-c-ab', 'Não avaliada — app instável'],
   }
   function drillHTML(rats, devs, marcas, lt) {
-    // Impactos DERIVADOS da nota (exibição): cada RAT avaliada vale 65/n do componente;
-    // cada evento de reedição (até o teto 6) custa 15/6; cada devolução custa a fração do 20.
-    const nAval = Number(lt.rats) || 0
-    const impRat = (faixa) => {
-      if (!nAval) return ''
-      if (faixa === 'atrasada') return `<span class="dp-imp">−${pts1(65 / nAval)} pts</span>`
-      if (faixa === 'D1') return `<span class="dp-imp">−${pts1(32.5 / nAval)} pts</span>`
-      if (faixa === 'D0') return '<span class="dp-imp ok">sem perda</span>'
-      return '<span class="dp-imp na">não conta</span>'
+    // Situação por extenso (sem pontos): atraso = com problema; D+0 e D+1 = sem
+    // problema; aberta/janela de instabilidade = ainda não avaliada.
+    const sitRat = (faixa) => {
+      if (faixa === 'atrasada') return '<span class="dp-imp">Com problema</span>'
+      if (faixa === 'D0' || faixa === 'D1') return '<span class="dp-imp ok">Sem problema</span>'
+      return '<span class="dp-imp na">Não avaliada</span>'
     }
     const ratRows = rats.length ? rats.map(r => {
       const ch = CHIP[r.faixa] || CHIP.pendente
       return `<div class="dp-rrow"><b>${esc(fmtD(r.dia))}</b>
         <a href="tarefa.html?t=${encodeURIComponent(r.tarefa_id)}&aba=rats" target="_blank" rel="noopener">Tarefa ${r.tarefa_numero != null ? esc(String(r.tarefa_numero).padStart(5, '0')) : '—'} · ${esc(r.cliente_nome || '—')}</a>
-        ${impRat(r.faixa)}<span class="dp-chip ${ch[0]}">${ch[1]}</span></div>`
+        ${sitRat(r.faixa)}<span class="dp-chip ${ch[0]}">${ch[1]}</span></div>`
     }).join('') : '<div class="dp-empty">Nenhuma RAT no mês.</div>'
 
     const nReed = Number(lt.reedicoes) || 0
-    const perdaReedTotal = 15 * (1 - (Number(lt.comp_reedicao) || 0) / 100)
     const marcaRows = marcas.length
       ? marcas.map(m => `<div class="dp-rrow"><b>${esc(fmtD(m.em))}</b><span class="dp-mtx"><b>${esc(m.campo)}</b> ${esc(String(m.valor_antigo ?? ''))} → ${esc(String(m.valor_novo ?? ''))}</span>
-          <span class="${m.motivo === 'sync_app_recusado' ? 'dp-rec' : 'dp-mut'}">${m.motivo === 'sync_app_recusado' ? 'recusada (campo da gestão)' : 'após ajuste da gestão'}</span></div>`).join('')
+          <span class="${m.motivo === 'sync_app_recusado' ? 'dp-rec' : 'dp-mut'}">${m.motivo === 'sync_app_recusado' ? 'recusada (campo da gestão)' : 'após ajuste da gestão'}</span>
+          <span class="dp-chip dp-c-atr">Reedição posterior</span></div>`).join('')
       : ''
     const reedResumo = nReed
-      ? `<div class="dp-mini">${nReed} evento${nReed > 1 ? 's' : ''} em dia posterior · impacto <b class="dp-vr">−${pts1(perdaReedTotal)} pts</b> (${pts1(15 / 6)} por evento, teto 6)${marcas.length ? '' : ' · detalhe campo a campo na trilha a partir de 14/07'}</div>`
+      ? `<div class="dp-mini">${nReed} evento${nReed > 1 ? 's' : ''} em dia posterior${marcas.length ? '' : ' · detalhe campo a campo na trilha a partir de 14/07'}</div>`
       : '<div class="dp-empty">Nenhuma reedição em dia posterior.</div>'
 
-    const nDev = devs.length
-    const perdaDevTotal = 20 * (1 - (Number(lt.comp_devolucao) || 0) / 100)
-    const devRows = nDev ? devs.map(d => {
+    const devRows = devs.length ? devs.map(d => {
       const reinc = Number(d.total_na_tarefa) >= 2
       return `<div class="dp-rrow"><b>${esc(fmtD(d.devolvida_em))}</b>
         <span class="dp-mtx"><b>Tarefa ${esc(String(d.numero).padStart(5, '0'))}</b> · ${(d.cats || []).map(esc).join(', ') || 'sem categoria'}${d.origem === 'backfill' ? ' <span class="dp-mut">(backfill)</span>' : ''}</span>
         ${reinc ? `<span class="dp-rec">${esc(d.total_na_tarefa)}ª devolução</span>` : ''}
-        <span class="dp-imp">−${pts1(nDev ? perdaDevTotal / nDev : 0)} pts</span></div>`
+        <span class="dp-imp">RAT com problema</span></div>`
     }).join('') + `<div class="dp-ress">Série de devoluções começa em 14/07 (migração 0099). O anterior é backfill parcial — conta na reincidência como piso e fica fora da lente de tempo.</div>`
       : '<div class="dp-empty">Nenhuma devolução no mês.</div>'
 
-    // "Dados técnicos da régua" — o índice composto sai da interface principal e vive
-    // aqui, como seção secundária de auditoria (cálculo/armazenamento intactos no backend).
-    const tecnicos = `<div class="dp-bloco"><div class="dp-bt">Dados técnicos da régua (auditoria)</div>
-      <div class="dp-mini">Índice interno de disciplina: <b>${esc(lt.nota)}</b>/100 · composição 65·15·20 —
-      Preenchimento ${esc(lt.comp_pontualidade)} · Reedições ${esc(lt.comp_reedicao)} · Devoluções ${esc(lt.comp_devolucao)}.
-      <span class="dp-mut">Uso interno do portal (histórico/auditoria); o indicador desta página e do app é o % de RATs sem problema.</span></div></div>`
     return `<div class="dp-ddgrid">
       <div class="dp-bloco dp-b-po"><div class="dp-bt">RATs avaliadas</div>${ratRows}</div>
       <div class="dp-colb">
         <div class="dp-bloco dp-b-reed"><div class="dp-bt">Reedições após encerramento</div>${reedResumo}${marcaRows}</div>
         <div class="dp-bloco dp-b-dev"><div class="dp-bt">Devoluções</div>${devRows}</div>
-        ${tecnicos}
       </div></div>`
   }
 
