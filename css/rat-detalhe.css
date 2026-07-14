@@ -1,0 +1,125 @@
+/* ═══════════════════════════════════════════════
+   Service Report — rat-detalhe.css
+   Visual compartilhado do detalhe da RAT no portal (modal da Tarefa + rat.html).
+   Substitui os blocos .rd-* e .det-* duplicados que viviam no <style> de cada página.
+   (Cuidado com "asterisco-barra" dentro de comentário: fecha o comentário no meio!)
+   Só aparência: a estrutura, os dados e o comportamento vêm do RatView.buildReportBody.
+   Tokens do design system (var(--…)); paleta: azul institucional, verde só pra status
+   positivo, âmbar/laranja só pra pendência.
+═══════════════════════════════════════════════ */
+
+/* ── Cabeçalho da RAT: nº em destaque · data · técnico · duração + badge ── */
+.rd-head{display:flex;align-items:flex-start;justify-content:space-between;gap:10px 16px;flex-wrap:wrap;
+         background:#fff;border:1px solid var(--bd);border-radius:10px;padding:14px 18px;margin-bottom:18px}
+.rd-head-main{display:flex;align-items:baseline;gap:6px 10px;flex-wrap:wrap;min-width:0}
+.rd-num{font-size:19px;font-weight:800;color:var(--title);letter-spacing:-.3px;line-height:1.2}
+.rd-hmeta{display:inline-flex;align-items:baseline;gap:6px 10px;flex-wrap:wrap;font-size:13px;color:var(--tx);font-weight:600}
+.rd-hmeta .sep{color:var(--tx3);font-weight:400}
+.rd-head .rd-sub{flex-basis:100%;font-size:12.5px;color:var(--tx3);font-weight:500;margin-top:2px}
+.rd-head > .rd-pill{margin-left:auto}
+.rd-pill{display:inline-flex;align-items:center;align-self:center;padding:4px 13px;border-radius:999px;font-size:12px;font-weight:700;white-space:nowrap}
+.st-ok{background:#E3F6EC;color:#0E7A4F}
+.st-pend{background:#FEF3DA;color:#92670A}
+.st-run{background:#E7F1FC;color:#1565C0}
+
+/* ── Títulos de seção: barra azul + navy semibold + divisória clara ── */
+.rd-sec{margin-top:20px}
+.rd-sec-t{display:flex;align-items:center;gap:9px;font-size:13.5px;font-weight:700;letter-spacing:-.1px;color:var(--title);
+          border-bottom:1px solid var(--line);padding-bottom:8px;margin-bottom:12px}
+.rd-sec-t::before{content:"";flex:none;width:3px;height:15px;border-radius:2px;background:var(--blue)}
+
+/* ── Campos (grade): fundo claro, ícone azul discreto, rótulo menor, valor escuro ── */
+.rd-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(210px,1fr));gap:9px}
+.rd-f{display:flex;gap:9px;align-items:flex-start;background:#fff;border:1px solid var(--line);border-radius:9px;padding:9px 11px}
+.rd-fic{flex:none;width:17px;height:17px;color:var(--blue);opacity:.85;margin-top:1px}
+.rd-fic svg{width:100%;height:100%;fill:none;stroke:currentColor;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}
+.rd-fc{min-width:0;flex:1}
+.rd-f label{display:block;font-size:10.5px;text-transform:none;letter-spacing:normal;color:var(--muted);margin-bottom:2px}
+.rd-f .v{font-size:13px;color:var(--ink);font-weight:600;line-height:1.35;overflow-wrap:anywhere}
+.rd-f .v a{color:var(--blue)}
+.rd-f .v .dim{color:var(--tx3);font-weight:500}
+.rd-f input,.rd-f select{width:100%;font:inherit;font-size:13px;margin-top:3px;padding:5px 7px;border:1px solid var(--blue);border-radius:6px;background:#fff;color:var(--tx);box-sizing:border-box}
+
+/* "RAT — dados do atendimento": um cartão só, com divisórias internas leves */
+.rd-sec-atend .rd-grid{grid-template-columns:1fr 1fr;gap:0;background:#fff;border:1px solid var(--line);border-radius:10px;overflow:hidden}
+.rd-sec-atend .rd-f{background:none;border:0;border-radius:0;border-bottom:1px solid var(--line);padding:11px 14px}
+.rd-sec-atend .rd-f:nth-child(odd){border-right:1px solid var(--line)}
+.rd-sec-atend .rd-f:nth-last-child(1){border-bottom:0}
+.rd-sec-atend .rd-f:nth-last-child(2):nth-child(odd){border-bottom:0}
+@media (max-width:640px){
+  .rd-sec-atend .rd-grid{grid-template-columns:1fr}
+  .rd-sec-atend .rd-f:nth-child(odd){border-right:0}
+  .rd-sec-atend .rd-f:nth-last-child(2):nth-child(odd){border-bottom:1px solid var(--line)}
+}
+
+/* ── Blocos de texto (Orientação, Serviço executado, Observações) ── */
+.rd-caixa{background:#fff;border:1px solid var(--line);border-radius:10px;padding:13px 16px}
+.rd-rich{font-size:13px;color:var(--ink);line-height:1.65}
+.rd-rich p{margin:0 0 7px}
+.rd-rich p:last-child{margin-bottom:0}
+.rd-ul{margin:0 0 7px;padding-left:19px}
+.rd-ul:last-child{margin-bottom:0}
+.rd-ul li{margin:3px 0}
+.rd-ul li::marker{color:var(--blue)}
+.rd-ul ul{margin:3px 0 0;padding-left:17px;list-style:disc}
+.rd-long{white-space:pre-wrap;line-height:1.6;color:var(--tx)}
+
+/* ── Passagem — volta depois pra terminar: card de alerta (pendência = âmbar) ── */
+.rd-sec-alerta{background:#FFFBEB;border:1px solid #F5DFA6;border-radius:10px;padding:13px 16px}
+.rd-sec-alerta .rd-sec-t{color:#B45309;border-bottom:0;padding-bottom:0;margin-bottom:10px}
+.rd-sec-alerta .rd-sec-t::before{display:none}
+.rd-sec-alerta .rd-sec-t .rd-fic{color:#D97706;opacity:1}
+.rd-sec-alerta .rd-grid{display:block}
+.rd-sec-alerta .rd-f{background:none;border:0;border-radius:0;padding:6px 0}
+.rd-sec-alerta .rd-f + .rd-f{border-top:1px dashed #EAD9A8;margin-top:4px;padding-top:10px}
+.rd-sec-alerta .rd-f label{color:#B45309;font-weight:600}
+.rd-sec-alerta .rd-f .v{color:#78350F}
+
+/* ── Edição (mantém o comportamento atual) ── */
+.rd-edit{width:100%;min-height:96px;resize:vertical;font:inherit;line-height:1.55;padding:10px 12px;border:1px solid var(--blue);border-radius:8px;background:#fff;color:var(--tx);box-sizing:border-box}
+.rd-edit-hint{font-size:11.5px;color:var(--blue);margin:8px 0 14px}
+.rd-prod{display:flex;flex-direction:column;gap:4px}
+.rd-prod div{font-size:13px;color:var(--tx)}
+.rd-emit{font-size:12.5px;line-height:1.5;color:var(--tx)}
+.rd-conflito{background:#FDECEA;border:1px solid #F3B7B2;color:#A82A22;border-radius:10px;padding:10px 12px;font-size:13px;line-height:1.45;margin-bottom:10px}
+.rd-autor{font-size:11px;color:#A82A66;font-weight:700;margin-top:2px}
+
+/* ── Produtos: cabeçalho cinza-azulado, zebra discreta, números à direita, total em navy ── */
+.rd-prodtbl{width:100%;border-collapse:collapse;font-size:12.5px;background:#fff;border:1px solid var(--line);border-radius:10px;overflow:hidden}
+.rd-prodtbl th{text-align:left;font-size:10.5px;text-transform:none;letter-spacing:.02em;color:var(--tx3);font-weight:700;
+               background:#F1F5FA;padding:9px 11px;border-bottom:1px solid var(--line)}
+.rd-prodtbl th.num,.rd-prodtbl td.num{text-align:right;font-family:var(--mono);white-space:nowrap}
+.rd-prodtbl td{padding:9px 11px;border-bottom:1px solid var(--line);color:var(--tx)}
+.rd-prodtbl tbody tr:nth-child(even) td{background:#FAFCFE}
+.rd-prodtbl tbody tr:last-child td{border-bottom:0}
+.rd-prodtbl input.rd-preco{width:104px;text-align:right;font:inherit;font-family:var(--mono);padding:5px 7px;border:1px solid var(--blue);border-radius:6px;box-sizing:border-box}
+.rd-prodtbl input.rd-qtd{width:74px;text-align:right;font:inherit;font-family:var(--mono);padding:5px 7px;border:1px solid var(--blue);border-radius:6px;box-sizing:border-box}
+.rd-total{display:flex;justify-content:flex-end;align-items:baseline;gap:12px;margin-top:11px;font-size:13.5px;color:var(--tx)}
+.rd-total b{font-family:var(--mono);font-size:15px;color:var(--title)}
+
+/* ── Pausas e almoço ── */
+.rd-pausas{width:100%;border-collapse:collapse;font-size:12.5px;background:#fff;border:1px solid var(--line);border-radius:10px;overflow:hidden}
+.rd-pausas th{text-align:left;font-size:10.5px;letter-spacing:.02em;color:var(--tx3);font-weight:700;background:#F1F5FA;padding:8px 11px;border-bottom:1px solid var(--line)}
+.rd-pausas td{padding:8px 11px;border-bottom:1px solid var(--line);color:var(--tx)}
+.rd-pausas tbody tr:last-child td{border-bottom:0}
+.rd-resumo-pausa{display:flex;align-items:center;gap:8px;font-size:13px;color:var(--ink)}
+.rd-resumo-pausa .rd-fic{margin-top:0}
+
+/* ── Fotos: miniaturas maiores e uniformes, raio 8, legenda abaixo ── */
+.det-fotos{display:flex;flex-wrap:wrap;gap:12px;margin-top:6px}
+.det-foto{display:flex;flex-direction:column;gap:4px;width:148px;margin:0}
+.det-fotos img{width:148px;height:111px;object-fit:cover;border-radius:8px;border:1px solid var(--bd)}
+.det-foto figcaption{font-size:11px;color:var(--tx3);line-height:1.25}
+.det-sig{margin-top:6px;max-width:100%;border:1px solid var(--bd);border-radius:8px;background:#fff}
+
+/* Edição de fotos (rat.html) */
+#rd-fotos .det-foto{position:relative}
+.rd-fotodel{position:absolute;top:4px;right:4px;width:22px;height:22px;border:none;border-radius:50%;background:rgba(229,64,58,.92);color:#fff;font-size:14px;line-height:1;cursor:pointer}
+.rd-fotoleg,.rd-fotonewleg{width:148px;box-sizing:border-box;margin-top:3px;font:inherit;font-size:11px;padding:4px 6px;border:1px solid var(--bd);border-radius:6px}
+.rd-fotoadd{display:inline-flex;align-items:center;margin-top:10px;padding:9px 14px;border:1px dashed var(--blue);border-radius:8px;font-size:13px;font-weight:700;color:var(--blue);cursor:pointer}
+.rd-addprod{position:relative;margin-top:10px}
+.rd-addprod input{width:100%;box-sizing:border-box;padding:8px 11px;border:1px dashed var(--blue);border-radius:8px;font:inherit;font-size:13px}
+.rd-prodres{position:absolute;left:0;right:0;top:100%;z-index:20;background:#fff;border:1px solid var(--bd);border-radius:8px;box-shadow:0 8px 24px rgba(20,30,55,.16);max-height:260px;overflow:auto;margin-top:3px}
+.rd-prodopt{padding:8px 11px;font-size:12.5px;cursor:pointer;border-bottom:1px solid var(--sur2)}
+.rd-prodopt:hover{background:var(--sur2)}
+.rd-matdel{border:none;background:none;color:var(--re);font-size:18px;line-height:1;cursor:pointer;padding:0 4px}

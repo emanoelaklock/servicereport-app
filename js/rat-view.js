@@ -29,6 +29,42 @@ window.RatView = (function () {
 
   const fmtMin = (t) => (t == null) ? '—' : `${Math.floor(t / 60)}h ${String(t % 60).padStart(2, '0')}min`
   const escMulti = (s) => esc(String(s == null ? '' : s)).replace(/\n/g, '<br>')
+
+  // ── visual do detalhe (rat-detalhe.css): ícones SVG de linha + texto com bullets ──
+  const IC = {
+    doc: '<svg viewBox="0 0 24 24"><path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8z"/><path d="M14 3v5h5"/></svg>',
+    cal: '<svg viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="17" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/></svg>',
+    clock: '<svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>',
+    tag: '<svg viewBox="0 0 24 24"><path d="M20.6 13.4 12 22 2 12V2h10l8.6 8.6a2 2 0 0 1 0 2.8z"/><circle cx="7" cy="7" r="1.5"/></svg>',
+    pin: '<svg viewBox="0 0 24 24"><path d="M12 21s-7-5.5-7-11a7 7 0 0 1 14 0c0 5.5-7 11-7 11z"/><circle cx="12" cy="10" r="2.5"/></svg>',
+    users: '<svg viewBox="0 0 24 24"><path d="M17 21v-2a4 4 0 0 0-4-4H7a4 4 0 0 0-4 4v2"/><circle cx="10" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75"/></svg>',
+    car: '<svg viewBox="0 0 24 24"><path d="M3 17v-4a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2v4"/><path d="M5 11l1.6-4a2 2 0 0 1 1.9-1.3h7a2 2 0 0 1 1.9 1.3L19 11"/><circle cx="7.5" cy="17" r="1.6"/><circle cx="16.5" cy="17" r="1.6"/></svg>',
+    pausa: '<svg viewBox="0 0 24 24"><path d="M17 9h1.5a2.5 2.5 0 0 1 0 5H17"/><path d="M4 9h13v5a4 4 0 0 1-4 4H8a4 4 0 0 1-4-4zM7 2v3M11 2v3"/></svg>',
+    warn: '<svg viewBox="0 0 24 24"><path d="M12 3 2 20h20z"/><path d="M12 10v4M12 16.8v.4"/></svg>',
+  }
+  const fic = (nome) => IC[nome] ? `<span class="rd-fic">${IC[nome]}</span>` : ''
+  // Ícone discreto por campo do formulário (só apresentação; nada muda nos dados)
+  const IC_CAMPO = { data: 'cal', tecnicos_responsaveis: 'users', veiculo: 'car', hora_inicio: 'clock', hora_termino: 'clock' }
+  // Texto multilinha "rico": linhas iniciadas por -/*/• viram bullets ("-" nível 1, "*" aninhado);
+  // linhas comuns viram parágrafos. Só apresentação — conteúdo integral, nada oculto.
+  function multiRico(s) {
+    const out = []
+    let lista = null, l1 = null
+    const li = (i) => `<li>${esc(i.txt)}${i.subs.length ? `<ul>${i.subs.map(x => `<li>${esc(x)}</li>`).join('')}</ul>` : ''}</li>`
+    const fecha = () => { if (lista) { out.push(`<ul class="rd-ul">${lista.map(li).join('')}</ul>`); lista = null; l1 = null } }
+    for (const raw of String(s == null ? '' : s).split(/\r?\n/)) {
+      const t = raw.trim()
+      if (!t) { fecha(); continue }
+      const m = t.match(/^([-*•])\s*(.*)$/)
+      if (m && m[2]) {
+        if (!lista) lista = []
+        if (m[1] === '*' && l1) l1.subs.push(m[2])
+        else { l1 = { txt: m[2], subs: [] }; lista.push(l1) }
+      } else { fecha(); out.push(`<p>${esc(t)}</p>`) }
+    }
+    fecha()
+    return out.join('')
+  }
   // Data ISO (AAAA-MM-DD) → DD/MM/AAAA por split de string (sem new Date, evita off-by-one UTC).
   const fmtDataBR = (s) => { const m = String(s == null ? '' : s).match(/^(\d{4})-(\d{2})-(\d{2})/); return m ? `${m[3]}/${m[2]}/${m[1]}` : esc(String(s == null ? '' : s)) }
   const tipoNomeRat = (r) => (r.tarefa && r.tarefa.tipo && r.tarefa.tipo.nome) || (r.tipos_servico && r.tipos_servico.nome) || '—'
@@ -145,30 +181,34 @@ window.RatView = (function () {
         <div class="rd-sub">RAT ${tarefaNo ? esc(tarefaNo) : '—'} · ${esc(r.tecnico_nome || '—')} · ${fdt(r.data_tarefa, { numeric: true })}</div>
         <div class="rd-meta"><span><b>Status:</b> ${esc(statusInfo(r.status).label)}</span><span><b>Tempo:</b> ${fmtMin(tempoRat(r))}</span></div>
       </div>`
-    else if (!opts.noHeader) h += `
+    else if (!opts.noHeader) {
+      // nº da RAT em destaque · data · técnico · duração na mesma linha + badge de status
+      const st = statusInfo(r.status)
+      h += `
       <div class="rd-head">
-        <div class="rd-cli">${esc(r.cliente_nome || '—')}</div>
-        <div class="rd-sub">${esc(tipoNomeRat(r))}${tarefaNo ? ' · Tarefa Nº ' + tarefaNo : ''}</div>
-        <div class="rd-meta">
-          <span><b>Técnico:</b> ${esc(r.tecnico_nome || '—')}</span>
-          <span><b>Data:</b> ${fdt(r.data_tarefa, { numeric: true })}</span>
-          <span><b>Status:</b> ${esc(statusInfo(r.status).label)}</span>
-          <span><b>Tempo:</b> ${fmtMin(tempoRat(r))}</span>
+        <div class="rd-head-main">
+          <span class="rd-num">RAT ${tarefaNo ? esc(tarefaNo) : '—'}</span>
+          <span class="rd-hmeta"><span class="sep">·</span> ${fdt(r.data_tarefa, { numeric: true })} <span class="sep">·</span> ${esc(r.tecnico_nome || '—')} <span class="sep">·</span> ${fmtMin(tempoRat(r))}</span>
         </div>
+        <span class="rd-pill ${st.cls}">${esc(st.label)}</span>
+        <div class="rd-sub">${esc(r.cliente_nome || '—')} · ${esc(tipoNomeRat(r))}</div>
       </div>`
+    }
 
     if (edit) h += `<div class="rd-edit-hint">✎ Modo edição — você pode ajustar qualquer campo e o valor unitário dos produtos. O tempo é recalculado ao salvar.</div>`
 
-    // Dados da OS
+    // Dados da OS (mesmos campos e posições; ícones e caixa são só apresentação)
     const tf = r.tarefa || {}
+    const campoOS = (ic, label, valor) => `<div class="rd-f">${fic(ic)}<div class="rd-fc"><label>${label}</label><div class="v">${valor}</div></div></div>`
     h += `<div class="rd-sec"><div class="rd-sec-t">Dados da OS</div><div class="rd-grid">
-      <div class="rd-f"><label>Nº da OS</label><div class="v">${tarefaNo ? '#' + tarefaNo : '—'}</div></div>
-      <div class="rd-f"><label>Data da Tarefa</label><div class="v">${fdt(r.data_tarefa, { numeric: true })}</div></div>
-      <div class="rd-f"><label>Tipo de tarefa</label><div class="v">${esc(tipoNomeRat(r))}</div></div>
-      <div class="rd-f"><label>Duração</label><div class="v">${fmtMin(tempoRat(r))}</div></div>
-      ${(r.checkin_lat != null && r.checkin_lng != null) ? `<div class="rd-f"><label>Local (GPS)</label><div class="v"><a href="https://www.google.com/maps?q=${r.checkin_lat},${r.checkin_lng}" target="_blank" rel="noopener">📍 ver no mapa</a>${r.checkin_precisao ? ` <span class="dim">(±${Math.round(r.checkin_precisao)} m)</span>` : ''}</div></div>` : ''}
-      ${tf.orientacao ? `<div class="rd-f" style="grid-column:1/-1"><label>Orientação</label><div class="v">${escMulti(tf.orientacao)}</div></div>` : ''}
+      ${campoOS('doc', 'Nº da OS', tarefaNo ? '#' + tarefaNo : '—')}
+      ${campoOS('cal', 'Data da Tarefa', fdt(r.data_tarefa, { numeric: true }))}
+      ${campoOS('tag', 'Tipo de tarefa', esc(tipoNomeRat(r)))}
+      ${campoOS('clock', 'Duração', fmtMin(tempoRat(r)))}
+      ${(r.checkin_lat != null && r.checkin_lng != null) ? campoOS('pin', 'Local (GPS)', `<a href="https://www.google.com/maps?q=${r.checkin_lat},${r.checkin_lng}" target="_blank" rel="noopener">ver no mapa</a>${r.checkin_precisao ? ` <span class="dim">(±${Math.round(r.checkin_precisao)} m)</span>` : ''}`) : ''}
     </div></div>`
+    // Orientação: mesmo conteúdo, agora como seção própria em bloco branco com bullets
+    if (tf.orientacao) h += `<div class="rd-sec"><div class="rd-sec-t">Orientação</div><div class="rd-caixa rd-rich">${multiRico(tf.orientacao)}</div></div>`
 
     // Visita improdutiva: destaque do motivo + permanência (execução não aconteceu; tarefa segue aguardando).
     if (r.status === 'improdutiva' || r.atendimento_executado === false) {
@@ -176,17 +216,18 @@ window.RatView = (function () {
       const mi = minutosDe(hi), mf = minutosDe(hf)
       const pDur = (mi != null && mf != null && mf >= mi) ? (mf - mi) : null
       h += `<div class="rd-sec"><div class="rd-sec-t">Visita improdutiva</div><div class="rd-grid">
-        <div class="rd-f" style="grid-column:1/-1"><label>Motivo de não ter executado</label><div class="v">${esc(motivoImprodutivaLabel(r))}</div></div>
-        ${(hi && hf) ? `<div class="rd-f" style="grid-column:1/-1"><label>Tempo no local (início–término)</label><div class="v">${esc(hi)} – ${esc(hf)}${pDur != null ? ' · ' + fmtMin(pDur) : ''}</div></div>` : ''}
-        <div class="rd-f" style="grid-column:1/-1"><div class="v dim">Deslocamento e tempo no local ficam registrados (faturáveis); a execução foi zerada e a tarefa continua aguardando reagendamento.</div></div>
+        <div class="rd-f" style="grid-column:1/-1"><div class="rd-fc"><label>Motivo de não ter executado</label><div class="v">${esc(motivoImprodutivaLabel(r))}</div></div></div>
+        ${(hi && hf) ? `<div class="rd-f" style="grid-column:1/-1"><div class="rd-fc"><label>Tempo no local (início–término)</label><div class="v">${esc(hi)} – ${esc(hf)}${pDur != null ? ' · ' + fmtMin(pDur) : ''}</div></div></div>` : ''}
+        <div class="rd-f" style="grid-column:1/-1"><div class="rd-fc"><div class="v dim">Deslocamento e tempo no local ficam registrados (faturáveis); a execução foi zerada e a tarefa continua aguardando reagendamento.</div></div></div>
       </div></div>`
     }
 
     // Passagem (handoff): técnico encerrou o dia e vai voltar depois pra terminar — o que falta / levar.
+    // Card de alerta (âmbar = pendência); conteúdo e posição inalterados.
     if (resp.volta_amanha === 'Não' && resp.passagem_motivo === 'volto_depois') {
-      h += `<div class="rd-sec"><div class="rd-sec-t">Passagem — volta depois pra terminar</div><div class="rd-grid">
-        ${resp.passagem_falta ? `<div class="rd-f" style="grid-column:1/-1"><label>O que falta</label><div class="v">${escMulti(resp.passagem_falta)}</div></div>` : ''}
-        ${resp.passagem_levar ? `<div class="rd-f" style="grid-column:1/-1"><label>O que levar</label><div class="v">${escMulti(resp.passagem_levar)}</div></div>` : ''}
+      h += `<div class="rd-sec rd-sec-alerta"><div class="rd-sec-t">${fic('warn')}Passagem — volta depois pra terminar</div><div class="rd-grid">
+        ${resp.passagem_falta ? `<div class="rd-f" style="grid-column:1/-1"><div class="rd-fc"><label>O que falta</label><div class="v">${escMulti(resp.passagem_falta)}</div></div></div>` : ''}
+        ${resp.passagem_levar ? `<div class="rd-f" style="grid-column:1/-1"><div class="rd-fc"><label>O que levar</label><div class="v">${escMulti(resp.passagem_levar)}</div></div></div>` : ''}
       </div></div>`
     }
 
@@ -209,14 +250,14 @@ window.RatView = (function () {
         longSecs.push(`<div class="rd-sec" data-cwrap="${esc(c.id)}"${hid}><div class="rd-sec-t">${esc(c.label)}</div>` +
           (edit
             ? `<textarea class="rd-edit" data-campo="${esc(c.id)}" rows="5">${esc(String(val || ''))}</textarea>${typeof IA_BTN_HTML !== 'undefined' ? IA_BTN_HTML : ''}`
-            : `<div class="rd-long">${escMulti(val) || '—'}</div>`) + `</div>`)
+            : `<div class="rd-caixa rd-rich">${multiRico(val) || '—'}</div>`) + `</div>`)
       } else {
-        const f = `<div class="rd-f" data-cwrap="${esc(c.id)}"${hid}><label>${esc(c.label)}</label>` +
-          (edit ? editInput(c, val) : `<div class="v">${(c.tipo === 'data' ? fmtDataBR(val) : escMulti(val)) || '—'}</div>`) + `</div>`
+        const f = `<div class="rd-f" data-cwrap="${esc(c.id)}"${hid}>${fic(IC_CAMPO[c.id])}<div class="rd-fc"><label>${esc(c.label)}</label>` +
+          (edit ? editInput(c, val) : `<div class="v">${(c.tipo === 'data' ? fmtDataBR(val) : escMulti(val)) || '—'}</div>`) + `</div></div>`
         if (edit && isExc) pausasGrid.push(f); else grid.push(f)
       }
     }
-    if (grid.length) h += `<div class="rd-sec"><div class="rd-sec-t">RAT — dados do atendimento</div><div class="rd-grid">${grid.join('')}</div></div>`
+    if (grid.length) h += `<div class="rd-sec rd-sec-atend"><div class="rd-sec-t">RAT — dados do atendimento</div><div class="rd-grid">${grid.join('')}</div></div>`
     if (pausasGrid.length) h += `<div class="rd-sec"><div class="rd-sec-t">Pausas e almoço</div><div class="rd-grid">${pausasGrid.join('')}</div></div>`
 
     // Pausas e almoço — no modo leitura aparece SEMPRE que respondido (Sim com horários vira
@@ -231,7 +272,7 @@ window.RatView = (function () {
       if (resp.almoco != null && resp.almoco !== '') resumo.push(`Almoço: <b>${esc(resp.almoco)}</b>`)
       if (resp.pausa != null && resp.pausa !== '') resumo.push(`Pausa: <b>${esc(resp.pausa)}</b>`)
       h += `<div class="rd-sec"><div class="rd-sec-t">Pausas e almoço</div>`
-        + (resumo.length ? `<div style="font-size:13px;line-height:1.6;color:#2b3447${pausas.length ? ';margin-bottom:10px' : ''}">${resumo.join(' · ')}</div>` : '')
+        + (resumo.length ? `<div class="rd-resumo-pausa"${pausas.length ? ' style="margin-bottom:10px"' : ''}>${fic('pausa')}<span>${resumo.join(' · ')}</span></div>` : '')
         + (pausas.length ? `<table class="rd-pausas"><thead><tr><th>Início</th><th>Fim</th><th>Tempo</th><th>Justificativa/Motivo</th></tr></thead><tbody>`
             + pausas.map(p => `<tr><td>${esc(p.ini || '—')}</td><td>${esc(p.fim || '—')}</td><td>${durStr(p.ini, p.fim)}</td><td>${esc(p.motivo)}</td></tr>`).join('')
             + `</tbody></table>` : '')
@@ -264,7 +305,7 @@ window.RatView = (function () {
     }
 
     if ((fotos && fotos.length) || adminEdit) {
-      h += `<div class="rd-sec"><div class="rd-sec-t">Fotos</div><div class="det-fotos" id="rd-fotos">` +
+      h += `<div class="rd-sec"><div class="rd-sec-t">Fotos (${(fotos || []).length})</div><div class="det-fotos" id="rd-fotos">` +
         (fotos || []).map(f => `<figure class="det-foto" data-fotorow="${esc(f.id)}">
           <img src="${f.url}" data-lb="${f.url}"${f.legenda ? ` data-lb-cap="${esc(f.legenda)}"` : ''} alt="" style="cursor:zoom-in">
           ${adminEdit
