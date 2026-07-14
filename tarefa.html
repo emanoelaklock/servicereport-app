@@ -16,6 +16,7 @@
 <script src="js/sidebar.js"></script>
 <script src="js/push.js"></script>
 <script src="js/rat-view.js"></script>
+<script src="js/rat-editor.js"></script>
 <script src="js/pdf-tarefa.js"></script>
 <script src="js/tarefa.js"></script>
 <style>
@@ -28,6 +29,11 @@
   .pm-item:hover{background:var(--sur2,#f4f7fb)}
   .pm-item b{display:block;font-size:13px;color:var(--tx)}
   .pm-item span{display:block;font-size:11.5px;color:var(--tx3);margin-top:1px}
+  .pm-pop.pm-compact{min-width:210px}
+  a.pm-item{text-decoration:none;color:inherit}
+  /* Ações diretas no cabeçalho do card da RAT (aba RATs) */
+  .rat-open-h .roh-a{display:flex;align-items:center;gap:8px;flex-wrap:wrap;justify-content:flex-end}
+  .rat-open-h .btn svg{width:14px;height:14px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
   /* Toolbar / filtros */
   .cc-toolbar{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:16px;flex-wrap:wrap}
   .cc-filtros{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
@@ -289,11 +295,7 @@
   .rat-open .rd{font-size:13px;background:none;border:0;box-shadow:none;padding:0}
   .rat-open a.btn{text-decoration:none}
 
-  /* Detalhe da RAT (modal): visual compartilhado em css/rat-detalhe.css; aqui só o que é da página */
-  #rat-body .rd{font-size:13px}
-  #rat-body .rd + .rd{margin-top:22px}
-  #rat-body .rd-grid{grid-template-columns:1fr 1fr}
-  @media (max-width:640px){ #rat-body .rd-grid{grid-template-columns:1fr} }
+  /* Detalhe da RAT: visual compartilhado em css/rat-detalhe.css (cards expandidos na aba RATs) */
 </style>
 </head>
 <body class="tec-admin">
@@ -508,24 +510,6 @@
   </div>
 </div>
 
-<!-- Modal: Nova tarefa (criada direto, sem orçamento) -->
-<!-- Modal: Detalhe da RAT -->
-<div class="cc-modal" id="modal-rat">
-  <div class="cc-modal-box wide">
-    <div class="cc-modal-h"><span id="rat-modal-title">Detalhe da RAT</span><button class="cc-modal-x" id="rat-x">✕</button></div>
-    <div class="cc-modal-b" id="rat-body"></div>
-    <div class="cc-modal-f">
-      <button class="btn" id="rat-excluir" style="margin-right:auto;color:var(--re);border-color:var(--re)">🗑 Excluir</button>
-      <button class="btn" id="rat-cancelar" style="display:none">Cancelar</button>
-      <button class="btn" id="rat-editar">✎ Editar ↗</button>
-      <button class="btn btn-g" id="rat-salvar" style="display:none">Salvar</button>
-      <button class="btn" id="rat-nova-tarefa">↻ Nova tarefa da pendência</button>
-      <button class="btn" id="rat-pdf">⬇ Baixar PDF</button>
-      <button class="btn" id="rat-fechar">Fechar</button>
-    </div>
-  </div>
-</div>
-
 <!-- Modal: Nova tarefa da pendência -->
 <div class="cc-modal" id="modal-pend">
   <div class="cc-modal-box">
@@ -540,6 +524,35 @@
     <div class="cc-modal-f">
       <button class="btn" id="pend-cancelar">Cancelar</button>
       <button class="btn btn-p" id="pend-criar">Criar tarefa</button>
+    </div>
+  </div>
+</div>
+
+<!-- Modal: motivo do ajuste da RAT (edição auditada — usado pelo RatEditor) -->
+<div class="cc-modal" id="modal-motivo">
+  <div class="cc-modal-box">
+    <div class="cc-modal-h"><span>Motivo do ajuste</span><button class="cc-modal-x" id="mot-x">✕</button></div>
+    <div class="cc-modal-b">
+      <p class="muted" id="mot-resumo" style="margin-top:0"></p>
+      <div class="fg"><label>Por que esta RAT está sendo ajustada? <span style="color:var(--re)">*</span></label>
+        <select id="mot-sel">
+          <option value=""></option>
+          <option value="esquecimento_tecnico">Esquecimento do técnico</option>
+          <option value="completacao">Completação</option>
+          <option value="mudanca_processo">Mudança de processo</option>
+          <option value="pedido_cliente">Pedido do cliente</option>
+          <option value="outro">Outro</option>
+        </select>
+      </div>
+      <div class="fg" id="mot-det-wrap" style="display:none;margin-top:10px">
+        <label>Descreva o motivo <span style="color:var(--re)">*</span></label>
+        <textarea id="mot-det" rows="3" placeholder="Ex.: correção de horário digitado errado (término era 14:30)" style="width:100%;padding:9px 11px;border:1px solid var(--bd);border-radius:8px;font:inherit;font-size:14px;line-height:1.5;resize:vertical"></textarea>
+      </div>
+      <p class="muted" style="margin-top:8px">Fica registrado no histórico (quem · quando · valor anterior → novo) e alimenta o índice de assertividade.</p>
+    </div>
+    <div class="cc-modal-f">
+      <button class="btn" id="mot-cancelar">Cancelar</button>
+      <button class="btn btn-p" id="mot-confirmar">Salvar ajuste</button>
     </div>
   </div>
 </div>
