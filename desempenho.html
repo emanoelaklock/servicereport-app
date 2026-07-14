@@ -65,15 +65,17 @@
   /* Ranking */
   #dp-rk{background:var(--sur);border:1px solid var(--bd);border-radius:12px;overflow-x:auto;box-shadow:var(--sh)}
   #dp-rk table{width:100%;border-collapse:collapse;font-size:12.5px}
-  /* 6 colunas: Técnico · Resultado · Encerramento · Problemas · Tendência · chevron.
+  /* 5 colunas: Técnico · Resultado · Encerramentos e ocorrências · Tendência · chevron.
      Números e percentuais nunca quebram; descritivos podem. */
-  #dp-rk th:nth-child(1){width:23%;min-width:220px}
-  #dp-rk th:nth-child(2){width:150px}
-  #dp-rk th:nth-child(3){min-width:230px}
-  #dp-rk th:nth-child(4){min-width:250px}
-  #dp-rk th:nth-child(5){width:170px}
-  #dp-rk th:nth-child(6){width:32px}
+  #dp-rk th:nth-child(1){width:24%;min-width:220px}
+  #dp-rk th:nth-child(2){width:160px}
+  #dp-rk th:nth-child(3){min-width:340px}
+  #dp-rk th:nth-child(4){width:180px}
+  #dp-rk th:nth-child(5){width:32px}
   #dp-rk td:nth-child(2){white-space:nowrap}
+  .dp-res-ruim{color:var(--sr-pend-fg)!important}
+  .dp-enc-n{margin-bottom:5px}
+  .dp-enc-c{display:flex;flex-wrap:wrap;gap:3px}
   .dp-res{font-size:14px;color:var(--sr-ink)}
   .dp-res b{font-size:16px;font-weight:800;color:var(--sr-title);font-variant-numeric:tabular-nums}
   .dp-res-s{font-size:11px;color:var(--tx3);white-space:nowrap}
