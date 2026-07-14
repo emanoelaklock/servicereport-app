@@ -1,0 +1,151 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Desempenho — Service Report</title>
+<link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="css/theme.css">
+<link rel="stylesheet" href="css/design-system-admin.css">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="js/utils.js"></script>
+<script src="js/supabase-client.js"></script>
+<script src="js/auth.js"></script>
+<script src="js/sidebar.js"></script>
+<script src="js/desempenho.js"></script>
+<style>
+  /* Cabeçalho: título + subtítulo à esquerda; mês/carimbo/estado numa linha (quebra no mobile) */
+  .dp-head{display:flex;align-items:flex-end;justify-content:space-between;gap:14px;flex-wrap:wrap;margin-bottom:16px}
+  .dp-h-t h2{font-size:18px;font-weight:800;color:var(--sr-title);letter-spacing:-.3px}
+  .dp-h-t p{font-size:12.5px;color:var(--sr-muted);margin-top:2px}
+  .dp-h-a{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+  .dp-h-a .pb{width:32px;height:32px}
+  #dp-mes{font-size:14.5px;font-weight:800;color:var(--sr-title);min-width:130px;text-align:center}
+  .dp-cong{font-size:11px;background:var(--sr-info-bg);color:var(--sr-info-fg);border-radius:999px;padding:4px 11px;font-weight:700;white-space:nowrap}
+  .dp-parcial{font-size:11px;background:var(--sur2);color:var(--tx3);border-radius:999px;padding:4px 11px;font-weight:700;white-space:nowrap}
+  .dp-ligado{font-size:11px;background:var(--sr-exec-bg);color:var(--sr-exec-fg);border-radius:999px;padding:4px 11px;font-weight:700;margin-left:6px;white-space:nowrap}
+  /* Banner único de estado (info = painel desligado; warn = carência) */
+  .dp-banner{display:flex;align-items:center;gap:14px;border-radius:12px;padding:12px 16px;margin-bottom:14px;flex-wrap:wrap}
+  #dp-banner:empty{display:none}
+  .dp-b-tx{flex:1;min-width:240px}
+  .dp-b-tx b{display:block;font-size:13px;margin-bottom:2px}
+  .dp-b-tx span{font-size:12px;line-height:1.5}
+  .dp-b-info{background:var(--sr-info-bg);color:var(--sr-info-fg);border:1px solid var(--sr-info-m);border-left:4px solid var(--sr-info-m)}
+  .dp-b-car{background:var(--sr-warn-bg);color:var(--sr-warn-fg);border:1px solid var(--sr-warn-m);border-left:4px solid var(--sr-warn-m)}
+  /* KPIs — 4 cards brancos: cor semântica só na barra superior, ícone e valor */
+  #dp-kpis{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:12px}
+  #dp-kpis:empty{display:none}
+  @media(max-width:980px){#dp-kpis{grid-template-columns:repeat(2,1fr)}}
+  .dp-kpi{background:var(--sr-card);border:1px solid var(--bd);border-top:3px solid var(--bd2);border-radius:12px;padding:12px 14px}
+  .dp-kpi svg{width:16px;height:16px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
+  .dp-k-h{display:flex;align-items:flex-start;gap:9px;margin-bottom:8px}
+  .dp-k-ic{width:28px;height:28px;border-radius:8px;display:grid;place-items:center;flex:none}
+  .dp-k-t{font-size:12px;font-weight:800;color:var(--tx)}
+  .dp-k-s{font-size:10.5px;color:var(--tx3)}
+  .dp-k-v{font-size:26px;font-weight:800;letter-spacing:-1px;font-variant-numeric:tabular-nums;line-height:1}
+  .dp-k-d{font-size:11px;color:var(--tx3);margin-top:5px;line-height:1.4}
+  .dp-k-title{border-top-color:var(--sr-title)}   .dp-k-title .dp-k-ic{background:var(--sur2);color:var(--sr-title)}   .dp-k-title .dp-k-v{color:var(--sr-title)}
+  .dp-k-info{border-top-color:var(--sr-info-m)}   .dp-k-info .dp-k-ic{background:var(--sr-info-bg);color:var(--sr-info-fg)} .dp-k-info .dp-k-v{color:var(--sr-info-fg)}
+  .dp-k-warn{border-top-color:var(--sr-warn-m)}   .dp-k-warn .dp-k-ic{background:var(--sr-warn-bg);color:var(--sr-warn-fg)} .dp-k-warn .dp-k-v{color:var(--sr-warn-fg)}
+  .dp-k-pend{border-top-color:var(--sr-pend-m)}   .dp-k-pend .dp-k-ic{background:var(--sr-pend-bg);color:var(--sr-pend-fg)} .dp-k-pend .dp-k-v{color:var(--sr-pend-fg)}
+  /* Legenda da composição — visível, mesmos tokens das métricas */
+  #dp-leg{display:flex;gap:16px;flex-wrap:wrap;margin:0 2px 8px;font-size:11.5px;color:var(--tx2);font-weight:600}
+  #dp-leg:empty{display:none}
+  .dp-lg{display:inline-flex;align-items:center;gap:6px}
+  .dp-lg i{width:10px;height:10px;border-radius:3px;display:inline-block}
+  /* Ranking */
+  #dp-rk{background:var(--sur);border:1px solid var(--bd);border-radius:12px;overflow:hidden;box-shadow:var(--sh)}
+  #dp-rk table{width:100%;border-collapse:collapse;font-size:12.5px}
+  #dp-rk th{text-align:left;font-size:10.5px;font-weight:700;letter-spacing:.03em;text-transform:none;color:var(--sr-info-fg);background:var(--sr-info-bg);padding:9px 12px;border-bottom:1px solid var(--bd);cursor:default}
+  #dp-rk td{padding:10px 12px;border-bottom:1px solid var(--bd);vertical-align:middle}
+  .dp-linha{cursor:pointer}
+  .dp-linha td:first-child{border-left:4px solid transparent}
+  .dp-linha:hover td{background:var(--sur2)}
+  .dp-linha.on td{background:var(--sr-info-bg)!important}
+  .dp-linha.on td:first-child{border-left-color:var(--sr-info-m)}
+  .dp-linha.on .dp-chev svg{transform:rotate(180deg)}
+  .dp-chev{width:30px;color:var(--tx3)}
+  .dp-chev svg{width:15px;height:15px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round;transition:transform .15s}
+  .dp-tec{display:flex;align-items:center;gap:9px;font-weight:700;color:var(--tx);white-space:nowrap}
+  .dp-av{width:28px;height:28px;border-radius:50%;background:var(--sr-info-bg);color:var(--sr-info-fg);display:grid;place-items:center;font-size:10px;font-weight:800;flex:none;overflow:hidden}
+  .dp-av img{width:100%;height:100%;object-fit:cover}
+  .dp-nt{font-size:17px;font-weight:800;color:var(--sr-title);font-variant-numeric:tabular-nums;white-space:nowrap}
+  .dp-de{font-size:11px;font-weight:700;color:var(--tx3)}
+  .dp-amostra{font-size:9.5px;font-weight:800;background:var(--sur2);color:var(--tx3);border-radius:999px;padding:2px 8px;margin-left:8px;letter-spacing:.02em;white-space:nowrap}
+  .dp-comp{display:flex;height:8px;border-radius:4px;overflow:hidden;background:var(--sur2);min-width:130px}
+  .dp-comp i{display:block;height:100%}
+  .dp-po{font-size:12px;color:var(--tx2)}
+  .dp-po b{color:var(--tx)}
+  .dp-vr{color:var(--sr-pend-fg)}
+  .dp-na{color:var(--tx3);font-size:11px}
+  .dp-tend{font-size:11.5px;font-weight:700;color:var(--sr-exec-fg);white-space:nowrap}
+  .dp-tend.dn{color:var(--sr-pend-fg)}
+  .dp-vazio{padding:22px;font-size:13px;color:var(--tx3)}
+  /* Drill-down: conectado à linha aberta (mesma família info) */
+  .dp-dd td{background:var(--sur);padding:0 12px 14px;border-left:4px solid var(--sr-info-m)}
+  .dp-ddbox{padding-top:12px}
+  .dp-ddgrid{display:grid;grid-template-columns:1.25fr 1fr;gap:14px}
+  @media(max-width:980px){.dp-ddgrid{grid-template-columns:1fr}}
+  .dp-colb{display:flex;flex-direction:column;gap:14px}
+  .dp-bloco{border:1px solid var(--bd);border-radius:11px;padding:12px 13px;background:var(--sr-card)}
+  .dp-bt{display:flex;align-items:center;gap:7px;font-size:12px;font-weight:800;color:var(--sr-title);margin-bottom:8px}
+  .dp-bt::before{content:"";width:3px;height:13px;border-radius:2px}
+  .dp-b-po .dp-bt::before{background:var(--sr-info-m)}
+  .dp-b-reed .dp-bt::before{background:var(--sr-warn-m)}
+  .dp-b-dev .dp-bt::before{background:var(--sr-pend-m)}
+  .dp-rrow{display:flex;align-items:center;gap:9px;padding:6px 0;border-bottom:1px dashed var(--bd);font-size:12px;flex-wrap:wrap}
+  .dp-rrow:last-of-type{border-bottom:0}
+  .dp-rrow a{color:var(--sr-info-fg);font-weight:700;text-decoration:none;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;flex:1}
+  .dp-mtx{flex:1;min-width:140px;color:var(--tx2)}
+  .dp-mtx b{color:var(--tx)}
+  .dp-imp{flex:none;font-size:11px;font-weight:800;color:var(--sr-pend-fg);font-variant-numeric:tabular-nums;white-space:nowrap}
+  .dp-imp.ok{color:var(--sr-exec-fg)}
+  .dp-imp.na{color:var(--tx3);font-weight:600}
+  .dp-chip{flex:none;font-size:10px;font-weight:700;padding:3px 9px;border-radius:999px}
+  .dp-c-d0{background:var(--sr-exec-bg);color:var(--sr-exec-fg)}
+  .dp-c-d1{background:var(--sr-warn-bg);color:var(--sr-warn-fg)}
+  .dp-c-atr{background:var(--sr-pend-bg);color:var(--sr-pend-fg)}
+  .dp-c-ab{background:var(--sur2);color:var(--tx3)}
+  .dp-mini{font-size:11.5px;color:var(--tx2);line-height:1.6;padding:2px 0}
+  .dp-mini b{color:var(--tx)}
+  .dp-rec{color:var(--sr-pend-fg);font-weight:700;font-size:11px;flex:none}
+  .dp-mut{color:var(--tx3);font-size:11px;flex:none}
+  .dp-empty{font-size:11.5px;color:var(--tx3);padding:2px 0}
+  .dp-ress{margin-top:9px;font-size:10.5px;color:var(--tx3);background:var(--sur2);border-radius:7px;padding:6px 9px;line-height:1.5}
+</style>
+</head>
+<body>
+<div id="sidebar-container"></div>
+
+<div class="sb-main"><div class="page">
+  <div class="topbar"><div class="topbar-title">Desempenho da equipe</div></div>
+  <div class="content">
+    <div class="dp-head">
+      <div class="dp-h-t">
+        <h2>Desempenho da equipe</h2>
+        <p>Disciplina de preenchimento e encerramento das RATs</p>
+      </div>
+      <div class="dp-h-a">
+        <button class="pb" id="dp-prev" title="Mês anterior">‹</button>
+        <span id="dp-mes">—</span>
+        <button class="pb" id="dp-next" title="Próximo mês">›</button>
+        <span id="dp-fonte"></span>
+      </div>
+    </div>
+    <div id="dp-banner"></div>
+    <div id="dp-kpis"></div>
+    <div id="dp-leg"></div>
+    <div id="dp-rk"><div class="dp-vazio">Carregando…</div></div>
+  </div>
+</div></div>
+
+<div class="tc" id="tc"></div>
+
+<script>
+  window.PAGE_ALLOWED = ['admin', 'gestor_axis']
+  async function onPostLogin() { renderSidebar('desempenho'); await DesempenhoApp.init() }
+  renderSidebar('desempenho')
+  initAuth()
+</script>
+</body>
+</html>
