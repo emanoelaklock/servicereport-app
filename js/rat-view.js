@@ -77,7 +77,7 @@ window.RatView = (function () {
     const rad = lat * Math.PI / 180
     const px = (lng + 180) / 360 * n * T
     const py = (1 - Math.log(Math.tan(rad) + 1 / Math.cos(rad)) / Math.PI) / 2 * n * T
-    const COLS = 7, ROWS = 3            // 1792×768 px de tiles — cobre o card em qualquer largura
+    const COLS = 3, ROWS = 3            // 768×768 px de tiles — cobre o mini-card do Local (GPS)
     const tx0 = Math.floor(px / T) - Math.floor(COLS / 2)
     const ty0 = Math.floor(py / T) - Math.floor(ROWS / 2)
     const dx = Math.round(px - tx0 * T), dy = Math.round(py - ty0 * T)   // ponto → centro do quadro
@@ -227,8 +227,8 @@ window.RatView = (function () {
       ${campoOS('cal', 'Data da Tarefa', fdt(r.data_tarefa, { numeric: true }))}
       ${campoOS('tag', 'Tipo de tarefa', esc(tipoNomeRat(r)))}
       ${campoOS('clock', 'Duração', fmtMin(tempoRat(r)))}
-      ${(r.checkin_lat != null && r.checkin_lng != null) ? campoOS('pin', 'Local (GPS)', `<a href="https://www.google.com/maps?q=${r.checkin_lat},${r.checkin_lng}" target="_blank" rel="noopener">abrir no Google Maps ↗</a>${r.checkin_precisao ? ` <span class="dim">(±${Math.round(r.checkin_precisao)} m)</span>` : ''}`) : ''}
-    </div>${(r.checkin_lat != null && r.checkin_lng != null) ? mapaSnapHTML(r.checkin_lat, r.checkin_lng) : ''}</div>`
+      ${(r.checkin_lat != null && r.checkin_lng != null) ? campoOS('pin', 'Local (GPS)', `<a href="https://www.google.com/maps?q=${r.checkin_lat},${r.checkin_lng}" target="_blank" rel="noopener">abrir no Google Maps ↗</a>${r.checkin_precisao ? ` <span class="dim">(±${Math.round(r.checkin_precisao)} m)</span>` : ''}${mapaSnapHTML(r.checkin_lat, r.checkin_lng)}`) : ''}
+    </div></div>`
     // Orientação: mesmo conteúdo, agora como seção própria em bloco branco com bullets
     if (tf.orientacao) h += `<div class="rd-sec"><div class="rd-sec-t">Orientação</div><div class="rd-caixa rd-rich">${multiRico(tf.orientacao)}</div></div>`
 

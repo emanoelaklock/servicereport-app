@@ -279,6 +279,41 @@ window.PdfTarefa = (function () {
   const durStr = (a, b) => { const x = minutosDe(a), y = minutosDe(b); if (x == null || y == null) return '—'; let d = y - x; if (d < 0) d += 1440; return RatView.fmtMin(d) }
   const money = (n) => 'R$ ' + (Number(n) || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
 
+  // ── Snapshot do Local (GPS) pro PDF INTERNO: satélite (tiles Esri, CORS ok) + pino,
+  //    composto num canvas → dataURL. Falha silenciosa (retorna null; PDF segue sem mapa). ──
+  const tileImg = (src) => new Promise((res) => { const im = new Image(); im.crossOrigin = 'anonymous'; im.onload = () => res(im); im.onerror = () => res(null); im.src = src })
+  async function mapaParaPdf(lat, lng) {
+    const z = 16, T = 256, n = Math.pow(2, z)
+    const rad = lat * Math.PI / 180
+    const px = (lng + 180) / 360 * n * T
+    const py = (1 - Math.log(Math.tan(rad) + 1 / Math.cos(rad)) / Math.PI) / 2 * n * T
+    const W = 560, H = 210
+    const cv = document.createElement('canvas'); cv.width = W; cv.height = H
+    const ctx = cv.getContext('2d')
+    const x0 = px - W / 2, y0 = py - H / 2
+    let algum = false
+    for (let ty = Math.floor(y0 / T); ty <= Math.floor((y0 + H) / T); ty++)
+      for (let tx = Math.floor(x0 / T); tx <= Math.floor((x0 + W) / T); tx++) {
+        // ?cors=1: URL distinta da usada no card (que o SW cacheia como opaque, sem CORS) —
+        // garante resposta com header CORS pro canvas poder exportar (toDataURL)
+        const im = await tileImg(`https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/${z}/${ty}/${tx}?cors=1`)
+        if (im) { ctx.drawImage(im, Math.round(tx * T - x0), Math.round(ty * T - y0)); algum = true }
+      }
+    if (!algum) return null
+    // pino (gota) no centro
+    const cx = W / 2, cy = H / 2
+    ctx.fillStyle = '#E5403A'; ctx.strokeStyle = '#fff'; ctx.lineWidth = 2
+    ctx.beginPath(); ctx.moveTo(cx, cy)
+    ctx.bezierCurveTo(cx - 13, cy - 15, cx - 10, cy - 28, cx, cy - 28)
+    ctx.bezierCurveTo(cx + 10, cy - 28, cx + 13, cy - 15, cx, cy)
+    ctx.fill(); ctx.stroke()
+    ctx.beginPath(); ctx.arc(cx, cy - 19, 3.4, 0, Math.PI * 2); ctx.fillStyle = '#fff'; ctx.fill()
+    // atribuição obrigatória
+    ctx.fillStyle = 'rgba(0,0,0,.5)'; ctx.fillRect(W - 118, H - 15, 118, 15)
+    ctx.fillStyle = '#fff'; ctx.font = '9px Manrope, sans-serif'; ctx.fillText('Imagens © Esri · Maxar', W - 112, H - 4)
+    try { return cv.toDataURL('image/jpeg', 0.85) } catch (e) { return null }   // canvas contaminado (sem CORS) → sem mapa
+  }
+
   function corpoRat(m, det, ratIdx, contSet) {
     const r = det.r, resp = r.respostas || {}, campos = det.campos || []
     const flags = m.flags
@@ -325,6 +360,9 @@ window.PdfTarefa = (function () {
       osFields.push({ 0: 'Orientação', 1: igualGeral ? 'Conforme orientação geral da tarefa.' : tf.orientacao, full: true })
     }
     c.push({ stack: [faixa, ...sec('Dados da OS'), ...grid(osFields)], unbreakable: true })
+
+    // Mapa do local (SÓ PDF interno): onde a RAT foi preenchida; clique abre o Google Maps.
+    if (det.mapaPdf) c.push({ image: det.mapaPdf, width: 240, link: `https://www.google.com/maps?q=${r.checkin_lat},${r.checkin_lng}`, margin: [0, 2, 0, 6] })
 
     // Visita improdutiva — bloco inteiro indivisível (título + campos + nota)
     if (r.status === 'improdutiva' || r.atendimento_executado === false) {
@@ -537,6 +575,10 @@ window.PdfTarefa = (function () {
         if (du) det.fotosPdf.push({ dataUrl: du, legenda: f.legenda || '' })
       }
       det.sigPdf = det.sigUrl ? await imgParaPdf(det.sigUrl, 700, false) : null
+      // Local (GPS) → snapshot no PDF INTERNO apenas (nunca no documento do cliente)
+      const rr = det.r
+      det.mapaPdf = (!m.flags.cliente && rr.checkin_lat != null && rr.checkin_lng != null)
+        ? await mapaParaPdf(rr.checkin_lat, rr.checkin_lng).catch(() => null) : null
     }
     if (m.capa) {
       const anexosImgs = []
