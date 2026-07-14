@@ -67,17 +67,15 @@
   #dp-rk table{width:100%;border-collapse:collapse;font-size:12.5px}
   /* 5 colunas: Técnico · Resultado · Encerramentos e ocorrências · Tendência · chevron.
      Números e percentuais nunca quebram; descritivos podem. */
-  #dp-rk th:nth-child(1){width:24%;min-width:220px}
-  #dp-rk th:nth-child(2){width:160px}
-  #dp-rk th:nth-child(3){min-width:340px}
-  #dp-rk th:nth-child(4){width:180px}
-  #dp-rk th:nth-child(5){width:32px}
-  #dp-rk td:nth-child(2){white-space:nowrap}
-  .dp-res-ruim{color:var(--sr-pend-fg)!important}
-  .dp-enc-n{margin-bottom:5px}
+  #dp-rk th:nth-child(1){width:26%;min-width:220px}
+  #dp-rk th:nth-child(2){min-width:380px}
+  #dp-rk th:nth-child(3){width:190px}
+  #dp-rk th:nth-child(4){width:32px}
+  .dp-seg-res{font-size:13px;font-weight:700;color:var(--sr-ink);margin-bottom:5px}
+  .dp-seg-res b{font-size:15px;font-weight:800;color:var(--sr-title);font-variant-numeric:tabular-nums}
+  .dp-seg-res.dim{font-weight:600}
   .dp-enc-c{display:flex;flex-wrap:wrap;gap:3px}
-  .dp-res{font-size:14px;color:var(--sr-ink)}
-  .dp-res b{font-size:16px;font-weight:800;color:var(--sr-title);font-variant-numeric:tabular-nums}
+  .dp-fora{font-size:11px;color:var(--tx3);margin-top:5px}
   .dp-res-s{font-size:11px;color:var(--tx3);white-space:nowrap}
   .dp-oc{display:inline-flex;align-items:center;gap:4px;font-size:11px;font-weight:600;border-radius:999px;padding:3px 9px;margin:1px 2px 1px 0;white-space:nowrap}
   .dp-oc b{font-variant-numeric:tabular-nums}
@@ -102,7 +100,6 @@
   .dp-amostra{font-size:9.5px;font-weight:800;background:var(--sur2);color:var(--tx3);border-radius:999px;padding:2px 8px;margin-left:8px;letter-spacing:.02em;white-space:nowrap}
   .dp-po{font-size:12px;color:var(--tx2)}
   .dp-po b{color:var(--tx)}
-  .dp-na{color:var(--tx3);font-size:11px}
   .dp-tend{font-size:11.5px;font-weight:700;color:var(--sr-exec-fg);white-space:nowrap}
   .dp-tend.dn{color:var(--sr-pend-fg)}
   .dp-vazio{padding:22px;font-size:13px;color:var(--tx3)}

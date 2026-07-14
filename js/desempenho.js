@@ -65,8 +65,9 @@ const DesempenhoApp = (() => {
     try { const b = await sb().rpc('desempenho_binario', { p_mes: somaMes(mes, -1) }); for (const x of (b.data || [])) binarioAnt[x.tecnico_id] = x } catch (e) {}
     render()
   }
-  // Leitura invertida (decisão 14/07): a página mostra % de RATs COM problema
-  const pctDe = (b) => (b && Number(b.elegiveis)) ? Math.round(100 * Number(b.com_problema) / Number(b.elegiveis)) : null
+  // Narrativa única da tabela (portão 14/07): % de RATs SEM problema — o mesmo
+  // número do card do técnico no app. (O KPI da equipe segue em "com problema".)
+  const pctDe = (b) => (b && Number(b.elegiveis)) ? Math.round(100 * Number(b.sem_problema) / Number(b.elegiveis)) : null
 
   // Banner único de estado (família info quando desligado; warn na carência).
   function bannerHTML() {
@@ -115,14 +116,14 @@ const DesempenhoApp = (() => {
       kpi('warn', '<svg viewBox="0 0 24 24"><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg>',
         'Reedições após encerrar', 'em dia posterior ao trabalho', reed, `evento${reed === 1 ? '' : 's'} no mês`),
       kpi('pend', '<svg viewBox="0 0 24 24"><path d="M9 14 4 9l5-5"/><path d="M4 9h10.5a5.5 5.5 0 0 1 0 11H11"/></svg>',
-        'Devoluções', 'tarefas devolvidas pela gestão', dev, `tarefa${dev === 1 ? '' : 's'} no mês`),
+        'Devoluções', 'devolvidas pela gestão', dev, `tarefa${dev === 1 ? '' : 's'} devolvida${dev === 1 ? '' : 's'} no mês`),
     ].join('') : ''
 
     // Seletor de ordenação — nada de índice invisível: ordena pelo que está na tela
     document.getElementById('dp-leg').innerHTML = n ? `<label class="dp-ord">Ordenar por
       <select id="dp-ord-sel">
         <option value="atencao"${ordem === 'atencao' ? ' selected' : ''}>Mais atenção</option>
-        <option value="pct"${ordem === 'pct' ? ' selected' : ''}>Menor percentual com problema</option>
+        <option value="pct"${ordem === 'pct' ? ' selected' : ''}>Maior percentual sem problema</option>
         <option value="reed"${ordem === 'reed' ? ' selected' : ''}>Mais reedições</option>
         <option value="dev"${ordem === 'dev' ? ' selected' : ''}>Mais devoluções</option>
         <option value="nome"${ordem === 'nome' ? ' selected' : ''}>Nome</option>
@@ -137,50 +138,53 @@ const DesempenhoApp = (() => {
       if (ordem === 'nome') return String(a.tecnico_nome).localeCompare(String(b.tecnico_nome))
       if (ordem === 'reed') return Number(b.reedicoes) - Number(a.reedicoes)
       if (ordem === 'dev') return Number(b.devolucoes) - Number(a.devolucoes)
-      const pa = pctL(a), pb = pctL(b)   // pct = % COM problema
-      if (ordem === 'pct') return (pa ?? 999) - (pb ?? 999)   // menor % com problema primeiro
-      // 'atencao': MAIOR % com problema primeiro (nulos por último), desempate por mais problemas
-      if ((pa ?? -1) !== (pb ?? -1)) return (pb ?? -1) - (pa ?? -1)
+      const pa = pctL(a), pb = pctL(b)   // pct = % SEM problema
+      if (ordem === 'pct') return (pb ?? -1) - (pa ?? -1)   // maior % sem problema primeiro
+      // 'atencao': MENOR % sem problema primeiro (nulos por último), desempate por mais problemas
+      if ((pa ?? 999) !== (pb ?? 999)) return (pa ?? 999) - (pb ?? 999)
       return Number((binario[b.tecnico_id] || {}).com_problema || 0) - Number((binario[a.tecnico_id] || {}).com_problema || 0)
     })
-    box.innerHTML = `<table><thead><tr><th>Técnico</th><th>Resultado do mês</th><th>Encerramentos e ocorrências</th><th>Tendência</th><th></th></tr></thead><tbody>` +
+    box.innerHTML = `<table><thead><tr><th>Técnico</th><th>Resultado do mês</th><th>Tendência</th><th></th></tr></thead><tbody>` +
       ordenadas.map(l => {
         const u = uDe(l.tecnico_id)
         const b = binario[l.tecnico_id]
-        const pct = pctDe(b)   // % COM problema
-        // Resultado do mês: % de RATs COM problema como elemento principal + contagem
-        const resultado = pct == null ? '<span class="dim">—</span>'
-          : `<div class="dp-res"><b class="${pct ? 'dp-res-ruim' : ''}">${pct}%</b> com problema</div><div class="dp-res-s">${Number(b.com_problema)} de ${Number(b.elegiveis)} RATs</div>`
-        // Coluna única (sem redundância): encerramentos neutros em texto + problemas em chips.
-        // O atraso aparece SÓ como chip — não duplica na lista neutra.
-        const neutros = [
-          Number(l.d0) ? `<b title="Encerrada no dia">${esc(l.d0)}</b> <span title="Encerrada no dia">no dia</span>` : null,
-          Number(l.d1) ? `<b title="Encerrada em D+1">${esc(l.d1)}</b> <span title="Encerrada em D+1">em D+1</span>` : null,
-          Number(l.pendentes) ? `<span title="Ainda em aberto">${esc(l.pendentes)} aberta${Number(l.pendentes) > 1 ? 's' : ''}</span>` : null,
-        ].filter(Boolean).join(' · ')
-          + (Number(l.em_janela_instab) ? ` <span class="dp-na">· ${esc(l.em_janela_instab)} não avaliada${Number(l.em_janela_instab) > 1 ? 's' : ''} (app)</span>` : '')
+        const pct = pctDe(b)   // % SEM problema (narrativa única, igual ao card do app)
+        // Coluna única em TRÊS segmentos (display puro, zero cálculo novo):
+        // 1) RESULTADO — o MESMO número do card do técnico no app (sem problema);
+        // 2) PROBLEMAS — chips só do que descontou (RATs; reedição em eventos com âncora de RAT);
+        // 3) FORA DA CONTA — contexto cinza (não entra na avaliação), sem chip colorido.
+        const seg1 = pct == null ? '<div class="dp-seg-res dim">sem RATs avaliadas</div>'
+          : `<div class="dp-seg-res" title="Mesmo número do card do técnico no app: RATs avaliadas no mês sem atraso, reedição própria ou devolução.">${Number(b.sem_problema)} de ${Number(b.elegiveis)} sem problema · <b>${pct}%</b></div>`
+        const atrRats = b ? Number(b.r_atraso) : Number(l.atrasadas) || 0
+        const devRats = b ? Number(b.r_devolucao) : Number(l.devolucoes) || 0
+        const reedEv = Number(l.reedicoes) || 0
+        const reedRats = b ? Number(b.r_reedicao) : null
         const probs = [
-          Number(l.atrasadas) ? `<span class="dp-oc dp-oc-warn" title="Encerrada com atraso — conta pra equipe toda da RAT"><b>${esc(l.atrasadas)}</b> atraso${Number(l.atrasadas) > 1 ? 's' : ''} coletivo${Number(l.atrasadas) > 1 ? 's' : ''}</span>` : null,
-          Number(l.reedicoes) ? `<span class="dp-oc dp-oc-warn" title="Reedição em dia posterior — conta só pra quem editou"><b>${esc(l.reedicoes)}</b> ${Number(l.reedicoes) > 1 ? 'reedições próprias' : 'reedição própria'}</span>` : null,
-          Number(l.devolucoes) ? `<span class="dp-oc dp-oc-pend" title="Tarefa devolvida pela gestão — conta pra equipe toda"><b>${esc(l.devolucoes)}</b> devoluç${Number(l.devolucoes) > 1 ? 'ões' : 'ão'}</span>` : null,
-        ].filter(Boolean).join(' ') || '<span class="dp-oc dp-oc-ok">sem ocorrências</span>'
-        const encOc = `<div class="dp-enc-n">${neutros || '<span class="dim">—</span>'}</div><div class="dp-enc-c">${probs}</div>`
-        // Tendência: % com problema vs mês anterior — SUBIR é ruim (vermelho), CAIR é bom (verde)
+          atrRats ? `<span class="dp-oc dp-oc-warn" title="RAT encerrada depois do prazo D+1 — desconta pra equipe toda da RAT."><b>${atrRats}</b> RAT${atrRats > 1 ? 's' : ''} com atraso</span>` : null,
+          reedEv ? `<span class="dp-oc dp-oc-warn" title="Eventos de edição em dia posterior ao trabalho — descontam só de quem editou."><b>${reedEv}</b> reediç${reedEv > 1 ? 'ões' : 'ão'}${reedRats != null ? ` (${reedRats} RAT${reedRats === 1 ? '' : 's'})` : ''}</span>` : null,
+          devRats ? `<span class="dp-oc dp-oc-pend" title="RATs do técnico em tarefas devolvidas — uma tarefa pode conter várias RATs; desconta pra equipe toda da RAT."><b>${devRats}</b> RAT${devRats > 1 ? 's' : ''} devolvida${devRats > 1 ? 's' : ''}</span>` : null,
+        ].filter(Boolean).join(' ') || '<span class="dp-oc dp-oc-ok" title="Nenhuma RAT do mês descontou: sem atraso, reedição própria ou devolução.">sem ocorrências</span>'
+        const fora = [
+          Number(l.pendentes) ? `<span title="RAT ainda em andamento com o prazo de encerramento correndo — entra na conta quando encerrar.">${esc(l.pendentes)} aberta${Number(l.pendentes) > 1 ? 's' : ''} no prazo</span>` : null,
+          Number(l.em_janela_instab) ? `<span title="RATs do período de instabilidade do app — fora da avaliação.">${esc(l.em_janela_instab)} na janela do app</span>` : null,
+          Number(l.d1) ? `<span title="Encerrada no dia útil seguinte — tardia, considerada sem problema nesta versão.">${esc(l.d1)} em D+1 (tardia)</span>` : null,
+        ].filter(Boolean).join(' · ')
+        const encOc = `${seg1}<div class="dp-enc-c">${probs}</div>${fora ? `<div class="dp-fora">${fora}</div>` : ''}`
+        // Tendência na MESMA narrativa (% sem problema): SUBIR é bom (verde), CAIR é ruim (vermelho)
         const pAnt = pctDe(binarioAnt[l.tecnico_id])
         const tend = (pct == null || pAnt == null) ? '<span class="dim">Sem histórico</span>'
           : (() => { const d = pct - pAnt
               return `<div class="dp-res-s">${pct}% neste mês</div><div class="dp-res-s">${pAnt}% no mês anterior</div>
-                <span class="dp-tend${d > 0 ? ' dn' : ''}">${d === 0 ? 'estável' : `${d > 0 ? '▲' : '▼'} ${Math.abs(d)} ${Math.abs(d) === 1 ? 'ponto percentual' : 'pontos percentuais'}`}</span>` })()
+                <span class="dp-tend${d < 0 ? ' dn' : ''}">${d === 0 ? 'estável' : `${d > 0 ? '▲' : '▼'} ${Math.abs(d)} ${Math.abs(d) === 1 ? 'ponto percentual' : 'pontos percentuais'}`}</span>` })()
         const amostra = Number(l.rats) < 3 ? '<span class="dp-amostra">Amostra muito baixa</span>'
           : (Number(l.rats) <= 4 ? '<span class="dp-amostra">Amostra limitada</span>' : '')
         return `<tr class="dp-linha${aberto === l.tecnico_id ? ' on' : ''}" data-tec="${esc(l.tecnico_id)}">
           <td><span class="dp-tec"><span class="dp-av">${av(u || { nome: l.tecnico_nome })}</span>${esc(l.tecnico_nome)}${amostra}</span></td>
-          <td>${resultado}</td>
           <td class="dp-po">${encOc}</td>
           <td>${tend}</td>
           <td class="dp-chev">${IC_CHEV}</td>
         </tr>
-        <tr class="dp-dd" data-dd="${esc(l.tecnico_id)}" hidden><td colspan="5"><div class="dp-ddbox">Carregando…</div></td></tr>`
+        <tr class="dp-dd" data-dd="${esc(l.tecnico_id)}" hidden><td colspan="4"><div class="dp-ddbox">Carregando…</div></td></tr>`
       }).join('') + '</tbody></table>'
     box.querySelectorAll('.dp-linha').forEach(tr => tr.onclick = () => toggleDrill(tr.dataset.tec))
   }
