@@ -171,13 +171,16 @@ window.PlacarCard = (() => {
         ? `<div class="pl-tend"><span class="pl-mut">estável · ${e_(prevPct)}% em ${e_(mesNome(mesAnteriorISO(mes)))}</span></div>`
         : `<div class="pl-tend${d < 0 ? ' pl-baixa' : ''}">${d < 0 ? IC.desce : IC.sobe}${Math.abs(d)} ${plural(Math.abs(d), 'ponto percentual', 'pontos percentuais')} <span class="pl-mut">· ${e_(prevPct)}% em ${e_(mesNome(mesAnteriorISO(mes)))}</span></div>`
     }
-    // Ocorrências (contagem de RATs por motivo; só >0)
+    // Ocorrências que AFETARAM o resultado (só >0); D+1 tardia vai em linha própria,
+    // como informação adicional — não mistura com o que reduziu o percentual.
     const ocor = [
       R.atraso ? `<span class="pl-prob">${e_(R.atraso)} ${plural(R.atraso, 'encerrada com atraso', 'encerradas com atraso')}</span>` : null,
       R.reed ? `<span class="pl-prob">${e_(R.reed)} ${plural(R.reed, 'reedição em dia posterior', 'reedições em dia posterior')}</span>` : null,
       R.dev ? `<span class="pl-prob">${e_(R.dev)} ${plural(R.dev, 'devolução', 'devoluções')}</span>` : null,
-      R.tardias ? `<span class="pl-tardia">${e_(R.tardias)} ${plural(R.tardias, 'encerrada em D+1 (tardia, não conta como problema)', 'encerradas em D+1 (tardias, não contam como problema)')}</span>` : null,
     ].filter(Boolean).join(' · ')
+    const tardias = R.tardias
+      ? `<div class="pl-nota-multi">${e_(R.tardias)} ${plural(R.tardias, 'RAT encerrada em D+1, considerada sem problema nesta versão.', 'RATs encerradas em D+1, consideradas sem problema nesta versão.')}</div>`
+      : ''
     const multi = R.nProb ? '<div class="pl-nota-multi">Uma mesma RAT pode apresentar mais de um motivo.</div>' : ''
     const btn = R.nProb
       ? `<button type="button" class="pl-btn-prob" data-filtro="prob">Ver RATs com problema${IC.seta}</button>`
@@ -195,6 +198,7 @@ window.PlacarCard = (() => {
       ${tend}
       <div class="pl-contagem">${e_(R.nAval)} ${plural(R.nAval, 'RAT avaliada', 'RATs avaliadas')} · ${e_(R.nSem)} sem problema · <span class="${R.nProb ? 'pl-prob' : ''}">${e_(R.nProb)} com problema</span></div>
       ${ocor ? `<div class="pl-ocor">${ocor}</div>${multi}` : ''}
+      ${tardias}
       ${btn}
       ${rodape(`<button type="button" class="pl-ver pl-abre-entender" style="margin-left:auto">Entender meu resultado</button>`)}
       <div class="pl-entender" hidden>
