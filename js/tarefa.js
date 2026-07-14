@@ -345,7 +345,7 @@ const TarefaApp = (() => {
   // ─────────────────────────── Lista ───────────────────────────
   async function carregarTarefas() {
     const { data: ts, error } = await sb().from('tarefas')
-      .select('id,numero,status,criado_em,data_agendada,orcamento_id,cliente_id,orientacao,observacoes,pedido_compra,tipo_servico_id,conciliacao_obs,pendencias,faturado,data_faturamento,numero_nota,modalidade,valor_hora,motivo_devolucao')
+      .select('id,numero,status,criado_em,data_agendada,orcamento_id,cliente_id,orientacao,observacoes,pedido_compra,tipo_servico_id,conciliacao_obs,pendencias,faturado,data_faturamento,numero_nota,modalidade,valor_hora,motivo_devolucao,motivo_devolucao_cats,motivo_devolucao_detalhe,devolvida_em')
       .order('numero', { ascending: false })
     if (error) { toast('Erro ao carregar tarefas: ' + error.message, 'err'); tarefas = []; return }
     tarefas = ts || []
@@ -511,7 +511,7 @@ const TarefaApp = (() => {
   // ─────────────────────────── Detalhe ───────────────────────────
   async function abrirTarefa(id, aba) {
     const t = tarefas.find(x => x.id === id); if (!t) return
-    cur = { id, numero: t.numero, status: t.status, cliente_nome: cliNomes[t.cliente_id] || '—', motivo_devolucao: t.motivo_devolucao || null, equip: [], anexos: [] }
+    cur = { id, numero: t.numero, status: t.status, cliente_nome: cliNomes[t.cliente_id] || '—', motivo_devolucao: t.motivo_devolucao || null, motivo_devolucao_cats: t.motivo_devolucao_cats || null, motivo_devolucao_detalhe: t.motivo_devolucao_detalhe || null, devolvida_em: t.devolvida_em || null, equip: [], anexos: [] }
     // garante modo normal (caso venha do modo "nova")
     document.getElementById('cc-d-cliente').style.display = ''
     document.getElementById('cc-d-cli-wrap').style.display = 'none'
@@ -660,6 +660,8 @@ const TarefaApp = (() => {
       cur.motivo_devolucao = patch.motivo_devolucao
       cur.motivo_devolucao_cats = patch.motivo_devolucao_cats
       cur.motivo_devolucao_detalhe = patch.motivo_devolucao_detalhe
+      cur.devolvida_em = patch.devolvida_em
+      cur.devolHist = undefined   // re-busca o histórico (o trigger 0099 acabou de gravar a linha nova)
     }
     setStatusBadge(cur.status)
     // sincroniza técnicos (N:N) por DIFERENÇA — evita ruído na auditoria (sem delete-all)
@@ -1704,6 +1706,42 @@ const TarefaApp = (() => {
     ].join('')
     renderTabs()
     renderResumo()
+    renderDevolucao()
+  }
+
+  // ── Devolução visível no PORTAL (07/26): motivo vigente quando 'devolvida' + histórico
+  //    (tarefa_devolucoes, 0099) — antes o motivo só aparecia pro técnico no app. ──
+  async function renderDevolucao() {
+    const box = document.getElementById('cc-devol'); if (!box) return
+    if (!cur || !cur.id) { box.innerHTML = ''; return }
+    const idAtual = cur.id
+    if (cur.devolHist === undefined) {
+      cur.devolHist = null
+      try {
+        const { data } = await sb().from('tarefa_devolucoes')
+          .select('cats,motivo,devolvida_em,resolvida_em,origem')
+          .eq('tarefa_id', cur.id).order('devolvida_em', { ascending: false })
+        cur.devolHist = data || []
+      } catch (e) { cur.devolHist = [] }
+      if (!cur || cur.id !== idAtual) return   // trocou de tarefa durante o fetch
+    }
+    const hist = cur.devolHist || []
+    const L = window.MOTIVO_LABEL || {}
+    const t = tarefas.find(x => x.id === cur.id) || {}
+    const fdt2 = (iso) => iso ? fdt(iso, { withTime: true }) : '—'
+    const catsTxt = (cats, fallback) => (Array.isArray(cats) && cats.length) ? cats.map(c => L[c] || c).join(' · ') : (fallback || '—')
+    const nHist = hist.length
+    const linhas = hist.map((d, i) => `<div class="cc-devol-h"><b>${nHist - i}ª</b> · ${esc(fdt2(d.devolvida_em))} · ${esc(catsTxt(d.cats, d.motivo))} · ${d.resolvida_em ? 'resolvida em ' + esc(fdt2(d.resolvida_em)) : '<b>em aberto</b>'}${d.origem === 'backfill' ? ' <span class="cc-devol-mut">(registro parcial — anterior a 14/07)</span>' : ''}</div>`).join('')
+    if (t.status === 'devolvida') {
+      box.innerHTML = `<div class="cc-devol-ban">
+        <div class="cc-devol-t">Tarefa devolvida ao técnico${cur.devolvida_em ? ' — ' + esc(fdt2(cur.devolvida_em)) : ''}${nHist > 1 ? `<span class="cc-devol-re">${nHist}ª devolução desta tarefa</span>` : ''}</div>
+        <div class="cc-devol-m">${esc(catsTxt(cur.motivo_devolucao_cats, cur.motivo_devolucao))}</div>
+        ${cur.motivo_devolucao_detalhe ? `<div class="cc-devol-d">${esc(cur.motivo_devolucao_detalhe)}</div>` : ''}
+        ${nHist > 1 ? `<div class="cc-devol-hs">${linhas}</div>` : ''}
+      </div>`
+    } else if (nHist) {
+      box.innerHTML = `<div class="cc-devol-past"><div class="cc-devol-pt">Histórico de devoluções (${nHist})</div>${linhas}</div>`
+    } else box.innerHTML = ''
   }
 
   // Indicadores das abas: ✓ (completo) ou contador (atenção/pendência).
