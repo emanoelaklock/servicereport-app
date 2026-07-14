@@ -20,8 +20,6 @@ const TarefaApp = (() => {
   let linhas = []            // conciliação da tarefa atual
   let selMat = new Set()     // tm_ids de produtos selecionados p/ exclusão em massa
   let respSel = new Set()     // tecnico_ids responsáveis selecionados (chips) na aba Dados
-  let ratDet = null          // RAT aberta no modal { r, campos, ... }
-  let ratEdit = false        // modo edição do modal de RAT
   let pendRat = null         // RAT base do modal "nova tarefa da pendência"
   let souAdmin = false       // só admin edita RAT (mesma regra do rat.html)
 
@@ -280,15 +278,6 @@ const TarefaApp = (() => {
     })
     document.addEventListener('keydown', (e) => { if (e.key === 'Escape') { pdfPop.hidden = true; fecharRatMenus() } })
     pdfPop.querySelectorAll('[data-pdf]').forEach(b => b.onclick = () => { pdfPop.hidden = true; gerarPdfVetorial(b.dataset.pdf) })
-    document.getElementById('rat-x').onclick = () => fecharModal('modal-rat')
-    document.getElementById('rat-fechar').onclick = () => fecharModal('modal-rat')
-    // Editor único e auditado: o "Editar" abre o rat.html (admin-only, com motivo/histórico/restore).
-    document.getElementById('rat-editar').onclick = () => { if (ratDet) window.open('rat.html?id=' + encodeURIComponent(ratDet.r.id), '_blank', 'noopener') }
-    document.getElementById('rat-cancelar').onclick = ratCancelarEdicao
-    document.getElementById('rat-salvar').onclick = ratSalvarEdicao
-    document.getElementById('rat-pdf').onclick = ratPdf
-    document.getElementById('rat-excluir').onclick = ratExcluir
-    document.getElementById('rat-nova-tarefa').onclick = () => abrirPend()
     document.getElementById('cc-d-pend-tarefa').onclick = abrirPendTarefa
     document.getElementById('cc-d-status-sel').addEventListener('change', (e) => {
       document.getElementById('cc-d-pend-tarefa').style.display = (e.target.value === 'concluida_pendencia') ? '' : 'none'
@@ -1317,41 +1306,7 @@ const TarefaApp = (() => {
     await carregarRats()   // recarrega RATs + atualiza a faixa Situação/abas
   }
 
-  let ratMulti = false, ratList = [], focoRatId = null   // ?rat= (atalho do calendário): rola/destaca a RAT certa na aba RATs
-  function toggleRatBtns(multi) {
-    const show = (id, v) => { document.getElementById(id).style.display = v ? '' : 'none' }
-    show('rat-editar', !multi && !ratEdit)
-    show('rat-salvar', !multi && ratEdit)
-    show('rat-cancelar', !multi && ratEdit)
-    show('rat-excluir', !multi && !ratEdit)
-    show('rat-nova-tarefa', !multi && !ratEdit)
-    show('rat-pdf', true)
-  }
-  function renderRatModal() {
-    document.getElementById('rat-modal-title').textContent = 'Detalhe da RAT'
-    document.getElementById('rat-body').innerHTML = RatView.buildReportBody(ratDet, ratEdit)
-    toggleRatBtns(false)
-  }
-  async function verRat(id) {
-    const r = (cur.rats || []).find(x => x.id === id); if (!r) return
-    ratMulti = false; ratEdit = false
-    ratDet = await RatView.loadDetalhe(r)
-    renderRatModal()
-    abrirModal('modal-rat')
-  }
-  function ratEntrarEdicao() { ratEdit = true; renderRatModal() }
-  function ratCancelarEdicao() { ratEdit = false; renderRatModal() }
-  async function ratSalvarEdicao() {
-    if (!ratDet) return
-    const { respostas, tempo } = RatView.coletarEdicao(document.getElementById('rat-body'), ratDet)
-    const upd = { respostas }; if (tempo != null) upd.tempo_trabalhado = tempo
-    const { error } = await sb().from('rats').update(upd).eq('id', ratDet.r.id)
-    if (error) return toast('Erro ao salvar: ' + error.message, 'err')
-    ratDet.r.respostas = respostas; if (tempo != null) ratDet.r.tempo_trabalhado = tempo
-    const c = (cur.rats || []).find(x => x.id === ratDet.r.id); if (c) { c.respostas = respostas; if (tempo != null) c.tempo_trabalhado = tempo }
-    ratEdit = false; renderRatModal(); renderRats()
-    toast('RAT atualizada.', 'ok')
-  }
+  let focoRatId = null   // ?rat= (atalho do calendário): rola/destaca a RAT certa na aba RATs
   // Modelo do PDF vetorial SÓ de RATs (sem capa da Tarefa): RAT avulsa e PDF unificado.
   // Mesmo perfil do documento antigo dessas telas: com valores e todos os itens (uso interno).
   function modeloRatsPdf(dets, headerRight, arquivo) {
@@ -1370,33 +1325,6 @@ const TarefaApp = (() => {
     try { await PdfTarefa.gerar(modeloRatsPdf(dets, headerRight, arquivo)) }
     catch (e) { console.error('[PDF RATs]', e); toast('Não foi possível gerar o PDF. Tente novamente.', 'err') }
     finally { if (btn) { btn.disabled = false; btn.textContent = antes } }
-  }
-  function ratPdf() {
-    if (ratMulti) gerarRatsPdf(ratList, `Tarefa Nº ${osNo(cur.numero)} · RATs`, `Tarefa_${osNo(cur.numero)}_RATs.pdf`, 'rat-pdf')
-    else if (ratDet) {
-      const seq = ratDet.r.rat_seq != null ? String(ratDet.r.rat_seq).padStart(2, '0') : null
-      gerarRatsPdf([ratDet], `RAT Nº ${osNo(cur.numero)}${seq ? '/' + seq : ''}`, `RAT_${osNo(cur.numero)}${seq ? '_' + seq : ''}.pdf`, 'rat-pdf')
-    }
-  }
-  async function ratExcluir() {
-    if (!ratDet) return
-    if (!confirm('Excluir esta RAT? Remove os produtos e fotos dela. Esta ação não pode ser desfeita.')) return
-    const { error } = await sb().rpc('admin_excluir_rat', { p_rat: ratDet.r.id })
-    if (error) return toast('Erro ao excluir: ' + error.message, 'err')
-    toast('RAT excluída.', 'ok')
-    fecharModal('modal-rat')
-    await Promise.all([carregarRats(), carregarLinhas()])  // "Utilizada" depende das RATs
-  }
-  async function verTodasRats() {
-    const rats = cur.rats || []
-    if (!rats.length) return toast('Nenhuma RAT nesta tarefa.', 'err')
-    ratList = []
-    for (const r of rats) ratList.push(await RatView.loadDetalhe(r))
-    ratMulti = true; ratEdit = false
-    document.getElementById('rat-modal-title').textContent = `Todas as RATs (${ratList.length})`
-    document.getElementById('rat-body').innerHTML = ratList.map(d => RatView.buildReportBody(d, false)).join('')
-    toggleRatBtns(true)
-    abrirModal('modal-rat')
   }
   async function pdfUnificado() {
     const rats = cur.rats || []
@@ -1565,8 +1493,8 @@ const TarefaApp = (() => {
     abrirModal('modal-pend')
   }
   // Nova tarefa a partir da pendência de uma RAT.
-  function abrirPend(rr) {
-    const r = rr || (ratDet && ratDet.r); if (!r) return
+  function abrirPend(r) {
+    if (!r) return
     pendRat = r
     const resp = r.respostas || {}
     const pend = (r.pendencias && r.pendencias.trim()) || (resp.observacoes && String(resp.observacoes).trim()) || ''

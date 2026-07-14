@@ -295,11 +295,7 @@
   .rat-open .rd{font-size:13px;background:none;border:0;box-shadow:none;padding:0}
   .rat-open a.btn{text-decoration:none}
 
-  /* Detalhe da RAT (modal): visual compartilhado em css/rat-detalhe.css; aqui só o que é da página */
-  #rat-body .rd{font-size:13px}
-  #rat-body .rd + .rd{margin-top:22px}
-  #rat-body .rd-grid{grid-template-columns:1fr 1fr}
-  @media (max-width:640px){ #rat-body .rd-grid{grid-template-columns:1fr} }
+  /* Detalhe da RAT: visual compartilhado em css/rat-detalhe.css (cards expandidos na aba RATs) */
 </style>
 </head>
 <body class="tec-admin">
@@ -510,24 +506,6 @@
         </div>
       </div>
 
-    </div>
-  </div>
-</div>
-
-<!-- Modal: Nova tarefa (criada direto, sem orçamento) -->
-<!-- Modal: Detalhe da RAT -->
-<div class="cc-modal" id="modal-rat">
-  <div class="cc-modal-box wide">
-    <div class="cc-modal-h"><span id="rat-modal-title">Detalhe da RAT</span><button class="cc-modal-x" id="rat-x">✕</button></div>
-    <div class="cc-modal-b" id="rat-body"></div>
-    <div class="cc-modal-f">
-      <button class="btn" id="rat-excluir" style="margin-right:auto;color:var(--re);border-color:var(--re)">🗑 Excluir</button>
-      <button class="btn" id="rat-cancelar" style="display:none">Cancelar</button>
-      <button class="btn" id="rat-editar">✎ Editar ↗</button>
-      <button class="btn btn-g" id="rat-salvar" style="display:none">Salvar</button>
-      <button class="btn" id="rat-nova-tarefa">↻ Nova tarefa da pendência</button>
-      <button class="btn" id="rat-pdf">⬇ Baixar PDF</button>
-      <button class="btn" id="rat-fechar">Fechar</button>
     </div>
   </div>
 </div>
