@@ -1487,6 +1487,17 @@ const TarefaApp = (() => {
     if (!cliente && t.pendencias) campos.push({ 0: 'Pendências', 1: t.pendencias, full: true })
     if (!cliente && t.conciliacao_obs) campos.push({ 0: 'Observações da conciliação', 1: t.conciliacao_obs, full: true })
 
+    // Badge de status do PDF: faturamento é informação interna e o rótulo do status
+    // ("Faturada/Finalizada") não confere com t.faturado quando ainda não faturou.
+    //  · Cliente: tarefa encerrada → sempre "Finalizada" (nunca expõe faturamento).
+    //  · Interno: "Faturada/Finalizada" SÓ com t.faturado=true; encerrada sem faturar → "Finalizada".
+    //  · Demais status (em execução, devolvida…) seguem o rótulo/cor normais nos dois perfis.
+    const encerrada = t.faturado === true || cur.status === 'faturada' || cur.status === 'concluida'
+    const pdfStatusLabel = encerrada
+      ? ((!cliente && t.faturado) ? 'Faturada/Finalizada' : 'Finalizada')
+      : statusLabel(cur.status)
+    const pdfStatusCor = encerrada ? '#179A47' : statusCor(cur.status)
+
     const resumo = [['RATs registradas', String(rats.length)], ['Horas registradas', RatView.fmtMin(totalMin)]]
     if (!cliente) {
       resumo.push(['A devolver ao estoque', aDevolver ? aDevolver.toLocaleString('pt-BR', { maximumFractionDigits: 3 }) : '—'])
@@ -1541,7 +1552,7 @@ const TarefaApp = (() => {
       motivoImprodutiva: RatView.motivoImprodutivaLabel,
       capa: {
         clienteNome: cur.cliente_nome || '—',
-        statusLabel: statusLabel(cur.status), statusCor: statusCor(cur.status),
+        statusLabel: pdfStatusLabel, statusCor: pdfStatusCor,
         dataAgendada: t.data_agendada ? dmy(t.data_agendada) : null,
         campos, resumo, ratsResumo, conciliacao, equipamentos, anexosUrls, anexosNomes,
       },
