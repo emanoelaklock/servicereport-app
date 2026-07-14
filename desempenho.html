@@ -75,13 +75,16 @@
   .dp-seg-res b{font-size:15px;font-weight:800;color:var(--sr-title);font-variant-numeric:tabular-nums}
   .dp-seg-res.dim{font-weight:600}
   .dp-enc-c{display:flex;flex-wrap:wrap;gap:3px}
-  .dp-fora{font-size:11px;color:var(--tx3);margin-top:5px}
+  .dp-fora{display:flex;flex-wrap:wrap;gap:3px;margin-top:5px}
   .dp-res-s{font-size:11px;color:var(--tx3);white-space:nowrap}
   .dp-oc{display:inline-flex;align-items:center;gap:4px;font-size:11px;font-weight:600;border-radius:999px;padding:3px 9px;margin:1px 2px 1px 0;white-space:nowrap}
   .dp-oc b{font-variant-numeric:tabular-nums}
   .dp-oc-warn{background:var(--sr-warn-bg);color:var(--sr-warn-fg)}
   .dp-oc-pend{background:var(--sr-pend-bg);color:var(--sr-pend-fg)}
   .dp-oc-ok{background:var(--sr-exec-bg);color:var(--sr-exec-fg)}
+  /* chip-fantasma: informa (fora da conta), não desconta — outline cinza, sem fundo, menor */
+  .dp-oc-ghost{background:transparent;border:1px solid var(--bd);color:var(--tx3);font-size:10px;padding:2px 8px}
+  .dp-oc-ghost svg{width:11px;height:11px;stroke:currentColor;fill:none;stroke-width:2;stroke-linecap:round;stroke-linejoin:round;flex:none}
   .dp-ord{display:inline-flex;align-items:center;gap:8px;font-size:12px;color:var(--tx2);font-weight:600}
   .dp-ord select{padding:6px 10px;border:1px solid var(--bd);border-radius:8px;font:inherit;font-size:12.5px;background:var(--sur);color:var(--tx)}
   #dp-rk th{text-align:left;font-size:10.5px;font-weight:700;letter-spacing:.03em;text-transform:none;color:var(--sr-info-fg);background:var(--sr-info-bg);padding:9px 12px;border-bottom:1px solid var(--bd);cursor:default}

@@ -108,8 +108,8 @@ const DesempenhoApp = (() => {
       <div class="dp-k-v">${valor}</div><div class="dp-k-d">${det}</div></div>`
     document.getElementById('dp-kpis').innerHTML = n ? [
       kpi('title', '<svg viewBox="0 0 24 24"><path d="M12 2 4 5v6c0 5 3.4 9.4 8 11 4.6-1.6 8-6 8-11V5l-8-3z"/></svg>',
-        'Resultado da equipe', 'RATs com problema no mês', elegT ? Math.round(100 * probT / elegT) + '%' : '—',
-        `${probT} de ${elegT} RATs · ${n} técnico${n > 1 ? 's' : ''} avaliado${n > 1 ? 's' : ''}`),
+        'Resultado da equipe', 'RATs sem problema no mês', elegT ? Math.round(100 * (elegT - probT) / elegT) + '%' : '—',
+        `${elegT - probT} de ${elegT} RATs sem problema · ${n} técnico${n > 1 ? 's' : ''} avaliado${n > 1 ? 's' : ''}`),
       kpi('info', '<svg viewBox="0 0 24 24"><path d="M21 11.5a9 9 0 1 1-5.3-8.2"/><path d="m9 11 3 3L22 4"/></svg>',
         'Preenchimento Online', 'RATs encerradas no dia do trabalho', ratsReg ? Math.round(100 * d0 / ratsReg) + '%' : '—',
         `${d0} em D+0 de ${ratsReg} avaliadas · ${fora} fora da régua (app/improdutiva)`),
@@ -164,11 +164,16 @@ const DesempenhoApp = (() => {
           reedEv ? `<span class="dp-oc dp-oc-warn" title="Eventos de edição em dia posterior ao trabalho — descontam só de quem editou."><b>${reedEv}</b> reediç${reedEv > 1 ? 'ões' : 'ão'}${reedRats != null ? ` (${reedRats} RAT${reedRats === 1 ? '' : 's'})` : ''}</span>` : null,
           devRats ? `<span class="dp-oc dp-oc-pend" title="RATs do técnico em tarefas devolvidas — uma tarefa pode conter várias RATs; desconta pra equipe toda da RAT."><b>${devRats}</b> RAT${devRats > 1 ? 's' : ''} devolvida${devRats > 1 ? 's' : ''}</span>` : null,
         ].filter(Boolean).join(' ') || '<span class="dp-oc dp-oc-ok" title="Nenhuma RAT do mês descontou: sem atraso, reedição própria ou devolução.">sem ocorrências</span>'
+        // FORA DA CONTA em chips-fantasma (outline, sem fundo): informam, não descontam.
+        // Ícones SVG de linha (regra do projeto: nunca emoji).
+        const IC_AMP = '<svg viewBox="0 0 24 24"><path d="M5 3h14M5 21h14M7 3v3l5 6 5-6V3M7 21v-3l5-6 5 6v3"/></svg>'
+        const IC_FER = '<svg viewBox="0 0 24 24"><path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"/></svg>'
+        const IC_REL = '<svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>'
         const fora = [
-          Number(l.pendentes) ? `<span title="RAT ainda em andamento com o prazo de encerramento correndo — entra na conta quando encerrar.">${esc(l.pendentes)} aberta${Number(l.pendentes) > 1 ? 's' : ''} no prazo</span>` : null,
-          Number(l.em_janela_instab) ? `<span title="RATs do período de instabilidade do app — fora da avaliação.">${esc(l.em_janela_instab)} na janela do app</span>` : null,
-          Number(l.d1) ? `<span title="Encerrada no dia útil seguinte — tardia, considerada sem problema nesta versão.">${esc(l.d1)} em D+1 (tardia)</span>` : null,
-        ].filter(Boolean).join(' · ')
+          Number(l.pendentes) ? `<span class="dp-oc dp-oc-ghost" title="RAT ainda em andamento com o prazo de encerramento correndo — entra na conta quando encerrar.">${IC_AMP}${esc(l.pendentes)} aberta${Number(l.pendentes) > 1 ? 's' : ''} no prazo</span>` : null,
+          Number(l.em_janela_instab) ? `<span class="dp-oc dp-oc-ghost" title="RATs do período de instabilidade do app — fora da avaliação.">${IC_FER}${esc(l.em_janela_instab)} na janela do app</span>` : null,
+          Number(l.d1) ? `<span class="dp-oc dp-oc-ghost" title="Encerrada no dia útil seguinte — tardia, considerada sem problema nesta versão.">${IC_REL}${esc(l.d1)} em D+1 (tardia)</span>` : null,
+        ].filter(Boolean).join('')
         const encOc = `${seg1}<div class="dp-enc-c">${probs}</div>${fora ? `<div class="dp-fora">${fora}</div>` : ''}`
         // Tendência na MESMA narrativa (% sem problema): SUBIR é bom (verde), CAIR é ruim (vermelho)
         const pAnt = pctDe(binarioAnt[l.tecnico_id])
