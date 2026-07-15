@@ -1814,9 +1814,11 @@
   function fecharDesloc() { document.getElementById('modal-desloc').classList.remove('open'); dlCur = null; dlSnap = null; dlModalTrecho = null }
 
   // A DATA do trecho é a única fonte de data: os horários ancoram nela.
+  // Fallback pelo dia LOCAL do timestamp (toISOString daria o dia UTC — saída noturna mudaria de dia).
+  const diaLocalDe = (iso) => { const x = new Date(iso); return `${x.getFullYear()}-${String(x.getMonth() + 1).padStart(2, '0')}-${String(x.getDate()).padStart(2, '0')}` }
   const isoNoDia = (dia, hhmm, fallbackIso) => {
     if (!hhmm) return null
-    const d = dia || (fallbackIso ? new Date(fallbackIso).toISOString().slice(0, 10) : jorHoje())
+    const d = dia || (fallbackIso ? diaLocalDe(fallbackIso) : jorHoje())
     return new Date(`${d}T${hhmm}:00`).toISOString()
   }
   // Limpeza EXPLÍCITA de campo (vs "não mexi"): o merge do servidor trata null como "não mexi"
@@ -1910,7 +1912,7 @@
     const aberto = !t.chegada_em
     const b = aberto ? Date.now() : new Date(t.chegada_em).getTime()
     if (b <= a) return { total: 0, almoco: 0, aberto }
-    const dia = t.data || String(t.saida_em).slice(0, 10)
+    const dia = t.data || diaLocalDe(t.saida_em)   // dia LOCAL (slice do ISO daria o dia UTC)
     let alm = 0
     if (t.almoco_inicio && t.almoco_fim) {
       const ai = new Date(`${dia}T${t.almoco_inicio}:00`).getTime(), af = new Date(`${dia}T${t.almoco_fim}:00`).getTime()
@@ -2069,7 +2071,7 @@
     box.querySelectorAll('[data-ldata]').forEach(el => {
       el.onchange = () => {
         const t = T[+el.dataset.ldata]
-        t.data = el.value || null
+        t.data = el.value || t.data || null   // limpar o campo não apaga a data (a âncora dos horários)
         // re-ancora os horários já marcados na nova data (mantém as horas)
         if (t.saida_em) t.saida_em = isoNoDia(t.data, hhmmDe(t.saida_em), t.saida_em)
         if (t.chegada_em) { t.chegada_em = isoNoDia(t.data, hhmmDe(t.chegada_em), t.chegada_em); ajustaMadrugada(t) }
@@ -2295,6 +2297,7 @@
     if (!(dlCur.trechos[0].tecnicos || []).length) return toast('Marque quem está a bordo.', 'err')
     for (let i = 0; i < dlCur.trechos.length; i++) {
       const t = dlCur.trechos[i]
+      if (!t.data) return toast(`Trecho ${i + 1}: informe a data.`, 'err')   // a data é a âncora dos horários
       if (t.veiculo_id && !(t.motoristas || []).length) {
         // só um a bordo? resolve sozinho (motorista = ele, trecho todo)
         if ((t.tecnicos || []).length === 1) {

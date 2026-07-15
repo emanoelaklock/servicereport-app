@@ -52,10 +52,12 @@ const chaveConflito = (c: any) => {
   const norm = (v: unknown) => {
     if (v == null) return ""
     if (typeof v === "object") return JSON.stringify(v)
-    const d = new Date(String(v))
-    return isNaN(d.getTime()) ? String(v).slice(0, 5) : String(d.getTime())
+    const s = String(v)
+    if (/^\d{2}:\d{2}(:\d{2})?$/.test(s)) return s.slice(0, 5)   // hora pura: "13:31" ≡ "13:31:00"
+    const d = new Date(s)
+    return isNaN(d.getTime()) ? s : String(d.getTime())          // timestamp: compara por instante
   }
-  return `${c.trecho_ordem}|${c.campo}|${norm(c.servidor)}|${norm(c.recebido)}`
+  return `${c.trecho_ordem}|${c.campo}|${c.tecnico_id ?? ""}|${c.dia ?? ""}|${norm(c.servidor)}|${norm(c.recebido)}`
 }
 
 Deno.serve(async (req: Request) => {
@@ -107,6 +109,14 @@ Deno.serve(async (req: Request) => {
     const exTrechos = exTrechosRaw || []
     const exById = new Map<string, any>(exTrechos.map((t: any) => [t.id, t]))
     const incomingIds = new Set(incoming.map((t: any) => t.id))
+
+    // posse: id de trecho que pertence a OUTRA viagem não entra (o upsert por id
+    // reatribuiria deslocamento_id e sobrescreveria horas sem passar pelo conflito)
+    const { data: alheios } = await admin.from("deslocamento_trechos")
+      .select("id").in("id", [...incomingIds]).neq("deslocamento_id", trip.id)
+    if (alheios && alheios.length) {
+      return json({ error: "payload contém trecho de outra viagem: " + alheios.map((x: any) => x.id).join(", ") }, 400)
+    }
 
     const conflitos: any[] = []
     const nowISO = new Date().toISOString()
@@ -247,13 +257,28 @@ Deno.serve(async (req: Request) => {
       if (r.error) return json({ error: "falha tarefas: " + r.error.message }, 500)
     }
 
-    // ---- almoço por pessoa/dia (upsert dedup por PK deslocamento_id,tecnico_id,dia) ----
+    // ---- almoço por pessoa/dia (dedup por PK deslocamento_id,tecnico_id,dia).
+    //      Divergência NÃO sobrescreve em silêncio (mesma regra das horas do trecho):
+    //      mantém o do servidor e marca conflito pro admin. ----
     if ((trip.almocos || []).length) {
-      const r = await admin.from("deslocamento_almocos")
-        .upsert((trip.almocos || []).map((a: any) => ({
-          deslocamento_id: trip.id, tecnico_id: a.tecnico_id, dia: a.dia, inicio: a.inicio, fim: a.fim,
-        })), { onConflict: "deslocamento_id,tecnico_id,dia" })
-      if (r.error) return json({ error: "falha almoco: " + r.error.message }, 500)
+      const { data: exAlm } = await admin.from("deslocamento_almocos")
+        .select("tecnico_id,dia,inicio,fim").eq("deslocamento_id", trip.id)
+      const exAlmMap = new Map((exAlm || []).map((a: any) => [`${a.tecnico_id}|${a.dia}`, a]))
+      const novosAlm: any[] = []
+      for (const a of (trip.almocos || [])) {
+        const cur = exAlmMap.get(`${a.tecnico_id}|${a.dia}`)
+        if (!cur) { novosAlm.push({ deslocamento_id: trip.id, tecnico_id: a.tecnico_id, dia: a.dia, inicio: a.inicio, fim: a.fim }); continue }
+        if (eqHora(cur.inicio, a.inicio) && eqHora(cur.fim, a.fim)) continue
+        conflitos.push({
+          trecho_ordem: null, campo: "almoco_pessoa_dia", tecnico_id: a.tecnico_id, dia: a.dia,
+          servidor: `${cur.inicio ?? "—"}–${cur.fim ?? "—"}`, recebido: `${a.inicio ?? "—"}–${a.fim ?? "—"}`, por: uid, em: nowISO,
+        })
+      }
+      if (novosAlm.length) {
+        const r = await admin.from("deslocamento_almocos")
+          .upsert(novosAlm, { onConflict: "deslocamento_id,tecnico_id,dia", ignoreDuplicates: true })
+        if (r.error) return json({ error: "falha almoco: " + r.error.message }, 500)
+      }
     }
 
     // ---- conflito: anexa às divergências já existentes e tira a revisão (admin reconfere).
