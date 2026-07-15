@@ -389,6 +389,16 @@ Ao devolver, o admin escolhe **motivo(s)** de uma lista fechada (não texto livr
 - **Dados:** `tarefas.motivo_devolucao_cats text[]` (códigos) + `motivo_devolucao_detalhe` (o "Outro") + `motivo_devolucao` (texto renderizado, **retrocompatível** com registros anteriores à Fase A, usado como fallback). Vocabulário oficial em **fonte única** no `js/utils.js` (`DEVOLUCAO_MOTIVOS` / `MOTIVO_LABEL`), lido por portal e app; ambos exibem os motivos como **chips** na ordem gravada + o detalhe.
 - **Editar × Devolver (critério do admin):** se o admin **sabe** a informação correta → **edita** ele mesmo (auditado, via `rat_edicoes`); só **devolve** quando **apenas o técnico** sabe/pode corrigir. Devolver não é pra consertar o que o admin já tem em mãos.
 
+#### Tarefa devolvida no app do técnico: dois caminhos + regra de destravamento (15/07 — no ar)
+
+Ao tocar **"Iniciar RAT desta tarefa"** numa tarefa `Devolvida`, o app abre um **seletor** (`#modal-devol-escolha`) com o **motivo da devolução visível** (chips da Fase A + detalhe, que orientam a escolha) e duas ações:
+- **Corrigir a RAT devolvida** (com a data da RAT) — reabre a última RAT registrada, hidratando material+fotos do servidor (fluxo que já existia como caminho único).
+- **Nova RAT de hoje** — registra um novo dia de trabalho (caso real que motivou: 04790, devolvida com "Incluir RAT do dia 02" — a RAT nova nasce com Data=hoje e o técnico ajusta a data no formulário). Se já existe RAT de hoje, a opção vira "Abrir a RAT de hoje" (1 RAT por tarefa/dia); se a RAT devolvida **é** a de hoje, não há escolha (mesmo registro).
+
+**Regra de destravamento:** criar/registrar **RAT nova NÃO encerra a devolução**. `Devolvida` só sai quando a **RAT devolvida** (RAT criada **antes** de `devolvida_em`) for corrigida e reenviada (`sync.js`, guarda `corrigeDevolucao`) — ou quando a gestão resolver no portal. Sem isso, a RAT nova viraria atalho pra limpar devolução sem corrigir e a métrica de devolução do painel perderia o sentido. Devoluções legadas sem `devolvida_em` (pré-0088) mantêm o comportamento antigo. O trigger do servidor (`rat_inicia_tarefa`, 0072) já não toca `devolvida`; o lembrete de +1 dia continua ativo enquanto a correção real não vem.
+
+*Comportamento conhecido (aceito, não é buraco):* o técnico pode reenviar a RAT devolvida **sem alterar nada** e destravar — auditado pela `tarefa_devolucoes` (0099, reincidência contada); a gestão confere e re-devolve.
+
 #### Lembrete de devolvida sem retorno (+1 dia — no ar)
 
 Toda devolução carimba `tarefas.devolvida_em`. Enquanto a tarefa seguir `Devolvida`:
@@ -657,7 +667,7 @@ O **técnico nunca escolhe a modalidade** — ela é **derivada** (do contrato/o
   - **Jornada:** soma o **deslocamento do dia** (ida/retorno) com **dedup por união** (migrações 0078/0079); chips "RAT Ida 4751/02" / "RAT Retorno 4752/01"; **chip de Almoço com nº e cor da RAT**.
   - **Bug de fuso corrigido:** alerta "ida sem volta" usava `data_tarefa` (meia-noite UTC) + data agendada → alerta falso; agora usa a data real da RAT (migração 0081; idem `vw_rats_busca`/`rat_inicia_tarefa` na 0082 — §12).
   - **Double-check:** corrigida a superrcontagem do tempo no caso **legado** da `rat-editar` (passou a espelhar a fórmula do §8.1).
-  - **Devolução não perde mais os filhos:** ao reabrir uma RAT sincronizada (ex.: tarefa devolvida), o técnico passa a **hidratar material e fotos do servidor** no local (não vêm no pull `SYNC_MAP`) — antes a RAT reabria sem produto/foto. Merge por id (não clobbera trabalho local), fotos com URL assinada; só online e sem trabalho local pendente.
+  - **Devolução não perde mais os filhos:** ao reabrir uma RAT sincronizada (ex.: tarefa devolvida), o técnico passa a **hidratar material e fotos do servidor** no local (não vêm no pull `SYNC_MAP`) — antes a RAT reabria sem produto/foto. Merge por id (não clobbera trabalho local), fotos com URL assinada; só online e sem trabalho local pendente. *(15/07: reabrir pra corrigir deixou de ser o caminho único — na tarefa devolvida o técnico escolhe entre corrigir a RAT devolvida e abrir RAT nova de hoje, com regra de destravamento; ver §"Tarefa devolvida no app do técnico".)*
   - **Limpeza pontual:** removida a duplicação de material da RAT 04765 (caso **isolado** — RAT colaborativa, 2 aparelhos lançaram offline; varredura confirmou só 1 ocorrência). Ver pendente "Conflito de material em RAT colaborativa".
 - **Entregas de 25/06:**
   - **Busca de OS no app do técnico + janela de 14 dias:** a lista padrão de Tarefas janela em 14 dias (mas **nunca esconde** tarefa ativa/pendente nem sem data); a caixa de busca consulta **3 meses online** (SELECT na sessão do técnico → herda a RLS `os_tecnico_sel`: titular + co-responsável, **sem** service role) e, offline, filtra o cache de 14 dias. Casa nº/cliente/orientação/local/tipo. Só leitura, sem objeto novo no banco.
