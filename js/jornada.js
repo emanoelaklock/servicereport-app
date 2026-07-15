@@ -19,8 +19,9 @@ const JornadaApp = (() => {
     trabalho: { ic: '🔧', lb: 'Trabalho' }, pausa: { ic: '⏸️', lb: 'Pausa' },
     almoco: { ic: '🍽️', lb: 'Almoço' }, deslocamento: { ic: '🚗', lb: 'Deslocamento' },
   }
-  const hoje = () => { const d = new Date(); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}` }
-  const hhmm = (iso) => { if (!iso) return '—'; const d = new Date(iso); return `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}` }
+  // "hoje" e horas SEMPRE no calendário/relógio de Brasília (regra da casa — fuso do navegador nunca é fonte)
+  const hoje = () => diaSP()
+  const hhmm = (iso) => iso ? hhSP(iso) : '—'
   const minBetween = (a, b) => Math.max(0, Math.round((new Date(b).getTime() - new Date(a).getTime()) / 60000))
   const fmtMin = (m) => `${Math.floor(m / 60)}h ${String(Math.round(m % 60)).padStart(2, '0')}min`
   const ceil30 = (m) => Math.ceil(m / 30) * 30
@@ -47,14 +48,14 @@ const JornadaApp = (() => {
     // Pernoites: select de técnico (com "todos") + período = mês corrente
     document.getElementById('p-tec').innerHTML = '<option value="">Todos os técnicos</option>' +
       (tec.data || []).map(t => `<option value="${esc(t.id)}">${esc(t.nome || '(sem nome)')}</option>`).join('')
-    const d = new Date(), p = n => String(n).padStart(2, '0')
-    document.getElementById('p-de').value = `${d.getFullYear()}-${p(d.getMonth() + 1)}-01`
+    const mes01 = hoje().slice(0, 7) + '-01'   // 1º do mês corrente NO CALENDÁRIO DE BRASÍLIA
+    document.getElementById('p-de').value = mes01
     document.getElementById('p-ate').value = hoje()
     document.getElementById('p-gerar').onclick = carregarPernoites
     // Deslocamento por técnico (período): mesmo padrão dos pernoites (todos + mês corrente)
     document.getElementById('dt-tec').innerHTML = '<option value="">Todos os técnicos</option>' +
       (tec.data || []).map(t => `<option value="${esc(t.id)}">${esc(t.nome || '(sem nome)')}</option>`).join('')
-    document.getElementById('dt-de').value = `${d.getFullYear()}-${p(d.getMonth() + 1)}-01`
+    document.getElementById('dt-de').value = mes01
     document.getElementById('dt-ate').value = hoje()
     document.getElementById('dt-gerar').onclick = carregarDeslocPeriodo
     document.getElementById('dt-csv').onclick = exportarDeslocCsv
@@ -188,7 +189,7 @@ const JornadaApp = (() => {
   }
 
   // ───────────────────── Pernoites (período) ─────────────────────
-  const diaLocal = (iso) => { const x = new Date(iso); return new Date(x.getFullYear(), x.getMonth(), x.getDate()) }
+  const diaLocal = (iso) => { const [y, m, dd] = diaSP(iso).split('-').map(Number); return new Date(y, m - 1, dd) }   // dia de Brasília
   const calNoites = (aIso, bIso) => Math.max(0, Math.round((diaLocal(bIso) - diaLocal(aIso)) / 86400000))
   const dDMA = (iso) => iso ? new Date(iso).toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit', year: '2-digit', timeZone: 'America/Sao_Paulo' }) : '—'
 
@@ -337,8 +338,7 @@ const JornadaApp = (() => {
       if (tecFiltro && p.tecnico_id !== tecFiltro) continue
       const r = p.respostas || {}
       if (!r.ida && !r.retorno) continue   // pré-orç sem deslocamento não entra no recorte
-      const x = new Date(p.data)
-      const dia = `${x.getFullYear()}-${String(x.getMonth() + 1).padStart(2, '0')}-${String(x.getDate()).padStart(2, '0')}`
+      const dia = diaSP(p.data)   // bucket do dia no calendário de Brasília
       itens.push({ tid: p.tecnico_id, cat: 'pre', dia, iniT: r.ida || null, fimT: r.retorno || null, ref: p.numero != null ? `Pré-orç Nº ${p.numero}` : 'Pré-orç' })
     }
     // almoço por técnico/dia (janela descontada de tudo que sobrepõe)
