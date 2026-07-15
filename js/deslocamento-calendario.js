@@ -30,7 +30,7 @@
   const diaTrecho = (t) => { const d = t && t.data; if (typeof d === 'string' && /^\d{4}-\d{2}-\d{2}/.test(d)) return d.slice(0, 10); return diaBR(t && t.saida_em) }
 
   let ym = null
-  let tecNomes = {}, veicLblMap = {}, cliNomes = {}, baseCidade = '', viagens = [], chips = [], clientesMes = []
+  let tecNomes = {}, tecFotos = {}, veicLblMap = {}, cliNomes = {}, baseCidade = '', viagens = [], chips = [], clientesMes = []
   const filtros = { busca: '', cliente: '', revisao: '' }
   const COR = { em_curso: '#1E8AE0', falta_revisar: '#179A47', revisado: '#9CA3AF' }
   const veicLbl = (id) => veicLblMap[id] || ''
@@ -52,7 +52,7 @@
       sb().from('clientes').select('id,nome'),
       sb().from('org_config').select('base_cidade').eq('id', 1).maybeSingle(),
     ])
-    tecNomes = {}; for (const u of (us.data || [])) tecNomes[u.id] = u.nome
+    tecNomes = {}; tecFotos = {}; for (const u of (us.data || [])) { tecNomes[u.id] = u.nome; tecFotos[u.id] = u.foto_url || '' }
     veicLblMap = {}; for (const v of (vc.data || [])) veicLblMap[v.id] = `${v.modelo || ''} (${v.placa || ''})`
     cliNomes = {}; for (const c of (cl.data || [])) cliNomes[c.id] = c.nome
     baseCidade = (og.data && og.data.base_cidade) || ''
@@ -121,7 +121,7 @@
     const ids = [...new Set((tr || []).map(x => x.deslocamento_id).filter(Boolean))]
     if (!ids.length) { viagens = []; chips = []; render(); return }
     const { data, error } = await sb().from('deslocamentos')
-      .select('id,cliente_id,revisado,revisado_em,deslocamento_trechos(id,ordem,origem,destino,destino_local_id,destino_cliente_id,tarefa_id,data,saida_em,chegada_em,veiculo_id,nota_transporte,espelho_legado,trecho_tecnicos(tecnico_id)),deslocamento_tarefas(tarefa_id,tarefas(numero))')
+      .select('id,cliente_id,revisado,revisado_em,deslocamento_trechos(id,ordem,origem,destino,destino_local_id,destino_cliente_id,tarefa_id,data,saida_em,chegada_em,almoco_inicio,almoco_fim,veiculo_id,nota_transporte,espelho_legado,trecho_tecnicos(tecnico_id)),deslocamento_tarefas(tarefa_id,tarefas(numero))')
       .in('id', ids)
     if (error) { document.getElementById('rc-grid').innerHTML = `<div class="rc-empty" style="grid-column:1/-1;color:var(--re)">Erro ao carregar: ${esc(error.message)}</div>`; return }
     viagens = data || []
@@ -243,11 +243,16 @@
       ['Ref. tarefa', refsN.length ? refsN.map(n => 'Nº ' + n).join(' · ') : '—', DET_ICO.doc],
       ['Trechos', String(ts.length), DET_ICO.rota],
     ].map(([k, v, ico]) => `<div class="det-sum-i">${ico}<div><span class="k">${esc(k)}</span><span class="v">${esc(v)}</span></div></div>`).join('')
-    // técnicos a bordo (viagem) em chips
-    const tecnicos = [...new Set(ts.flatMap(t => (t.trecho_tecnicos || []).map(x => x.tecnico_id)))].map(id => tecNomes[id]).filter(Boolean)
+    // técnicos a bordo (viagem) em chips — avatar com FOTO do Portal; iniciais como fallback
+    const tecIds = [...new Set(ts.flatMap(t => (t.trecho_tecnicos || []).map(x => x.tecnico_id)))].filter(id => tecNomes[id])
+    const tecnicos = tecIds.map(id => tecNomes[id])
     const tecKey = tecnicos.slice().sort().join('|')
-    const tecsHTML = tecnicos.length
-      ? tecnicos.map(n => `<span class="det-tec"><i>${esc(inic(n))}</i>${esc(n)}</span>`).join('')
+    const avT = (id) => {
+      const foto = (typeof avatarUrl === 'function') ? avatarUrl(tecFotos[id]) : ''
+      return foto ? `<img src="${esc(foto)}" alt="">` : esc(inic(tecNomes[id]))
+    }
+    const tecsHTML = tecIds.length
+      ? tecIds.map(id => `<span class="det-tec"><i>${avT(id)}</i>${esc(tecNomes[id])}</span>`).join('')
       : '<span class="det-tec">—</span>'
     // trechos como linha do tempo
     const multiDia = dias.length > 1
@@ -267,8 +272,10 @@
       }
       const tecsT = (t.trecho_tecnicos || []).map(x => tecNomes[x.tecnico_id]).filter(Boolean)
       const difTec = tecsT.length && tecsT.slice().sort().join('|') !== tecKey
+      const hm5 = (v) => v ? String(v).slice(0, 5) : '—'
       const metaParts = [
         dur ? `Duração: <b>${esc(dur)}</b>` : '',
+        (t.almoco_inicio || t.almoco_fim) ? `Refeição: <b>${esc(hm5(t.almoco_inicio))} – ${esc(hm5(t.almoco_fim))}</b>` : '',
         cid ? esc(cid) : '',
         veicT,
         difTec ? `A bordo: ${tecsT.map(esc).join(' · ')}` : '',
