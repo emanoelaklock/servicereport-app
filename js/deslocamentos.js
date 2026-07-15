@@ -721,6 +721,13 @@ const DeslocApp = (() => {
   }
   async function salvarViagem() {
     if (!vmCur || !vmCur.id) return
+    // O que se vê é o que grava: re-ancora TODO timestamp na Data do trecho antes de salvar
+    // (dado legado pode carregar âncora de outro dia — caso V-0003 — invisível no formulário)
+    for (const t of vmCur.trechos) {
+      if (!t.data) continue
+      if (t.saida_em) t.saida_em = isoNoDia(t.data, hhIso(t.saida_em), t.saida_em)
+      if (t.chegada_em) { t.chegada_em = isoNoDia(t.data, hhIso(t.chegada_em), t.chegada_em); ajustaMadrugada(t) }
+    }
     for (let i = 0; i < vmCur.trechos.length; i++) {
       const t = vmCur.trechos[i]
       if (t.veiculo_id && !(t.motoristas || []).length) return toast(`Trecho ${i + 1}: veículo da empresa exige a direção preenchida.`, 'err')
@@ -739,7 +746,8 @@ const DeslocApp = (() => {
     const revPatch = revMarcado
       ? { revisado: true, revisado_em: new Date().toISOString(), revisado_por: (user && user.id) || null }
       : { revisado: false, revisado_em: null, revisado_por: null }
-    const up = await sb().from('deslocamentos').update({ cliente_id: vmCur.cliente_id, observacoes: vmCur.observacoes || null, ...revPatch }).eq('id', vmCur.id)
+    // salvar do admin = conflito resolvido (ele acabou de conferir os valores no editor)
+    const up = await sb().from('deslocamentos').update({ cliente_id: vmCur.cliente_id, observacoes: vmCur.observacoes || null, conflito: null, ...revPatch }).eq('id', vmCur.id)
     if (up.error) return toast('Erro ao salvar: ' + up.error.message, 'err')
     // substituição completa dos trechos (cascade limpa a-bordo/direção) — preserva GPS capturado
     const del = await sb().from('deslocamento_trechos').delete().eq('deslocamento_id', vmCur.id)

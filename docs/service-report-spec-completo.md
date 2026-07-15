@@ -96,6 +96,8 @@ Artefato **próprio** do técnico (não é um campo dentro da RAT — esse é o 
 
 **Guarda de duração anômala (15/07):** trecho com **chegada − saída > 24h** é quase certamente carimbo com a data errada (caso real: V-0003, saída gravada no dia da ida com o trecho datado da volta → "101h14min"). O portal **não exibe a duração absurda**: mostra **"⚠ conferir horários (saída DD/MM, chegada DD/MM)"** na família warn — no modal do calendário (meta do trecho), na lista (junto do Tempo da linha e do detalhe) e no trecho do detalhe. O "Tempo" agregado continua sendo a soma dos carimbos (não mascara o dado); o aviso diz que o número não é confiável até corrigir. Correção: pelo editor do portal (a re-ancoragem de horários na troca de data é automática nos dois editores — app `tecnico.js` e portal `deslocamentos.js`).
 
+**Salvar do portal normaliza e resolve (15/07):** ao salvar a viagem no editor do portal, (a) **todo timestamp é re-ancorado na Data do trecho** ("o que se vê é o que grava" — a Data do trecho é a única fonte de data; saída/chegada são só hora; madrugada soma 1 dia como no editor), o que corrige âncora legada invisível no formulário só de abrir e salvar; e (b) **`conflito` é limpo** — o admin acabou de conferir os valores no editor, salvar é o ato de resolução (antes o selo "⚠ conflito — revisar" ficava pra sempre).
+
 > O **módulo "Viagem" rico** (máquina de estados, tela "em andamento" com próximo destino, portal nativo) segue **estacionado** como referência — reavaliar após a jornada contínua; os trechos acima já absorvem a parte útil dele.
 
 ---
