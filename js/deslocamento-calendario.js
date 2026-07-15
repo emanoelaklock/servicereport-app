@@ -207,36 +207,97 @@
 
   // ───────── Detalhe da VIAGEM (SÓ LEITURA) ─────────
   function fecharDet() { document.getElementById('det-back').classList.remove('open') }
+  const dmy = (iso) => iso ? iso.split('-').reverse().join('/') : '—'
+  const inic = (n) => { const p = String(n).trim().split(/\s+/).map(x => x[0]).filter(Boolean); return ((p[0] || '') + (p.length > 1 ? p[p.length - 1] : '')).toUpperCase() }
+  function fmtDur(a, b) {
+    if (!a || !b) return ''
+    const min = Math.round((new Date(b) - new Date(a)) / 60000)
+    if (!isFinite(min) || min <= 0) return ''
+    const h = Math.floor(min / 60), m = min % 60
+    return h ? `${h}h${m ? pad(m) + 'min' : ''}` : `${m}min`
+  }
+  const DET_ICO = {
+    cal: '<svg viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="17" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/></svg>',
+    car: '<svg viewBox="0 0 24 24"><path d="M3 17h2m14 0h2M5 17a2 2 0 1 0 4 0 2 2 0 0 0-4 0Zm10 0a2 2 0 1 0 4 0 2 2 0 0 0-4 0Z"/><path d="M5 17V8a1 1 0 0 1 1-1h8l4 4v6"/></svg>',
+    doc: '<svg viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6M9 13h6M9 17h4"/></svg>',
+    rota: '<svg viewBox="0 0 24 24"><circle cx="6" cy="19" r="2"/><circle cx="18" cy="5" r="2"/><path d="M8 19h7a4 4 0 0 0 0-8H9a4 4 0 0 1 0-8h7"/></svg>',
+  }
   function abrirDet(viagemId) {
     const d = viagens.find(x => x.id === viagemId); if (!d) return
     const ts = trechosDe(d)
     const meta = metaViagem(d)
-    const kv = (k, vv) => `<div class="det-kv"><span class="k">${esc(k)}</span><span class="v">${vv}</span></div>`
-    const tecnicos = [...new Set(ts.flatMap(t => (t.trecho_tecnicos || []).map(x => x.tecnico_id)))].map(id => tecNomes[id]).filter(Boolean).join(', ') || '—'
-    const veics = [...new Set(ts.map(t => t.veiculo_id).filter(Boolean))].map(veicLbl).filter(Boolean).join(' · ') || '—'
-    const refs = (d.deslocamento_tarefas || []).map(x => x.tarefas ? 'Tarefa Nº ' + String(x.tarefas.numero || '').padStart(5, '0') : null).filter(Boolean).join(' · ')
-    let sec = `<div class="det-sec"><h4>Viagem · ${ts.length} trecho${ts.length > 1 ? 's' : ''}</h4>
-      ${kv('Revisão', `<span class="rev-pill${d.revisado ? ' on' : ''}">${d.revisado ? '✓ Revisado' : 'A revisar'}</span>`)}
-      ${kv('Cliente/obra', esc(meta.clientes.join(' · ') || '—'))}
-      ${veics !== '—' ? kv('Veículo(s)', esc(veics)) : ''}
-      ${refs ? kv('Ref. Tarefa', esc(refs)) : ''}</div>`
-    sec += `<div class="det-sec"><h4>Técnicos a bordo</h4><div class="v">${esc(tecnicos)}</div></div>`
+    // cabeçalho: cliente/obra como título + resumo da viagem como subtítulo + badge de revisão
+    const refsN = (d.deslocamento_tarefas || []).map(x => x.tarefas ? String(x.tarefas.numero || '').padStart(5, '0') : null).filter(Boolean)
+    document.getElementById('det-title').textContent = meta.clientes.join(' · ') || 'Viagem'
+    document.getElementById('det-sub').textContent = ['Viagem', `${ts.length} trecho${ts.length > 1 ? 's' : ''}`, ...refsN.map(n => 'Tarefa ' + n)].join(' · ')
+    const pill = document.getElementById('det-rev-pill')
+    pill.className = 'rev-pill' + (d.revisado ? ' on' : '')
+    pill.innerHTML = `<i></i>${d.revisado ? 'Revisado' : 'A revisar'}`
+    // resumo em grid
+    const dias = [...new Set(ts.map(diaTrecho).filter(Boolean))].sort()
+    const dataV = !dias.length ? '—' : dias.length === 1 ? dmy(dias[0]) : `${dmy(dias[0]).slice(0, 5)} – ${dmy(dias[dias.length - 1])}`
+    const veics = [...new Set(ts.map(t => t.veiculo_id).filter(Boolean))].map(veicLbl).filter(Boolean)
+    const sumHTML = [
+      ['Data', dataV, DET_ICO.cal],
+      ['Veículo', veics.join(' · ') || '—', DET_ICO.car],
+      ['Ref. tarefa', refsN.length ? refsN.map(n => 'Nº ' + n).join(' · ') : '—', DET_ICO.doc],
+      ['Trechos', String(ts.length), DET_ICO.rota],
+    ].map(([k, v, ico]) => `<div class="det-sum-i">${ico}<div><span class="k">${esc(k)}</span><span class="v">${esc(v)}</span></div></div>`).join('')
+    // técnicos a bordo (viagem) em chips
+    const tecnicos = [...new Set(ts.flatMap(t => (t.trecho_tecnicos || []).map(x => x.tecnico_id)))].map(id => tecNomes[id]).filter(Boolean)
+    const tecKey = tecnicos.slice().sort().join('|')
+    const tecsHTML = tecnicos.length
+      ? tecnicos.map(n => `<span class="det-tec"><i>${esc(inic(n))}</i>${esc(n)}</span>`).join('')
+      : '<span class="det-tec">—</span>'
+    // trechos como linha do tempo
+    const multiDia = dias.length > 1
     let lastV = ''   // veículo herda do trecho anterior quando o trecho não tem (e sem nota)
-    sec += `<div class="det-sec"><h4>Trechos</h4>` + ts.map(t => {
+    const legsHTML = ts.map((t, i) => {
       if (t.veiculo_id) lastV = veicLbl(t.veiculo_id)
-      const tecs = (t.trecho_tecnicos || []).map(x => esc(tecNomes[x.tecnico_id] || '—')).join(' · ')
-      const veicT = t.veiculo_id ? esc(veicLbl(t.veiculo_id)) : (t.nota_transporte ? `<span class="dim">sem veículo (${esc(t.nota_transporte)})</span>` : (lastV ? `${esc(lastV)} <span class="dim">(herdado)</span>` : '—'))
-      const volta = ehBase(t.destino) ? ' · <span class="dim">Volta</span>' : ''
-      return `<div class="det-leg"><div class="lh">${t.ordem}. ${esc(origemLbl(t))} → ${esc(destinoLbl(t))}${volta}</div>
-        ${kv('Data', esc(diaTrecho(t) ? diaTrecho(t).split('-').reverse().join('/') : '—'))}
-        ${kv('Saída', esc(horaBR(t.saida_em)))}
-        ${kv('Chegada', esc(horaBR(t.chegada_em)))}
-        ${kv('Veículo', veicT)}
-        ${tecs ? kv('A bordo', tecs) : ''}</div>`
-    }).join('') + `</div>`
-    document.getElementById('det-body').innerHTML = sec
-    document.getElementById('det-editar').onclick = () => { location.href = `deslocamentos.html?editar=${encodeURIComponent(viagemId)}` }
+      const volta = ehBase(t.destino)
+      const destino = volta ? 'Traders' : ((t.destino_cliente_id && cliNomes[t.destino_cliente_id]) || fmtLugar(t.destino) || '—')
+      const cid = volta ? '' : fmtLugar(t.destino)
+      const dur = fmtDur(t.saida_em, t.chegada_em)
+      // veículo do trecho só quando difere do resumo (ou sem veículo / herdado)
+      let veicT = ''
+      if (!t.veiculo_id && t.nota_transporte) veicT = `sem veículo (${esc(t.nota_transporte)})`
+      else {
+        const lbl = t.veiculo_id ? veicLbl(t.veiculo_id) : lastV
+        if (lbl && (veics.length !== 1 || lbl !== veics[0])) veicT = esc(lbl) + (t.veiculo_id ? '' : ' <span class="dim">(herdado)</span>')
+      }
+      const tecsT = (t.trecho_tecnicos || []).map(x => tecNomes[x.tecnico_id]).filter(Boolean)
+      const difTec = tecsT.length && tecsT.slice().sort().join('|') !== tecKey
+      const metaParts = [
+        dur ? `Duração: <b>${esc(dur)}</b>` : '',
+        cid ? esc(cid) : '',
+        veicT,
+        difTec ? `A bordo: ${tecsT.map(esc).join(' · ')}` : '',
+      ].filter(Boolean)
+      const head = [
+        ts.length > 1 ? `<span class="det-leg-n">Trecho ${t.ordem || i + 1}</span>` : '',
+        volta ? `<span class="det-leg-tag">Volta</span>` : '',
+        multiDia ? `<span class="det-leg-d">${esc(dmy(diaTrecho(t)))}</span>` : '',
+      ].filter(Boolean).join('')
+      return `<div class="det-leg">
+        ${head ? `<div class="det-leg-h">${head}</div>` : ''}
+        <div class="det-tl">
+          <div class="det-tl-e"><span class="h">${esc(horaBR(t.saida_em))}</span><span class="p">${esc(origemLbl(t))}</span><span class="l">Saída</span></div>
+          <div class="det-tl-line"></div>
+          <div class="det-tl-e b"><span class="h">${esc(horaBR(t.chegada_em))}</span><span class="p">${esc(destino)}</span><span class="l">Chegada</span></div>
+        </div>
+        ${metaParts.length ? `<div class="det-leg-meta">${metaParts.join(' · ')}</div>` : ''}</div>`
+    }).join('')
+    document.getElementById('det-body').innerHTML =
+      `<div><div class="det-st">Resumo</div><div class="det-sum">${sumHTML}</div></div>` +
+      `<div><div class="det-st">Técnicos a bordo</div><div class="det-tecs">${tecsHTML}</div></div>` +
+      `<div><div class="det-st">Trechos</div><div class="det-legs">${legsHTML}</div></div>`
+    // rodapé: hierarquia por estado — a revisar: verde primário; revisado: Editar primário
+    const bEd = document.getElementById('det-editar')
+    bEd.className = d.revisado ? 'btn btn-primary' : 'btn det-btn-blue-o'
+    bEd.style.order = d.revisado ? '1' : ''   // revisado: Editar vira a ação principal, na ponta direita
+    bEd.onclick = () => { location.href = `deslocamentos.html?editar=${encodeURIComponent(viagemId)}` }
     const bRev = document.getElementById('det-revisar')
+    bRev.className = d.revisado ? 'btn btn-ghost' : 'btn det-btn-green'
     bRev.textContent = d.revisado ? 'Desfazer revisão' : 'Marcar como revisado'
     bRev.onclick = () => marcarRevisado(viagemId, !d.revisado)
     document.getElementById('det-back').classList.add('open')
