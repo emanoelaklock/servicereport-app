@@ -137,10 +137,11 @@
         const tecsT = (t.trecho_tecnicos || []).map(x => tecNomes[x.tecnico_id]).filter(Boolean)
         const veicT = t.veiculo_id ? veicLbl(t.veiculo_id) : (t.nota_transporte || lastVeic || '')
         const rota = `${origemLbl(t)} → ${destinoLbl(t)}`
+        const vNum = d.numero ? 'V-' + String(d.numero).padStart(4, '0') : ''
         chips.push({
-          viagemId: d.id, dia, rota, tecnico: tecsT.join(', ') || '—',
+          viagemId: d.id, dia, rota, vNum, tecnico: tecsT.join(', ') || '—',
           veiculo: veicT || '—', estado: meta.estado, revisado: !!d.revisado, clientes: meta.clientes,
-          hay: (rota + ' ' + meta.hay).toLowerCase(),
+          hay: (vNum + ' ' + rota + ' ' + meta.hay).toLowerCase(),   // busca acha "V-0003"
         })
       }
     }
@@ -158,10 +159,10 @@
 
   function chipHTML(c) {
     const cor = COR[c.estado] || '#48506A'
-    const titulo = `${c.rota}\n${c.tecnico}${c.veiculo !== '—' ? ' · ' + c.veiculo : ''}`
+    const titulo = `${c.vNum ? c.vNum + ' · ' : ''}${c.rota}\n${c.tecnico}${c.veiculo !== '—' ? ' · ' + c.veiculo : ''}`
     // link real p/ o editor: clique normal abre o detalhe (modal); ctrl/⌘/meio/direito abrem o editor em nova aba
     return `<a class="rc-chip" href="deslocamentos.html?editar=${encodeURIComponent(c.viagemId)}" data-id="${esc(c.viagemId)}" title="${esc(titulo)}" style="background:${cor}1A;border-left:3px solid ${cor}">
-      <span class="task" style="color:${corTextoLegivel(cor)}">${esc(c.rota)}</span>
+      <span class="task" style="color:${corTextoLegivel(cor)}">${c.vNum ? `<b class="vno">${esc(c.vNum)}</b> · ` : ''}${esc(c.rota)}</span>
       <span class="cli">${esc(c.tecnico)}</span>
       <span class="tec">${esc(c.veiculo)}</span>
     </a>`
