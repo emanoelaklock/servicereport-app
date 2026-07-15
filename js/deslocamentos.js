@@ -459,7 +459,8 @@ const DeslocApp = (() => {
   }
   // chegada "antes" da saída = virou o dia (chegou de madrugada) → soma 1 dia
   const ajustaMadrugada = (t) => {
-    if (t.saida_em && t.chegada_em && new Date(t.chegada_em) <= new Date(t.saida_em)) {
+    // ESTRITO (<): chegada no MESMO minuto da saída é trecho de 0 min, não virada de dia
+    if (t.saida_em && t.chegada_em && new Date(t.chegada_em) < new Date(t.saida_em)) {
       t.chegada_em = new Date(new Date(t.chegada_em).getTime() + 86400000).toISOString()
     }
   }

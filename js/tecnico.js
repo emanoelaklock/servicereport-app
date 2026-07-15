@@ -1826,9 +1826,10 @@
     if (limpou) l.add(campo); else l.delete(campo)
     t._limpar = [...l]
   }
-  // chegada "antes" da saída = virou o dia (chegou de madrugada) → soma 1 dia
+  // chegada "antes" da saída = virou o dia (chegou de madrugada) → soma 1 dia.
+  // ESTRITO (<): saída e chegada no MESMO minuto é trecho de 0 min (toque rápido), não +24h.
   const ajustaMadrugada = (t) => {
-    if (t.saida_em && t.chegada_em && new Date(t.chegada_em) <= new Date(t.saida_em)) {
+    if (t.saida_em && t.chegada_em && new Date(t.chegada_em) < new Date(t.saida_em)) {
       t.chegada_em = new Date(new Date(t.chegada_em).getTime() + 86400000).toISOString()
     }
   }
@@ -1870,6 +1871,14 @@
     if (qual === 'saida' && !t.data) t.data = jorHoje()
     const ag = new Date()
     const hh = `${String(ag.getHours()).padStart(2, '0')}:${String(ag.getMinutes()).padStart(2, '0')}`
+    // A virada de madrugada (+1 dia na chegada) NUNCA nasce em silêncio: confirma antes.
+    const seria = isoNoDia(t.data, hh)
+    if (qual === 'chegada' && t.saida_em && seria && new Date(seria) < new Date(t.saida_em)) {
+      if (!confirm(`Saída marcada às ${hhmmDe(t.saida_em)} e chegada agora às ${hh} — confirma que a chegada foi DEPOIS da meia-noite (conta no dia seguinte)?`)) return
+    }
+    if (qual === 'saida' && t.chegada_em && seria && new Date(seria) >= new Date(t.chegada_em)) {
+      if (!confirm(`A chegada deste trecho já está marcada às ${hhmmDe(t.chegada_em)}. Marcar a saída às ${hh} empurra a chegada para o DIA SEGUINTE — está certo? (Se a saída foi antes da chegada, corrija com o escritório.)`)) return
+    }
     t[qual + '_em'] = isoNoDia(t.data, hh)   // hora de agora, no DIA do trecho
     ajustaMadrugada(t)
     renderTrechos()   // mostra a hora já; o GPS chega em seguida
