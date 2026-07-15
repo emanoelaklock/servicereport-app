@@ -182,7 +182,9 @@
 .rd-matdel{border:none;background:none;color:var(--sr-pend-m);font-size:18px;line-height:1;cursor:pointer;padding:0 4px}
 
 /* ── Local (GPS): snapshot estático do satélite (tiles + pino), clique abre o Google Maps ── */
-.rd-mapa-snap{position:relative;display:block;height:110px;overflow:hidden;border-radius:9px;border:1px solid var(--sr-line);margin-top:7px;background:var(--sur2)}
+.rd-f-gps{flex-wrap:wrap}
+.rd-f-gps .rd-mapa-snap{width:100%}
+.rd-mapa-snap{position:relative;display:block;height:110px;overflow:hidden;border-radius:9px;border:1px solid var(--sr-line);margin-top:4px;background:var(--sur2)}
 .rd-mapa-tiles{position:absolute;left:50%;top:50%;display:block}
 .rd-mapa-tiles img{position:absolute;width:256px;height:256px;max-width:none}
 .rd-mapa-pin{position:absolute;left:50%;top:50%;width:30px;height:30px;transform:translate(-50%,-100%);filter:drop-shadow(0 2px 3px rgba(0,0,0,.35))}

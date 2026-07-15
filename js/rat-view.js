@@ -227,7 +227,9 @@ window.RatView = (function () {
       ${campoOS('cal', 'Data da Tarefa', fdt(r.data_tarefa, { numeric: true }))}
       ${campoOS('tag', 'Tipo de tarefa', esc(tipoNomeRat(r)))}
       ${campoOS('clock', 'Duração', fmtMin(tempoRat(r)))}
-      ${(r.checkin_lat != null && r.checkin_lng != null) ? campoOS('pin', 'Local (GPS)', `<a href="https://www.google.com/maps?q=${r.checkin_lat},${r.checkin_lng}" target="_blank" rel="noopener">abrir no Google Maps ↗</a>${r.checkin_precisao ? ` <span class="dim">(±${Math.round(r.checkin_precisao)} m)</span>` : ''}${mapaSnapHTML(r.checkin_lat, r.checkin_lng)}`) : ''}
+      ${(r.checkin_lat != null && r.checkin_lng != null)
+        ? `<div class="rd-f rd-f-gps">${fic('pin')}<div class="rd-fc"><label>Local (GPS)</label><div class="v"><a href="https://www.google.com/maps?q=${r.checkin_lat},${r.checkin_lng}" target="_blank" rel="noopener">abrir no Google Maps ↗</a>${r.checkin_precisao ? ` <span class="dim">(±${Math.round(r.checkin_precisao)} m)</span>` : ''}</div></div>${mapaSnapHTML(r.checkin_lat, r.checkin_lng)}</div>`
+        : ''}
     </div></div>`
     // Orientação: mesmo conteúdo, agora como seção própria em bloco branco com bullets
     if (tf.orientacao) h += `<div class="rd-sec"><div class="rd-sec-t">Orientação</div><div class="rd-caixa rd-rich">${multiRico(tf.orientacao)}</div></div>`

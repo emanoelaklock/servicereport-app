@@ -105,7 +105,9 @@ window.PdfTarefa = (function () {
   })
   const field = (label, value) => ({ width: '*',
     stack: [{ text: String(label).toUpperCase(), fontSize: 6.8, color: GRAY, characterSpacing: 0.4, margin: [0, 0, 0, 2] },
-            { text: (value == null || value === '') ? '—' : String(value), fontSize: 9.5, color: INK, lineHeight: 1.15 }],
+            (value && typeof value === 'object' && value.node)
+              ? value.node   // célula rica (ex.: Local (GPS) com o mapa embaixo das coordenadas)
+              : { text: (value == null || value === '') ? '—' : String(value), fontSize: 9.5, color: INK, lineHeight: 1.15 }],
     margin: [0, 0, 0, 8] })
   // cada linha da grade é INDIVISÍVEL: par rótulo+valor nunca separa entre páginas
   function grid(items) {
@@ -350,8 +352,17 @@ window.PdfTarefa = (function () {
     const tf = r.tarefa || {}
     const osFields = [['Nº da OS', '#' + ratNo], ['Data da Tarefa', fmtDataBR(r.data_tarefa)],
       ['Tipo de tarefa', RatView.tipoNomeRat(r)], ['Duração', tempo]]
-    if (r.checkin_lat != null && r.checkin_lng != null)
-      osFields.push(['Local (GPS)', `${Number(r.checkin_lat).toFixed(5)}, ${Number(r.checkin_lng).toFixed(5)}${r.checkin_precisao ? ` (±${Math.round(r.checkin_precisao)} m)` : ''}`])
+    if (r.checkin_lat != null && r.checkin_lng != null) {
+      const coordsTxt = `${Number(r.checkin_lat).toFixed(5)}, ${Number(r.checkin_lng).toFixed(5)}${r.checkin_precisao ? ` (±${Math.round(r.checkin_precisao)} m)` : ''}`
+      // PDF interno: o snapshot entra DENTRO do campo Local (GPS), abaixo das coordenadas,
+      // com link clicável pro Google Maps. PDF do cliente: só as coordenadas em texto.
+      osFields.push(['Local (GPS)', det.mapaPdf
+        ? { node: { stack: [
+            { text: coordsTxt, fontSize: 9.5, color: INK, lineHeight: 1.15 },
+            { image: det.mapaPdf, width: 200, link: `https://www.google.com/maps?q=${r.checkin_lat},${r.checkin_lng}`, margin: [0, 4, 0, 0] },
+          ] } }
+        : coordsTxt])
+    }
     if (tf.orientacao) {
       // Orientação idêntica à orientação geral da tarefa (que já está na capa) não se repete
       // em cada RAT — vira uma referência. RAT avulsa (sem capa) mostra o texto completo.
@@ -360,9 +371,6 @@ window.PdfTarefa = (function () {
       osFields.push({ 0: 'Orientação', 1: igualGeral ? 'Conforme orientação geral da tarefa.' : tf.orientacao, full: true })
     }
     c.push({ stack: [faixa, ...sec('Dados da OS'), ...grid(osFields)], unbreakable: true })
-
-    // Mapa do local (SÓ PDF interno): onde a RAT foi preenchida; clique abre o Google Maps.
-    if (det.mapaPdf) c.push({ image: det.mapaPdf, width: 240, link: `https://www.google.com/maps?q=${r.checkin_lat},${r.checkin_lng}`, margin: [0, 2, 0, 6] })
 
     // Visita improdutiva — bloco inteiro indivisível (título + campos + nota)
     if (r.status === 'improdutiva' || r.atendimento_executado === false) {
