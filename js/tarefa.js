@@ -1639,12 +1639,14 @@ const TarefaApp = (() => {
 
   // RAT "em andamento" de HOJE = legitimamente em execução. De um dia anterior =
   // o técnico esqueceu de encerrar — é "não encerrada" (ação do admin), não um travamento.
-  const hojeMeiaNoite = () => { const d = new Date(); return new Date(d.getFullYear(), d.getMonth(), d.getDate()) }
+  const hojeMeiaNoite = () => { const [y, m, dd] = diaSP().split('-').map(Number); return new Date(y, m - 1, dd) }   // "hoje" no calendário de Brasília
   function diaDaRat(r) {
     const s = (r.respostas && r.respostas.data) || r.data_tarefa || r.criado_em
     if (!s) return null
-    const d = new Date(String(s).length <= 10 ? s + 'T00:00:00' : s)
-    return isNaN(d) ? null : new Date(d.getFullYear(), d.getMonth(), d.getDate())
+    const str = String(s)
+    const diaStr = str.length <= 10 ? str.slice(0, 10) : diaSP(str)   // timestamp → dia de Brasília
+    const [y, m, dd] = diaStr.split('-').map(Number)
+    return (y && m && dd) ? new Date(y, m - 1, dd) : null
   }
   const ratNaoEncerrada = (r) => { if (r.status !== 'em_andamento') return false; const dia = diaDaRat(r); return !!dia && dia < hojeMeiaNoite() }
   const diasAberta = (r) => { const dia = diaDaRat(r); return dia ? Math.round((hojeMeiaNoite() - dia) / 86400000) : 0 }
