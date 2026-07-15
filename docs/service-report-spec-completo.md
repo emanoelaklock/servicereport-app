@@ -114,6 +114,8 @@ Artefato **próprio** do técnico (não é um campo dentro da RAT — esse é o 
 - **Drill-down rastreável** por técnico/dia: viagem com nº oficial (V-0231, link), RAT Ida/Retorno (link), pré-orçamento com nº (sem link — não há visualizador).
 - **Exportação CSV** da tabela (`;` + BOM). PDF fora por ora.
 - Arquitetura: reusa `vw_participacoes_dia` filtrada por tipo + `almocos` + `pre_orcamentos` (sem view nova), mesmo motor de união (`uniaoMin`) da tabela Horas do dia. Fonte C fora da view de propósito (não poluir consumo futuro de faturamento).
+- **Consistência entre telas (regra):** o número do relatório usa a MESMA regra da tabela Horas do dia — união de intervalos − janela de almoço da pessoa (validado por amostragem: V-0006 do Pablo, 8h26 do trecho − 1h de almoço = 07h26 nas duas contas). Divergência entre as telas é bug, não interpretação.
+- **Acesso (decisão, não omissão):** o relatório é **só gestão** — `admin` + `gestor_axis`, herdado do `PAGE_ALLOWED` da página Jornada. O **técnico** vê as **próprias viagens** no app (Home > Deslocamento: lista com trechos, horas e total da viagem), mas **não tem visão agregada** de horas em trânsito; se essa necessidade surgir, nasce como card no app de campo — não se abre o portal pro técnico.
 
 > O **módulo "Viagem" rico** (máquina de estados, tela "em andamento" com próximo destino, portal nativo) segue **estacionado** como referência — reavaliar após a jornada contínua; os trechos acima já absorvem a parte útil dele.
 
