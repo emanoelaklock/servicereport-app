@@ -51,7 +51,14 @@ const JornadaApp = (() => {
     document.getElementById('p-de').value = `${d.getFullYear()}-${p(d.getMonth() + 1)}-01`
     document.getElementById('p-ate').value = hoje()
     document.getElementById('p-gerar').onclick = carregarPernoites
-    if ((tec.data || []).length) { carregar(); carregarPernoites() }
+    // Deslocamento por técnico (período): mesmo padrão dos pernoites (todos + mês corrente)
+    document.getElementById('dt-tec').innerHTML = '<option value="">Todos os técnicos</option>' +
+      (tec.data || []).map(t => `<option value="${esc(t.id)}">${esc(t.nome || '(sem nome)')}</option>`).join('')
+    document.getElementById('dt-de').value = `${d.getFullYear()}-${p(d.getMonth() + 1)}-01`
+    document.getElementById('dt-ate').value = hoje()
+    document.getElementById('dt-gerar').onclick = carregarDeslocPeriodo
+    document.getElementById('dt-csv').onclick = exportarDeslocCsv
+    if ((tec.data || []).length) { carregar(); carregarPernoites(); carregarDeslocPeriodo() }
     else document.getElementById('j-timeline').innerHTML = '<div class="j-empty">Nenhum técnico ativo.</div>'
   }
 
@@ -273,6 +280,170 @@ const JornadaApp = (() => {
         <td>${det || '—'}</td>
       </tr>`
     }).join('') + `<tr class="tot"><td>Total</td><td>${totV}</td><td class="p-noites">${totN}</td><td></td></tr>`
+  }
+
+  // ───────────────────── Deslocamento por técnico (período) ─────────────────────
+  // Mapa aprovado (15/07): fonte A = desloc do dia (RAT, tipo `desloc_dia`) · B = viagem
+  // (trechos POR PESSOA, tipo `deslocamento`) · C = pré-orçamento (ida→retorno, fora da view).
+  // Total = UNIÃO das fontes − janela de almoço do dia (sobreposição conta uma vez — teto).
+  // Sobreposição com RAT vira SINALIZAÇÃO na linha (dado fisicamente inconsistente: expõe,
+  // nunca subtrai em silêncio). Madrugada (fim < início na view, que rebaixa pra ::time)
+  // divide nos DOIS dias — recorte por período exato. Registro sem duração (trecho aberto,
+  // horário incompleto) NÃO conta no total e é declarado na linha e no rodapé.
+  let dtLinhas = []   // linhas calculadas (CSV + drill-down)
+  const fmtHm2 = (m) => `${String(Math.floor(m / 60)).padStart(2, '0')}h${String(Math.round(m % 60)).padStart(2, '0')}`
+  const diaMaisN = (dia, n) => { const [y, mo, d] = String(dia).split('-').map(Number); const x = new Date(y, mo - 1, d + n); return `${x.getFullYear()}-${String(x.getMonth() + 1).padStart(2, '0')}-${String(x.getDate()).padStart(2, '0')}` }
+  // intervalo de um artefato → [{dia, ini, fim}] em minutos; divide a madrugada; null = sem duração
+  function dtSpans(dia, iniT, fimT) {
+    const i = tMin(iniT), f = tMin(fimT)
+    if (i == null || f == null) return null
+    if (f >= i) return [{ dia, ini: i, fim: f }]
+    return [{ dia, ini: i, fim: 1440 }, { dia: diaMaisN(dia, 1), ini: 0, fim: f }]   // virou a meia-noite
+  }
+  const dtOverlapMin = (unis, ini, fim) => unis.reduce((s, u) => s + Math.max(0, Math.min(u[1], fim) - Math.max(u[0], ini)), 0)
+
+  async function carregarDeslocPeriodo() {
+    const de = document.getElementById('dt-de').value, ate = document.getElementById('dt-ate').value
+    const tecFiltro = document.getElementById('dt-tec').value
+    if (!de || !ate) return toast('Informe o período.', 'err')
+    const deQ = diaMaisN(de, -1)   // véspera: captura a parte pós-meia-noite que cai no 1º dia do período
+    const [parts, alms, preo] = await Promise.all([
+      sb().from('vw_participacoes_dia').select('*').gte('dia', deQ).lte('dia', ate),
+      sb().from('almocos').select('tecnico_id,dia,inicio,fim').gte('dia', de).lte('dia', ate),
+      sb().from('pre_orcamentos').select('id,numero,tecnico_id,respostas,data')
+        .gte('data', deQ + 'T00:00:00-03:00').lte('data', ate + 'T23:59:59.999-03:00'),
+    ])
+    if (parts.error) return toast('Erro: ' + parts.error.message, 'err')
+    // nº oficial das viagens (V-0003) pro drill-down rastreável
+    const viagemIds = [...new Set((parts.data || []).filter(p => p.artefato_tipo === 'deslocamento').map(p => p.artefato_id))]
+    let vNum = {}
+    if (viagemIds.length) {
+      const { data } = await sb().from('deslocamentos').select('id,numero').in('id', viagemIds)
+      for (const d of (data || [])) vNum[d.id] = d.numero
+    }
+    // normaliza tudo em itens {tid, cat, dia, iniT, fimT, ref, href}
+    const itens = []
+    for (const p of (parts.data || [])) {
+      if (tecFiltro && p.tecnico_id !== tecFiltro) continue
+      if (p.artefato_tipo === 'rat') { itens.push({ tid: p.tecnico_id, cat: 'rat', dia: p.dia, iniT: p.inicio, fimT: p.fim, ref: `RAT ${p.referencia || ''}${p.rat_seq != null ? '/' + String(p.rat_seq).padStart(2, '0') : ''}` }); continue }
+      if (p.artefato_tipo === 'deslocamento') {
+        const nv = vNum[p.artefato_id]
+        itens.push({ tid: p.tecnico_id, cat: 'viagem', dia: p.dia, iniT: p.inicio, fimT: p.fim, ref: nv ? `V-${String(nv).padStart(4, '0')}` : 'Viagem', href: `deslocamentos.html?editar=${encodeURIComponent(p.artefato_id)}` })
+      } else if (p.artefato_tipo === 'desloc_dia') {
+        itens.push({ tid: p.tecnico_id, cat: 'dia', dia: p.dia, iniT: p.inicio, fimT: p.fim, ref: `RAT ${p.referencia || ''}${p.rat_seq != null ? '/' + String(p.rat_seq).padStart(2, '0') : ''}`, href: `rat.html?id=${encodeURIComponent(p.artefato_id)}` })
+      }
+    }
+    for (const p of (preo.data || [])) {
+      if (tecFiltro && p.tecnico_id !== tecFiltro) continue
+      const r = p.respostas || {}
+      if (!r.ida && !r.retorno) continue   // pré-orç sem deslocamento não entra no recorte
+      const x = new Date(p.data)
+      const dia = `${x.getFullYear()}-${String(x.getMonth() + 1).padStart(2, '0')}-${String(x.getDate()).padStart(2, '0')}`
+      itens.push({ tid: p.tecnico_id, cat: 'pre', dia, iniT: r.ida || null, fimT: r.retorno || null, ref: p.numero != null ? `Pré-orç Nº ${p.numero}` : 'Pré-orç' })
+    }
+    // almoço por técnico/dia (janela descontada de tudo que sobrepõe)
+    const almDe = {}
+    for (const a of (alms.data || [])) almDe[`${a.tecnico_id}|${a.dia}`] = [tMin(a.inicio), tMin(a.fim)]
+    // agrupa: tid → dia → {viagem:[], dia:[], pre:[], rat:[]}; conta sem-duração; guarda drill
+    const T = {}
+    const tDe = (tid) => (T[tid] = T[tid] || { porDia: {}, semDur: 0, drill: {}, sobre: new Set() })
+    for (const it of itens) {
+      const t = tDe(it.tid)
+      const spans = dtSpans(it.dia, it.iniT, it.fimT)
+      const dentro = (d) => d >= de && d <= ate
+      if (spans === null) {
+        if (it.cat !== 'rat' && dentro(it.dia)) {
+          t.semDur++
+          ;(t.drill[it.dia] = t.drill[it.dia] || []).push({ ...it, semDur: true })
+        }
+        continue
+      }
+      const virou = spans.length > 1
+      for (const s of spans) {
+        if (!dentro(s.dia)) continue
+        const d = (t.porDia[s.dia] = t.porDia[s.dia] || { viagem: [], dia: [], pre: [], rat: [] })
+        d[it.cat].push([s.ini, s.fim, it.ref])   // ref junto do intervalo (sinal de sobreposição)
+        if (it.cat !== 'rat') (t.drill[s.dia] = t.drill[s.dia] || []).push({ ...it, faixa: `${String(it.iniT).slice(0, 5)}–${String(it.fimT).slice(0, 5)}${virou ? ' (vira o dia)' : ''}` })
+      }
+    }
+    // totais por técnico: união por fonte e união geral − almoço; sobreposição com RAT = sinal
+    dtLinhas = Object.entries(T).map(([tid, t]) => {
+      const tot = { viagem: 0, dia: 0, pre: 0, uniao: 0 }
+      const dias = new Set()
+      for (const [dia, d] of Object.entries(t.porDia)) {
+        const alm = almDe[`${tid}|${dia}`]
+        const desconta = (unis) => unis.reduce((s, u) => s + (u[1] - u[0]), 0) - (alm ? dtOverlapMin(unis, alm[0], alm[1]) : 0)
+        const uV = uniaoMin(d.viagem), uD = uniaoMin(d.dia), uP = uniaoMin(d.pre)
+        const uTodos = uniaoMin([...d.viagem, ...d.dia, ...d.pre])
+        if (uTodos.length) dias.add(dia)
+        tot.viagem += desconta(uV); tot.dia += desconta(uD); tot.pre += desconta(uP)
+        tot.uniao += desconta(uTodos)
+        // sobreposição física com RAT: expõe (nunca subtrai em silêncio)
+        for (const r of d.rat) for (const u of uTodos) {
+          if (Math.min(u[1], r[1]) - Math.max(u[0], r[0]) > 0) { t.sobre.add(r[2] || 'RAT'); break }
+        }
+      }
+      return { tid, nome: tecNomes[tid] || '—', dias: dias.size, ...tot, semDur: t.semDur, sobre: [...t.sobre], drill: t.drill }
+    }).filter(l => l.dias || l.semDur)
+    dtLinhas.sort((a, b) => b.uniao - a.uniao || a.nome.localeCompare(b.nome))
+    renderDeslocPeriodo()
+  }
+
+  function renderDeslocPeriodo() {
+    const tb = document.getElementById('dt-tbody')
+    const totalGeral = dtLinhas.reduce((s, l) => s + l.uniao, 0)
+    const semDurGeral = dtLinhas.reduce((s, l) => s + l.semDur, 0)
+    document.getElementById('dt-resumo').textContent = dtLinhas.length ? `${dtLinhas.length} técnico(s) · ${fmtHm2(totalGeral)} em trânsito (união)` : ''
+    document.getElementById('dt-csv').style.display = dtLinhas.length ? '' : 'none'
+    document.getElementById('dt-rodape').textContent = semDurGeral
+      ? `⚠ ${semDurGeral} registro(s) sem duração no período (trecho aberto ou horário incompleto) — NÃO contam no total; veja o detalhe de cada técnico.`
+      : (dtLinhas.length ? 'Todos os registros do período têm duração — total íntegro.' : '')
+    if (!dtLinhas.length) { tb.innerHTML = '<tr><td colspan="8" class="j-empty">Nenhum deslocamento no período.</td></tr>'; return }
+    tb.innerHTML = dtLinhas.map((l, i) => {
+      const sinais = [
+        ...l.sobre.map(r => `<span class="dt-sinal warn">⚠ sobrepõe ${esc(r)}</span>`),
+        l.semDur ? `<span class="dt-sinal">⏱ ${l.semDur} sem duração (horas parciais)</span>` : '',
+      ].filter(Boolean).join(' ')
+      const drill = Object.entries(l.drill).sort(([a], [b]) => a.localeCompare(b)).map(([dia, its]) => {
+        const [y, m, d] = dia.split('-')
+        const linha = its.map(it => {
+          const lbl = `${esc(it.ref)}${it.semDur ? ' · <b>sem duração</b>' : ` · ${esc(it.faixa || '')}`}`
+          return it.href ? `<a href="${it.href}" target="_blank" rel="noopener">${lbl}</a>` : lbl
+        }).join(' · ')
+        return `<div class="p-trip">${d}/${m}: ${linha}</div>`
+      }).join('')
+      return `<tr>
+        <td><span class="hd-tec"><span class="av">${avHtml(l.tid)}</span><span class="nm">${esc(l.nome)}</span></span></td>
+        <td>${l.dias}</td>
+        <td>${l.viagem ? fmtHm2(l.viagem) : '—'}</td>
+        <td>${l.dia ? fmtHm2(l.dia) : '—'}</td>
+        <td>${l.pre ? fmtHm2(l.pre) : '—'}</td>
+        <td><b>${fmtHm2(l.uniao)}</b></td>
+        <td>${sinais || '—'}</td>
+        <td><button type="button" class="btn btn-sm" data-dtdet="${i}">Detalhe</button></td>
+      </tr>
+      <tr class="dt-drill" id="dt-drill-${i}" style="display:none"><td colspan="8">${drill || '—'}</td></tr>`
+    }).join('') + `<tr class="tot"><td>Total</td><td></td>
+      <td>${fmtHm2(dtLinhas.reduce((s, l) => s + l.viagem, 0))}</td>
+      <td>${fmtHm2(dtLinhas.reduce((s, l) => s + l.dia, 0))}</td>
+      <td>${fmtHm2(dtLinhas.reduce((s, l) => s + l.pre, 0))}</td>
+      <td><b>${fmtHm2(totalGeral)}</b></td><td colspan="2"></td></tr>`
+    tb.querySelectorAll('[data-dtdet]').forEach(b => {
+      b.onclick = () => { const el = document.getElementById('dt-drill-' + b.dataset.dtdet); el.style.display = el.style.display === 'none' ? '' : 'none' }
+    })
+  }
+
+  function exportarDeslocCsv() {
+    if (!dtLinhas.length) return
+    const de = document.getElementById('dt-de').value, ate = document.getElementById('dt-ate').value
+    const linhas = [['tecnico', 'dias', 'horas_viagem', 'horas_desloc_dia', 'horas_preorc', 'total_uniao', 'sem_duracao', 'sobrepoe_rat'].join(';')]
+    for (const l of dtLinhas) linhas.push([`"${l.nome.replaceAll('"', '""')}"`, l.dias, fmtHm2(l.viagem), fmtHm2(l.dia), fmtHm2(l.pre), fmtHm2(l.uniao), l.semDur, `"${l.sobre.join(' | ')}"`].join(';'))
+    const blob = new Blob(['﻿' + linhas.join('\r\n')], { type: 'text/csv;charset=utf-8' })
+    const a = document.createElement('a')
+    a.href = URL.createObjectURL(blob)
+    a.download = `deslocamento-por-tecnico_${de}_a_${ate}.csv`
+    a.click()
+    URL.revokeObjectURL(a.href)
   }
 
   async function carregar() {
