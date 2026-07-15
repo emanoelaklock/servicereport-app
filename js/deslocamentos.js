@@ -149,8 +149,8 @@ const DeslocApp = (() => {
     }
     return { total: Math.max(0, Math.round((b - a) / 60000 - alm)), almoco: Math.round(alm), aberto }
   }
-  // trecho > 24h = quase certamente carimbo com data errada — o número seria absurdo; avisar em vez de somar como se nada
-  const trechoAnomalo = (t) => !!(t && t.saida_em && t.chegada_em && (new Date(t.chegada_em) - new Date(t.saida_em)) > 24 * 3600000)
+  // trecho > 24h (fechado: carimbo com data errada; aberto: esqueceram de encerrar) — avisar em vez de somar como se nada
+  const trechoAnomalo = (t) => !!(t && t.saida_em && ((t.chegada_em ? new Date(t.chegada_em) : Date.now()) - new Date(t.saida_em)) > 24 * 3600000)
   const ddmm = (x) => { const dt = new Date(x); return `${String(dt.getDate()).padStart(2, '0')}/${String(dt.getMonth() + 1).padStart(2, '0')}` }
   // total da viagem = Σ dos trechos (cada um já líquido da própria refeição)
   function tempoViagemMin(ts) {
@@ -390,7 +390,7 @@ const DeslocApp = (() => {
           ${kv('Data', esc(diaFull(t.data)))}
           ${kv('Saída', esc(horaBR(t.saida_em)))}
           ${kv('Chegada', esc(horaBR(t.chegada_em)))}
-          ${trechoAnomalo(t) ? kv('Duração', `<span class="d-warn">⚠ conferir horários (saída ${ddmm(t.saida_em)}, chegada ${ddmm(t.chegada_em)})</span>`) : ''}
+          ${trechoAnomalo(t) ? kv('Duração', `<span class="d-warn">⚠ conferir horários (saída ${ddmm(t.saida_em)}, chegada ${t.chegada_em ? ddmm(t.chegada_em) : 'em aberto'})</span>`) : ''}
           ${(t.almoco_inicio || t.almoco_fim) ? kv('Refeição', `${esc(hm5(t.almoco_inicio))} – ${esc(hm5(t.almoco_fim))}`) : ''}
           ${kv('Veículo', veicT)}
           ${tecs ? kv('A bordo', tecs) : ''}

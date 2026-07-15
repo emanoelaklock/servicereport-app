@@ -263,8 +263,8 @@
       const volta = ehBase(t.destino)
       const destino = volta ? 'Traders' : ((t.destino_cliente_id && cliNomes[t.destino_cliente_id]) || fmtLugar(t.destino) || '—')
       const cid = volta ? '' : fmtLugar(t.destino)
-      // duração > 24h = quase certamente carimbo com data errada — avisa em vez de exibir um número absurdo
-      const anomalo = !!(t.saida_em && t.chegada_em && (new Date(t.chegada_em) - new Date(t.saida_em)) > 24 * 3600000)
+      // > 24h (fechado: carimbo com data errada; aberto: esqueceram de encerrar) — avisa em vez de exibir um número absurdo
+      const anomalo = !!(t.saida_em && ((t.chegada_em ? new Date(t.chegada_em) : Date.now()) - new Date(t.saida_em)) > 24 * 3600000)
       const ddmm = (x) => { const dt = new Date(x); return `${pad(dt.getDate())}/${pad(dt.getMonth() + 1)}` }
       const dur = anomalo ? '' : fmtDur(t.saida_em, t.chegada_em)
       // veículo do trecho só quando difere do resumo (ou sem veículo / herdado)
@@ -278,7 +278,7 @@
       const difTec = tecsT.length && tecsT.slice().sort().join('|') !== tecKey
       const hm5 = (v) => v ? String(v).slice(0, 5) : '—'
       const metaParts = [
-        anomalo ? `<span class="det-warn">⚠ conferir horários (saída ${ddmm(t.saida_em)}, chegada ${ddmm(t.chegada_em)})</span>` : '',
+        anomalo ? `<span class="det-warn">⚠ conferir horários (saída ${ddmm(t.saida_em)}, chegada ${t.chegada_em ? ddmm(t.chegada_em) : 'em aberto'})</span>` : '',
         dur ? `Duração: <b>${esc(dur)}</b>` : '',
         (t.almoco_inicio || t.almoco_fim) ? `Refeição: <b>${esc(hm5(t.almoco_inicio))} – ${esc(hm5(t.almoco_fim))}</b>` : '',
         cid ? esc(cid) : '',
