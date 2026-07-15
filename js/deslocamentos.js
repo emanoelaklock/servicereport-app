@@ -34,8 +34,10 @@ const DeslocApp = (() => {
       default: return ''
     }
   }
-  const toLocalInput = (iso) => { if (!iso) return ''; const d = new Date(iso); const p = n => String(n).padStart(2, '0'); return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}T${p(d.getHours())}:${p(d.getMinutes())}` }
-  const inputToISO = (v) => v ? new Date(v).toISOString() : null
+  // datetime-local do editor legado: exibe e interpreta em HORÁRIO DE BRASÍLIA (regra da casa),
+  // nunca no fuso do navegador — operador fora do Brasil via/gravava deslocado.
+  const toLocalInput = (iso) => iso ? `${diaSP(iso)}T${hhSP(iso)}` : ''
+  const inputToISO = (v) => v ? new Date(`${v}:00-03:00`).toISOString() : null   // digitado = relógio de Brasília
   const veicLbl = (id) => veic[id] || '—'
   // lugares em Title Case (cadastros do Omie vêm em CAIXA ALTA); UF maiúscula
   const tcase = (s) => String(s || '').toLowerCase().replace(/(^|[\s\-'])\p{L}/gu, m => m.toUpperCase())
@@ -468,14 +470,11 @@ const DeslocApp = (() => {
   const vmTarInfo = (id) => vmTarAbertas.find(t => t.id === id) || vmTarEmbed[id] || null
   const horaMais = (hhmm, min) => { const [h, m] = String(hhmm).split(':').map(Number); if (isNaN(h)) return ''; const t = (h * 60 + (m || 0) + min) % 1440; return `${String(Math.floor(t / 60)).padStart(2, '0')}:${String(t % 60).padStart(2, '0')}` }
   // A DATA do trecho é a única fonte de data: saída/chegada são só HORA, ancoradas nela.
-  const hhIso = (iso) => { if (!iso) return ''; const d = new Date(iso); return `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}` }
-  // fallback pelo dia LOCAL (toISOString daria o dia UTC — hora noturna mudaria de dia)
-  const diaLocalDe = (iso) => { const x = new Date(iso || Date.now()); return `${x.getFullYear()}-${String(x.getMonth() + 1).padStart(2, '0')}-${String(x.getDate()).padStart(2, '0')}` }
-  const isoNoDia = (dia, hhmm, fallbackIso) => {
-    if (!hhmm) return null
-    const d = dia || (fallbackIso ? diaLocalDe(fallbackIso) : diaLocalDe())
-    return new Date(`${d}T${hhmm}:00`).toISOString()
-  }
+  // Exibição E interpretação SEMPRE no relógio de Brasília (helpers do utils.js) — o fuso
+  // do navegador nunca é fonte de verdade (bug real: operador em UTC-4 via/gravava ±1h).
+  const hhIso = (iso) => hhSP(iso)
+  const diaLocalDe = (iso) => diaSP(iso)
+  const isoNoDia = (dia, hhmm, fallbackIso) => isoDeSP(dia, hhmm, fallbackIso)
   // chegada "antes" da saída = virou o dia (chegou de madrugada) → soma 1 dia
   const ajustaMadrugada = (t) => {
     // ESTRITO (<): chegada no MESMO minuto da saída é trecho de 0 min, não virada de dia

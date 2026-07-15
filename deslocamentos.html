@@ -191,8 +191,8 @@
       <div><label>Veículo</label><select id="dm-veiculo"></select></div>
       <div><label>Técnicos a bordo</label><div class="dm-tecs" id="dm-tecs"></div></div>
       <div class="dm-row">
-        <div><label>Saída</label><input type="datetime-local" id="dm-saida"></div>
-        <div><label>Chegada</label><input type="datetime-local" id="dm-chegada"></div>
+        <div><label>Saída (horário de Brasília)</label><input type="datetime-local" id="dm-saida"></div>
+        <div><label>Chegada (horário de Brasília)</label><input type="datetime-local" id="dm-chegada"></div>
       </div>
       <div><label>Motivo</label><input type="text" id="dm-motivo"></div>
     </div>
@@ -209,7 +209,7 @@
 <!-- Editar viagem (modelo novo: trechos) -->
 <div class="dm-back" id="vm-back">
   <div class="vm-box">
-    <div class="vm-h"><svg viewBox="0 0 24 24"><path d="M3 17h2m14 0h2M5 17a2 2 0 1 0 4 0 2 2 0 0 0-4 0Zm10 0a2 2 0 1 0 4 0 2 2 0 0 0-4 0Z"/><path d="M5 17V8a1 1 0 0 1 1-1h8l4 4v6"/></svg><span>Editar viagem</span><button class="dm-x" id="vm-x">✕</button></div>
+    <div class="vm-h"><svg viewBox="0 0 24 24"><path d="M3 17h2m14 0h2M5 17a2 2 0 1 0 4 0 2 2 0 0 0-4 0Zm10 0a2 2 0 1 0 4 0 2 2 0 0 0-4 0Z"/><path d="M5 17V8a1 1 0 0 1 1-1h8l4 4v6"/></svg><span>Editar viagem</span><span style="font-size:11.5px;font-weight:600;opacity:.85">(horário de Brasília)</span><button class="dm-x" id="vm-x">✕</button></div>
     <div class="dm-b">
       <input type="hidden" id="vm-id">
       <div class="vper" id="vm-clis"></div>
