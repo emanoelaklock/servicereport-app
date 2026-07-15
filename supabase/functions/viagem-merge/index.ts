@@ -159,12 +159,23 @@ Deno.serve(async (req: Request) => {
       if (up.error) return json({ error: "falha no trecho: " + up.error.message }, 500)
     }
 
-    // ---- a-bordo por trecho: UNIÃO (só acrescenta) ----
+    // ---- a-bordo por trecho: UNIÃO (só acrescenta)… ----
     const aboardRows: any[] = []
     for (const t of incoming) for (const tid of (t.tecnicos || [])) aboardRows.push({ trecho_id: t.id, tecnico_id: tid })
     if (aboardRows.length) {
       const r = await admin.from("trecho_tecnicos").upsert(aboardRows, { onConflict: "trecho_id,tecnico_id", ignoreDuplicates: true })
       if (r.error) return json({ error: "falha a-bordo: " + r.error.message }, 500)
+    }
+    // …EXCETO remoção explícita (t._tec_remover): quem foi tirado de propósito no app sai do
+    // trecho (sem isso a união re-adicionaria pra sempre e horas/noites iriam pra quem não estava).
+    for (const t of incoming) {
+      const rem = (Array.isArray(t._tec_remover) ? t._tec_remover : [])
+        .filter((x: unknown) => typeof x === "string")
+        .filter((x: string) => !(t.tecnicos || []).includes(x))   // re-adicionado vence a remoção
+      if (rem.length) {
+        const r = await admin.from("trecho_tecnicos").delete().eq("trecho_id", t.id).in("tecnico_id", rem)
+        if (r.error) return json({ error: "falha a-bordo(rem): " + r.error.message }, 500)
+      }
     }
 
     // ---- direção por trecho: substitui a direção dos trechos recebidos (autorada em conjunto) ----
@@ -182,7 +193,7 @@ Deno.serve(async (req: Request) => {
       }
     }
 
-    // ---- a-bordo no pai (união, dá leitura via RLS) ----
+    // ---- a-bordo no pai (dá leitura via RLS): união + poda de quem saiu de TODOS os trechos ----
     const uni = [...new Set(incoming.flatMap((t: any) => t.tecnicos || []))]
     if (uni.length) {
       const r = await admin.from("deslocamento_tecnicos")
@@ -190,6 +201,14 @@ Deno.serve(async (req: Request) => {
           { onConflict: "deslocamento_id,tecnico_id", ignoreDuplicates: true })
       if (r.error) return json({ error: "falha tecnicos pai: " + r.error.message }, 500)
     }
+    // participação é DERIVADA dos trechos: pai não pode reter quem não está em nenhum
+    const { data: abAtual } = await admin.from("trecho_tecnicos")
+      .select("tecnico_id, deslocamento_trechos!inner(deslocamento_id)")
+      .eq("deslocamento_trechos.deslocamento_id", trip.id)
+    const emTrecho = [...new Set((abAtual || []).map((x: any) => x.tecnico_id))]
+    const podaQ = admin.from("deslocamento_tecnicos").delete().eq("deslocamento_id", trip.id)
+    const poda = emTrecho.length ? await podaQ.not("tecnico_id", "in", `(${emTrecho.join(",")})`) : await podaQ
+    if (poda.error) return json({ error: "falha tecnicos pai(poda): " + poda.error.message }, 500)
 
     // ---- tarefas referenciadas (união) ----
     const tarefas = [...new Set([...(trip.tarefas || []), ...incoming.map((t: any) => t.tarefa_id).filter(Boolean)])]

@@ -1748,7 +1748,9 @@
     const T = dlCur && dlCur.trechos; if (!T) return
     for (let i = 1; i < T.length; i++) {
       if (!T[i].origem || !String(T[i].origem).trim()) T[i].origem = destinoLabelTrecho(T[i - 1])
-      if (!T[i].tecnicos || !T[i].tecnicos.length) T[i].tecnicos = [...(T[i - 1].tecnicos || [])]   // herda os Técnicos a bordo
+      // Técnicos a bordo NÃO re-herdam aqui: a herança acontece na CRIAÇÃO do trecho (novoTrecho).
+      // Esvaziar de propósito é permitido (ex.: colega voltou de avião) — vazio persiste, inclusive
+      // vindo do servidor via pull. (O fallback de dados antigos não tem mais dado a servir: base auditada.)
     }
   }
 
@@ -2099,6 +2101,8 @@
         const t = T[+i]
         t.tecnicos = (t.tecnicos || []).filter(x => x !== tid)
         t.motoristas = (t.motoristas || []).filter(m => m.tecnico_id !== tid)
+        t._tecEditado = true   // edição manual: a re-herança não recoloca (trecho pode ficar sem ninguém)
+        t._tec_remover = [...new Set([...(t._tec_remover || []), tid])]   // remoção explícita: propaga no merge
         renderTrechos()
       }
     })
@@ -3105,9 +3109,15 @@
     document.getElementById('modal-tec-dl').classList.remove('open')
     if (dlCur && dlTecTrecho != null && dlCur.trechos[dlTecTrecho]) {
       const t = dlCur.trechos[dlTecTrecho]
+      const antes = new Set(t.tecnicos || [])
       t.tecnicos = [...dlTecSel]
       // motorista que saiu do carro sai da direção
       t.motoristas = (t.motoristas || []).filter(m => dlTecSel.has(m.tecnico_id))
+      const mudou = antes.size !== dlTecSel.size || [...dlTecSel].some(x => !antes.has(x))
+      if (mudou) t._tecEditado = true
+      // quem saiu = remoção explícita (propaga no merge); quem voltou sai da lista de remoção
+      const removidos = [...antes].filter(x => !dlTecSel.has(x))
+      t._tec_remover = [...new Set([...(t._tec_remover || []).filter(x => !dlTecSel.has(x)), ...removidos])]
       renderTrechos()
     }
     dlTecTrecho = null
