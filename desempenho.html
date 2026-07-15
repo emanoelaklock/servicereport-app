@@ -14,20 +14,8 @@
 <script src="js/sidebar.js"></script>
 <script src="js/desempenho.js"></script>
 <style>
-  /* ── Alinhamento da página ─────────────────────────────────────────────
-     A sidebar (.side, 240px) já ocupa espaço no fluxo flex do body; o
-     margin-left global de .sb-main (--sb) compensaria uma sidebar FIXED —
-     aqui só empurrava o conteúdo pra direita. Zera nesta página e o
-     conteúdo usa TODA a largura útil até ~24px da borda direita
-     (sem max-width, sem margin auto — o main já desconta a sidebar). */
-  body > .sb-main{margin-left:0;width:100%;max-width:none;min-width:0}
-  .sb-main .content{width:100%;max-width:none;margin:0;padding:16px 24px 32px;box-sizing:border-box}
-
-  /* Cabeçalho: título + subtítulo à esquerda; mês/carimbo/estado numa linha (quebra no mobile) */
-  .dp-head{display:flex;align-items:flex-end;justify-content:space-between;gap:14px;flex-wrap:wrap;margin-bottom:16px}
-  .dp-h-t h2{font-size:18px;font-weight:800;color:var(--sr-title);letter-spacing:-.3px}
-  .dp-h-t p{font-size:12.5px;color:var(--sr-muted);margin-top:2px}
-  .dp-h-a{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+  /* Esqueleto padrão do portal (.main + topbar + .content) — controles do mês na topbar */
+  .topbar .dp-h-a{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-left:auto}
   .dp-h-a .pb{width:32px;height:32px}
   #dp-mes{font-size:14.5px;font-weight:800;color:var(--sr-title);min-width:130px;text-align:center}
   .dp-cong{font-size:11px;background:var(--sr-info-bg);color:var(--sr-info-fg);border-radius:999px;padding:4px 11px;font-weight:700;white-space:nowrap}
@@ -139,17 +127,12 @@
   .dp-ress{margin-top:9px;font-size:10.5px;color:var(--tx3);background:var(--sur2);border-radius:7px;padding:6px 9px;line-height:1.5}
 </style>
 </head>
-<body>
+<body class="tec-admin">
 <div id="sidebar-container"></div>
 
-<div class="sb-main"><div class="page">
-  <!-- sem topbar: título único mora no conteúdo (dp-head), com mês/nav/carimbo à direita -->
-  <div class="content">
-    <div class="dp-head">
-      <div class="dp-h-t">
-        <h2>Desempenho da equipe</h2>
-        <p>Disciplina de preenchimento e encerramento das RATs</p>
-      </div>
+<div class="main">
+  <div id="app-screen" style="display:none">
+    <div class="topbar"><h1>Desempenho da equipe</h1>
       <div class="dp-h-a">
         <button class="pb" id="dp-prev" title="Mês anterior">‹</button>
         <span id="dp-mes">—</span>
@@ -157,12 +140,14 @@
         <span id="dp-fonte"></span>
       </div>
     </div>
-    <div id="dp-banner"></div>
-    <div id="dp-kpis"></div>
-    <div id="dp-leg"></div>
-    <div id="dp-rk"><div class="dp-vazio">Carregando…</div></div>
+    <div class="content">
+      <div id="dp-banner"></div>
+      <div id="dp-kpis"></div>
+      <div id="dp-leg"></div>
+      <div id="dp-rk"><div class="dp-vazio">Carregando…</div></div>
+    </div>
   </div>
-</div></div>
+</div>
 
 <div class="tc" id="tc"></div>
 
