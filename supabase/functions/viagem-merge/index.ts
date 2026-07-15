@@ -39,6 +39,24 @@ const eqHora = (a: string | null, b: string | null) => {
   const h = (x: string | null) => (x ? String(x).slice(0, 5) : "")
   return h(a) === h(b)
 }
+// Re-ancoragem: mesma hora de relógio em dias diferentes (múltiplo exato de 24h).
+// Brasil sem DST desde 2019 — offset fixo -03:00 dá o dia local sem dependências.
+const mesmoRelogio = (a: string, b: string) => {
+  const d = (new Date(a).getTime() - new Date(b).getTime()) % 86400000
+  return ((d + 86400000) % 86400000) === 0
+}
+const diaLocalBR = (iso: string) => new Date(new Date(iso).getTime() - 3 * 3600000).toISOString().slice(0, 10)
+const diaMais1 = (d: string) => new Date(new Date(`${d}T12:00:00Z`).getTime() + 86400000).toISOString().slice(0, 10)
+// chave de um conflito p/ dedup (retry do aparelho não pode re-empilhar a mesma divergência)
+const chaveConflito = (c: any) => {
+  const norm = (v: unknown) => {
+    if (v == null) return ""
+    if (typeof v === "object") return JSON.stringify(v)
+    const d = new Date(String(v))
+    return isNaN(d.getTime()) ? String(v).slice(0, 5) : String(d.getTime())
+  }
+  return `${c.trecho_ordem}|${c.campo}|${norm(c.servidor)}|${norm(c.recebido)}`
+}
 
 Deno.serve(async (req: Request) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: CORS })
@@ -142,10 +160,20 @@ Deno.serve(async (req: Request) => {
       if (!cur) {
         for (const f of [...TS_FIELDS, ...HORA_FIELDS, ...LIVRE_FIELDS]) row[f] = t[f] ?? null
       } else {
+        // dia-alvo do trecho (data é campo livre: incoming vence) — juiz da re-ancoragem
+        const dataAlvo: string | null = (t.data !== undefined && t.data !== null) ? t.data : (cur.data ?? null)
         const mergeHora = (f: string, eq: (a: any, b: any) => boolean) => {
           const sv = cur[f] ?? null, iv = t[f] ?? null
           if (!iv && sv && limpa.has(f)) { row[f] = null; return }   // limpeza explícita: aceita
           if (sv && iv && !eq(sv, iv)) {
+            // Re-ancoragem NÃO é disputa: mesma hora de relógio e o incoming cai no dia do
+            // trecho (chegada pode ser dia+1 — madrugada). Caso real V-0003: o aparelho mandou
+            // a saída corrigida pro dia certo e o servidor manteve a âncora errada.
+            const reancora = TS_FIELDS.includes(f) && dataAlvo && mesmoRelogio(iv, sv) &&
+              (f === "saida_em"
+                ? diaLocalBR(iv) === dataAlvo
+                : (diaLocalBR(iv) === dataAlvo || diaLocalBR(iv) === diaMais1(dataAlvo)))
+            if (reancora) { row[f] = iv; return }
             conflitos.push({ trecho_ordem: row.ordem, campo: f, servidor: sv, recebido: iv, por: uid, em: nowISO })
             row[f] = sv                       // conflito: mantém o do servidor
           } else row[f] = sv ?? iv            // união: preenche o vazio
@@ -228,12 +256,18 @@ Deno.serve(async (req: Request) => {
       if (r.error) return json({ error: "falha almoco: " + r.error.message }, 500)
     }
 
-    // ---- conflito: anexa às divergências já existentes e tira a revisão (admin reconfere) ----
+    // ---- conflito: anexa às divergências já existentes e tira a revisão (admin reconfere).
+    //      DEDUP: retry do aparelho com o mesmo payload não re-empilha a mesma divergência
+    //      (caso real V-0007: 4 syncs = 4 cópias) nem re-derruba a revisão à toa. ----
     if (conflitos.length) {
       const prev = Array.isArray(ex?.conflito) ? ex!.conflito : []
-      const up = await admin.from("deslocamentos")
-        .update({ conflito: [...prev, ...conflitos], revisado: false }).eq("id", trip.id)
-      if (up.error) return json({ error: "falha conflito: " + up.error.message }, 500)
+      const vistos = new Set(prev.map(chaveConflito))
+      const novos = conflitos.filter((c) => !vistos.has(chaveConflito(c)))
+      if (novos.length) {
+        const up = await admin.from("deslocamentos")
+          .update({ conflito: [...prev, ...novos], revisado: false }).eq("id", trip.id)
+        if (up.error) return json({ error: "falha conflito: " + up.error.message }, 500)
+      }
     }
 
     // devolve o atualizado_em pro app guardar (cursor de pull)
