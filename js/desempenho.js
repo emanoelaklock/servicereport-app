@@ -16,7 +16,7 @@
 const DesempenhoApp = (() => {
   const sb = () => getSupabase()
   const MESES = ['Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho', 'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro']
-  let mes = mesISO(new Date())
+  let mes = diaSP().slice(0, 7)   // mês corrente no calendário de Brasília
   let usuarios = []          // sr_usuarios (foto/role) — avatar padrão do portal
   let status = null          // { inicio, carencia_ate }
   let linhas = []            // ranking do mês
@@ -29,7 +29,7 @@ const DesempenhoApp = (() => {
   const mesNome = (iso) => `${MESES[Number(iso.slice(5, 7)) - 1]} ${iso.slice(0, 4)}`
   function mesISO(d) { return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}` }
   function somaMes(iso, n) { const d = new Date(Number(iso.slice(0, 4)), Number(iso.slice(5, 7)) - 1 + n, 1); return mesISO(d) }
-  const fmtDH = (iso) => { const d = new Date(iso); return `${String(d.getDate()).padStart(2, '0')}/${String(d.getMonth() + 1).padStart(2, '0')} · ${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}` }
+  const fmtDH = (iso) => `${ddmmSP(iso)} · ${hhSP(iso)}`   // dia·hora no relógio de Brasília
   const fmtD = (iso) => iso ? `${String(iso).slice(8, 10)}/${String(iso).slice(5, 7)}` : '—'
   const av = (u) => { const f = (typeof avatarUrl === 'function') ? avatarUrl(u && u.foto_url) : ''; return f ? `<img src="${esc(f)}" alt="">` : esc(String((u && u.nome) || '—').trim().split(/\s+/).slice(0, 2).map(p => p[0] || '').join('').toUpperCase()) }
   const uDe = (id) => usuarios.find(u => u.id === id)
@@ -75,7 +75,7 @@ const DesempenhoApp = (() => {
       <div class="dp-b-tx"><b>Painel ainda não liberado aos técnicos</b>
       <span>Os técnicos ainda não visualizam o próprio placar. A ativação depende do teste da versão atual do app na frota e da definição da data de go-live.</span></div>
       <button class="btn btn-p" id="dp-golive">Definir data de go-live</button></div>`
-    const hoje = new Date().toISOString().slice(0, 10)
+    const hoje = diaSP()   // fronteira do dia no calendário de Brasília
     if (status.carencia_ate && hoje <= String(status.carencia_ate)) return `<div class="dp-banner dp-b-car">
       <div class="dp-b-tx"><b>Período de adaptação até ${fmtD(status.carencia_ate)}</b>
       <span>Placar visível aos técnicos, ainda não oficial. Vale desde ${fmtD(status.inicio)}.</span></div></div>`
