@@ -110,7 +110,7 @@ const DeslocApp = (() => {
 
   async function carregar() {
     const { data, error } = await sb().from('deslocamentos')
-      .select('id,sentido,cliente_id,origem,destino,origem_cidade,origem_uf,destino_cidade,destino_uf,motivo,observacoes,saida_em,chegada_em,veiculo_id,saida_lat,saida_lng,chegada_lat,chegada_lng,criado_em,revisado,revisado_em,conflito,deslocamento_tecnicos(tecnico_id),deslocamento_trechos(id,ordem,origem,destino,destino_local_id,destino_cliente_id,tarefa_id,almoco_inicio,almoco_fim,data,saida_em,chegada_em,saida_lat,saida_lng,saida_precisao,chegada_lat,chegada_lng,chegada_precisao,veiculo_id,nota_transporte,espelho_legado,cliente_locais(nome,cidade,uf),trecho_tecnicos(tecnico_id),trecho_direcao(id,tecnico_id,hora_de,hora_ate)),deslocamento_almocos(tecnico_id,dia,inicio,fim),deslocamento_tarefas(tarefa_id,tarefas(numero,status,cliente_id))')
+      .select('id,numero,sentido,cliente_id,origem,destino,origem_cidade,origem_uf,destino_cidade,destino_uf,motivo,observacoes,saida_em,chegada_em,veiculo_id,saida_lat,saida_lng,chegada_lat,chegada_lng,criado_em,revisado,revisado_em,conflito,deslocamento_tecnicos(tecnico_id),deslocamento_trechos(id,ordem,origem,destino,destino_local_id,destino_cliente_id,tarefa_id,almoco_inicio,almoco_fim,data,saida_em,chegada_em,saida_lat,saida_lng,saida_precisao,chegada_lat,chegada_lng,chegada_precisao,veiculo_id,nota_transporte,espelho_legado,cliente_locais(nome,cidade,uf),trecho_tecnicos(tecnico_id),trecho_direcao(id,tecnico_id,hora_de,hora_ate)),deslocamento_almocos(tecnico_id,dia,inicio,fim),deslocamento_tarefas(tarefa_id,tarefas(numero,status,cliente_id))')
       .order('criado_em', { ascending: false }).limit(300)
     if (error) { toast('Erro: ' + error.message, 'err'); return }
     rows = data || []
@@ -255,7 +255,7 @@ const DeslocApp = (() => {
           ? clisVisita.map(id => `<div${id === d.cliente_id ? ' style="font-weight:700"' : ''}>${esc(cliNomes[id] || '—')}</div>`).join('')
           : esc(cliNomes[d.cliente_id] || '—')
         return `<tr class="row-click" data-det="${esc(d.id)}">
-          <td><div class="vtipo">Viagem · ${ts.length} trecho${ts.length > 1 ? 's' : ''}</div>${periodo ? `<div class="vper">${esc(periodo)}</div>` : ''}${(() => { const tv = tempoViagemMin(ts); return tv.temTempo ? `<div class="vper">Tempo: <b>${fmtHm(tv.total)}</b>${tv.aberto ? '…' : ''}${tv.almoco ? ' (− refeição)' : ''}</div>` : '' })()}${(() => { const refs = (d.deslocamento_tarefas || []).map(x => x.tarefas ? `Tarefa Nº ${String(x.tarefas.numero).padStart(5, '0')}` : null).filter(Boolean); return refs.length ? `<div class="vper">Ref.: ${esc(refs.join(' · '))}</div>` : '' })()}<div style="margin-top:5px">${st}${(Array.isArray(d.conflito) && d.conflito.length) ? ' <span class="d-conf">⚠ conflito — revisar</span>' : ''}${d.revisado ? ' <span class="d-rev">✓ Revisado</span>' : ''}</div></td>
+          <td><div class="vtipo">Viagem${d.numero ? ' V-' + String(d.numero).padStart(4, '0') : ''} · ${ts.length} trecho${ts.length > 1 ? 's' : ''}</div>${periodo ? `<div class="vper">${esc(periodo)}</div>` : ''}${(() => { const tv = tempoViagemMin(ts); return tv.temTempo ? `<div class="vper">Tempo: <b>${fmtHm(tv.total)}</b>${tv.aberto ? '…' : ''}${tv.almoco ? ' (− refeição)' : ''}</div>` : '' })()}${(() => { const refs = (d.deslocamento_tarefas || []).map(x => x.tarefas ? `Tarefa Nº ${String(x.tarefas.numero).padStart(5, '0')}` : null).filter(Boolean); return refs.length ? `<div class="vper">Ref.: ${esc(refs.join(' · '))}</div>` : '' })()}<div style="margin-top:5px">${st}${(Array.isArray(d.conflito) && d.conflito.length) ? ' <span class="d-conf">⚠ conflito — revisar</span>' : ''}${d.revisado ? ' <span class="d-rev">✓ Revisado</span>' : ''}</div></td>
           <td>${cliCell}</td>
           <td>${esc(origemLbl(prim.origem))} → ${esc(destinoLbl(ult))}${detalhe}</td>
           <td>${veics.length ? veics.map(esc).join('<br>') : (semVeic.length ? `<span class="dim">${esc(semVeic.join(', '))}</span>` : '—')}</td>
@@ -369,7 +369,7 @@ const DeslocApp = (() => {
       const veics = [...new Set(ts.map(t => t.veiculo_id).filter(Boolean))].map(veicLbl)
       const clis = [...new Set([...ts.map(t => t.destino_cliente_id).filter(Boolean), ...(d.cliente_id ? [d.cliente_id] : [])])].map(cid => esc(cliNomes[cid] || '—')).join(' · ') || '—'
       const refs = (d.deslocamento_tarefas || []).map(x => x.tarefas ? `Tarefa Nº ${String(x.tarefas.numero).padStart(5, '0')}` : null).filter(Boolean).join(' · ')
-      sec += `<div class="det-sec"><h4>Viagem · ${ts.length} trecho${ts.length > 1 ? 's' : ''}</h4>
+      sec += `<div class="det-sec"><h4>Viagem${d.numero ? ' V-' + String(d.numero).padStart(4, '0') : ''} · ${ts.length} trecho${ts.length > 1 ? 's' : ''}</h4>
         ${kv('Status', esc(stTxt))}
         ${kv('Período', esc(periodo))}
         ${tv.temTempo ? kv('Tempo', `${esc(fmtHm(tv.total))}${tv.aberto ? '…' : ''}${tv.almoco ? ' (− refeição)' : ''}`) : ''}
@@ -516,6 +516,8 @@ const DeslocApp = (() => {
     vmTarEmbed = {}
     for (const x of (d.deslocamento_tarefas || [])) if (x.tarefas) vmTarEmbed[x.tarefa_id] = { id: x.tarefa_id, ...x.tarefas }
     document.getElementById('vm-id').value = d.id
+    const vmT = document.querySelector('#vm-back .vm-h span')
+    if (vmT) vmT.textContent = d.numero ? `Editar viagem V-${String(d.numero).padStart(4, '0')}` : 'Editar viagem'
     const vmRev = document.getElementById('vm-revisado'); if (vmRev) vmRev.checked = !!d.revisado   // estado atual da revisão; o admin marca/desmarca aqui mesmo
     await Promise.all([vmCarregarLocais(), vmCarregarTarefas()])
     renderVmTrechos()

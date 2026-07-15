@@ -121,7 +121,7 @@
     const ids = [...new Set((tr || []).map(x => x.deslocamento_id).filter(Boolean))]
     if (!ids.length) { viagens = []; chips = []; render(); return }
     const { data, error } = await sb().from('deslocamentos')
-      .select('id,cliente_id,revisado,revisado_em,deslocamento_trechos(id,ordem,origem,destino,destino_local_id,destino_cliente_id,tarefa_id,data,saida_em,chegada_em,almoco_inicio,almoco_fim,veiculo_id,nota_transporte,espelho_legado,trecho_tecnicos(tecnico_id)),deslocamento_tarefas(tarefa_id,tarefas(numero))')
+      .select('id,numero,cliente_id,revisado,revisado_em,deslocamento_trechos(id,ordem,origem,destino,destino_local_id,destino_cliente_id,tarefa_id,data,saida_em,chegada_em,almoco_inicio,almoco_fim,veiculo_id,nota_transporte,espelho_legado,trecho_tecnicos(tecnico_id)),deslocamento_tarefas(tarefa_id,tarefas(numero))')
       .in('id', ids)
     if (error) { document.getElementById('rc-grid').innerHTML = `<div class="rc-empty" style="grid-column:1/-1;color:var(--re)">Erro ao carregar: ${esc(error.message)}</div>`; return }
     viagens = data || []
@@ -228,8 +228,9 @@
     const meta = metaViagem(d)
     // cabeçalho: cliente/obra como título + resumo da viagem como subtítulo + badge de revisão
     const refsN = (d.deslocamento_tarefas || []).map(x => x.tarefas ? String(x.tarefas.numero || '').padStart(5, '0') : null).filter(Boolean)
-    document.getElementById('det-title').textContent = meta.clientes.join(' · ') || 'Viagem'
-    document.getElementById('det-sub').textContent = ['Viagem', `${ts.length} trecho${ts.length > 1 ? 's' : ''}`, ...refsN.map(n => 'Tarefa ' + n)].join(' · ')
+    const vNum = d.numero ? 'V-' + String(d.numero).padStart(4, '0') : ''
+    document.getElementById('det-title').textContent = meta.clientes.join(' · ') || (vNum ? `Viagem ${vNum}` : 'Viagem')
+    document.getElementById('det-sub').textContent = [vNum ? `Viagem ${vNum}` : 'Viagem', `${ts.length} trecho${ts.length > 1 ? 's' : ''}`, ...refsN.map(n => 'Tarefa ' + n)].join(' · ')
     const pill = document.getElementById('det-rev-pill')
     pill.className = 'rev-pill' + (d.revisado ? ' on' : '')
     pill.innerHTML = `<i></i>${d.revisado ? 'Revisado' : 'A revisar'}`

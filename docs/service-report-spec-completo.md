@@ -89,6 +89,11 @@ Artefato **próprio** do técnico (não é um campo dentro da RAT — esse é o 
 - **Almoço na estrada por pessoa/dia** com a mesma deduplicação da RAT (§8). Tempo dos trechos = **segmentos de deslocamento da jornada** (§10.1) por participante.
 - **Fora (de propósito):** km · rastreamento contínuo · despesas de viagem · trechos multimodais (nota resolve) · ícones emoji (SVG de linha sempre).
 
+**Nº oficial da viagem (15/07 — migração 0108):** cada viagem tem um **número próprio sequencial**, exibido como **`V-0231`** (padStart 4). Motivação: a gestão precisava de um identificador curto pra se referir a uma viagem em conversa ("dá uma olhada na V-231"). Regras:
+- **Atribuído pelo servidor** (`deslocamentos.numero`, `DEFAULT nextval` de sequence própria) no insert — segue o princípio do projeto: identidade offline é o uuid do aparelho, número oficial nasce no servidor. Nunca reutilizado; buracos por exclusão são normais.
+- **Sequência própria da viagem** — deliberadamente **não** compartilha numeração com Tarefa nem com RAT (`{tarefa}/{seq}`): viagem referencia tarefa (N:N via `deslocamento_tarefas`, pode ter várias ou nenhuma), não é filha dela; intercalar tipos num contador destruiria o significado da sequência da RAT.
+- **Onde aparece (portal):** calendário de deslocamentos (subtítulo do modal Detalhe da viagem), lista de deslocamentos (linha, detalhe e título do Editar viagem). Backfill das viagens existentes na ordem de `criado_em`.
+
 > O **módulo "Viagem" rico** (máquina de estados, tela "em andamento" com próximo destino, portal nativo) segue **estacionado** como referência — reavaliar após a jornada contínua; os trechos acima já absorvem a parte útil dele.
 
 ---
