@@ -1354,6 +1354,72 @@
     } catch (e) { /* sem permissão/sinal: usa o botão manual */ }
   }
 
+  // ── Data automática pra RAT VAZIA reaberta em dia posterior (decisão 14/07, trava tripla) ──
+  // RAT 'em_andamento' de dia anterior ganha Data = hoje no PRIMEIRO GESTO de trabalho do dia
+  // (coerente com a âncora do GPS v635). AUTOMÁTICO, sem pergunta — mas só com as três travas:
+  //  1. "VAZIA" = ausência PROVADA de conteúdo de trabalho: nenhum campo de trabalho respondido
+  //     (hora início/término, deslocamento, almoço/pausa, serviço, observações, uso de produtos),
+  //     sem foto/assinatura/material E nenhum respostas_ts além do bootstrap da criação
+  //     (data/técnicos/veículo). O carimbo por campo (0096) é o juiz: toque de ontem = não é vazia.
+  //  2. Dispara no primeiro input/change de campo ≠ 'data' — nunca na abertura do formulário.
+  //  3. Transparência: toast + evento na trilha imutável (sync_eventos, padrão da auditoria).
+  // Borda da chave (tarefa+dia): se JÁ existe outra RAT desta tarefa com Data = hoje (local ou,
+  // online, no servidor), NÃO ajusta e avisa — colisão é decisão humana, não automática.
+  const TS_BOOTSTRAP = new Set(['data', 'tecnicos_responsaveis', 'veiculo'])
+  const CAMPOS_TRABALHO = ['hora_inicio', 'hora_termino', 'servico_executado', 'observacoes',
+    'almoco', 'almoco_inicio', 'almoco_termino', 'pausa', 'pausa_inicio', 'pausa_termino',
+    'deslocamento', 'desloc_ida', 'desloc_retorno', 'desloc_inicial_ida', 'desloc_final_ida',
+    'desloc_inicial_retorno', 'desloc_final_retorno', 'uso_produtos', 'volta_amanha', 'passagem_motivo']
+  async function ratVaziaDeTrabalho(r) {
+    const resp = r.respostas || {}
+    const tem = (v) => String(v ?? '').trim() !== ''
+    if (CAMPOS_TRABALHO.some(k => tem(resp[k]))) return false
+    if (Object.keys(r.respostas_ts || {}).some(k => !TS_BOOTSTRAP.has(k))) return false
+    if (r.tem_foto || r.tem_assinatura || r.uso_produtos || r.questionario_ok) return false
+    try { if ((await D().listarFotos(r.client_uuid)).length) return false } catch (e) { return false }
+    try { if ((await D().listarMateriais(r.client_uuid)).length) return false } catch (e) { return false }
+    return true
+  }
+  async function existeOutraRatDaTarefaHoje(tarefaId, hoje, meuUuid) {
+    if (!tarefaId) return false
+    try {
+      const rs = await D().listarRats()
+      if ((rs || []).some(x => x.client_uuid !== meuUuid && x.tarefa_id === tarefaId &&
+        x.status !== 'improdutiva' && (((x.respostas || {}).data) || null) === hoje)) return true
+    } catch (e) {}
+    if (navigator.onLine) {
+      try {
+        const { data } = await getSupabase().from('rats').select('id')
+          .eq('tarefa_id', tarefaId).eq('respostas->>data', hoje).neq('client_uuid', meuUuid).limit(1)
+        if (data && data.length) return true
+      } catch (e) {}   // offline/erro: segue só com a checagem local
+    }
+    return false
+  }
+  let ajusteDataVisto = null   // client_uuid já avaliado nesta sessão (avalia UMA vez, no 1º gesto)
+  async function ajustarDataRatVazia(campoTocado) {
+    try {
+      if (!cur || !cur.client_uuid || ajusteDataVisto === cur.client_uuid) return
+      ajusteDataVisto = cur.client_uuid
+      if (campoTocado === 'data') return   // mexeu na própria Data = decisão explícita dele
+      const hoje = jorHoje()
+      const r = await D().obterRat(cur.client_uuid)
+      if (!r || r.status !== 'em_andamento') return
+      const dataRat = (r.respostas || {}).data
+      if (!dataRat || dataRat === hoje) return
+      if (!(await ratVaziaDeTrabalho(r))) return
+      const fmtBR = (s) => String(s).split('-').reverse().join('/')
+      if (await existeOutraRatDaTarefaHoje(r.tarefa_id, hoje, cur.client_uuid)) {
+        toast(`Já existe RAT de hoje desta tarefa — a Data ficou em ${fmtBR(dataRat)}. Confira antes de preencher.`, 'err')
+        return
+      }
+      const el = document.querySelector('[data-campo="data"]')
+      if (el) { el.value = hoje; el.dispatchEvent(new Event('change', { bubbles: true })) }   // autosave leva a Data nova
+      await D().definirStatus(cur.client_uuid, D().STATUS.SALVO_LOCAL, `data ajustada automaticamente: ${dataRat} → ${hoje}`)
+      toast(`Data ajustada para hoje — ${fmtBR(hoje)}.`, 'ok')
+    } catch (e) { /* melhor-esforço: nunca trava o preenchimento */ }
+  }
+
   // ─────────────────────── Navegação (home + módulos) ───────────────────────
   let screen = 'home'
   const VIEWS = {
@@ -2435,6 +2501,14 @@
     const onFormChange = (e) => { var S = window.srStep || function () {}; S('⟳ onFormChange (campo=' + (e && e.target && e.target.getAttribute && e.target.getAttribute('data-campo')) + ')'); S('  oFC: aplicarEspelhos'); aplicarEspelhos(e); S('  oFC: atualizarTempo'); atualizarTempo(); S('  oFC: aplicarCondicionais'); aplicarCondicionais(); S('  oFC: atualizarResumoAlmoco'); atualizarResumoAlmoco(); S('  oFC: atualizarBadgeDesloc'); atualizarBadgeDesloc(); S('  oFC: atualizarProgresso'); atualizarProgresso(); S('  oFC: timersRender'); if (timersRender) timersRender(); const w = e.target.closest && e.target.closest('[data-field]'); if (w) w.classList.remove('campo-erro'); S('  oFC: agendarAutosave'); agendarAutosave(); const cid = e.target && e.target.getAttribute && e.target.getAttribute('data-campo'); if (cid === 'pausa' || cid === 'pausa_inicio' || cid === 'pausa_termino') agendarPersistPausa(); S('  oFC: FIM') }
     cont.oninput = onFormChange
     cont.onchange = onFormChange
+    // 1º gesto de trabalho do dia → avalia o ajuste automático da Data (RAT vazia de dia anterior)
+    if (!cont.dataset.dataHook) {
+      cont.dataset.dataHook = '1'
+      cont.addEventListener('input', (e) => {
+        const c = e.target && e.target.getAttribute && e.target.getAttribute('data-campo')
+        ajustarDataRatVazia(c)
+      }, true)
+    }
     const dCont = document.getElementById('desloc-campos')
     if (dCont) { dCont.oninput = onFormChange; dCont.onchange = onFormChange }
     const pCont = document.getElementById('pausa-campos')
