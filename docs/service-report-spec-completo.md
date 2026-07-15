@@ -107,6 +107,14 @@ Artefato **próprio** do técnico (não é um campo dentro da RAT — esse é o 
 
 **Salvar do portal normaliza e resolve (15/07):** ao salvar a viagem no editor do portal, (a) **todo timestamp é re-ancorado na Data do trecho** ("o que se vê é o que grava" — a Data do trecho é a única fonte de data; saída/chegada são só hora; madrugada soma 1 dia como no editor), o que corrige âncora legada invisível no formulário só de abrir e salvar; e (b) **`conflito` é limpo** — o admin acabou de conferir os valores no editor, salvar é o ato de resolução (antes o selo "⚠ conflito — revisar" ficava pra sempre).
 
+**Relatório "Deslocamento por técnico (período)" (15/07 — fase 1, na página Jornada):** horas em trânsito por técnico num período, com **colunas por fonte** — A `desloc_dia` (RAT) · B `deslocamento` (trechos de viagem por pessoa) · C pré-orçamento (`ida→retorno`, coluna própria sempre) — e **Total = união** das fontes − janela de almoço do dia (sobreposição entre fontes conta uma vez; o total é o teto). Decisões de spec:
+- **Sobreposição com RAT nunca subtrai em silêncio**: vira sinalização na linha ("⚠ sobrepõe RAT NNNN") — sobreposição física é dado inconsistente, expõe pra corrigir.
+- **Madrugada divide nos dois dias** (a view rebaixa pra hora; fim < início = virou o dia) — recorte por período exato, inclusive a parte pós-meia-noite de trecho da véspera do período.
+- **Registro sem duração** (trecho aberto/horário incompleto) **não conta no total** e é declarado na linha ("⏱ N sem duração — horas parciais") e no rodapé (contagem global) — total honesto declara o que não conseguiu contar.
+- **Drill-down rastreável** por técnico/dia: viagem com nº oficial (V-0231, link), RAT Ida/Retorno (link), pré-orçamento com nº (sem link — não há visualizador).
+- **Exportação CSV** da tabela (`;` + BOM). PDF fora por ora.
+- Arquitetura: reusa `vw_participacoes_dia` filtrada por tipo + `almocos` + `pre_orcamentos` (sem view nova), mesmo motor de união (`uniaoMin`) da tabela Horas do dia. Fonte C fora da view de propósito (não poluir consumo futuro de faturamento).
+
 > O **módulo "Viagem" rico** (máquina de estados, tela "em andamento" com próximo destino, portal nativo) segue **estacionado** como referência — reavaliar após a jornada contínua; os trechos acima já absorvem a parte útil dele.
 
 ---

@@ -49,6 +49,11 @@
   .p-noites{font-weight:800;font-variant-numeric:tabular-nums}
   .p-trip{font-size:12px;color:var(--tx3);padding:2px 0}
   .p-open{color:#B7791F;font-weight:600}
+  .dt-sinal{display:inline-block;font-size:11px;font-weight:700;padding:2px 8px;border-radius:999px;background:var(--sr-aguard-bg);color:var(--sr-aguard-fg);margin:1px 2px;white-space:nowrap}
+  .dt-sinal.warn{background:var(--sr-warn-bg);color:var(--sr-warn-fg)}
+  .dt-drill td{background:var(--sr-bg);font-size:12px;padding:8px 12px}
+  .dt-drill a{color:var(--sr-info-fg);text-decoration:none}
+  .dt-drill a:hover{text-decoration:underline}
   /* Horas do dia por técnico (tempo é da pessoa) */
   .hd-alert{display:flex;gap:11px;align-items:flex-start;background:#FEF3DA;border:1px solid #F2E2B6;border-radius:13px;padding:12px 15px;margin-bottom:14px}
   .hd-alert .t{font-size:13px;font-weight:700;color:#92670A}
@@ -114,6 +119,22 @@
           <thead><tr><th>Técnico</th><th>Viagens (com retorno)</th><th>Pernoites</th><th>Detalhe</th></tr></thead>
           <tbody id="p-tbody"></tbody>
         </table></div>
+      </div>
+
+      <div class="j-card">
+        <h3>Deslocamento por técnico (período) — horas em trânsito por fonte; o total é a união (sobreposição conta uma vez)</h3>
+        <div class="p-bar">
+          <select id="dt-tec"></select>
+          <span style="display:inline-flex;align-items:center;gap:5px;font-size:12px;color:var(--tx3)"><label>de</label><input type="date" id="dt-de"><label>até</label><input type="date" id="dt-ate"></span>
+          <button class="btn btn-p btn-sm" id="dt-gerar">Gerar</button>
+          <button class="btn btn-sm" id="dt-csv" style="display:none"><svg viewBox="0 0 24 24" style="width:14px;height:14px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round"><path d="M12 3v12m0 0 4-4m-4 4-4-4M4 21h16"/></svg> CSV</button>
+          <span class="dim" id="dt-resumo" style="font-size:12px"></span>
+        </div>
+        <div style="overflow-x:auto"><table class="p-tbl">
+          <thead><tr><th>Técnico</th><th>Dias</th><th>Viagem</th><th>Desloc. do dia</th><th>Pré-orç.</th><th>Total (união)</th><th>Sinalizações</th><th></th></tr></thead>
+          <tbody id="dt-tbody"></tbody>
+        </table></div>
+        <div class="dim" id="dt-rodape" style="font-size:12px;margin-top:8px"></div>
       </div>
     </div>
   </div>
