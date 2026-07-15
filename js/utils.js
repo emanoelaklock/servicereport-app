@@ -205,6 +205,25 @@ var sbadge = (s, opts = {}) => {
 // Data-só ('AAAA-MM-DD') é construída como data local (sem fuso) p/ não escorregar 1 dia;
 // timestamptz é convertido pro fuso fixo. (utils.js é só do portal — o app usa o fuso do aparelho.)
 var TZ_BR = 'America/Sao_Paulo'
+
+/* ─── Horário de operação: SEMPRE America/Sao_Paulo (regra da casa) ───────────
+   O portal exibe E interpreta horário no fuso da empresa, independente de onde o
+   operador está — o fuso do NAVEGADOR nunca é fonte de verdade. Offset fixo −03
+   na interpretação (Brasil sem DST desde 2019 — mesma premissa do viagem-merge). */
+var _fmtHHSP = new Intl.DateTimeFormat('pt-BR', { timeZone: TZ_BR, hour: '2-digit', minute: '2-digit', hour12: false })
+var _fmtDiaSP = new Intl.DateTimeFormat('en-CA', { timeZone: TZ_BR, year: 'numeric', month: '2-digit', day: '2-digit' })
+// hora HH:MM de um timestamp, no relógio de Brasília
+var hhSP = (iso) => { if (!iso) return ''; const d = new Date(iso); return isNaN(d) ? '' : _fmtHHSP.format(d).replace('24:', '00:') }
+// dia 'AAAA-MM-DD' de um timestamp (ou de agora), no calendário de Brasília
+var diaSP = (iso) => _fmtDiaSP.format(iso ? new Date(iso) : new Date())
+// dd/mm de um timestamp, no calendário de Brasília
+var ddmmSP = (iso) => { const d = diaSP(iso); return `${d.slice(8, 10)}/${d.slice(5, 7)}` }
+// instante UTC de "HH:MM do dia AAAA-MM-DD em Brasília" (é assim que input digitado vira timestamp)
+var isoDeSP = (dia, hhmm, fallbackIso) => {
+  if (!hhmm) return null
+  const d = dia || (fallbackIso ? diaSP(fallbackIso) : diaSP())
+  return new Date(`${d}T${hhmm}:00-03:00`).toISOString()
+}
 var fdt = (iso, opts = {}) => {
   if (!iso) return '—'
   const md = String(iso).match(/^(\d{4})-(\d{2})-(\d{2})$/)   // data-só, sem hora
