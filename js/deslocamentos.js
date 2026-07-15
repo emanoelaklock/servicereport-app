@@ -266,7 +266,7 @@ const DeslocApp = (() => {
           <td>${chips}</td>
           <td>${saida ? dt(saida) : '<span class="dim">não iniciada</span>'}</td>
           <td>${chegada ? dt(chegada) : (emViagem ? '<span class="p-open">em viagem</span>' : '<span class="dim">—</span>')}</td>
-          <td><span class="d-act"><button data-edit="${esc(d.id)}">Editar</button><button class="del" data-del="${esc(d.id)}">Excluir</button></span></td>
+          <td><span class="d-act"><button class="rev${d.revisado ? ' on' : ''}" data-rev="${esc(d.id)}" title="${d.revisado ? 'Desfazer a revisão desta viagem' : 'Marcar esta viagem como revisada'}">${d.revisado ? '✓ Revisado' : 'Revisado'}</button><button data-edit="${esc(d.id)}">Editar</button><button class="del" data-del="${esc(d.id)}">Excluir</button></span></td>
         </tr>`
       }
       return `<tr class="row-click" data-det="${esc(d.id)}">
@@ -277,11 +277,12 @@ const DeslocApp = (() => {
         <td>${chips}</td>
         <td>${dt(d.saida_em)}${mapPin(d.saida_lat, d.saida_lng)}</td>
         <td>${dt(d.chegada_em)}${mapPin(d.chegada_lat, d.chegada_lng)}</td>
-        <td><span class="d-act"><button data-edit="${esc(d.id)}">Editar</button><button class="del" data-del="${esc(d.id)}">Excluir</button></span></td>
+        <td><span class="d-act"><button class="rev${d.revisado ? ' on' : ''}" data-rev="${esc(d.id)}" title="${d.revisado ? 'Desfazer a revisão desta viagem' : 'Marcar esta viagem como revisada'}">${d.revisado ? '✓ Revisado' : 'Revisado'}</button><button data-edit="${esc(d.id)}">Editar</button><button class="del" data-del="${esc(d.id)}">Excluir</button></span></td>
       </tr>`
     }).join('')
     tb.querySelectorAll('[data-edit]').forEach(b => b.onclick = () => editar(b.dataset.edit))
     tb.querySelectorAll('[data-del]').forEach(b => b.onclick = () => excluir(b.dataset.del))
+    tb.querySelectorAll('[data-rev]').forEach(b => b.onclick = () => marcarRevisadoLista(b.dataset.rev))
     // clicar na LINHA abre o detalhe (só leitura); clique nos botões de Ação não dispara
     tb.querySelectorAll('tr.row-click').forEach(tr => { tr.onclick = (e) => { if (e.target.closest('.d-act')) return; abrirDetalhe(tr.dataset.det) } })
     // cabeçalho clicável (ordena)
@@ -290,6 +291,22 @@ const DeslocApp = (() => {
       th.onclick = () => { const k = th.dataset.ord; if (dOrd === k) dDir = (dDir === 'asc' ? 'desc' : 'asc'); else { dOrd = k; dDir = (k === 'cliente' || k === 'veiculo') ? 'asc' : 'desc' } render() }
       const ar = th.querySelector('.ord-ar'); if (ar) ar.textContent = (dOrd === th.dataset.ord) ? (dDir === 'asc' ? ' ▲' : ' ▼') : ''
     })
+  }
+
+  // Revisão direto da lista — mesma gravação do calendário/editor; toggle marca/desfaz.
+  // (Não limpa `conflito`: isso é ato do EDITOR, onde o admin confere os valores um a um.)
+  async function marcarRevisadoLista(id) {
+    const d = rows.find(x => x.id === id); if (!d) return
+    const novo = !d.revisado
+    const { data: { user } } = await sb().auth.getUser()
+    const patch = novo
+      ? { revisado: true, revisado_em: new Date().toISOString(), revisado_por: (user && user.id) || null }
+      : { revisado: false, revisado_em: null, revisado_por: null }
+    const up = await sb().from('deslocamentos').update(patch).eq('id', id)
+    if (up.error) return toast('Erro ao gravar a revisão: ' + up.error.message, 'err')
+    d.revisado = novo
+    toast(novo ? 'Viagem marcada como revisada.' : 'Revisão desfeita.', 'ok')
+    render()
   }
 
   // ───────────────────── Editar / Excluir (admin) ─────────────────────
