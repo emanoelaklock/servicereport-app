@@ -94,6 +94,8 @@ Artefato **próprio** do técnico (não é um campo dentro da RAT — esse é o 
 - **Sequência própria da viagem** — deliberadamente **não** compartilha numeração com Tarefa nem com RAT (`{tarefa}/{seq}`): viagem referencia tarefa (N:N via `deslocamento_tarefas`, pode ter várias ou nenhuma), não é filha dela; intercalar tipos num contador destruiria o significado da sequência da RAT.
 - **Onde aparece (portal):** calendário de deslocamentos (subtítulo do modal Detalhe da viagem), lista de deslocamentos (linha, detalhe e título do Editar viagem). Backfill das viagens existentes na ordem de `criado_em`.
 
+**Guarda de duração anômala (15/07):** trecho com **chegada − saída > 24h** é quase certamente carimbo com a data errada (caso real: V-0003, saída gravada no dia da ida com o trecho datado da volta → "101h14min"). O portal **não exibe a duração absurda**: mostra **"⚠ conferir horários (saída DD/MM, chegada DD/MM)"** na família warn — no modal do calendário (meta do trecho), na lista (junto do Tempo da linha e do detalhe) e no trecho do detalhe. O "Tempo" agregado continua sendo a soma dos carimbos (não mascara o dado); o aviso diz que o número não é confiável até corrigir. Correção: pelo editor do portal (a re-ancoragem de horários na troca de data é automática nos dois editores — app `tecnico.js` e portal `deslocamentos.js`).
+
 > O **módulo "Viagem" rico** (máquina de estados, tela "em andamento" com próximo destino, portal nativo) segue **estacionado** como referência — reavaliar após a jornada contínua; os trechos acima já absorvem a parte útil dele.
 
 ---

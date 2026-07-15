@@ -263,7 +263,10 @@
       const volta = ehBase(t.destino)
       const destino = volta ? 'Traders' : ((t.destino_cliente_id && cliNomes[t.destino_cliente_id]) || fmtLugar(t.destino) || '—')
       const cid = volta ? '' : fmtLugar(t.destino)
-      const dur = fmtDur(t.saida_em, t.chegada_em)
+      // duração > 24h = quase certamente carimbo com data errada — avisa em vez de exibir um número absurdo
+      const anomalo = !!(t.saida_em && t.chegada_em && (new Date(t.chegada_em) - new Date(t.saida_em)) > 24 * 3600000)
+      const ddmm = (x) => { const dt = new Date(x); return `${pad(dt.getDate())}/${pad(dt.getMonth() + 1)}` }
+      const dur = anomalo ? '' : fmtDur(t.saida_em, t.chegada_em)
       // veículo do trecho só quando difere do resumo (ou sem veículo / herdado)
       let veicT = ''
       if (!t.veiculo_id && t.nota_transporte) veicT = `sem veículo (${esc(t.nota_transporte)})`
@@ -275,6 +278,7 @@
       const difTec = tecsT.length && tecsT.slice().sort().join('|') !== tecKey
       const hm5 = (v) => v ? String(v).slice(0, 5) : '—'
       const metaParts = [
+        anomalo ? `<span class="det-warn">⚠ conferir horários (saída ${ddmm(t.saida_em)}, chegada ${ddmm(t.chegada_em)})</span>` : '',
         dur ? `Duração: <b>${esc(dur)}</b>` : '',
         (t.almoco_inicio || t.almoco_fim) ? `Refeição: <b>${esc(hm5(t.almoco_inicio))} – ${esc(hm5(t.almoco_fim))}</b>` : '',
         cid ? esc(cid) : '',

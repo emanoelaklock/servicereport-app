@@ -149,17 +149,21 @@ const DeslocApp = (() => {
     }
     return { total: Math.max(0, Math.round((b - a) / 60000 - alm)), almoco: Math.round(alm), aberto }
   }
+  // trecho > 24h = quase certamente carimbo com data errada — o número seria absurdo; avisar em vez de somar como se nada
+  const trechoAnomalo = (t) => !!(t && t.saida_em && t.chegada_em && (new Date(t.chegada_em) - new Date(t.saida_em)) > 24 * 3600000)
+  const ddmm = (x) => { const dt = new Date(x); return `${String(dt.getDate()).padStart(2, '0')}/${String(dt.getMonth() + 1).padStart(2, '0')}` }
   // total da viagem = Σ dos trechos (cada um já líquido da própria refeição)
   function tempoViagemMin(ts) {
-    let total = 0, almoco = 0, aberto = false, temTempo = false
+    let total = 0, almoco = 0, aberto = false, temTempo = false, anomalo = false
     for (const t of (ts || [])) {
       const tt = tempoTrechoMin(t)
       if (!tt) continue
       temTempo = true
       if (tt.aberto) aberto = true
+      if (trechoAnomalo(t)) anomalo = true
       total += tt.total; almoco += tt.almoco
     }
-    return { total, bruto: total + almoco, almoco, aberto, temTempo }
+    return { total, bruto: total + almoco, almoco, aberto, temTempo, anomalo }
   }
 
   function render() {
@@ -255,7 +259,7 @@ const DeslocApp = (() => {
           ? clisVisita.map(id => `<div${id === d.cliente_id ? ' style="font-weight:700"' : ''}>${esc(cliNomes[id] || '—')}</div>`).join('')
           : esc(cliNomes[d.cliente_id] || '—')
         return `<tr class="row-click" data-det="${esc(d.id)}">
-          <td><div class="vtipo">Viagem${d.numero ? ' V-' + String(d.numero).padStart(4, '0') : ''} · ${ts.length} trecho${ts.length > 1 ? 's' : ''}</div>${periodo ? `<div class="vper">${esc(periodo)}</div>` : ''}${(() => { const tv = tempoViagemMin(ts); return tv.temTempo ? `<div class="vper">Tempo: <b>${fmtHm(tv.total)}</b>${tv.aberto ? '…' : ''}${tv.almoco ? ' (− refeição)' : ''}</div>` : '' })()}${(() => { const refs = (d.deslocamento_tarefas || []).map(x => x.tarefas ? `Tarefa Nº ${String(x.tarefas.numero).padStart(5, '0')}` : null).filter(Boolean); return refs.length ? `<div class="vper">Ref.: ${esc(refs.join(' · '))}</div>` : '' })()}<div style="margin-top:5px">${st}${(Array.isArray(d.conflito) && d.conflito.length) ? ' <span class="d-conf">⚠ conflito — revisar</span>' : ''}${d.revisado ? ' <span class="d-rev">✓ Revisado</span>' : ''}</div></td>
+          <td><div class="vtipo">Viagem${d.numero ? ' V-' + String(d.numero).padStart(4, '0') : ''} · ${ts.length} trecho${ts.length > 1 ? 's' : ''}</div>${periodo ? `<div class="vper">${esc(periodo)}</div>` : ''}${(() => { const tv = tempoViagemMin(ts); return tv.temTempo ? `<div class="vper">Tempo: <b>${fmtHm(tv.total)}</b>${tv.aberto ? '…' : ''}${tv.almoco ? ' (− refeição)' : ''}${tv.anomalo ? ' <span class="d-warn">⚠ conferir horários</span>' : ''}</div>` : '' })()}${(() => { const refs = (d.deslocamento_tarefas || []).map(x => x.tarefas ? `Tarefa Nº ${String(x.tarefas.numero).padStart(5, '0')}` : null).filter(Boolean); return refs.length ? `<div class="vper">Ref.: ${esc(refs.join(' · '))}</div>` : '' })()}<div style="margin-top:5px">${st}${(Array.isArray(d.conflito) && d.conflito.length) ? ' <span class="d-conf">⚠ conflito — revisar</span>' : ''}${d.revisado ? ' <span class="d-rev">✓ Revisado</span>' : ''}</div></td>
           <td>${cliCell}</td>
           <td>${esc(origemLbl(prim.origem))} → ${esc(destinoLbl(ult))}${detalhe}</td>
           <td>${veics.length ? veics.map(esc).join('<br>') : (semVeic.length ? `<span class="dim">${esc(semVeic.join(', '))}</span>` : '—')}</td>
@@ -372,7 +376,7 @@ const DeslocApp = (() => {
       sec += `<div class="det-sec"><h4>Viagem${d.numero ? ' V-' + String(d.numero).padStart(4, '0') : ''} · ${ts.length} trecho${ts.length > 1 ? 's' : ''}</h4>
         ${kv('Status', esc(stTxt))}
         ${kv('Período', esc(periodo))}
-        ${tv.temTempo ? kv('Tempo', `${esc(fmtHm(tv.total))}${tv.aberto ? '…' : ''}${tv.almoco ? ' (− refeição)' : ''}`) : ''}
+        ${tv.temTempo ? kv('Tempo', `${esc(fmtHm(tv.total))}${tv.aberto ? '…' : ''}${tv.almoco ? ' (− refeição)' : ''}${tv.anomalo ? ' <span class="d-warn">⚠ conferir horários</span>' : ''}`) : ''}
         ${kv('Cliente/obra', clis)}
         ${veics.length ? kv('Veículo(s)', veics.map(esc).join(' · ')) : ''}
         ${refs ? kv('Ref. Tarefa', esc(refs)) : ''}
@@ -386,6 +390,7 @@ const DeslocApp = (() => {
           ${kv('Data', esc(diaFull(t.data)))}
           ${kv('Saída', esc(horaBR(t.saida_em)))}
           ${kv('Chegada', esc(horaBR(t.chegada_em)))}
+          ${trechoAnomalo(t) ? kv('Duração', `<span class="d-warn">⚠ conferir horários (saída ${ddmm(t.saida_em)}, chegada ${ddmm(t.chegada_em)})</span>`) : ''}
           ${(t.almoco_inicio || t.almoco_fim) ? kv('Refeição', `${esc(hm5(t.almoco_inicio))} – ${esc(hm5(t.almoco_fim))}`) : ''}
           ${kv('Veículo', veicT)}
           ${tecs ? kv('A bordo', tecs) : ''}
