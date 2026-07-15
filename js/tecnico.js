@@ -1639,6 +1639,8 @@
   // ao marcar saída/chegada (sem botão). Sem km/odômetro/rastreamento contínuo.
   const DL_SENT = { ida: 'Ida', volta: 'Volta', outro: 'Outro' }   // só p/ registros legados
   let dlCur = null            // viagem em edição (cópia de trabalho)
+  let dlSnap = null           // roteiro como CARREGADO (snapshot): o auto-save do "Marcar agora" grava
+                              // carimbos sobre ele — edição estrutural (remover/alterar trecho) só sobe no Salvar
   let dlModalTrecho = null    // trecho em edição nos modais (destino/veículo/direção)
   let dldirSel = null         // técnico selecionado no modal de direção
   const nowLocal = () => { const d = new Date(), p = n => String(n).padStart(2, '0'); return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}T${p(d.getHours())}:${p(d.getMinutes())}` }
@@ -1746,7 +1748,9 @@
     const T = dlCur && dlCur.trechos; if (!T) return
     for (let i = 1; i < T.length; i++) {
       if (!T[i].origem || !String(T[i].origem).trim()) T[i].origem = destinoLabelTrecho(T[i - 1])
-      if (!T[i].tecnicos || !T[i].tecnicos.length) T[i].tecnicos = [...(T[i - 1].tecnicos || [])]   // herda os Técnicos a bordo
+      // Técnicos a bordo NÃO re-herdam aqui: a herança acontece na CRIAÇÃO do trecho (novoTrecho).
+      // Esvaziar de propósito é permitido (ex.: colega voltou de avião) — vazio persiste, inclusive
+      // vindo do servidor via pull. (O fallback de dados antigos não tem mais dado a servir: base auditada.)
     }
   }
 
@@ -1779,6 +1783,7 @@
   const fecharDlModal = (id) => () => { document.getElementById(id).classList.remove('open'); renderTrechos() }
 
   async function abrirDeslocNova() {
+    dlSnap = null   // viagem nova: nada no servidor a proteger — auto-save pode gravar o roteiro inteiro (aditivo)
     dlCur = { id: D().uuid(), cliente_id: null, criado_por: tecnico.id, modelo: 'trechos', trechos: [], tarefas: [], almocos: [], observacoes: null }
     // nasce com 2 trechos (ida e volta) — o caso comum de hoje, zero mudança
     const ida = novoTrecho(null)
@@ -1795,6 +1800,7 @@
     if (!d || !Array.isArray(d.trechos)) return
     dlCur = JSON.parse(JSON.stringify(d))
     dlCur.tarefas = dlCur.tarefas || []
+    dlSnap = JSON.parse(JSON.stringify(d))
     await abrirDeslocEditor()
   }
   async function abrirDeslocEditor() {
@@ -1805,17 +1811,27 @@
     if (obs) { obs.value = dlCur.observacoes || ''; obs.oninput = () => { dlCur.observacoes = obs.value.trim() || null } }
     document.getElementById('modal-desloc').classList.add('open')
   }
-  function fecharDesloc() { document.getElementById('modal-desloc').classList.remove('open'); dlCur = null; dlModalTrecho = null }
+  function fecharDesloc() { document.getElementById('modal-desloc').classList.remove('open'); dlCur = null; dlSnap = null; dlModalTrecho = null }
 
   // A DATA do trecho é a única fonte de data: os horários ancoram nela.
+  // Fallback pelo dia LOCAL do timestamp (toISOString daria o dia UTC — saída noturna mudaria de dia).
+  const diaLocalDe = (iso) => { const x = new Date(iso); return `${x.getFullYear()}-${String(x.getMonth() + 1).padStart(2, '0')}-${String(x.getDate()).padStart(2, '0')}` }
   const isoNoDia = (dia, hhmm, fallbackIso) => {
     if (!hhmm) return null
-    const d = dia || (fallbackIso ? new Date(fallbackIso).toISOString().slice(0, 10) : jorHoje())
+    const d = dia || (fallbackIso ? diaLocalDe(fallbackIso) : jorHoje())
     return new Date(`${d}T${hhmm}:00`).toISOString()
   }
-  // chegada "antes" da saída = virou o dia (chegou de madrugada) → soma 1 dia
+  // Limpeza EXPLÍCITA de campo (vs "não mexi"): o merge do servidor trata null como "não mexi"
+  // (união preenche vazio); só zera campo listado em t._limpar — senão a limpeza reverte no pull.
+  const marcaLimpar = (t, campo, limpou) => {
+    const l = new Set(t._limpar || [])
+    if (limpou) l.add(campo); else l.delete(campo)
+    t._limpar = [...l]
+  }
+  // chegada "antes" da saída = virou o dia (chegou de madrugada) → soma 1 dia.
+  // ESTRITO (<): saída e chegada no MESMO minuto é trecho de 0 min (toque rápido), não +24h.
   const ajustaMadrugada = (t) => {
-    if (t.saida_em && t.chegada_em && new Date(t.chegada_em) <= new Date(t.saida_em)) {
+    if (t.saida_em && t.chegada_em && new Date(t.chegada_em) < new Date(t.saida_em)) {
       t.chegada_em = new Date(new Date(t.chegada_em).getTime() + 86400000).toISOString()
     }
   }
@@ -1843,6 +1859,7 @@
     lista.querySelectorAll('[data-tar]').forEach(b => {
       b.onclick = () => {
         t.tarefa_id = b.dataset.tar || null
+        marcaLimpar(t, 'tarefa_id', !t.tarefa_id)   // "Sem tarefa" = limpeza explícita (propaga no merge)
         document.getElementById('modal-dl-tarefa').classList.remove('open')
         renderTrechos()
       }
@@ -1856,16 +1873,34 @@
     if (qual === 'saida' && !t.data) t.data = jorHoje()
     const ag = new Date()
     const hh = `${String(ag.getHours()).padStart(2, '0')}:${String(ag.getMinutes()).padStart(2, '0')}`
+    // A virada de madrugada (+1 dia na chegada) NUNCA nasce em silêncio: confirma antes.
+    const seria = isoNoDia(t.data, hh)
+    if (qual === 'chegada' && t.saida_em && seria && new Date(seria) < new Date(t.saida_em)) {
+      if (!confirm(`Saída marcada às ${hhmmDe(t.saida_em)} e chegada agora às ${hh} — confirma que a chegada foi DEPOIS da meia-noite (conta no dia seguinte)?`)) return
+    }
+    if (qual === 'saida' && t.chegada_em && seria && new Date(seria) >= new Date(t.chegada_em)) {
+      if (!confirm(`A chegada deste trecho já está marcada às ${hhmmDe(t.chegada_em)}. Marcar a saída às ${hh} empurra a chegada para o DIA SEGUINTE — está certo? (Se a saída foi antes da chegada, corrija com o escritório.)`)) return
+    }
     t[qual + '_em'] = isoNoDia(t.data, hh)   // hora de agora, no DIA do trecho
     ajustaMadrugada(t)
     renderTrechos()   // mostra a hora já; o GPS chega em seguida
     const pos = await getPos()
     if (pos) { t[qual + '_lat'] = pos.lat; t[qual + '_lng'] = pos.lng; t[qual + '_precisao'] = pos.acc }
     renderTrechos()
-    // horário marcado não se perde: salva a viagem local mesmo sem o Salvar final
-    dlCur.tecnicos = [...new Set(dlCur.trechos.flatMap(x => x.tecnicos || []))]
-    dlCur.saida_em = dlCur.trechos[0].saida_em || null
-    await D().salvarDeslocamento(dlCur)
+    // Horário marcado não se perde: salva SÓ o carimbo (data-âncora, hora e GPS) sobre o roteiro
+    // como CARREGADO (dlSnap) — nunca o roteiro em edição: remover trecho "só olhando" no editor
+    // não pode virar deleção real no servidor via auto-save (trabalho não se apaga sem Salvar).
+    const rec = JSON.parse(JSON.stringify(dlSnap || dlCur))
+    if (dlSnap) {
+      const alvo = rec.trechos.find(x => x.id === t.id)
+      const CARIMBO = ['data', 'saida_em', 'chegada_em', 'saida_lat', 'saida_lng', 'saida_precisao', 'chegada_lat', 'chegada_lng', 'chegada_precisao']
+      if (alvo) { for (const f of CARIMBO) alvo[f] = t[f] ?? null }
+      else rec.trechos.push(JSON.parse(JSON.stringify(t)))   // trecho novo: aditivo, seguro
+    }
+    rec.tecnicos = [...new Set(rec.trechos.flatMap(x => x.tecnicos || []))]
+    rec.saida_em = (rec.trechos[0] || {}).saida_em || null
+    await D().salvarDeslocamento(rec)
+    dlSnap = dlSnap ? rec : JSON.parse(JSON.stringify(rec))   // próximos carimbos acumulam sobre o que foi salvo
     if (window.SyncEngine) SyncEngine.syncAll()
   }
 
@@ -1877,7 +1912,7 @@
     const aberto = !t.chegada_em
     const b = aberto ? Date.now() : new Date(t.chegada_em).getTime()
     if (b <= a) return { total: 0, almoco: 0, aberto }
-    const dia = t.data || String(t.saida_em).slice(0, 10)
+    const dia = t.data || diaLocalDe(t.saida_em)   // dia LOCAL (slice do ISO daria o dia UTC)
     let alm = 0
     if (t.almoco_inicio && t.almoco_fim) {
       const ai = new Date(`${dia}T${t.almoco_inicio}:00`).getTime(), af = new Date(`${dia}T${t.almoco_fim}:00`).getTime()
@@ -2036,7 +2071,7 @@
     box.querySelectorAll('[data-ldata]').forEach(el => {
       el.onchange = () => {
         const t = T[+el.dataset.ldata]
-        t.data = el.value || null
+        t.data = el.value || t.data || null   // limpar o campo não apaga a data (a âncora dos horários)
         // re-ancora os horários já marcados na nova data (mantém as horas)
         if (t.saida_em) t.saida_em = isoNoDia(t.data, hhmmDe(t.saida_em), t.saida_em)
         if (t.chegada_em) { t.chegada_em = isoNoDia(t.data, hhmmDe(t.chegada_em), t.chegada_em); ajustaMadrugada(t) }
@@ -2053,8 +2088,9 @@
       el.onchange = () => {
         const t = T[+el.dataset.lalmini]
         t.almoco_inicio = el.value || null
+        marcaLimpar(t, 'almoco_inicio', !el.value)
         // término sugerido: 1h depois (editável); corrige término anterior ao início
-        if (el.value && (!t.almoco_fim || t.almoco_fim <= el.value)) t.almoco_fim = horaMais(el.value, 60)
+        if (el.value && (!t.almoco_fim || t.almoco_fim <= el.value)) { t.almoco_fim = horaMais(el.value, 60); marcaLimpar(t, 'almoco_fim', false) }
         renderTrechos()
       }
     })
@@ -2065,6 +2101,7 @@
           toast('O término da refeição não pode ser antes do início.', 'err')
           t.almoco_fim = horaMais(t.almoco_inicio, 60)
         } else t.almoco_fim = el.value || null
+        marcaLimpar(t, 'almoco_fim', !t.almoco_fim)
         renderTrechos()
       }
     })
@@ -2075,6 +2112,8 @@
         const t = T[+i]
         t.tecnicos = (t.tecnicos || []).filter(x => x !== tid)
         t.motoristas = (t.motoristas || []).filter(m => m.tecnico_id !== tid)
+        t._tecEditado = true   // edição manual: a re-herança não recoloca (trecho pode ficar sem ninguém)
+        t._tec_remover = [...new Set([...(t._tec_remover || []), tid])]   // remoção explícita: propaga no merge
         renderTrechos()
       }
     })
@@ -2104,8 +2143,9 @@
       t.destino_local_id = null
       t.destino_cliente_id = clienteId || null
       t.destino = valor
+      marcaLimpar(t, 'destino_local_id', true); marcaLimpar(t, 'destino_cliente_id', !t.destino_cliente_id)
       // tarefa vinculada de OUTRO cliente não vale mais para este destino
-      if (t.tarefa_id) { const x = tarefaDe(t.tarefa_id); if (!x || x.cliente_id !== t.destino_cliente_id) t.tarefa_id = null }
+      if (t.tarefa_id) { const x = tarefaDe(t.tarefa_id); if (!x || x.cliente_id !== t.destino_cliente_id) { t.tarefa_id = null; marcaLimpar(t, 'tarefa_id', true) } }
       document.getElementById('modal-dl-dest').classList.remove('open')
       renderTrechos()
     }
@@ -2145,7 +2185,8 @@
         t.destino_local_id = b.dataset.loc
         t.destino_cliente_id = (l && l.cliente_id) || null   // o cliente vem do Local
         t.destino = l ? ([l.cidade, l.uf].filter(Boolean).join('/') || l.nome) : null
-        if (t.tarefa_id) { const x = tarefaDe(t.tarefa_id); if (!x || x.cliente_id !== t.destino_cliente_id) t.tarefa_id = null }
+        marcaLimpar(t, 'destino_local_id', false); marcaLimpar(t, 'destino_cliente_id', !t.destino_cliente_id)
+        if (t.tarefa_id) { const x = tarefaDe(t.tarefa_id); if (!x || x.cliente_id !== t.destino_cliente_id) { t.tarefa_id = null; marcaLimpar(t, 'tarefa_id', true) } }
         document.getElementById('modal-dl-dest').classList.remove('open')
         renderTrechos()
       }
@@ -2154,7 +2195,10 @@
   function concluirDlDest() {
     const t = dlCur && dlCur.trechos[dlModalTrecho]; if (!t) return
     const outro = document.getElementById('dldest-outro').value.trim()
-    if (outro) { t.destino_local_id = null; t.destino_cliente_id = null; t.destino = outro }
+    if (outro) {
+      t.destino_local_id = null; t.destino_cliente_id = null; t.destino = outro
+      marcaLimpar(t, 'destino_local_id', true); marcaLimpar(t, 'destino_cliente_id', true)   // destino livre: solta o Local
+    }
     document.getElementById('modal-dl-dest').classList.remove('open')
     renderTrechos()
   }
@@ -2172,6 +2216,7 @@
     lista.querySelectorAll('[data-veic]').forEach(b => {
       b.onclick = () => {
         t.veiculo_id = b.dataset.veic; t.sem_veiculo = false; t.nota_transporte = null
+        marcaLimpar(t, 'veiculo_id', false); marcaLimpar(t, 'nota_transporte', true)
         document.getElementById('modal-dl-veic').classList.remove('open')
         // só um a bordo? ele é o motorista (trecho todo) — sem passo extra
         if (!(t.motoristas || []).length && (t.tecnicos || []).length === 1) {
@@ -2186,7 +2231,10 @@
   function concluirDlVeic() {
     const t = dlCur && dlCur.trechos[dlModalTrecho]; if (!t) return
     const outro = document.getElementById('dlveic-outro').value.trim()
-    if (outro) { t.veiculo_id = null; t.sem_veiculo = true; t.nota_transporte = outro; t.motoristas = [] }
+    if (outro) {
+      t.veiculo_id = null; t.sem_veiculo = true; t.nota_transporte = outro; t.motoristas = []
+      marcaLimpar(t, 'veiculo_id', true); marcaLimpar(t, 'nota_transporte', false)   // trocou p/ sem veículo: limpeza explícita
+    }
     document.getElementById('modal-dl-veic').classList.remove('open')
     renderTrechos()
   }
@@ -2249,6 +2297,7 @@
     if (!(dlCur.trechos[0].tecnicos || []).length) return toast('Marque quem está a bordo.', 'err')
     for (let i = 0; i < dlCur.trechos.length; i++) {
       const t = dlCur.trechos[i]
+      if (!t.data) return toast(`Trecho ${i + 1}: informe a data.`, 'err')   // a data é a âncora dos horários
       if (t.veiculo_id && !(t.motoristas || []).length) {
         // só um a bordo? resolve sozinho (motorista = ele, trecho todo)
         if ((t.tecnicos || []).length === 1) {
@@ -3072,9 +3121,15 @@
     document.getElementById('modal-tec-dl').classList.remove('open')
     if (dlCur && dlTecTrecho != null && dlCur.trechos[dlTecTrecho]) {
       const t = dlCur.trechos[dlTecTrecho]
+      const antes = new Set(t.tecnicos || [])
       t.tecnicos = [...dlTecSel]
       // motorista que saiu do carro sai da direção
       t.motoristas = (t.motoristas || []).filter(m => dlTecSel.has(m.tecnico_id))
+      const mudou = antes.size !== dlTecSel.size || [...dlTecSel].some(x => !antes.has(x))
+      if (mudou) t._tecEditado = true
+      // quem saiu = remoção explícita (propaga no merge); quem voltou sai da lista de remoção
+      const removidos = [...antes].filter(x => !dlTecSel.has(x))
+      t._tec_remover = [...new Set([...(t._tec_remover || []).filter(x => !dlTecSel.has(x)), ...removidos])]
       renderTrechos()
     }
     dlTecTrecho = null

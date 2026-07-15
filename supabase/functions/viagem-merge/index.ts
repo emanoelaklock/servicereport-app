@@ -39,6 +39,26 @@ const eqHora = (a: string | null, b: string | null) => {
   const h = (x: string | null) => (x ? String(x).slice(0, 5) : "")
   return h(a) === h(b)
 }
+// Re-ancoragem: mesma hora de relógio em dias diferentes (múltiplo exato de 24h).
+// Brasil sem DST desde 2019 — offset fixo -03:00 dá o dia local sem dependências.
+const mesmoRelogio = (a: string, b: string) => {
+  const d = (new Date(a).getTime() - new Date(b).getTime()) % 86400000
+  return ((d + 86400000) % 86400000) === 0
+}
+const diaLocalBR = (iso: string) => new Date(new Date(iso).getTime() - 3 * 3600000).toISOString().slice(0, 10)
+const diaMais1 = (d: string) => new Date(new Date(`${d}T12:00:00Z`).getTime() + 86400000).toISOString().slice(0, 10)
+// chave de um conflito p/ dedup (retry do aparelho não pode re-empilhar a mesma divergência)
+const chaveConflito = (c: any) => {
+  const norm = (v: unknown) => {
+    if (v == null) return ""
+    if (typeof v === "object") return JSON.stringify(v)
+    const s = String(v)
+    if (/^\d{2}:\d{2}(:\d{2})?$/.test(s)) return s.slice(0, 5)   // hora pura: "13:31" ≡ "13:31:00"
+    const d = new Date(s)
+    return isNaN(d.getTime()) ? s : String(d.getTime())          // timestamp: compara por instante
+  }
+  return `${c.trecho_ordem}|${c.campo}|${c.tecnico_id ?? ""}|${c.dia ?? ""}|${norm(c.servidor)}|${norm(c.recebido)}`
+}
 
 Deno.serve(async (req: Request) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: CORS })
@@ -90,6 +110,14 @@ Deno.serve(async (req: Request) => {
     const exById = new Map<string, any>(exTrechos.map((t: any) => [t.id, t]))
     const incomingIds = new Set(incoming.map((t: any) => t.id))
 
+    // posse: id de trecho que pertence a OUTRA viagem não entra (o upsert por id
+    // reatribuiria deslocamento_id e sobrescreveria horas sem passar pelo conflito)
+    const { data: alheios } = await admin.from("deslocamento_trechos")
+      .select("id").in("id", [...incomingIds]).neq("deslocamento_id", trip.id)
+    if (alheios && alheios.length) {
+      return json({ error: "payload contém trecho de outra viagem: " + alheios.map((x: any) => x.id).join(", ") }, 400)
+    }
+
     const conflitos: any[] = []
     const nowISO = new Date().toISOString()
 
@@ -133,31 +161,59 @@ Deno.serve(async (req: Request) => {
       const cur = exById.get(t.id)
       const row: any = { id: t.id, deslocamento_id: trip.id, ordem: t.ordem || (i + 1) }
 
+      // limpeza EXPLÍCITA declarada pelo app (t._limpar): distingue "limpei o campo" de
+      // "não mexi" — sem isso, null incoming é no-op e a limpeza reverte no pull.
+      // Só campos livre/hora são limpáveis (saída/chegada não têm fluxo de limpeza no app).
+      const limpa = new Set<string>((Array.isArray(t._limpar) ? t._limpar : [])
+        .filter((x: unknown) => typeof x === "string" && ([...HORA_FIELDS, ...LIVRE_FIELDS] as string[]).includes(x as string)))
+
       if (!cur) {
         for (const f of [...TS_FIELDS, ...HORA_FIELDS, ...LIVRE_FIELDS]) row[f] = t[f] ?? null
       } else {
+        // dia-alvo do trecho (data é campo livre: incoming vence) — juiz da re-ancoragem
+        const dataAlvo: string | null = (t.data !== undefined && t.data !== null) ? t.data : (cur.data ?? null)
         const mergeHora = (f: string, eq: (a: any, b: any) => boolean) => {
           const sv = cur[f] ?? null, iv = t[f] ?? null
+          if (!iv && sv && limpa.has(f)) { row[f] = null; return }   // limpeza explícita: aceita
           if (sv && iv && !eq(sv, iv)) {
+            // Re-ancoragem NÃO é disputa: mesma hora de relógio e o incoming cai no dia do
+            // trecho (chegada pode ser dia+1 — madrugada). Caso real V-0003: o aparelho mandou
+            // a saída corrigida pro dia certo e o servidor manteve a âncora errada.
+            const reancora = TS_FIELDS.includes(f) && dataAlvo && mesmoRelogio(iv, sv) &&
+              (f === "saida_em"
+                ? diaLocalBR(iv) === dataAlvo
+                : (diaLocalBR(iv) === dataAlvo || diaLocalBR(iv) === diaMais1(dataAlvo)))
+            if (reancora) { row[f] = iv; return }
             conflitos.push({ trecho_ordem: row.ordem, campo: f, servidor: sv, recebido: iv, por: uid, em: nowISO })
             row[f] = sv                       // conflito: mantém o do servidor
           } else row[f] = sv ?? iv            // união: preenche o vazio
         }
         for (const f of TS_FIELDS) mergeHora(f, eqTs)
         for (const f of HORA_FIELDS) mergeHora(f, eqHora)
-        for (const f of LIVRE_FIELDS) row[f] = (t[f] !== undefined && t[f] !== null) ? t[f] : (cur[f] ?? null)
+        for (const f of LIVRE_FIELDS) row[f] = (t[f] !== undefined && t[f] !== null) ? t[f] : (limpa.has(f) ? null : (cur[f] ?? null))
       }
 
       const up = await admin.from("deslocamento_trechos").upsert(row, { onConflict: "id" })
       if (up.error) return json({ error: "falha no trecho: " + up.error.message }, 500)
     }
 
-    // ---- a-bordo por trecho: UNIÃO (só acrescenta) ----
+    // ---- a-bordo por trecho: UNIÃO (só acrescenta)… ----
     const aboardRows: any[] = []
     for (const t of incoming) for (const tid of (t.tecnicos || [])) aboardRows.push({ trecho_id: t.id, tecnico_id: tid })
     if (aboardRows.length) {
       const r = await admin.from("trecho_tecnicos").upsert(aboardRows, { onConflict: "trecho_id,tecnico_id", ignoreDuplicates: true })
       if (r.error) return json({ error: "falha a-bordo: " + r.error.message }, 500)
+    }
+    // …EXCETO remoção explícita (t._tec_remover): quem foi tirado de propósito no app sai do
+    // trecho (sem isso a união re-adicionaria pra sempre e horas/noites iriam pra quem não estava).
+    for (const t of incoming) {
+      const rem = (Array.isArray(t._tec_remover) ? t._tec_remover : [])
+        .filter((x: unknown) => typeof x === "string")
+        .filter((x: string) => !(t.tecnicos || []).includes(x))   // re-adicionado vence a remoção
+      if (rem.length) {
+        const r = await admin.from("trecho_tecnicos").delete().eq("trecho_id", t.id).in("tecnico_id", rem)
+        if (r.error) return json({ error: "falha a-bordo(rem): " + r.error.message }, 500)
+      }
     }
 
     // ---- direção por trecho: substitui a direção dos trechos recebidos (autorada em conjunto) ----
@@ -175,7 +231,7 @@ Deno.serve(async (req: Request) => {
       }
     }
 
-    // ---- a-bordo no pai (união, dá leitura via RLS) ----
+    // ---- a-bordo no pai (dá leitura via RLS): união + poda de quem saiu de TODOS os trechos ----
     const uni = [...new Set(incoming.flatMap((t: any) => t.tecnicos || []))]
     if (uni.length) {
       const r = await admin.from("deslocamento_tecnicos")
@@ -183,6 +239,14 @@ Deno.serve(async (req: Request) => {
           { onConflict: "deslocamento_id,tecnico_id", ignoreDuplicates: true })
       if (r.error) return json({ error: "falha tecnicos pai: " + r.error.message }, 500)
     }
+    // participação é DERIVADA dos trechos: pai não pode reter quem não está em nenhum
+    const { data: abAtual } = await admin.from("trecho_tecnicos")
+      .select("tecnico_id, deslocamento_trechos!inner(deslocamento_id)")
+      .eq("deslocamento_trechos.deslocamento_id", trip.id)
+    const emTrecho = [...new Set((abAtual || []).map((x: any) => x.tecnico_id))]
+    const podaQ = admin.from("deslocamento_tecnicos").delete().eq("deslocamento_id", trip.id)
+    const poda = emTrecho.length ? await podaQ.not("tecnico_id", "in", `(${emTrecho.join(",")})`) : await podaQ
+    if (poda.error) return json({ error: "falha tecnicos pai(poda): " + poda.error.message }, 500)
 
     // ---- tarefas referenciadas (união) ----
     const tarefas = [...new Set([...(trip.tarefas || []), ...incoming.map((t: any) => t.tarefa_id).filter(Boolean)])]
@@ -193,21 +257,42 @@ Deno.serve(async (req: Request) => {
       if (r.error) return json({ error: "falha tarefas: " + r.error.message }, 500)
     }
 
-    // ---- almoço por pessoa/dia (upsert dedup por PK deslocamento_id,tecnico_id,dia) ----
+    // ---- almoço por pessoa/dia (dedup por PK deslocamento_id,tecnico_id,dia).
+    //      Divergência NÃO sobrescreve em silêncio (mesma regra das horas do trecho):
+    //      mantém o do servidor e marca conflito pro admin. ----
     if ((trip.almocos || []).length) {
-      const r = await admin.from("deslocamento_almocos")
-        .upsert((trip.almocos || []).map((a: any) => ({
-          deslocamento_id: trip.id, tecnico_id: a.tecnico_id, dia: a.dia, inicio: a.inicio, fim: a.fim,
-        })), { onConflict: "deslocamento_id,tecnico_id,dia" })
-      if (r.error) return json({ error: "falha almoco: " + r.error.message }, 500)
+      const { data: exAlm } = await admin.from("deslocamento_almocos")
+        .select("tecnico_id,dia,inicio,fim").eq("deslocamento_id", trip.id)
+      const exAlmMap = new Map((exAlm || []).map((a: any) => [`${a.tecnico_id}|${a.dia}`, a]))
+      const novosAlm: any[] = []
+      for (const a of (trip.almocos || [])) {
+        const cur = exAlmMap.get(`${a.tecnico_id}|${a.dia}`)
+        if (!cur) { novosAlm.push({ deslocamento_id: trip.id, tecnico_id: a.tecnico_id, dia: a.dia, inicio: a.inicio, fim: a.fim }); continue }
+        if (eqHora(cur.inicio, a.inicio) && eqHora(cur.fim, a.fim)) continue
+        conflitos.push({
+          trecho_ordem: null, campo: "almoco_pessoa_dia", tecnico_id: a.tecnico_id, dia: a.dia,
+          servidor: `${cur.inicio ?? "—"}–${cur.fim ?? "—"}`, recebido: `${a.inicio ?? "—"}–${a.fim ?? "—"}`, por: uid, em: nowISO,
+        })
+      }
+      if (novosAlm.length) {
+        const r = await admin.from("deslocamento_almocos")
+          .upsert(novosAlm, { onConflict: "deslocamento_id,tecnico_id,dia", ignoreDuplicates: true })
+        if (r.error) return json({ error: "falha almoco: " + r.error.message }, 500)
+      }
     }
 
-    // ---- conflito: anexa às divergências já existentes e tira a revisão (admin reconfere) ----
+    // ---- conflito: anexa às divergências já existentes e tira a revisão (admin reconfere).
+    //      DEDUP: retry do aparelho com o mesmo payload não re-empilha a mesma divergência
+    //      (caso real V-0007: 4 syncs = 4 cópias) nem re-derruba a revisão à toa. ----
     if (conflitos.length) {
       const prev = Array.isArray(ex?.conflito) ? ex!.conflito : []
-      const up = await admin.from("deslocamentos")
-        .update({ conflito: [...prev, ...conflitos], revisado: false }).eq("id", trip.id)
-      if (up.error) return json({ error: "falha conflito: " + up.error.message }, 500)
+      const vistos = new Set(prev.map(chaveConflito))
+      const novos = conflitos.filter((c) => !vistos.has(chaveConflito(c)))
+      if (novos.length) {
+        const up = await admin.from("deslocamentos")
+          .update({ conflito: [...prev, ...novos], revisado: false }).eq("id", trip.id)
+        if (up.error) return json({ error: "falha conflito: " + up.error.message }, 500)
+      }
     }
 
     // devolve o atualizado_em pro app guardar (cursor de pull)

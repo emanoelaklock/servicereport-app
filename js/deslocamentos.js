@@ -140,7 +140,7 @@ const DeslocApp = (() => {
     const aberto = !t.chegada_em
     const b = aberto ? Date.now() : new Date(t.chegada_em).getTime()
     if (b <= a) return { total: 0, almoco: 0, aberto }
-    const dia = t.data || String(t.saida_em).slice(0, 10)
+    const dia = t.data || diaLocalDe(t.saida_em)   // dia LOCAL (slice do ISO daria o dia UTC)
     let alm = 0
     const hh = (x) => String(x || '').slice(0, 5)
     if (t.almoco_inicio && t.almoco_fim) {
@@ -452,14 +452,17 @@ const DeslocApp = (() => {
   const horaMais = (hhmm, min) => { const [h, m] = String(hhmm).split(':').map(Number); if (isNaN(h)) return ''; const t = (h * 60 + (m || 0) + min) % 1440; return `${String(Math.floor(t / 60)).padStart(2, '0')}:${String(t % 60).padStart(2, '0')}` }
   // A DATA do trecho é a única fonte de data: saída/chegada são só HORA, ancoradas nela.
   const hhIso = (iso) => { if (!iso) return ''; const d = new Date(iso); return `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}` }
+  // fallback pelo dia LOCAL (toISOString daria o dia UTC — hora noturna mudaria de dia)
+  const diaLocalDe = (iso) => { const x = new Date(iso || Date.now()); return `${x.getFullYear()}-${String(x.getMonth() + 1).padStart(2, '0')}-${String(x.getDate()).padStart(2, '0')}` }
   const isoNoDia = (dia, hhmm, fallbackIso) => {
     if (!hhmm) return null
-    const d = dia || (fallbackIso ? new Date(fallbackIso).toISOString().slice(0, 10) : new Date().toISOString().slice(0, 10))
+    const d = dia || (fallbackIso ? diaLocalDe(fallbackIso) : diaLocalDe())
     return new Date(`${d}T${hhmm}:00`).toISOString()
   }
   // chegada "antes" da saída = virou o dia (chegou de madrugada) → soma 1 dia
   const ajustaMadrugada = (t) => {
-    if (t.saida_em && t.chegada_em && new Date(t.chegada_em) <= new Date(t.saida_em)) {
+    // ESTRITO (<): chegada no MESMO minuto da saída é trecho de 0 min, não virada de dia
+    if (t.saida_em && t.chegada_em && new Date(t.chegada_em) < new Date(t.saida_em)) {
       t.chegada_em = new Date(new Date(t.chegada_em).getTime() + 86400000).toISOString()
     }
   }
