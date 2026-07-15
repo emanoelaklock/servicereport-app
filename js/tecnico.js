@@ -351,6 +351,29 @@
     })
   }
 
+  // Tarefa devolvida: o técnico ESCOLHE entre corrigir a RAT devolvida e abrir RAT nova
+  // de hoje (decisão 15/07). O motivo da devolução (chips) orienta; ✕ resolve null (não abre nada).
+  function mostrarModalDevolEscolha(t, corrigir, doDia) {
+    return new Promise((resolve) => {
+      const mot = document.getElementById('de-motivo')
+      if (mot) mot.innerHTML = devolMotivoHTML(t) || 'Sem motivo registrado.'
+      const dia = (diaDaRat(corrigir) || '').split('-').reverse().join('/')
+      const subC = document.getElementById('de-corrigir-sub')
+      if (subC) subC.textContent = `RAT de ${dia} — ajustar o que foi apontado`
+      // já existe RAT de hoje (1 RAT por tarefa/dia): "nova" vira reabrir a de hoje
+      const tN = document.getElementById('de-nova-t'), subN = document.getElementById('de-nova-sub')
+      if (tN) tN.textContent = doDia ? 'Abrir a RAT de hoje' : 'Nova RAT de hoje'
+      if (subN) subN.textContent = doDia ? 'Continuar o registro do dia de hoje' : 'Registrar novo dia de trabalho'
+      const m = document.getElementById('modal-devol-escolha')
+      const bC = document.getElementById('de-corrigir'), bN = document.getElementById('de-nova'), bX = document.getElementById('de-x')
+      const fechar = (escolha) => { bC.onclick = null; bN.onclick = null; bX.onclick = null; m.classList.remove('open'); resolve(escolha) }
+      bC.onclick = () => fechar('corrigir')
+      bN.onclick = () => fechar('nova')
+      bX.onclick = () => fechar(null)
+      m.classList.add('open')
+    })
+  }
+
   // Resolve relendo o estado FRESCO (a RAT pode ter sido fechada por sync/pull no meio) — evita
   // falso/duplo. Espelha o ramo 'registrado' do salvar(); descarta o cronômetro da pausa.
   async function aplicarResolucaoPausa(client_uuid, escolha) {
@@ -983,13 +1006,20 @@
   async function abrirRatDeHoje(t) {
     const rs = await D().listarRats()
     const doDia = ratDoDiaDe(rs, t.id)
-    if (doDia) return abrirExistente(doDia.client_uuid)
-    // Tarefa devolvida pelo admin: reabre a RAT existente pra corrigir (traz material+foto
-    // do servidor via hidratarFilhosDevolucao), em vez de criar uma RAT nova e vazia.
+    // Tarefa devolvida pelo admin: o técnico ESCOLHE (decisão 15/07) — corrigir a RAT
+    // devolvida (traz material+foto do servidor via hidratarFilhosDevolucao) ou abrir a
+    // RAT de hoje (novo dia de trabalho; NÃO destrava a devolução — regra no sync.js).
     if (t.status === 'devolvida') {
       const corrigir = ratParaCorrigir(rs, t.id)
-      if (corrigir) return abrirExistente(corrigir.client_uuid)
+      if (!corrigir) return doDia ? abrirExistente(doDia.client_uuid) : iniciarRatDaTarefa(t)
+      // a RAT devolvida É a de hoje: corrigir e "nova de hoje" seriam o mesmo registro
+      if (doDia && doDia.client_uuid === corrigir.client_uuid) return abrirExistente(corrigir.client_uuid)
+      const escolha = await mostrarModalDevolEscolha(t, corrigir, doDia)
+      if (escolha === 'corrigir') return abrirExistente(corrigir.client_uuid)
+      if (escolha === 'nova') return doDia ? abrirExistente(doDia.client_uuid) : iniciarRatDaTarefa(t)
+      return   // fechou sem escolher
     }
+    if (doDia) return abrirExistente(doDia.client_uuid)
     return iniciarRatDaTarefa(t)
   }
 

@@ -126,7 +126,7 @@
       if (novo) {
         const rs = rat.respostas || {}
         const ehPausa = rs.volta_amanha === 'Não' && rs.passagem_motivo === 'volto_depois'
-        const { data: tt } = await sb.from('tarefas').select('status').eq('id', rat.tarefa_id).maybeSingle()
+        const { data: tt } = await sb.from('tarefas').select('status,devolvida_em').eq('id', rat.tarefa_id).maybeSingle()
         const atual = tt && tt.status
         const terminal = ['aprovada_faturamento', 'faturada']
         const aplicar = atual && !terminal.includes(atual) && !ehPausa &&
@@ -137,7 +137,14 @@
         // O trigger 0099 carimba resolvida_em sozinho ao sair de 'devolvida'; a gestão
         // confere e pode re-devolver (2ª devolução conta reincidência). "Vou voltar
         // depois" não dispara (é pausa, não correção).
-        if (atual === 'devolvida' && rat.status === 'registrado' && !ehPausa) {
+        // REGRA DE DESTRAVAMENTO (decisão 15/07): só a RAT devolvida — criada ANTES de
+        // devolvida_em — destrava. RAT NOVA (criada depois da devolução, ex.: "Nova RAT
+        // de hoje" numa tarefa devolvida) NÃO tira a tarefa de 'devolvida' — senão vira
+        // atalho pra limpar devolução sem corrigir e a métrica do painel perde o sentido.
+        // devolvida_em null (devoluções pré-0088, legadas): comportamento antigo (destrava).
+        const corrigeDevolucao = !tt || !tt.devolvida_em ||
+          (rat.criado_em && new Date(rat.criado_em) <= new Date(tt.devolvida_em))
+        if (atual === 'devolvida' && rat.status === 'registrado' && !ehPausa && corrigeDevolucao) {
           await sb.from('tarefas').update({ status: 'concluida' }).eq('id', rat.tarefa_id)
         }
       }
