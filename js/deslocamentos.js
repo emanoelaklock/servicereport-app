@@ -146,14 +146,15 @@ const DeslocApp = (() => {
     let alm = 0
     const hh = (x) => String(x || '').slice(0, 5)
     if (t.almoco_inicio && t.almoco_fim) {
-      const ai = new Date(`${dia}T${hh(t.almoco_inicio)}:00`).getTime(), af = new Date(`${dia}T${hh(t.almoco_fim)}:00`).getTime()
+      // janela da refeição ancorada em Brasília (−03) — no fuso do navegador o desconto deslizava
+      const ai = new Date(`${dia}T${hh(t.almoco_inicio)}:00-03:00`).getTime(), af = new Date(`${dia}T${hh(t.almoco_fim)}:00-03:00`).getTime()
       alm = Math.max(0, Math.min(b, af) - Math.max(a, ai)) / 60000
     }
     return { total: Math.max(0, Math.round((b - a) / 60000 - alm)), almoco: Math.round(alm), aberto }
   }
   // trecho > 24h (fechado: carimbo com data errada; aberto: esqueceram de encerrar) — avisar em vez de somar como se nada
   const trechoAnomalo = (t) => !!(t && t.saida_em && ((t.chegada_em ? new Date(t.chegada_em) : Date.now()) - new Date(t.saida_em)) > 24 * 3600000)
-  const ddmm = (x) => { const dt = new Date(x); return `${String(dt.getDate()).padStart(2, '0')}/${String(dt.getMonth() + 1).padStart(2, '0')}` }
+  const ddmm = (x) => ddmmSP(x)   // dd/mm no calendário de Brasília
   // total da viagem = Σ dos trechos (cada um já líquido da própria refeição)
   function tempoViagemMin(ts) {
     let total = 0, almoco = 0, aberto = false, temTempo = false, anomalo = false

@@ -266,7 +266,7 @@
       const cid = volta ? '' : fmtLugar(t.destino)
       // > 24h (fechado: carimbo com data errada; aberto: esqueceram de encerrar) — avisa em vez de exibir um número absurdo
       const anomalo = !!(t.saida_em && ((t.chegada_em ? new Date(t.chegada_em) : Date.now()) - new Date(t.saida_em)) > 24 * 3600000)
-      const ddmm = (x) => { const dt = new Date(x); return `${pad(dt.getDate())}/${pad(dt.getMonth() + 1)}` }
+      const ddmm = (x) => ddmmSP(x)   // dd/mm no calendário de Brasília (nunca no fuso do navegador)
       const dur = anomalo ? '' : fmtDur(t.saida_em, t.chegada_em)
       // veículo do trecho só quando difere do resumo (ou sem veículo / herdado)
       let veicT = ''
