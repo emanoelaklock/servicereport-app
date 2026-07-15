@@ -133,11 +133,18 @@ Deno.serve(async (req: Request) => {
       const cur = exById.get(t.id)
       const row: any = { id: t.id, deslocamento_id: trip.id, ordem: t.ordem || (i + 1) }
 
+      // limpeza EXPLÍCITA declarada pelo app (t._limpar): distingue "limpei o campo" de
+      // "não mexi" — sem isso, null incoming é no-op e a limpeza reverte no pull.
+      // Só campos livre/hora são limpáveis (saída/chegada não têm fluxo de limpeza no app).
+      const limpa = new Set<string>((Array.isArray(t._limpar) ? t._limpar : [])
+        .filter((x: unknown) => typeof x === "string" && ([...HORA_FIELDS, ...LIVRE_FIELDS] as string[]).includes(x as string)))
+
       if (!cur) {
         for (const f of [...TS_FIELDS, ...HORA_FIELDS, ...LIVRE_FIELDS]) row[f] = t[f] ?? null
       } else {
         const mergeHora = (f: string, eq: (a: any, b: any) => boolean) => {
           const sv = cur[f] ?? null, iv = t[f] ?? null
+          if (!iv && sv && limpa.has(f)) { row[f] = null; return }   // limpeza explícita: aceita
           if (sv && iv && !eq(sv, iv)) {
             conflitos.push({ trecho_ordem: row.ordem, campo: f, servidor: sv, recebido: iv, por: uid, em: nowISO })
             row[f] = sv                       // conflito: mantém o do servidor
@@ -145,7 +152,7 @@ Deno.serve(async (req: Request) => {
         }
         for (const f of TS_FIELDS) mergeHora(f, eqTs)
         for (const f of HORA_FIELDS) mergeHora(f, eqHora)
-        for (const f of LIVRE_FIELDS) row[f] = (t[f] !== undefined && t[f] !== null) ? t[f] : (cur[f] ?? null)
+        for (const f of LIVRE_FIELDS) row[f] = (t[f] !== undefined && t[f] !== null) ? t[f] : (limpa.has(f) ? null : (cur[f] ?? null))
       }
 
       const up = await admin.from("deslocamento_trechos").upsert(row, { onConflict: "id" })

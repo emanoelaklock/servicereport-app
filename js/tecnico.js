@@ -1817,6 +1817,13 @@
     const d = dia || (fallbackIso ? new Date(fallbackIso).toISOString().slice(0, 10) : jorHoje())
     return new Date(`${d}T${hhmm}:00`).toISOString()
   }
+  // Limpeza EXPLÍCITA de campo (vs "não mexi"): o merge do servidor trata null como "não mexi"
+  // (união preenche vazio); só zera campo listado em t._limpar — senão a limpeza reverte no pull.
+  const marcaLimpar = (t, campo, limpou) => {
+    const l = new Set(t._limpar || [])
+    if (limpou) l.add(campo); else l.delete(campo)
+    t._limpar = [...l]
+  }
   // chegada "antes" da saída = virou o dia (chegou de madrugada) → soma 1 dia
   const ajustaMadrugada = (t) => {
     if (t.saida_em && t.chegada_em && new Date(t.chegada_em) <= new Date(t.saida_em)) {
@@ -1847,6 +1854,7 @@
     lista.querySelectorAll('[data-tar]').forEach(b => {
       b.onclick = () => {
         t.tarefa_id = b.dataset.tar || null
+        marcaLimpar(t, 'tarefa_id', !t.tarefa_id)   // "Sem tarefa" = limpeza explícita (propaga no merge)
         document.getElementById('modal-dl-tarefa').classList.remove('open')
         renderTrechos()
       }
@@ -2067,8 +2075,9 @@
       el.onchange = () => {
         const t = T[+el.dataset.lalmini]
         t.almoco_inicio = el.value || null
+        marcaLimpar(t, 'almoco_inicio', !el.value)
         // término sugerido: 1h depois (editável); corrige término anterior ao início
-        if (el.value && (!t.almoco_fim || t.almoco_fim <= el.value)) t.almoco_fim = horaMais(el.value, 60)
+        if (el.value && (!t.almoco_fim || t.almoco_fim <= el.value)) { t.almoco_fim = horaMais(el.value, 60); marcaLimpar(t, 'almoco_fim', false) }
         renderTrechos()
       }
     })
@@ -2079,6 +2088,7 @@
           toast('O término da refeição não pode ser antes do início.', 'err')
           t.almoco_fim = horaMais(t.almoco_inicio, 60)
         } else t.almoco_fim = el.value || null
+        marcaLimpar(t, 'almoco_fim', !t.almoco_fim)
         renderTrechos()
       }
     })
@@ -2118,8 +2128,9 @@
       t.destino_local_id = null
       t.destino_cliente_id = clienteId || null
       t.destino = valor
+      marcaLimpar(t, 'destino_local_id', true); marcaLimpar(t, 'destino_cliente_id', !t.destino_cliente_id)
       // tarefa vinculada de OUTRO cliente não vale mais para este destino
-      if (t.tarefa_id) { const x = tarefaDe(t.tarefa_id); if (!x || x.cliente_id !== t.destino_cliente_id) t.tarefa_id = null }
+      if (t.tarefa_id) { const x = tarefaDe(t.tarefa_id); if (!x || x.cliente_id !== t.destino_cliente_id) { t.tarefa_id = null; marcaLimpar(t, 'tarefa_id', true) } }
       document.getElementById('modal-dl-dest').classList.remove('open')
       renderTrechos()
     }
@@ -2159,7 +2170,8 @@
         t.destino_local_id = b.dataset.loc
         t.destino_cliente_id = (l && l.cliente_id) || null   // o cliente vem do Local
         t.destino = l ? ([l.cidade, l.uf].filter(Boolean).join('/') || l.nome) : null
-        if (t.tarefa_id) { const x = tarefaDe(t.tarefa_id); if (!x || x.cliente_id !== t.destino_cliente_id) t.tarefa_id = null }
+        marcaLimpar(t, 'destino_local_id', false); marcaLimpar(t, 'destino_cliente_id', !t.destino_cliente_id)
+        if (t.tarefa_id) { const x = tarefaDe(t.tarefa_id); if (!x || x.cliente_id !== t.destino_cliente_id) { t.tarefa_id = null; marcaLimpar(t, 'tarefa_id', true) } }
         document.getElementById('modal-dl-dest').classList.remove('open')
         renderTrechos()
       }
@@ -2168,7 +2180,10 @@
   function concluirDlDest() {
     const t = dlCur && dlCur.trechos[dlModalTrecho]; if (!t) return
     const outro = document.getElementById('dldest-outro').value.trim()
-    if (outro) { t.destino_local_id = null; t.destino_cliente_id = null; t.destino = outro }
+    if (outro) {
+      t.destino_local_id = null; t.destino_cliente_id = null; t.destino = outro
+      marcaLimpar(t, 'destino_local_id', true); marcaLimpar(t, 'destino_cliente_id', true)   // destino livre: solta o Local
+    }
     document.getElementById('modal-dl-dest').classList.remove('open')
     renderTrechos()
   }
@@ -2186,6 +2201,7 @@
     lista.querySelectorAll('[data-veic]').forEach(b => {
       b.onclick = () => {
         t.veiculo_id = b.dataset.veic; t.sem_veiculo = false; t.nota_transporte = null
+        marcaLimpar(t, 'veiculo_id', false); marcaLimpar(t, 'nota_transporte', true)
         document.getElementById('modal-dl-veic').classList.remove('open')
         // só um a bordo? ele é o motorista (trecho todo) — sem passo extra
         if (!(t.motoristas || []).length && (t.tecnicos || []).length === 1) {
@@ -2200,7 +2216,10 @@
   function concluirDlVeic() {
     const t = dlCur && dlCur.trechos[dlModalTrecho]; if (!t) return
     const outro = document.getElementById('dlveic-outro').value.trim()
-    if (outro) { t.veiculo_id = null; t.sem_veiculo = true; t.nota_transporte = outro; t.motoristas = [] }
+    if (outro) {
+      t.veiculo_id = null; t.sem_veiculo = true; t.nota_transporte = outro; t.motoristas = []
+      marcaLimpar(t, 'veiculo_id', true); marcaLimpar(t, 'nota_transporte', false)   // trocou p/ sem veículo: limpeza explícita
+    }
     document.getElementById('modal-dl-veic').classList.remove('open')
     renderTrechos()
   }
