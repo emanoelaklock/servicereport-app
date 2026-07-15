@@ -1338,7 +1338,8 @@
     // carrega o formulário do tipo da tarefa (ou mostra aviso se a tarefa não tem tipo)
     const formId = (ref.tipos.find(x => x.id === tipoId) || {}).formulario_id || null
     await carregarFormularioPorId(formId)
-    capturarGpsAuto()   // carimba o local automaticamente (se o GPS permitir)
+    // GPS NÃO carimba na abertura do formulário (decisão 14/07): o local é capturado
+    // no INÍCIO DA EXECUÇÃO — quando hora_inicio é preenchida (timer ou digitada).
   }
   // Captura o GPS do atendimento sem precisar de clique (só se ainda não houver).
   async function capturarGpsAuto() {
@@ -2443,6 +2444,13 @@
     montarTimers()
     await refreshThumbs()
     await refreshGpsRat()
+    // GPS = momento do INÍCIO DA EXECUÇÃO: carimba quando hora_inicio ganha valor
+    // (pelo botão "Iniciar atendimento" ou digitada à mão). Primeira captura vence.
+    const hiGps = document.querySelector('[data-campo="hora_inicio"]')
+    if (hiGps && !hiGps.dataset.gpsHook) {
+      hiGps.dataset.gpsHook = '1'
+      hiGps.addEventListener('change', () => { if (hiGps.value) capturarGpsAuto() })
+    }
     atualizarBadgeProd()
   }
 
