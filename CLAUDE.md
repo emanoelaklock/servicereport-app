@@ -28,7 +28,7 @@ Regras do projeto que você (Claude Code) deve seguir em **toda** sessão. Leia 
 - **Tempo é da pessoa, não do documento.** Horas são por técnico (trechos de participação), somadas entre artefatos do dia.
 - **Almoço é por pessoa/dia**, contado **uma vez** (dedup no servidor) — nunca por RAT.
 - **Material é da RAT (lançado uma vez)** — nunca duplicar por técnico. Arredondamento (teto) acontece **na Tarefa**, não na RAT; o técnico aponta decimal salvo como digitado.
-- **RAT colaborativa:** uma RAT por `(tarefa, dia)`. Id determinístico via **UUIDv5 de (tarefa_id, dia)** pros aparelhos convergirem; sub-tabelas com **`created_by`**; merge por **união**; conflito (dois lançam o mesmo) é **marcado pro admin, nunca somado em silêncio**.
+- **RAT colaborativa:** uma RAT por `(tarefa, dia)`. O `client_uuid` é **UUID v4 aleatório** (`crypto.randomUUID`, `db-local.js`) — a regra "1 por dia" é **client-side** (`ratDoDiaDe` reusa a RAT do dia em vez de criar outra); **não há** id determinístico UUIDv5 nem trava de unicidade por dia no servidor (a unicidade servidor é por `(tarefa_id, rat_seq)`). Sub-tabelas com **`created_by`**; merge por **união**; conflito (dois lançam o mesmo) é **marcado pro admin, nunca somado em silêncio**.
 - **"Concluída" é reservado ao serviço (Tarefa).** A RAT diária fecha como "registrado". Encerrar a RAT ≠ concluir o serviço.
 - **Modalidade de faturamento mora no contrato/obra**, não no cliente; o técnico nunca escolhe modalidade.
 - Trabalho não-sincronizado **nunca é apagado** sem ação explícita.
