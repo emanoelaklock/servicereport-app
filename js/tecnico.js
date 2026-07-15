@@ -1639,6 +1639,8 @@
   // ao marcar saída/chegada (sem botão). Sem km/odômetro/rastreamento contínuo.
   const DL_SENT = { ida: 'Ida', volta: 'Volta', outro: 'Outro' }   // só p/ registros legados
   let dlCur = null            // viagem em edição (cópia de trabalho)
+  let dlSnap = null           // roteiro como CARREGADO (snapshot): o auto-save do "Marcar agora" grava
+                              // carimbos sobre ele — edição estrutural (remover/alterar trecho) só sobe no Salvar
   let dlModalTrecho = null    // trecho em edição nos modais (destino/veículo/direção)
   let dldirSel = null         // técnico selecionado no modal de direção
   const nowLocal = () => { const d = new Date(), p = n => String(n).padStart(2, '0'); return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}T${p(d.getHours())}:${p(d.getMinutes())}` }
@@ -1779,6 +1781,7 @@
   const fecharDlModal = (id) => () => { document.getElementById(id).classList.remove('open'); renderTrechos() }
 
   async function abrirDeslocNova() {
+    dlSnap = null   // viagem nova: nada no servidor a proteger — auto-save pode gravar o roteiro inteiro (aditivo)
     dlCur = { id: D().uuid(), cliente_id: null, criado_por: tecnico.id, modelo: 'trechos', trechos: [], tarefas: [], almocos: [], observacoes: null }
     // nasce com 2 trechos (ida e volta) — o caso comum de hoje, zero mudança
     const ida = novoTrecho(null)
@@ -1795,6 +1798,7 @@
     if (!d || !Array.isArray(d.trechos)) return
     dlCur = JSON.parse(JSON.stringify(d))
     dlCur.tarefas = dlCur.tarefas || []
+    dlSnap = JSON.parse(JSON.stringify(d))
     await abrirDeslocEditor()
   }
   async function abrirDeslocEditor() {
@@ -1805,7 +1809,7 @@
     if (obs) { obs.value = dlCur.observacoes || ''; obs.oninput = () => { dlCur.observacoes = obs.value.trim() || null } }
     document.getElementById('modal-desloc').classList.add('open')
   }
-  function fecharDesloc() { document.getElementById('modal-desloc').classList.remove('open'); dlCur = null; dlModalTrecho = null }
+  function fecharDesloc() { document.getElementById('modal-desloc').classList.remove('open'); dlCur = null; dlSnap = null; dlModalTrecho = null }
 
   // A DATA do trecho é a única fonte de data: os horários ancoram nela.
   const isoNoDia = (dia, hhmm, fallbackIso) => {
@@ -1862,10 +1866,20 @@
     const pos = await getPos()
     if (pos) { t[qual + '_lat'] = pos.lat; t[qual + '_lng'] = pos.lng; t[qual + '_precisao'] = pos.acc }
     renderTrechos()
-    // horário marcado não se perde: salva a viagem local mesmo sem o Salvar final
-    dlCur.tecnicos = [...new Set(dlCur.trechos.flatMap(x => x.tecnicos || []))]
-    dlCur.saida_em = dlCur.trechos[0].saida_em || null
-    await D().salvarDeslocamento(dlCur)
+    // Horário marcado não se perde: salva SÓ o carimbo (data-âncora, hora e GPS) sobre o roteiro
+    // como CARREGADO (dlSnap) — nunca o roteiro em edição: remover trecho "só olhando" no editor
+    // não pode virar deleção real no servidor via auto-save (trabalho não se apaga sem Salvar).
+    const rec = JSON.parse(JSON.stringify(dlSnap || dlCur))
+    if (dlSnap) {
+      const alvo = rec.trechos.find(x => x.id === t.id)
+      const CARIMBO = ['data', 'saida_em', 'chegada_em', 'saida_lat', 'saida_lng', 'saida_precisao', 'chegada_lat', 'chegada_lng', 'chegada_precisao']
+      if (alvo) { for (const f of CARIMBO) alvo[f] = t[f] ?? null }
+      else rec.trechos.push(JSON.parse(JSON.stringify(t)))   // trecho novo: aditivo, seguro
+    }
+    rec.tecnicos = [...new Set(rec.trechos.flatMap(x => x.tecnicos || []))]
+    rec.saida_em = (rec.trechos[0] || {}).saida_em || null
+    await D().salvarDeslocamento(rec)
+    dlSnap = dlSnap ? rec : JSON.parse(JSON.stringify(rec))   // próximos carimbos acumulam sobre o que foi salvo
     if (window.SyncEngine) SyncEngine.syncAll()
   }
 
