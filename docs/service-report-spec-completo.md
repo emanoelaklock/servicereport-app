@@ -78,7 +78,7 @@ Artefato **próprio** do técnico (não é um campo dentro da RAT — esse é o 
 > Não confundir com o **deslocamento do dia**, que mora dentro da RAT (botão "Deslocamento" no grid de registros — **toggles independentes de ida e retorno** (Sim/Não), cada um com início/fim carimbados). Pernoite é viagem; deslocamento do dia é o trajeto da visita.
 
 **Reformulação aprovada (12/06) — trechos dinâmicos** *(referência visual: `docs/mockups/mockup-deslocamento-tempo.html`; construir junto com o pacote tempo-por-técnico, §8)*:
-- **Trechos:** o deslocamento vira lista ordenada de trechos (origem → destino, data, saída/chegada). **Nasce com 2 (ida e volta)** = comportamento atual, zero mudança no caso comum; "+ Adicionar trecho" pros demais. Trecho novo **herda veículo, direção e passageiros** do anterior.
+- **Trechos:** o deslocamento vira lista ordenada de trechos (origem → destino, data, saída/chegada). **Nasce só com a ida** (origem = base) — volta e demais trechos entram por "+ Adicionar trecho" *(decisão 07/26; antes nascia com ida e volta, mas a volta vazia pré-criada não era o esperado)*. Trecho novo **herda veículo, direção e passageiros** do anterior.
 - **Locais do cliente (cadastro novo):** Cliente → Locais (nome · cidade/UF · lat/long opcional) — caso WestRock-FBTB com sites espalhados (Torre Paredão/Calmon, Rio Negrinho, fazendas). Destino do trecho = local cadastrado ou texto livre.
 - **Veículo por trecho:** lista da empresa · "sem veículo/carona" · alugado; avião = sem veículo + nota curta (`nota_transporte`). **Veículo da empresa exige direção.**
 - **Direção com revezamento:** turnos contíguos dentro do trecho (motorista + de/até; "+ Revezamento" = quem assumiu e a hora) — **multa atribuída por horário** de quem dirigia.

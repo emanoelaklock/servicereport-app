@@ -1815,14 +1815,11 @@
   async function abrirDeslocNova() {
     dlSnap = null   // viagem nova: nada no servidor a proteger — auto-save pode gravar o roteiro inteiro (aditivo)
     dlCur = { id: D().uuid(), cliente_id: null, criado_por: tecnico.id, modelo: 'trechos', trechos: [], tarefas: [], almocos: [], observacoes: null }
-    // nasce com 2 trechos (ida e volta) — o caso comum de hoje, zero mudança
+    // nasce SÓ com a ida — volta e demais trechos entram por "+ Adicionar trecho",
+    // que herda veículo/direção/passageiros e origem = destino do anterior
     const ida = novoTrecho(null)
     ida.origem = [ref.base.cidade, ref.base.uf].filter(Boolean).join('/') || 'Base'
     dlCur.trechos.push(ida)
-    const volta = novoTrecho(ida)
-    volta.destino = ida.origem
-    volta.origem = ''
-    dlCur.trechos.push(volta)
     await abrirDeslocEditor()
   }
   async function abrirDeslocExistente(id) {
