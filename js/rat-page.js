@@ -219,10 +219,13 @@ const RatPage = (() => {
       // RPC atômica (0111): nova tarefa vinculada (continuação planejada, FK pra tarefa e
       // RAT da pendência), origem fecha PRESERVANDO a pendência, evento auditado.
       // Retry/duplo-clique reenviam o mesmo pendOpId → recebem a tarefa já criada.
-      const { data, error } = await sb().rpc('gerar_tarefa_de_pendencia', {
+      const btn = document.getElementById('pend-criar')
+      if (btn) btn.disabled = true   // evita toast duplicado no duplo-clique
+      let data, error
+      try { ({ data, error } = await sb().rpc('gerar_tarefa_de_pendencia', {
         p_id: pendOpId, p_tarefa_origem: tarefaOrigem, p_rat_origem: r.id || null,
         p_tipo_servico: tipoId, p_orientacao: orient || null,
-      })
+      })) } finally { if (btn) btn.disabled = false }
       if (error) return toast('Erro ao criar tarefa: ' + error.message, 'err')
       const r0 = Array.isArray(data) ? data[0] : data
       fecharPend()

@@ -206,7 +206,7 @@ create function public.criar_tarefa_app(
   p_rat_origem_id     uuid default null
 ) returns void
 language plpgsql security definer set search_path = public as $$
-declare r text; tid uuid;
+declare r text; tid uuid; v_n int; v_exist public.tarefas%rowtype;
 begin
   r := app_role();
   if r is null or r not in ('tecnico_campo','admin','gestor_axis') then
@@ -218,6 +218,16 @@ begin
           p_orientacao, p_data_agendada, p_local, auth.uid(),
           coalesce(p_origem_tipo, 'nova_solicitacao'), p_tarefa_origem_id, p_rat_origem_id)
   on conflict (id) do nothing;
+  get diagnostics v_n = row_count;
+  if v_n = 0 then
+    -- id já existia: só prossegue (técnicos) se for retry LEGÍTIMO da mesma operação
+    -- do mesmo usuário; senão, jamais anexar técnicos à tarefa de outra operação.
+    select * into v_exist from public.tarefas t where t.id = p_id;
+    if v_exist.criado_por is distinct from auth.uid()
+       or v_exist.cliente_id is distinct from p_cliente_id then
+      raise exception 'IDEMPOTENCIA_CONFLITO: p_id ja usado por outra operacao/usuario';
+    end if;
+  end if;
   if p_tecnicos is not null then
     foreach tid in array p_tecnicos loop
       insert into public.tarefa_tecnicos (tarefa_id, tecnico_id) values (p_id, tid)
@@ -257,8 +267,17 @@ begin
   -- idempotência pela CHAVE DA OPERAÇÃO: retry/duplo-clique reenviam o mesmo p_id
   -- (gerado quando o modal abre) e recebem a tarefa já criada. Segunda continuação
   -- legítima da mesma tarefa/RAT (modal reaberto → id novo) NÃO é bloqueada.
+  -- Mesma chave com PAYLOAD DIFERENTE não é retry — é conflito, nunca respondido
+  -- em silêncio com a tarefa de outra operação.
   select * into v_exist from public.tarefas t where t.id = p_id;
   if found then
+    if v_exist.origem_tipo is distinct from 'continuacao_planejada'
+       or v_exist.tarefa_origem_id is distinct from p_tarefa_origem
+       or v_exist.rat_origem_id is distinct from p_rat_origem
+       or v_exist.tipo_servico_id is distinct from p_tipo_servico
+       or coalesce(v_exist.orientacao, '') <> coalesce(nullif(trim(coalesce(p_orientacao, '')), ''), '') then
+      raise exception 'IDEMPOTENCIA_CONFLITO: p_id ja usado com payload diferente';
+    end if;
     return query select v_exist.id, v_exist.numero, true; return;
   end if;
 
@@ -314,6 +333,7 @@ begin
   -- outra escrita na mesma transação
   perform set_config('sr.origem_motivo', '', true);
   if v_n = 0 then raise exception 'TAREFA_INEXISTENTE'; end if;
+end $$;
 revoke all on function public.alterar_origem_tarefa(uuid,text,uuid,uuid,text) from public;
 grant execute on function public.alterar_origem_tarefa(uuid,text,uuid,uuid,text) to authenticated;
 

@@ -1525,10 +1525,13 @@ const TarefaApp = (() => {
     // FK pra tarefa e pra RAT da pendência), fecha a original PRESERVANDO o texto da
     // pendência e registra o evento de auditoria — tudo-ou-nada. Retry/duplo-clique
     // reenviam o mesmo pendOpId e recebem a tarefa já criada (nunca duplica).
-    const { data, error } = await sb().rpc('gerar_tarefa_de_pendencia', {
+    const btn = document.getElementById('pend-criar')
+    if (btn) btn.disabled = true   // evita toast/recarga duplicados no duplo-clique
+    let data, error
+    try { ({ data, error } = await sb().rpc('gerar_tarefa_de_pendencia', {
       p_id: pendOpId, p_tarefa_origem: cur.id, p_rat_origem: pendRat.id || null,
       p_tipo_servico: tipoId, p_orientacao: orient || null,
-    })
+    })) } finally { if (btn) btn.disabled = false }
     if (error) return toast('Erro ao criar tarefa: ' + error.message, 'err')
     const r0 = Array.isArray(data) ? data[0] : data
     if (cur.status === 'concluida_pendencia') {   // espelha o que a RPC fez (pendência fica preservada)
