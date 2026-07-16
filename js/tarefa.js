@@ -21,6 +21,7 @@ const TarefaApp = (() => {
   let selMat = new Set()     // tm_ids de produtos selecionados p/ exclusão em massa
   let respSel = new Set()     // tecnico_ids responsáveis selecionados (chips) na aba Dados
   let pendRat = null         // RAT base do modal "nova tarefa da pendência"
+  let pendOpId = null        // chave de idempotência da operação (1 por abertura do modal)
   let souAdmin = false       // só admin edita RAT (mesma regra do rat.html)
 
   const RAT_SIT = { em_andamento: 'Em andamento', registrado: 'Atendimento Realizado', concluida: 'Concluída', concluida_pendencia: 'Concluída c/ pendência', improdutiva: 'Visita improdutiva' }
@@ -1486,11 +1487,12 @@ const TarefaApp = (() => {
   // Nova tarefa a partir da pendência da TAREFA (botão na aba Dados quando concluída c/ pendência).
   function abrirPendTarefa() {
     const t = tarefas.find(x => x.id === (cur && cur.id)); if (!t) return
-    pendRat = { cliente_id: t.cliente_id, tarefa: { cliente_id: t.cliente_id } }
     // Pendência vem da RAT do técnico: a mais recente concluída c/ pendência (ou que tenha texto de pendência).
     const candidatas = (cur.rats || []).filter(r => (r.pendencias && r.pendencias.trim()) || r.status === 'concluida_pendencia')
       .sort((a, b) => (b.data_tarefa || '').localeCompare(a.data_tarefa || ''))
     const rp = candidatas[0]
+    pendRat = { id: (rp && rp.id) || null, cliente_id: t.cliente_id, tarefa: { cliente_id: t.cliente_id } }
+    pendOpId = crypto.randomUUID()   // chave de idempotência: 1 por abertura do modal
     const pendRT = rp ? ((rp.pendencias && rp.pendencias.trim()) || (rp.respostas && rp.respostas.observacoes && String(rp.respostas.observacoes).trim()) || '') : ''
     document.getElementById('pend-cli').textContent = cliNomes[t.cliente_id] || cur.cliente_nome || '—'
     document.getElementById('pend-tipo').innerHTML = ref.tipos.map(x =>
@@ -1503,6 +1505,7 @@ const TarefaApp = (() => {
   function abrirPend(r) {
     if (!r) return
     pendRat = r
+    pendOpId = crypto.randomUUID()   // chave de idempotência: 1 por abertura do modal
     const resp = r.respostas || {}
     const pend = (r.pendencias && r.pendencias.trim()) || (resp.observacoes && String(resp.observacoes).trim()) || ''
     const tipoOrig = (r.tarefa && r.tarefa.tipo_servico_id) || ''
@@ -1514,33 +1517,30 @@ const TarefaApp = (() => {
     abrirModal('modal-pend')
   }
   async function criarTarefaPendencia() {
-    if (!pendRat) return
-    const cliId = pendRat.cliente_id || (pendRat.tarefa && pendRat.tarefa.cliente_id)
+    if (!pendRat || !cur || !pendOpId) return
     const tipoId = document.getElementById('pend-tipo').value
     const orient = document.getElementById('pend-orient').value.trim()
-    if (!cliId) return toast('RAT sem cliente vinculado.', 'err')
     if (!tipoId) return toast('Selecione o tipo de serviço.', 'err')
-    const ins = await sb().from('tarefas').insert({
-      cliente_id: cliId, tipo_servico_id: tipoId, status: 'aguardando_execucao',
-      orientacao: orient || null,
-      observacoes: cur.numero != null ? `Gerada da pendência da Tarefa Nº ${osNo(cur.numero)}.` : 'Gerada de pendência de RAT.',
-      criado_por: user.id,
-    }).select('numero').single()
-    if (ins.error) return toast('Erro ao criar tarefa: ' + ins.error.message, 'err')
-    // A pendência virou uma tarefa própria → a original deixa de ser "concluída c/ pendência"
-    // e passa a "concluída" (a pendência não pende mais nela). Só quando já estava nesse estado.
-    if (cur && cur.status === 'concluida_pendencia') {
-      const upd = await sb().from('tarefas').update({ status: 'concluida', pendencias: null }).eq('id', cur.id)
-      if (upd.error) toast('Tarefa de retorno criada, mas falhou atualizar a original: ' + upd.error.message, 'err')
-      else {
-        cur.status = 'concluida'; cur.pendencias = null
-        setStatusBadge(cur.status)
-        const ss = document.getElementById('cc-d-status-sel'); if (ss) ss.value = 'concluida'
-        pintarStatusSel()
-      }
+    // RPC atômica (0111): cria a nova tarefa já vinculada (continuação planejada, com
+    // FK pra tarefa e pra RAT da pendência), fecha a original PRESERVANDO o texto da
+    // pendência e registra o evento de auditoria — tudo-ou-nada. Retry/duplo-clique
+    // reenviam o mesmo pendOpId e recebem a tarefa já criada (nunca duplica).
+    const { data, error } = await sb().rpc('gerar_tarefa_de_pendencia', {
+      p_id: pendOpId, p_tarefa_origem: cur.id, p_rat_origem: pendRat.id || null,
+      p_tipo_servico: tipoId, p_orientacao: orient || null,
+    })
+    if (error) return toast('Erro ao criar tarefa: ' + error.message, 'err')
+    const r0 = Array.isArray(data) ? data[0] : data
+    if (cur.status === 'concluida_pendencia') {   // espelha o que a RPC fez (pendência fica preservada)
+      cur.status = 'concluida'
+      setStatusBadge(cur.status)
+      const ss = document.getElementById('cc-d-status-sel'); if (ss) ss.value = 'concluida'
+      pintarStatusSel()
     }
     fecharModal('modal-pend')
-    toast(`Tarefa Nº ${osNo(ins.data.numero)} criada. Atribua o técnico na lista.`, 'ok')
+    toast(r0 && r0.o_ja_existia
+      ? `Tarefa Nº ${osNo(r0.o_numero)} já havia sido criada desta pendência.`
+      : `Tarefa Nº ${osNo(r0.o_numero)} criada. Atribua o técnico na lista.`, 'ok')
     await carregarTarefas()
   }
 

@@ -10,6 +10,7 @@ const RatPage = (() => {
   let det = null
   let editMode = false
   let tipos = []
+  let pendOpId = null   // chave de idempotência da operação (1 por abertura do modal)
   let ratId = null
   let usuarios = []          // técnicos do SR (p/ adicionar à RAT)
   let histLista = []         // rat_edicoes carregadas
@@ -204,21 +205,38 @@ const RatPage = (() => {
     document.getElementById('pend-tipo').innerHTML = tipos.map(t => `<option value="${esc(t.id)}"${t.id === tipoOrig ? ' selected' : ''}>${esc(t.nome)}</option>`).join('')
     document.getElementById('pend-orient').value = pend
     document.getElementById('pend-origem').textContent = tarefaNo ? `Origem: Tarefa Nº ${tarefaNo}` : ''
+    pendOpId = crypto.randomUUID()   // chave de idempotência: 1 por abertura do modal
     document.getElementById('modal-pend').classList.add('open')
   }
   function fecharPend() { document.getElementById('modal-pend').classList.remove('open') }
   async function criarPend() {
     const r = det.r
-    const cliId = r.cliente_id || (r.tarefa && r.tarefa.cliente_id)
     const tipoId = document.getElementById('pend-tipo').value
     const orient = document.getElementById('pend-orient').value.trim()
-    if (!cliId) return toast('RAT sem cliente vinculado.', 'err')
     if (!tipoId) return toast('Selecione o tipo de serviço.', 'err')
-    const tarefaNo = r.tarefa && r.tarefa.numero != null ? String(r.tarefa.numero).padStart(5, '0') : null
+    const tarefaOrigem = (r.tarefa && r.tarefa.id) || null
+    if (tarefaOrigem) {
+      // RPC atômica (0111): nova tarefa vinculada (continuação planejada, FK pra tarefa e
+      // RAT da pendência), origem fecha PRESERVANDO a pendência, evento auditado.
+      // Retry/duplo-clique reenviam o mesmo pendOpId → recebem a tarefa já criada.
+      const { data, error } = await sb().rpc('gerar_tarefa_de_pendencia', {
+        p_id: pendOpId, p_tarefa_origem: tarefaOrigem, p_rat_origem: r.id || null,
+        p_tipo_servico: tipoId, p_orientacao: orient || null,
+      })
+      if (error) return toast('Erro ao criar tarefa: ' + error.message, 'err')
+      const r0 = Array.isArray(data) ? data[0] : data
+      fecharPend()
+      toast(r0 && r0.o_ja_existia
+        ? `Tarefa Nº ${String(r0.o_numero).padStart(5, '0')} já havia sido criada desta pendência.`
+        : `Tarefa Nº ${String(r0.o_numero).padStart(5, '0')} criada. Atribua o técnico em Tarefas.`, 'ok')
+      return
+    }
+    // RAT legada sem tarefa-pai: não há origem pra vincular — cria solta, como antes.
+    const cliId = r.cliente_id || null
+    if (!cliId) return toast('RAT sem cliente vinculado.', 'err')
     const ins = await sb().from('tarefas').insert({
       cliente_id: cliId, tipo_servico_id: tipoId, status: 'aguardando_execucao',
-      orientacao: orient || null,
-      observacoes: tarefaNo ? `Gerada da pendência da Tarefa Nº ${tarefaNo}.` : 'Gerada de pendência de RAT.',
+      orientacao: orient || null, observacoes: 'Gerada de pendência de RAT.',
       criado_por: user.id,
     }).select('numero').single()
     if (ins.error) return toast('Erro ao criar tarefa: ' + ins.error.message, 'err')

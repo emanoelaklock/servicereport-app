@@ -229,9 +229,11 @@ revoke all on function public.criar_tarefa_app(uuid,uuid,text,uuid,text,date,uui
 grant execute on function public.criar_tarefa_app(uuid,uuid,text,uuid,text,date,uuid[],text,text,uuid,uuid) to authenticated;
 
 -- ───────── 7 · gerar_tarefa_de_pendencia — atômica e idempotente ─────────
--- p_id vem do cliente (crypto.randomUUID no portal) e é a chave de idempotência:
--- retry reenvia o mesmo id e recebe a tarefa já criada. Advisory lock serializa
--- duplo-clique; continuação viva da mesma RAT de origem é reusada, nunca duplicada.
+-- Idempotência é POR CHAVE DE OPERAÇÃO: p_id nasce no cliente quando o modal abre
+-- (crypto.randomUUID); duplo-clique e retry reenviam o MESMO id e recebem a tarefa
+-- já criada (o_ja_existia=true). Uma segunda continuação legítima da mesma
+-- tarefa/RAT (modal aberto de novo → id novo) NÃO é bloqueada — decisão da revisão
+-- da gestão. Advisory lock serializa corridas simultâneas na mesma origem.
 -- PRESERVA tarefas.pendencias na origem (correção do fluxo antigo).
 create or replace function public.gerar_tarefa_de_pendencia(
   p_id uuid, p_tarefa_origem uuid, p_rat_origem uuid, p_tipo_servico uuid, p_orientacao text
@@ -252,17 +254,10 @@ begin
 
   perform pg_advisory_xact_lock(hashtext('gerar_pendencia:' || p_tarefa_origem::text));
 
-  -- idempotência 1: retry com a mesma chave
+  -- idempotência pela CHAVE DA OPERAÇÃO: retry/duplo-clique reenviam o mesmo p_id
+  -- (gerado quando o modal abre) e recebem a tarefa já criada. Segunda continuação
+  -- legítima da mesma tarefa/RAT (modal reaberto → id novo) NÃO é bloqueada.
   select * into v_exist from public.tarefas t where t.id = p_id;
-  if found then
-    return query select v_exist.id, v_exist.numero, true; return;
-  end if;
-  -- idempotência 2: já existe continuação desta mesma origem/RAT
-  select * into v_exist from public.tarefas t
-   where t.tarefa_origem_id = p_tarefa_origem
-     and t.origem_tipo = 'continuacao_planejada'
-     and t.rat_origem_id is not distinct from p_rat_origem
-   order by t.criado_em desc limit 1;
   if found then
     return query select v_exist.id, v_exist.numero, true; return;
   end if;
