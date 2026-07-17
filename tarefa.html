@@ -396,6 +396,28 @@
             <div class="fg"><label>Tipo de tarefa</label><select id="cc-d-tipo"><option value="">— selecione —</option></select></div>
             <div class="fg"><label>Data agendada</label><input type="date" id="cc-d-data"></div>
             <div class="fg"><label>Pedido de Compra (PC)</label><input type="text" id="cc-d-pc" placeholder="Ex.: PC-2026-0123"></div>
+            <div class="fg"><label>Local do atendimento</label><input type="text" id="cc-d-local" placeholder="Ex.: Rio Negrinho · Torre Paredão"></div>
+            <div class="fg full"><label>Origem do atendimento</label>
+              <div id="cc-d-origem-ro" style="display:none">
+                <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap">
+                  <div class="ro" id="cc-d-origem-txt" style="flex:1;min-width:220px">—</div>
+                  <button class="btn btn-sm" id="cc-d-origem-alterar" type="button">Alterar origem</button>
+                </div>
+                <div class="muted" id="cc-d-origem-hist" style="font-size:11px;margin-top:4px"></div>
+              </div>
+              <div id="cc-d-origem-ed" style="display:none">
+                <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:flex-start">
+                  <select id="cc-d-origem-tipo" style="min-width:200px"></select>
+                  <div class="ac" id="cc-d-orig-tarefa-wrap" style="display:none;flex:1;min-width:240px">
+                    <input type="text" id="cc-d-orig-busca" placeholder="Tarefa de origem (nº ou orientação)…" autocomplete="off">
+                    <input type="hidden" id="cc-d-orig-tarefa">
+                    <div class="ac-list" id="cc-d-orig-list"></div>
+                  </div>
+                  <select id="cc-d-orig-rat" style="display:none;min-width:180px"><option value="">RAT de origem (opcional)</option></select>
+                </div>
+                <div class="muted" id="cc-d-origem-note" style="font-size:11px;margin-top:4px"></div>
+              </div>
+            </div>
             <div class="fg full"><label>Responsáveis</label><div class="resp" id="cc-d-tecnicos"></div></div>
             <div class="fg full"><label>Orientação ao técnico</label><textarea id="cc-d-orientacao" rows="3" placeholder="O que precisa ser feito no campo…"></textarea></div>
             <div class="fg full"><label>Observações internas</label><textarea id="cc-d-obs" rows="2" placeholder="Notas do administrativo…"></textarea></div>

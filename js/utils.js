@@ -53,6 +53,19 @@ window.DEVOLUCAO_MOTIVOS = {
 }
 window.MOTIVO_LABEL = Object.fromEntries([].concat(window.DEVOLUCAO_MOTIVOS.tarefa, window.DEVOLUCAO_MOTIVOS.rat))
 
+/* ─── Origem do atendimento (F1, migração 0111) — vocabulário oficial (fonte única) ───
+   NÃO renomear códigos: vão pro banco (tarefas.origem_tipo) e o trigger de validação
+   (tarefas_origem_valida) rejeita valores fora desta lista. Origem ≠ nova_solicitacao
+   exige tarefa_origem_id; alteração posterior só via RPC alterar_origem_tarefa
+   (justificativa obrigatória, auditada em tarefa_origem_eventos — imutável). */
+window.ORIGEM_TIPOS = [
+  ['nova_solicitacao', 'Nova solicitação'],
+  ['continuacao_planejada', 'Continuação planejada'],
+  ['retorno_relacionado', 'Retorno relacionado'],
+  ['suspeita_retrabalho', 'Suspeita de retrabalho'],
+]
+window.ORIGEM_LABEL = Object.fromEntries(window.ORIGEM_TIPOS)
+
 /* ─── Lightbox fullscreen (galeria: prev/próximo, teclado, swipe) — reusável ───
    Uso: window.openLightbox([{url,legenda?}], startIdx). Ou marcação: qualquer elemento
    [data-lb="url"] (opcional data-lb-cap="legenda") vira gatilho; agrupa pela galeria mais
