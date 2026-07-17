@@ -708,15 +708,35 @@ const TarefaApp = (() => {
     document.body.appendChild(back)
     const $m = (id) => back.querySelector('#' + id)
     const showErr = (msg) => { $m('ao-err').textContent = msg; $m('ao-err').style.display = 'block' }
-    const refreshRel = () => { $m('ao-rel').style.display = $m('ao-tipo').value === 'nova_solicitacao' ? 'none' : '' }
-    const carregarRatsModal = async () => {
+    // Voltar a "Nova solicitação" ZERA o bloco relacionado (tarefa, busca, RAT, ref,
+    // lista) e devolve o modo pro padrão SR — valores antigos não ressuscitam ao
+    // voltar para um tipo relacionado (correção da revisão do commit 2).
+    const refreshRel = () => {
+      const nova = $m('ao-tipo').value === 'nova_solicitacao'
+      $m('ao-rel').style.display = nova ? 'none' : ''
+      if (nova) {
+        $m('ao-tarefa').value = ''; $m('ao-busca').value = ''
+        $m('ao-rat').innerHTML = '<option value="">—</option>'
+        $m('ao-ext').value = ''
+        $m('ao-list').classList.remove('open')
+        $m('ao-modo').value = 'sr'
+        refreshModo()
+      }
+    }
+    // Carrega as RATs da tarefa escolhida e PRESERVA a RAT atual (p_rat_atual) quando
+    // ela pertence à lista. Guarda de corrida: a resposta só é aplicada se a tarefa
+    // escolhida ainda for a mesma e o modal ainda existir — respostas fora de ordem
+    // de escolhas rápidas nunca misturam RATs de outra tarefa.
+    const carregarRatsModal = async (ratAtual) => {
       const tid = $m('ao-tarefa').value
       const sel = $m('ao-rat'); sel.innerHTML = '<option value="">—</option>'
       if (!tid) return
       const numOrig = (tarefas.find(x => x.id === tid) || {}).numero
       const { data } = await sb().from('rats').select('id,rat_seq').eq('tarefa_id', tid).order('rat_seq')
+      if (!document.body.contains(sel) || $m('ao-tarefa').value !== tid) return
       ;(data || []).forEach(r => sel.insertAdjacentHTML('beforeend',
-        `<option value="${esc(r.id)}"${r.id === t.rat_origem_id ? ' selected' : ''}>RAT ${esc(osNo(numOrig))}/${String(r.rat_seq || '?').padStart(2, '0')}</option>`))
+        `<option value="${esc(r.id)}">RAT ${esc(osNo(numOrig))}/${String(r.rat_seq || '?').padStart(2, '0')}</option>`))
+      if (ratAtual && [...sel.options].some(o => o.value === ratAtual)) sel.value = ratAtual
     }
     // Busca com autocomplete (mesmo padrão da criação) — dropdown não escala com
     // centenas de tarefas do cliente.
@@ -738,7 +758,9 @@ const TarefaApp = (() => {
       $m('ao-tarefa').value = tid
       $m('ao-busca').value = `Nº ${osNo(c.numero)} · ${(c.orientacao || '').slice(0, 40)}`
       $m('ao-list').classList.remove('open')
-      carregarRatsModal()
+      // re-escolher a MESMA tarefa do vínculo atual preserva a RAT atual; tarefa
+      // diferente parte sem RAT (a lista é de outra tarefa)
+      carregarRatsModal(tid === t.tarefa_origem_id ? t.rat_origem_id : null)
     }
     $m('ao-busca').oninput = () => { $m('ao-tarefa').value = ''; $m('ao-rat').innerHTML = '<option value="">—</option>'; buscaRender() }
     $m('ao-busca').onfocus = buscaRender
@@ -762,7 +784,7 @@ const TarefaApp = (() => {
       $m('ao-ext').value = t.origem_ref_externa
     }
     $m('ao-tipo').onchange = refreshRel
-    refreshRel(); refreshModo(); carregarRatsModal()
+    refreshRel(); refreshModo(); carregarRatsModal(t.rat_origem_id)
     $m('ao-cancel').onclick = () => back.remove()
     $m('ao-ok').onclick = async () => {
       const tipo = $m('ao-tipo').value
