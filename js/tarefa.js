@@ -640,10 +640,11 @@ const TarefaApp = (() => {
       </select>
       <div id="ao-rel">
         <label style="font-size:12px;color:#5b6270;font-weight:600">Tarefa de origem (mesmo cliente)</label>
-        <select id="ao-tarefa" style="width:100%;box-sizing:border-box;border:1px solid #D7DCE6;border-radius:10px;padding:9px;font:inherit;margin:4px 0 12px">
-          <option value="">— selecione —</option>
-          ${cands.map(c => `<option value="${esc(c.id)}"${c.id === t.tarefa_origem_id ? ' selected' : ''}>Nº ${esc(osNo(c.numero))} · ${esc((c.orientacao || '—').slice(0, 50))}</option>`).join('')}
-        </select>
+        <div class="ac" style="margin:4px 0 12px">
+          <input type="text" id="ao-busca" placeholder="Buscar por nº ou orientação…" autocomplete="off" style="width:100%;box-sizing:border-box;border:1px solid #D7DCE6;border-radius:10px;padding:9px;font:inherit">
+          <input type="hidden" id="ao-tarefa">
+          <div class="ac-list" id="ao-list"></div>
+        </div>
         <label style="font-size:12px;color:#5b6270;font-weight:600">RAT de origem (opcional)</label>
         <select id="ao-rat" style="width:100%;box-sizing:border-box;border:1px solid #D7DCE6;border-radius:10px;padding:9px;font:inherit;margin:4px 0 12px"><option value="">—</option></select>
         <div style="font-size:11.5px;color:#7C8290;margin:-6px 0 12px">${esc(ORIGEM_NUDGE)}</div>
@@ -668,8 +669,37 @@ const TarefaApp = (() => {
       ;(data || []).forEach(r => sel.insertAdjacentHTML('beforeend',
         `<option value="${esc(r.id)}"${r.id === t.rat_origem_id ? ' selected' : ''}>RAT ${esc(osNo(numOrig))}/${String(r.rat_seq || '?').padStart(2, '0')}</option>`))
     }
+    // Busca com autocomplete (mesmo padrão da criação) — dropdown não escala com
+    // centenas de tarefas do cliente.
+    const buscaRender = () => {
+      const list = $m('ao-list')
+      const q = $m('ao-busca').value.trim().toLowerCase()
+      const hits = cands.filter(c =>
+        !q || String(osNo(c.numero || '')).includes(q) || (c.orientacao || '').toLowerCase().includes(q)).slice(0, 8)
+      list.innerHTML = hits.length
+        ? hits.map(c => `<div class="ac-item" data-ao="${esc(c.id)}">Nº ${esc(osNo(c.numero))} · ${esc((c.orientacao || '—').slice(0, 60))}</div>`).join('')
+        : '<div class="ac-empty">Nenhuma tarefa deste cliente encontrada.</div>'
+      list.classList.add('open')
+      list.querySelectorAll('[data-ao]').forEach(el => {
+        el.onmousedown = (e) => { e.preventDefault(); escolherOrigem(el.dataset.ao) }
+      })
+    }
+    const escolherOrigem = (tid) => {
+      const c = cands.find(x => x.id === tid); if (!c) return
+      $m('ao-tarefa').value = tid
+      $m('ao-busca').value = `Nº ${osNo(c.numero)} · ${(c.orientacao || '').slice(0, 40)}`
+      $m('ao-list').classList.remove('open')
+      carregarRatsModal()
+    }
+    $m('ao-busca').oninput = () => { $m('ao-tarefa').value = ''; $m('ao-rat').innerHTML = '<option value="">—</option>'; buscaRender() }
+    $m('ao-busca').onfocus = buscaRender
+    $m('ao-busca').onblur = () => setTimeout(() => $m('ao-list').classList.remove('open'), 150)
+    // Pré-preenche com o vínculo atual (se existir e ainda for do mesmo cliente)
+    if (t.tarefa_origem_id) {
+      const c0 = cands.find(x => x.id === t.tarefa_origem_id)
+      if (c0) { $m('ao-tarefa').value = c0.id; $m('ao-busca').value = `Nº ${osNo(c0.numero)} · ${(c0.orientacao || '').slice(0, 40)}` }
+    }
     $m('ao-tipo').onchange = refreshRel
-    $m('ao-tarefa').onchange = carregarRatsModal
     refreshRel(); carregarRatsModal()
     $m('ao-cancel').onclick = () => back.remove()
     $m('ao-ok').onclick = async () => {
