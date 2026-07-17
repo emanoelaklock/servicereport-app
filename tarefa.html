@@ -408,11 +408,16 @@
               <div id="cc-d-origem-ed" style="display:none">
                 <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:flex-start">
                   <select id="cc-d-origem-tipo" style="min-width:200px"></select>
+                  <select id="cc-d-orig-modo" style="display:none;min-width:240px">
+                    <option value="sr">Tarefa anterior no Service Report</option>
+                    <option value="externa">Atendimento anterior fora do Service Report</option>
+                  </select>
                   <div class="ac" id="cc-d-orig-tarefa-wrap" style="display:none;flex:1;min-width:240px">
                     <input type="text" id="cc-d-orig-busca" placeholder="Tarefa de origem (nº ou orientação)…" autocomplete="off">
                     <input type="hidden" id="cc-d-orig-tarefa">
                     <div class="ac-list" id="cc-d-orig-list"></div>
                   </div>
+                  <input type="text" id="cc-d-orig-ext" maxlength="120" style="display:none;flex:1;min-width:240px" placeholder="Referência do sistema anterior — ex.: Auvo 7534999/4" autocomplete="off">
                   <select id="cc-d-orig-rat" style="display:none;min-width:180px"><option value="">RAT de origem (opcional)</option></select>
                 </div>
                 <div class="muted" id="cc-d-origem-note" style="font-size:11px;margin-top:4px"></div>
