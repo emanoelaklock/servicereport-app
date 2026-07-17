@@ -390,6 +390,14 @@ Toda tarefa carrega a **origem presumida** — `tarefas.origem_tipo` + `tarefa_o
 - **Backfill (migração 0112):** os **7 casos determinísticos** de tarefa gerada de pendência (4777→4762 · 4826→4792 · 4830→4794 · 4835→4817 · 4843→4837 · 4858→4793 · 4860→4828) vinculados como continuação planejada via `backfill_origem_pendencias()` — precondições rígidas (texto real confirma o par, mesmo cliente), idempotente, auditado com eventos `backfill`; `rat_origem_id` fica nulo (não determinístico). Os demais candidatos do levantamento passam por validação manual da gestão (F0), nunca automática.
 - **Guarda de escopo:** a origem é só fundação — **não alimenta** nota, ranking, classificação de retrabalho nem o motor de desempenho (esses são fases futuras, F2+, com aprovação própria).
 
+#### Referência externa na origem (F1.1 — migração 0113, PR #105)
+
+Origem relacionada pode apontar para atendimento **fora do SR** (sistema anterior — caso real: 04748, "Tarefa Auvo 7534999/4"): `tarefas.origem_ref_externa` (texto livre curto, ex.: `Auvo 7534999/4`; trim normalizado no trigger; máx. 120 — `ORIGEM_REF_LONGA`).
+
+- **Regra:** tipos relacionados exigem **tarefa do SR OU referência externa** — **mutuamente exclusivas** (`ORIGEM_REF_COM_VINCULO` se vierem as duas; a ref é para quando **não há** tarefa no SR). `nova_solicitacao` não aceita nenhuma (`ORIGEM_INCONSISTENTE`). Mudar a ref exige justificativa e é auditado (`ref_externa_old/new` em `tarefa_origem_eventos`).
+- **Portal:** na criação e no modal Alterar origem, escolha explícita **"Tarefa anterior no Service Report" × "Atendimento anterior fora do Service Report"**; trocar de modo limpa os campos do modo incompatível; trocar o cliente (modo nova) limpa tarefa, RAT **e** referência; voltar a Nova solicitação zera tudo (inclusive no modal — o modo volta a SR). Leitura: `ref. externa: <valor>` como **texto seguro** (`esc()`), sem link. No modal, a RAT atual vem **pré-selecionada** e respostas assíncronas fora de ordem são descartadas (guarda por tarefa escolhida).
+- **RPC:** `alterar_origem_tarefa` ganhou `p_ref_externa` (default null — chamadas antigas seguem válidas); `criar_tarefa_app` não muda. A ref externa **não** habilita reincidência por ativo (isso continua exigindo equipamento/local); é rastreabilidade documental do legado.
+
 #### Motivo estruturado da devolução (Fase A — no ar)
 
 Ao devolver, o admin escolhe **motivo(s)** de uma lista fechada (não texto livre) — o técnico vê exatamente o que corrigir. Dois níveis:
