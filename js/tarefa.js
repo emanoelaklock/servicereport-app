@@ -346,7 +346,7 @@ const TarefaApp = (() => {
   // ─────────────────────────── Lista ───────────────────────────
   async function carregarTarefas() {
     const { data: ts, error } = await sb().from('tarefas')
-      .select('id,numero,status,criado_em,data_agendada,orcamento_id,cliente_id,orientacao,observacoes,pedido_compra,tipo_servico_id,conciliacao_obs,pendencias,faturado,data_faturamento,numero_nota,modalidade,valor_hora,motivo_devolucao,motivo_devolucao_cats,motivo_devolucao_detalhe,devolvida_em')
+      .select('id,numero,status,criado_em,data_agendada,orcamento_id,cliente_id,orientacao,observacoes,pedido_compra,tipo_servico_id,conciliacao_obs,pendencias,faturado,data_faturamento,numero_nota,modalidade,valor_hora,motivo_devolucao,motivo_devolucao_cats,motivo_devolucao_detalhe,devolvida_em,origem_tipo,tarefa_origem_id,rat_origem_id')
       .order('numero', { ascending: false })
     if (error) { toast('Erro ao carregar tarefas: ' + error.message, 'err'); tarefas = []; return }
     tarefas = ts || []
@@ -475,6 +475,189 @@ const TarefaApp = (() => {
     renderLista()
   }
 
+  // ─────────────────── Origem do atendimento (F1, migração 0111) ───────────────────
+  // Vocabulário oficial no utils.js (ORIGEM_TIPOS/ORIGEM_LABEL). Na criação a origem é
+  // presumida (origem ≠ nova exige a tarefa de origem; RAT opcional). Em tarefa existente
+  // a alteração SÓ via RPC alterar_origem_tarefa (justificativa obrigatória, auditada).
+  const ORIGEM_LABEL = window.ORIGEM_LABEL
+  const origemEl = (id) => document.getElementById(id)
+
+  function origemWire() {
+    const tipo = origemEl('cc-d-origem-tipo')
+    if (!tipo.options.length) tipo.innerHTML = window.ORIGEM_TIPOS.map(([v, l]) => `<option value="${esc(v)}">${esc(l)}</option>`).join('')
+    tipo.onchange = origemEditorRefresh
+    const busca = origemEl('cc-d-orig-busca')
+    busca.oninput = () => { origemEl('cc-d-orig-tarefa').value = ''; origemBuscaRender() }
+    busca.onfocus = () => origemBuscaRender()
+    busca.onblur = () => setTimeout(() => origemEl('cc-d-orig-list').classList.remove('open'), 150)
+    origemEl('cc-d-origem-alterar').onclick = abrirAlterarOrigem
+  }
+  // Nudge equipamento/local: origem relacionada é o momento de amarrar o ativo (reincidência).
+  const ORIGEM_NUDGE = 'Considere vincular o equipamento (aba Equipamentos) e informar o local — é o que habilita reincidência por ativo.'
+  function origemEditorRefresh() {
+    const t = origemEl('cc-d-origem-tipo').value
+    const rel = t !== 'nova_solicitacao'
+    origemEl('cc-d-orig-tarefa-wrap').style.display = rel ? '' : 'none'
+    origemEl('cc-d-orig-rat').style.display = (rel && origemEl('cc-d-orig-tarefa').value) ? '' : 'none'
+    origemEl('cc-d-origem-note').textContent = rel ? ORIGEM_NUDGE : ''
+    if (!rel) { origemEl('cc-d-orig-tarefa').value = ''; origemEl('cc-d-orig-busca').value = ''; origemEl('cc-d-orig-rat').innerHTML = '<option value="">RAT de origem (opcional)</option>' }
+  }
+  function origemEditorReset() {
+    origemWire()
+    origemEl('cc-d-origem-tipo').value = 'nova_solicitacao'
+    origemEl('cc-d-orig-tarefa').value = ''
+    origemEl('cc-d-orig-busca').value = ''
+    origemEl('cc-d-orig-rat').innerHTML = '<option value="">RAT de origem (opcional)</option>'
+    origemEditorRefresh()
+    origemEl('cc-d-origem-ed').style.display = ''
+    origemEl('cc-d-origem-ro').style.display = 'none'
+  }
+  // Candidatas: tarefas do MESMO cliente (a validação do banco não exige, mas retorno
+  // cruzando cliente não faz sentido de negócio), excluindo a própria.
+  function origemCandidatas(clienteId, excetoId) {
+    return tarefas.filter(t => t.cliente_id === clienteId && t.id !== excetoId)
+      .sort((a, b) => (b.criado_em || '').localeCompare(a.criado_em || ''))
+  }
+  function origemBuscaRender() {
+    const list = origemEl('cc-d-orig-list')
+    const cliId = cur && cur.id ? (tarefas.find(x => x.id === cur.id) || {}).cliente_id : origemEl('cc-d-cli').value
+    if (!cliId) { list.innerHTML = '<div class="ac-empty">Selecione o cliente primeiro.</div>'; list.classList.add('open'); return }
+    const q = origemEl('cc-d-orig-busca').value.trim().toLowerCase()
+    const hits = origemCandidatas(cliId, cur && cur.id).filter(t =>
+      !q || String(osNo(t.numero || '')).includes(q) || (t.orientacao || '').toLowerCase().includes(q)).slice(0, 8)
+    if (!hits.length) { list.innerHTML = '<div class="ac-empty">Nenhuma tarefa deste cliente encontrada.</div>'; list.classList.add('open'); return }
+    list.innerHTML = hits.map(t =>
+      `<div class="ac-item" data-orig="${esc(t.id)}">Nº ${esc(osNo(t.numero))} · ${esc((t.orientacao || '—').slice(0, 60))}</div>`).join('')
+    list.classList.add('open')
+    list.querySelectorAll('[data-orig]').forEach(el => {
+      el.onmousedown = (e) => { e.preventDefault(); origemEscolher(el.dataset.orig) }
+    })
+  }
+  async function origemEscolher(tid) {
+    const t = tarefas.find(x => x.id === tid); if (!t) return
+    origemEl('cc-d-orig-tarefa').value = tid
+    origemEl('cc-d-orig-busca').value = `Nº ${osNo(t.numero)} · ${(t.orientacao || '').slice(0, 40)}`
+    origemEl('cc-d-orig-list').classList.remove('open')
+    await origemCarregarRats(tid, t.numero)
+    origemEl('cc-d-orig-rat').style.display = ''
+  }
+  async function origemCarregarRats(tid, numero) {
+    const sel = origemEl('cc-d-orig-rat')
+    sel.innerHTML = '<option value="">RAT de origem (opcional)</option>'
+    const { data } = await sb().from('rats').select('id,rat_seq,data_tarefa').eq('tarefa_id', tid).order('rat_seq')
+    ;(data || []).forEach(r => {
+      const dt = r.data_tarefa ? new Date(r.data_tarefa).toLocaleDateString('pt-BR') : ''
+      sel.insertAdjacentHTML('beforeend', `<option value="${esc(r.id)}">RAT ${esc(osNo(numero))}/${String(r.rat_seq || '?').padStart(2, '0')}${dt ? ' · ' + dt : ''}</option>`)
+    })
+  }
+  // Payload da origem no INSERT (modo "nova"). Retorna null se inválido (já mostra toast).
+  function origemColherInsert() {
+    const tipo = origemEl('cc-d-origem-tipo').value
+    if (tipo === 'nova_solicitacao') return { origem_tipo: tipo, tarefa_origem_id: null, rat_origem_id: null }
+    const tOrig = origemEl('cc-d-orig-tarefa').value
+    if (!tOrig) { toast(`"${ORIGEM_LABEL[tipo]}" exige a tarefa de origem.`, 'err'); return null }
+    return { origem_tipo: tipo, tarefa_origem_id: tOrig, rat_origem_id: origemEl('cc-d-orig-rat').value || null }
+  }
+  // Leitura (tarefa existente) + auditoria resumida.
+  async function origemRenderRO(t) {
+    origemWire()
+    origemEl('cc-d-origem-ed').style.display = 'none'
+    origemEl('cc-d-origem-ro').style.display = ''
+    const txt = origemEl('cc-d-origem-txt')
+    let s = ORIGEM_LABEL[t.origem_tipo] || t.origem_tipo || '—'
+    if (t.tarefa_origem_id) {
+      let orig = tarefas.find(x => x.id === t.tarefa_origem_id)
+      if (!orig) { const { data } = await sb().from('tarefas').select('numero').eq('id', t.tarefa_origem_id).maybeSingle(); orig = data }
+      s += orig && orig.numero != null ? ` · da Tarefa ${osNo(orig.numero)}` : ' · da tarefa vinculada'
+      if (t.rat_origem_id) {
+        const { data: r } = await sb().from('rats').select('rat_seq').eq('id', t.rat_origem_id).maybeSingle()
+        if (r) s += ` (RAT /${String(r.rat_seq || '?').padStart(2, '0')})`
+      }
+    } else if (t.origem_tipo && t.origem_tipo !== 'nova_solicitacao') {
+      s += ' · tarefa de origem excluída (ver auditoria)'
+    }
+    txt.textContent = s
+    const hist = origemEl('cc-d-origem-hist')
+    hist.textContent = ''
+    try {
+      const { data: evs } = await sb().from('tarefa_origem_eventos')
+        .select('evento,justificativa,em').eq('tarefa_id', cur.id).order('em', { ascending: false }).limit(1)
+      const { count } = await sb().from('tarefa_origem_eventos').select('id', { count: 'exact', head: true }).eq('tarefa_id', cur.id)
+      if (count) {
+        const u = evs && evs[0]
+        hist.textContent = `Auditoria: ${count} evento(s) de origem` +
+          (u ? ` · último: ${u.evento} em ${new Date(u.em).toLocaleDateString('pt-BR')}${u.justificativa ? ' — ' + u.justificativa : ''}` : '')
+      }
+    } catch (e) { /* tabela ainda não aplicada — segue sem auditoria */ }
+  }
+  // Alteração posterior: modal com os mesmos campos + justificativa (RPC valida e audita).
+  function abrirAlterarOrigem() {
+    if (!cur || !cur.id) return
+    const t = tarefas.find(x => x.id === cur.id); if (!t) return
+    const cands = origemCandidatas(t.cliente_id, cur.id)
+    const back = document.createElement('div')
+    back.style.cssText = 'position:fixed;inset:0;background:rgba(20,30,55,.5);z-index:400;display:flex;align-items:center;justify-content:center;padding:20px'
+    back.innerHTML = `<div style="background:#fff;border-radius:14px;max-width:520px;width:100%;padding:20px;max-height:90vh;overflow:auto;box-shadow:0 20px 50px rgba(20,30,55,.3)">
+      <div style="font-size:16px;font-weight:700;color:#1B2A4A;margin-bottom:8px">Alterar origem do atendimento</div>
+      <div style="font-size:12.5px;color:#2b3447;background:#F2F8FE;border:1px solid #cfe3f6;border-radius:9px;padding:9px 11px;line-height:1.45;margin-bottom:14px">A alteração exige justificativa e fica registrada em auditoria imutável.</div>
+      <label style="font-size:12px;color:#5b6270;font-weight:600">Origem</label>
+      <select id="ao-tipo" style="width:100%;box-sizing:border-box;border:1px solid #D7DCE6;border-radius:10px;padding:9px;font:inherit;margin:4px 0 12px">
+        ${window.ORIGEM_TIPOS.map(([v, l]) => `<option value="${esc(v)}"${v === (t.origem_tipo || 'nova_solicitacao') ? ' selected' : ''}>${esc(l)}</option>`).join('')}
+      </select>
+      <div id="ao-rel">
+        <label style="font-size:12px;color:#5b6270;font-weight:600">Tarefa de origem (mesmo cliente)</label>
+        <select id="ao-tarefa" style="width:100%;box-sizing:border-box;border:1px solid #D7DCE6;border-radius:10px;padding:9px;font:inherit;margin:4px 0 12px">
+          <option value="">— selecione —</option>
+          ${cands.map(c => `<option value="${esc(c.id)}"${c.id === t.tarefa_origem_id ? ' selected' : ''}>Nº ${esc(osNo(c.numero))} · ${esc((c.orientacao || '—').slice(0, 50))}</option>`).join('')}
+        </select>
+        <label style="font-size:12px;color:#5b6270;font-weight:600">RAT de origem (opcional)</label>
+        <select id="ao-rat" style="width:100%;box-sizing:border-box;border:1px solid #D7DCE6;border-radius:10px;padding:9px;font:inherit;margin:4px 0 12px"><option value="">—</option></select>
+        <div style="font-size:11.5px;color:#7C8290;margin:-6px 0 12px">${esc(ORIGEM_NUDGE)}</div>
+      </div>
+      <label style="font-size:12px;color:#5b6270;font-weight:600">Justificativa (obrigatória)</label>
+      <textarea id="ao-just" rows="3" style="width:100%;box-sizing:border-box;border:1px solid #D7DCE6;border-radius:10px;padding:10px;font:inherit;font-size:14px;resize:vertical;margin-top:4px" placeholder="Por que a origem está sendo alterada…"></textarea>
+      <div id="ao-err" style="display:none;color:#E5403A;font-size:12.5px;font-weight:600;margin-top:8px"></div>
+      <div style="display:flex;gap:10px;justify-content:flex-end;margin-top:14px">
+        <button id="ao-cancel" style="background:#EEF1F6;color:#5b6270;border:1px solid #D7DCE6;border-radius:10px;padding:9px 16px;cursor:pointer">Cancelar</button>
+        <button id="ao-ok" style="background:#1E8AE0;color:#fff;border:none;border-radius:10px;padding:9px 16px;font-weight:700;cursor:pointer">Salvar origem</button>
+      </div></div>`
+    document.body.appendChild(back)
+    const $m = (id) => back.querySelector('#' + id)
+    const showErr = (msg) => { $m('ao-err').textContent = msg; $m('ao-err').style.display = 'block' }
+    const refreshRel = () => { $m('ao-rel').style.display = $m('ao-tipo').value === 'nova_solicitacao' ? 'none' : '' }
+    const carregarRatsModal = async () => {
+      const tid = $m('ao-tarefa').value
+      const sel = $m('ao-rat'); sel.innerHTML = '<option value="">—</option>'
+      if (!tid) return
+      const numOrig = (tarefas.find(x => x.id === tid) || {}).numero
+      const { data } = await sb().from('rats').select('id,rat_seq').eq('tarefa_id', tid).order('rat_seq')
+      ;(data || []).forEach(r => sel.insertAdjacentHTML('beforeend',
+        `<option value="${esc(r.id)}"${r.id === t.rat_origem_id ? ' selected' : ''}>RAT ${esc(osNo(numOrig))}/${String(r.rat_seq || '?').padStart(2, '0')}</option>`))
+    }
+    $m('ao-tipo').onchange = refreshRel
+    $m('ao-tarefa').onchange = carregarRatsModal
+    refreshRel(); carregarRatsModal()
+    $m('ao-cancel').onclick = () => back.remove()
+    $m('ao-ok').onclick = async () => {
+      const tipo = $m('ao-tipo').value
+      const tOrig = tipo === 'nova_solicitacao' ? null : ($m('ao-tarefa').value || null)
+      const rOrig = tipo === 'nova_solicitacao' ? null : ($m('ao-rat').value || null)
+      const just = $m('ao-just').value.trim()
+      if (tipo !== 'nova_solicitacao' && !tOrig) return showErr(`"${ORIGEM_LABEL[tipo]}" exige a tarefa de origem.`)
+      if (just.length < 5) return showErr('Justificativa obrigatória (mín. 5 caracteres).')
+      $m('ao-ok').disabled = true
+      let error
+      try { ({ error } = await sb().rpc('alterar_origem_tarefa', {
+        p_tarefa: cur.id, p_origem_tipo: tipo, p_tarefa_origem: tOrig, p_rat_origem: rOrig, p_justificativa: just,
+      })) } finally { $m('ao-ok').disabled = false }
+      if (error) return showErr('Erro: ' + error.message)
+      Object.assign(t, { origem_tipo: tipo, tarefa_origem_id: tOrig, rat_origem_id: rOrig })
+      back.remove()
+      toast('Origem alterada (registrada em auditoria).', 'ok')
+      origemRenderRO(t)
+    }
+  }
+
   // ─────────────────────── Nova tarefa (sem orçamento) ───────────────────────
   // Abre direto a página de detalhe em modo "nova": cliente editável, só a aba Dados.
   // A tarefa é criada no banco ao "Salvar dados".
@@ -501,6 +684,7 @@ const TarefaApp = (() => {
     document.getElementById('cc-d-obs').value = ''
     document.getElementById('cc-obs').value = ''
     document.getElementById('cc-d-hint').textContent = 'Selecione o cliente e salve para criar a tarefa.'
+    origemEditorReset()
     mostrarPane('dados')
     renderHeader({})
     renderSituacao()
@@ -541,6 +725,7 @@ const TarefaApp = (() => {
     document.getElementById('cc-d-hint').textContent = (tecPorTarefa[id] || []).length ? '' : 'Atribua um ou mais técnicos e agende para a Tarefa aparecer no app do técnico.'
     document.getElementById('cc-obs').value = t.conciliacao_obs || ''
     document.getElementById('cc-obs-hint').textContent = ''
+    origemRenderRO(t)
     limparAdd()
     document.getElementById('cc-eq-busca').value = ''; document.getElementById('cc-eq-sel').value = ''
     renderFaturamento(t)
@@ -636,8 +821,10 @@ const TarefaApp = (() => {
     if (!cur.id) {
       const cliId = document.getElementById('cc-d-cli').value
       if (!cliId) return toast('Selecione o cliente.', 'err')
+      const origem = origemColherInsert()   // origem presumida (0111): relacionada exige tarefa de origem
+      if (!origem) return
       const ins = await sb().from('tarefas')
-        .insert(Object.assign({ cliente_id: cliId, criado_por: user.id }, patch))
+        .insert(Object.assign({ cliente_id: cliId, criado_por: user.id }, patch, origem))
         .select('id,numero').single()
       if (ins.error) return toast('Erro ao criar tarefa: ' + ins.error.message, 'err')
       const tecIdsN = getTecnicosChecked()
