@@ -63,13 +63,15 @@ create trigger trg_toe_imutavel before update or delete on public.tarefa_origem_
 
 -- ─────────────────────── 3 · Validação central (trigger) ───────────────────────
 -- Regras: vocabulário · nova_solicitacao sem vínculos · outros tipos exigem
--- tarefa_origem_id · sem autorreferência · RAT pertence à tarefa de origem ·
--- sem ciclo na cadeia de origem · alteração posterior exige justificativa
--- ('sr.origem_motivo', setado pelas RPCs; o set-null por exclusão da origem recebe
--- motivo automático do trigger de delete — por isso vínculo nulo com motivo passa).
+-- tarefa_origem_id · sem autorreferência · origem do MESMO cliente (vale também
+-- quando o cliente_id da tarefa muda — o trigger dispara em update of cliente_id) ·
+-- RAT pertence à tarefa de origem · sem ciclo na cadeia de origem · alteração
+-- posterior exige justificativa ('sr.origem_motivo', setado pelas RPCs; o set-null
+-- por exclusão da origem recebe motivo automático do trigger de delete — por isso
+-- vínculo nulo com motivo passa).
 create or replace function public.tarefas_origem_valida() returns trigger
 language plpgsql as $$
-declare v_next uuid; v_prof int := 0; v_rat_tarefa uuid; v_motivo text;
+declare v_next uuid; v_prof int := 0; v_rat_tarefa uuid; v_motivo text; v_cli_orig uuid;
 begin
   v_motivo := nullif(trim(coalesce(current_setting('sr.origem_motivo', true), '')), '');
 
@@ -101,6 +103,16 @@ begin
     raise exception 'ORIGEM_AUTORREFERENCIA: a tarefa nao pode ser origem de si mesma';
   end if;
 
+  -- origem do MESMO cliente: retorno/continuação cruzando cliente não faz sentido
+  -- de negócio e abriria vínculo espúrio (caso real: escolher origem do cliente A
+  -- e trocar a tarefa para o cliente B)
+  if new.tarefa_origem_id is not null then
+    select t.cliente_id into v_cli_orig from public.tarefas t where t.id = new.tarefa_origem_id;
+    if v_cli_orig is distinct from new.cliente_id then
+      raise exception 'ORIGEM_CLIENTE_DIVERGENTE: a tarefa de origem e de outro cliente';
+    end if;
+  end if;
+
   if new.rat_origem_id is not null then
     select r.tarefa_id into v_rat_tarefa from public.rats r where r.id = new.rat_origem_id;
     if v_rat_tarefa is null or v_rat_tarefa is distinct from new.tarefa_origem_id then
@@ -120,7 +132,7 @@ begin
 end $$;
 drop trigger if exists trg_tarefas_origem_valida on public.tarefas;
 create trigger trg_tarefas_origem_valida
-  before insert or update of origem_tipo, tarefa_origem_id, rat_origem_id
+  before insert or update of origem_tipo, tarefa_origem_id, rat_origem_id, cliente_id
   on public.tarefas for each row execute function public.tarefas_origem_valida();
 
 -- ───────────────────── 4 · Auditoria automática (trigger) ─────────────────────

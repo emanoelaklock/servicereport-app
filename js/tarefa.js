@@ -245,8 +245,10 @@ const TarefaApp = (() => {
       document.getElementById('cc-d-cli-list'),
       ref.clientes,
       c => ({ id: c.id, label: c.nome || '(sem nome)' }),
-      null,
+      () => origemClienteMudou(),
     )
+    // trocar/apagar o cliente invalida a origem escolhida (origem é por cliente)
+    document.getElementById('cc-d-cli-busca').addEventListener('input', origemClienteMudou)
     document.getElementById('cc-add-material').onclick = adicionarMaterialCatalogo
     document.getElementById('cc-add-avulso').onclick = adicionarMaterialAvulso
     document.getElementById('cc-bulk-del').onclick = excluirSelecionados
@@ -346,7 +348,7 @@ const TarefaApp = (() => {
   // ─────────────────────────── Lista ───────────────────────────
   async function carregarTarefas() {
     const { data: ts, error } = await sb().from('tarefas')
-      .select('id,numero,status,criado_em,data_agendada,orcamento_id,cliente_id,orientacao,observacoes,pedido_compra,tipo_servico_id,conciliacao_obs,pendencias,faturado,data_faturamento,numero_nota,modalidade,valor_hora,motivo_devolucao,motivo_devolucao_cats,motivo_devolucao_detalhe,devolvida_em,origem_tipo,tarefa_origem_id,rat_origem_id')
+      .select('id,numero,status,criado_em,data_agendada,orcamento_id,cliente_id,orientacao,observacoes,pedido_compra,tipo_servico_id,conciliacao_obs,pendencias,faturado,data_faturamento,numero_nota,modalidade,valor_hora,motivo_devolucao,motivo_devolucao_cats,motivo_devolucao_detalhe,devolvida_em,origem_tipo,tarefa_origem_id,rat_origem_id,local_servico')
       .order('numero', { ascending: false })
     if (error) { toast('Erro ao carregar tarefas: ' + error.message, 'err'); tarefas = []; return }
     tarefas = ts || []
@@ -493,7 +495,16 @@ const TarefaApp = (() => {
     origemEl('cc-d-origem-alterar').onclick = abrirAlterarOrigem
   }
   // Nudge equipamento/local: origem relacionada é o momento de amarrar o ativo (reincidência).
-  const ORIGEM_NUDGE = 'Considere vincular o equipamento (aba Equipamentos) e informar o local — é o que habilita reincidência por ativo.'
+  const ORIGEM_NUDGE = 'Considere vincular o equipamento (aba Equipamentos) e preencher o "Local do atendimento" — é o que habilita reincidência por ativo.'
+  // Cliente trocado/apagado no modo "nova" → a origem escolhida deixa de valer (é por cliente).
+  function origemClienteMudou() {
+    if (origemEl('cc-d-origem-ed').style.display === 'none') return   // só no modo nova
+    origemEl('cc-d-orig-tarefa').value = ''
+    origemEl('cc-d-orig-busca').value = ''
+    origemEl('cc-d-orig-rat').innerHTML = '<option value="">RAT de origem (opcional)</option>'
+    origemEl('cc-d-orig-rat').style.display = 'none'
+    origemEl('cc-d-orig-list').classList.remove('open')
+  }
   function origemEditorRefresh() {
     const t = origemEl('cc-d-origem-tipo').value
     const rel = t !== 'nova_solicitacao'
@@ -551,38 +562,61 @@ const TarefaApp = (() => {
     })
   }
   // Payload da origem no INSERT (modo "nova"). Retorna null se inválido (já mostra toast).
-  function origemColherInsert() {
+  // Revalida no SAVE que a origem pertence ao cliente selecionado — o cliente pode ter
+  // sido trocado depois da escolha (o banco também barra: ORIGEM_CLIENTE_DIVERGENTE).
+  function origemColherInsert(cliId) {
     const tipo = origemEl('cc-d-origem-tipo').value
     if (tipo === 'nova_solicitacao') return { origem_tipo: tipo, tarefa_origem_id: null, rat_origem_id: null }
     const tOrig = origemEl('cc-d-orig-tarefa').value
     if (!tOrig) { toast(`"${ORIGEM_LABEL[tipo]}" exige a tarefa de origem.`, 'err'); return null }
+    const tObj = tarefas.find(x => x.id === tOrig)
+    if (!tObj || tObj.cliente_id !== cliId) {
+      toast('A tarefa de origem é de outro cliente — escolha uma tarefa do cliente selecionado.', 'err')
+      origemClienteMudou()
+      return null
+    }
     return { origem_tipo: tipo, tarefa_origem_id: tOrig, rat_origem_id: origemEl('cc-d-orig-rat').value || null }
   }
-  // Leitura (tarefa existente) + auditoria resumida.
+  // Leitura (tarefa existente) + auditoria resumida. Consultas ancoradas em t.id, e o
+  // DOM só é tocado se a tarefa aberta (cur.id) ainda for a mesma após cada await —
+  // sem isso, abrir outra tarefa durante o fetch escreveria a origem da anterior.
   async function origemRenderRO(t) {
     origemWire()
     origemEl('cc-d-origem-ed').style.display = 'none'
     origemEl('cc-d-origem-ro').style.display = ''
+    const tid = t.id
+    const vivo = () => cur && cur.id === tid
     const txt = origemEl('cc-d-origem-txt')
-    let s = ORIGEM_LABEL[t.origem_tipo] || t.origem_tipo || '—'
+    let html = esc(ORIGEM_LABEL[t.origem_tipo] || t.origem_tipo || '—')
     if (t.tarefa_origem_id) {
       let orig = tarefas.find(x => x.id === t.tarefa_origem_id)
-      if (!orig) { const { data } = await sb().from('tarefas').select('numero').eq('id', t.tarefa_origem_id).maybeSingle(); orig = data }
-      s += orig && orig.numero != null ? ` · da Tarefa ${osNo(orig.numero)}` : ' · da tarefa vinculada'
+      if (!orig) {
+        const { data } = await sb().from('tarefas').select('numero').eq('id', t.tarefa_origem_id).maybeSingle()
+        if (!vivo()) return
+        orig = data
+      }
+      const hrefT = `tarefa.html?t=${encodeURIComponent(t.tarefa_origem_id)}`
+      html += orig && orig.numero != null
+        ? ` · da <a href="${hrefT}" target="_blank" rel="noopener">Tarefa ${esc(osNo(orig.numero))} ↗</a>`
+        : ` · da <a href="${hrefT}" target="_blank" rel="noopener">tarefa vinculada ↗</a>`
       if (t.rat_origem_id) {
         const { data: r } = await sb().from('rats').select('rat_seq').eq('id', t.rat_origem_id).maybeSingle()
-        if (r) s += ` (RAT /${String(r.rat_seq || '?').padStart(2, '0')})`
+        if (!vivo()) return
+        const hrefR = `tarefa.html?t=${encodeURIComponent(t.tarefa_origem_id)}&aba=rats&rat=${encodeURIComponent(t.rat_origem_id)}`
+        html += ` (<a href="${hrefR}" target="_blank" rel="noopener">RAT /${String((r && r.rat_seq) || '?').padStart(2, '0')} ↗</a>)`
       }
     } else if (t.origem_tipo && t.origem_tipo !== 'nova_solicitacao') {
-      s += ' · tarefa de origem excluída (ver auditoria)'
+      html += ' · tarefa de origem excluída (ver auditoria)'
     }
-    txt.textContent = s
+    if (!vivo()) return
+    txt.innerHTML = html
     const hist = origemEl('cc-d-origem-hist')
     hist.textContent = ''
     try {
       const { data: evs } = await sb().from('tarefa_origem_eventos')
-        .select('evento,justificativa,em').eq('tarefa_id', cur.id).order('em', { ascending: false }).limit(1)
-      const { count } = await sb().from('tarefa_origem_eventos').select('id', { count: 'exact', head: true }).eq('tarefa_id', cur.id)
+        .select('evento,justificativa,em').eq('tarefa_id', tid).order('em', { ascending: false }).limit(1)
+      const { count } = await sb().from('tarefa_origem_eventos').select('id', { count: 'exact', head: true }).eq('tarefa_id', tid)
+      if (!vivo()) return
       if (count) {
         const u = evs && evs[0]
         hist.textContent = `Auditoria: ${count} evento(s) de origem` +
@@ -680,6 +714,7 @@ const TarefaApp = (() => {
     setTecnicosChecked([])
     document.getElementById('cc-d-data').value = ''
     document.getElementById('cc-d-pc').value = ''
+    document.getElementById('cc-d-local').value = ''
     document.getElementById('cc-d-orientacao').value = ''
     document.getElementById('cc-d-obs').value = ''
     document.getElementById('cc-obs').value = ''
@@ -718,6 +753,7 @@ const TarefaApp = (() => {
     setTecnicosChecked(tecPorTarefa[id] || [])
     document.getElementById('cc-d-data').value = t.data_agendada || ''
     document.getElementById('cc-d-pc').value = t.pedido_compra || ''
+    document.getElementById('cc-d-local').value = t.local_servico || ''
     document.getElementById('cc-d-orientacao').value = t.orientacao || ''
     document.getElementById('cc-d-obs').value = t.observacoes || ''
     autoGrow(document.getElementById('cc-d-orientacao'))
@@ -805,6 +841,7 @@ const TarefaApp = (() => {
       status: document.getElementById('cc-d-status-sel').value,
       data_agendada: document.getElementById('cc-d-data').value || null,
       pedido_compra: document.getElementById('cc-d-pc').value.trim() || null,
+      local_servico: document.getElementById('cc-d-local').value.trim() || null,
       orientacao: document.getElementById('cc-d-orientacao').value.trim() || null,
       observacoes: document.getElementById('cc-d-obs').value.trim() || null,
     }
@@ -821,7 +858,7 @@ const TarefaApp = (() => {
     if (!cur.id) {
       const cliId = document.getElementById('cc-d-cli').value
       if (!cliId) return toast('Selecione o cliente.', 'err')
-      const origem = origemColherInsert()   // origem presumida (0111): relacionada exige tarefa de origem
+      const origem = origemColherInsert(cliId)   // origem presumida (0111): relacionada exige tarefa DO MESMO cliente
       if (!origem) return
       const ins = await sb().from('tarefas')
         .insert(Object.assign({ cliente_id: cliId, criado_por: user.id }, patch, origem))
