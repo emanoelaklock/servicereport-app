@@ -348,7 +348,7 @@ const TarefaApp = (() => {
   // ─────────────────────────── Lista ───────────────────────────
   async function carregarTarefas() {
     const { data: ts, error } = await sb().from('tarefas')
-      .select('id,numero,status,criado_em,data_agendada,orcamento_id,cliente_id,orientacao,observacoes,pedido_compra,tipo_servico_id,conciliacao_obs,pendencias,faturado,data_faturamento,numero_nota,modalidade,valor_hora,motivo_devolucao,motivo_devolucao_cats,motivo_devolucao_detalhe,devolvida_em,origem_tipo,tarefa_origem_id,rat_origem_id,local_servico')
+      .select('id,numero,status,criado_em,data_agendada,orcamento_id,cliente_id,orientacao,observacoes,pedido_compra,tipo_servico_id,conciliacao_obs,pendencias,faturado,data_faturamento,numero_nota,modalidade,valor_hora,motivo_devolucao,motivo_devolucao_cats,motivo_devolucao_detalhe,devolvida_em,origem_tipo,tarefa_origem_id,rat_origem_id,origem_ref_externa,local_servico')
       .order('numero', { ascending: false })
     if (error) { toast('Erro ao carregar tarefas: ' + error.message, 'err'); tarefas = []; return }
     tarefas = ts || []
@@ -488,6 +488,7 @@ const TarefaApp = (() => {
     const tipo = origemEl('cc-d-origem-tipo')
     if (!tipo.options.length) tipo.innerHTML = window.ORIGEM_TIPOS.map(([v, l]) => `<option value="${esc(v)}">${esc(l)}</option>`).join('')
     tipo.onchange = origemEditorRefresh
+    origemEl('cc-d-orig-modo').onchange = origemModoRefresh
     const busca = origemEl('cc-d-orig-busca')
     busca.oninput = () => { origemEl('cc-d-orig-tarefa').value = ''; origemBuscaRender() }
     busca.onfocus = () => origemBuscaRender()
@@ -496,28 +497,54 @@ const TarefaApp = (() => {
   }
   // Nudge equipamento/local: origem relacionada é o momento de amarrar o ativo (reincidência).
   const ORIGEM_NUDGE = 'Considere vincular o equipamento (aba Equipamentos) e preencher o "Local do atendimento" — é o que habilita reincidência por ativo.'
-  // Cliente trocado/apagado no modo "nova" → a origem escolhida deixa de valer (é por cliente).
+  // Cliente trocado/apagado no modo "nova" → a origem escolhida deixa de valer (é por
+  // cliente); a referência externa também é limpa (decisão da revisão: troca de cliente
+  // zera TODO o bloco de origem, evitando ref herdada de outro contexto).
   function origemClienteMudou() {
     if (origemEl('cc-d-origem-ed').style.display === 'none') return   // só no modo nova
     origemEl('cc-d-orig-tarefa').value = ''
     origemEl('cc-d-orig-busca').value = ''
+    origemEl('cc-d-orig-ext').value = ''
     origemEl('cc-d-orig-rat').innerHTML = '<option value="">RAT de origem (opcional)</option>'
     origemEl('cc-d-orig-rat').style.display = 'none'
     origemEl('cc-d-orig-list').classList.remove('open')
   }
+  // Escolha explícita da FONTE da origem relacionada: tarefa no SR × referência externa.
+  // Trocar de modo limpa os campos do modo incompatível (nunca ficam os dois).
+  function origemModoRefresh() {
+    const rel = origemEl('cc-d-origem-tipo').value !== 'nova_solicitacao'
+    const ext = origemEl('cc-d-orig-modo').value === 'externa'
+    origemEl('cc-d-orig-tarefa-wrap').style.display = (rel && !ext) ? '' : 'none'
+    origemEl('cc-d-orig-ext').style.display = (rel && ext) ? '' : 'none'
+    if (ext) {
+      origemEl('cc-d-orig-tarefa').value = ''
+      origemEl('cc-d-orig-busca').value = ''
+      origemEl('cc-d-orig-rat').innerHTML = '<option value="">RAT de origem (opcional)</option>'
+      origemEl('cc-d-orig-list').classList.remove('open')
+    } else {
+      origemEl('cc-d-orig-ext').value = ''
+    }
+    origemEl('cc-d-orig-rat').style.display = (rel && !ext && origemEl('cc-d-orig-tarefa').value) ? '' : 'none'
+  }
   function origemEditorRefresh() {
     const t = origemEl('cc-d-origem-tipo').value
     const rel = t !== 'nova_solicitacao'
-    origemEl('cc-d-orig-tarefa-wrap').style.display = rel ? '' : 'none'
-    origemEl('cc-d-orig-rat').style.display = (rel && origemEl('cc-d-orig-tarefa').value) ? '' : 'none'
+    origemEl('cc-d-orig-modo').style.display = rel ? '' : 'none'
     origemEl('cc-d-origem-note').textContent = rel ? ORIGEM_NUDGE : ''
-    if (!rel) { origemEl('cc-d-orig-tarefa').value = ''; origemEl('cc-d-orig-busca').value = ''; origemEl('cc-d-orig-rat').innerHTML = '<option value="">RAT de origem (opcional)</option>' }
+    if (!rel) {
+      origemEl('cc-d-orig-tarefa').value = ''; origemEl('cc-d-orig-busca').value = ''
+      origemEl('cc-d-orig-ext').value = ''
+      origemEl('cc-d-orig-rat').innerHTML = '<option value="">RAT de origem (opcional)</option>'
+    }
+    origemModoRefresh()
   }
   function origemEditorReset() {
     origemWire()
     origemEl('cc-d-origem-tipo').value = 'nova_solicitacao'
+    origemEl('cc-d-orig-modo').value = 'sr'
     origemEl('cc-d-orig-tarefa').value = ''
     origemEl('cc-d-orig-busca').value = ''
+    origemEl('cc-d-orig-ext').value = ''
     origemEl('cc-d-orig-rat').innerHTML = '<option value="">RAT de origem (opcional)</option>'
     origemEditorRefresh()
     origemEl('cc-d-origem-ed').style.display = ''
@@ -566,7 +593,14 @@ const TarefaApp = (() => {
   // sido trocado depois da escolha (o banco também barra: ORIGEM_CLIENTE_DIVERGENTE).
   function origemColherInsert(cliId) {
     const tipo = origemEl('cc-d-origem-tipo').value
-    if (tipo === 'nova_solicitacao') return { origem_tipo: tipo, tarefa_origem_id: null, rat_origem_id: null }
+    if (tipo === 'nova_solicitacao') return { origem_tipo: tipo, tarefa_origem_id: null, rat_origem_id: null, origem_ref_externa: null }
+    if (origemEl('cc-d-orig-modo').value === 'externa') {
+      // fonte externa (Auvo etc.): referência textual no lugar do vínculo — nunca ambas
+      const ref = origemEl('cc-d-orig-ext').value.trim()
+      if (!ref) { toast(`"${ORIGEM_LABEL[tipo]}" exige a referência do atendimento anterior (ex.: Auvo 7534999/4).`, 'err'); return null }
+      if (ref.length > 120) { toast('Referência externa: máximo de 120 caracteres.', 'err'); return null }
+      return { origem_tipo: tipo, tarefa_origem_id: null, rat_origem_id: null, origem_ref_externa: ref }
+    }
     const tOrig = origemEl('cc-d-orig-tarefa').value
     if (!tOrig) { toast(`"${ORIGEM_LABEL[tipo]}" exige a tarefa de origem.`, 'err'); return null }
     const tObj = tarefas.find(x => x.id === tOrig)
@@ -575,7 +609,7 @@ const TarefaApp = (() => {
       origemClienteMudou()
       return null
     }
-    return { origem_tipo: tipo, tarefa_origem_id: tOrig, rat_origem_id: origemEl('cc-d-orig-rat').value || null }
+    return { origem_tipo: tipo, tarefa_origem_id: tOrig, rat_origem_id: origemEl('cc-d-orig-rat').value || null, origem_ref_externa: null }
   }
   // Leitura (tarefa existente) + auditoria resumida. Consultas ancoradas em t.id, e o
   // DOM só é tocado se a tarefa aberta (cur.id) ainda for a mesma após cada await —
@@ -605,6 +639,10 @@ const TarefaApp = (() => {
         const hrefR = `tarefa.html?t=${encodeURIComponent(t.tarefa_origem_id)}&aba=rats&rat=${encodeURIComponent(t.rat_origem_id)}`
         html += ` (<a href="${hrefR}" target="_blank" rel="noopener">RAT /${String((r && r.rat_seq) || '?').padStart(2, '0')} ↗</a>)`
       }
+    } else if (t.origem_ref_externa) {
+      // referência de sistema anterior (Auvo etc.): texto seguro, sem link — não há
+      // tarefa no SR para abrir
+      html += ` · ref. externa: <strong>${esc(t.origem_ref_externa)}</strong>`
     } else if (t.origem_tipo && t.origem_tipo !== 'nova_solicitacao') {
       html += ' · tarefa de origem excluída (ver auditoria)'
     }
@@ -639,14 +677,25 @@ const TarefaApp = (() => {
         ${window.ORIGEM_TIPOS.map(([v, l]) => `<option value="${esc(v)}"${v === (t.origem_tipo || 'nova_solicitacao') ? ' selected' : ''}>${esc(l)}</option>`).join('')}
       </select>
       <div id="ao-rel">
-        <label style="font-size:12px;color:#5b6270;font-weight:600">Tarefa de origem (mesmo cliente)</label>
-        <div class="ac" style="margin:4px 0 12px">
-          <input type="text" id="ao-busca" placeholder="Buscar por nº ou orientação…" autocomplete="off" style="width:100%;box-sizing:border-box;border:1px solid #D7DCE6;border-radius:10px;padding:9px;font:inherit">
-          <input type="hidden" id="ao-tarefa">
-          <div class="ac-list" id="ao-list"></div>
+        <label style="font-size:12px;color:#5b6270;font-weight:600">Onde foi o atendimento anterior?</label>
+        <select id="ao-modo" style="width:100%;box-sizing:border-box;border:1px solid #D7DCE6;border-radius:10px;padding:9px;font:inherit;margin:4px 0 12px">
+          <option value="sr">Tarefa anterior no Service Report</option>
+          <option value="externa">Atendimento anterior fora do Service Report</option>
+        </select>
+        <div id="ao-modo-sr">
+          <label style="font-size:12px;color:#5b6270;font-weight:600">Tarefa de origem (mesmo cliente)</label>
+          <div class="ac" style="margin:4px 0 12px">
+            <input type="text" id="ao-busca" placeholder="Buscar por nº ou orientação…" autocomplete="off" style="width:100%;box-sizing:border-box;border:1px solid #D7DCE6;border-radius:10px;padding:9px;font:inherit">
+            <input type="hidden" id="ao-tarefa">
+            <div class="ac-list" id="ao-list"></div>
+          </div>
+          <label style="font-size:12px;color:#5b6270;font-weight:600">RAT de origem (opcional)</label>
+          <select id="ao-rat" style="width:100%;box-sizing:border-box;border:1px solid #D7DCE6;border-radius:10px;padding:9px;font:inherit;margin:4px 0 12px"><option value="">—</option></select>
         </div>
-        <label style="font-size:12px;color:#5b6270;font-weight:600">RAT de origem (opcional)</label>
-        <select id="ao-rat" style="width:100%;box-sizing:border-box;border:1px solid #D7DCE6;border-radius:10px;padding:9px;font:inherit;margin:4px 0 12px"><option value="">—</option></select>
+        <div id="ao-modo-ext" style="display:none">
+          <label style="font-size:12px;color:#5b6270;font-weight:600">Referência do sistema anterior</label>
+          <input type="text" id="ao-ext" maxlength="120" placeholder="Ex.: Auvo 7534999/4" autocomplete="off" style="width:100%;box-sizing:border-box;border:1px solid #D7DCE6;border-radius:10px;padding:9px;font:inherit;margin:4px 0 12px">
+        </div>
         <div style="font-size:11.5px;color:#7C8290;margin:-6px 0 12px">${esc(ORIGEM_NUDGE)}</div>
       </div>
       <label style="font-size:12px;color:#5b6270;font-weight:600">Justificativa (obrigatória)</label>
@@ -694,28 +743,45 @@ const TarefaApp = (() => {
     $m('ao-busca').oninput = () => { $m('ao-tarefa').value = ''; $m('ao-rat').innerHTML = '<option value="">—</option>'; buscaRender() }
     $m('ao-busca').onfocus = buscaRender
     $m('ao-busca').onblur = () => setTimeout(() => $m('ao-list').classList.remove('open'), 150)
-    // Pré-preenche com o vínculo atual (se existir e ainda for do mesmo cliente)
+    // Troca de modo (SR × externa) limpa os campos do modo incompatível — o banco
+    // rejeita os dois juntos (ORIGEM_REF_COM_VINCULO), a UI nunca deixa acontecer.
+    const refreshModo = () => {
+      const ext = $m('ao-modo').value === 'externa'
+      $m('ao-modo-sr').style.display = ext ? 'none' : ''
+      $m('ao-modo-ext').style.display = ext ? '' : 'none'
+      if (ext) { $m('ao-tarefa').value = ''; $m('ao-busca').value = ''; $m('ao-rat').innerHTML = '<option value="">—</option>'; $m('ao-list').classList.remove('open') }
+      else { $m('ao-ext').value = '' }
+    }
+    $m('ao-modo').onchange = refreshModo
+    // Pré-preenche com o estado atual: vínculo interno OU referência externa
     if (t.tarefa_origem_id) {
       const c0 = cands.find(x => x.id === t.tarefa_origem_id)
       if (c0) { $m('ao-tarefa').value = c0.id; $m('ao-busca').value = `Nº ${osNo(c0.numero)} · ${(c0.orientacao || '').slice(0, 40)}` }
+    } else if (t.origem_ref_externa) {
+      $m('ao-modo').value = 'externa'
+      $m('ao-ext').value = t.origem_ref_externa
     }
     $m('ao-tipo').onchange = refreshRel
-    refreshRel(); carregarRatsModal()
+    refreshRel(); refreshModo(); carregarRatsModal()
     $m('ao-cancel').onclick = () => back.remove()
     $m('ao-ok').onclick = async () => {
       const tipo = $m('ao-tipo').value
-      const tOrig = tipo === 'nova_solicitacao' ? null : ($m('ao-tarefa').value || null)
-      const rOrig = tipo === 'nova_solicitacao' ? null : ($m('ao-rat').value || null)
+      const modoExt = $m('ao-modo').value === 'externa'
+      const tOrig = (tipo === 'nova_solicitacao' || modoExt) ? null : ($m('ao-tarefa').value || null)
+      const rOrig = (tipo === 'nova_solicitacao' || modoExt) ? null : ($m('ao-rat').value || null)
+      const ref = (tipo === 'nova_solicitacao' || !modoExt) ? null : ($m('ao-ext').value.trim() || null)
       const just = $m('ao-just').value.trim()
-      if (tipo !== 'nova_solicitacao' && !tOrig) return showErr(`"${ORIGEM_LABEL[tipo]}" exige a tarefa de origem.`)
+      if (tipo !== 'nova_solicitacao' && !modoExt && !tOrig) return showErr(`"${ORIGEM_LABEL[tipo]}" exige a tarefa de origem.`)
+      if (tipo !== 'nova_solicitacao' && modoExt && !ref) return showErr(`"${ORIGEM_LABEL[tipo]}" exige a referência do atendimento anterior (ex.: Auvo 7534999/4).`)
+      if (ref && ref.length > 120) return showErr('Referência externa: máximo de 120 caracteres.')
       if (just.length < 5) return showErr('Justificativa obrigatória (mín. 5 caracteres).')
       $m('ao-ok').disabled = true
       let error
       try { ({ error } = await sb().rpc('alterar_origem_tarefa', {
-        p_tarefa: cur.id, p_origem_tipo: tipo, p_tarefa_origem: tOrig, p_rat_origem: rOrig, p_justificativa: just,
+        p_tarefa: cur.id, p_origem_tipo: tipo, p_tarefa_origem: tOrig, p_rat_origem: rOrig, p_justificativa: just, p_ref_externa: ref,
       })) } finally { $m('ao-ok').disabled = false }
       if (error) return showErr('Erro: ' + error.message)
-      Object.assign(t, { origem_tipo: tipo, tarefa_origem_id: tOrig, rat_origem_id: rOrig })
+      Object.assign(t, { origem_tipo: tipo, tarefa_origem_id: tOrig, rat_origem_id: rOrig, origem_ref_externa: ref })
       back.remove()
       toast('Origem alterada (registrada em auditoria).', 'ok')
       origemRenderRO(t)
