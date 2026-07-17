@@ -152,7 +152,7 @@
     document.getElementById('rc-title').textContent = `${MONTHS[ym.m]} de ${ym.y}`
     document.getElementById('rc-grid').innerHTML = '<div class="rc-empty" style="grid-column:1/-1">Carregando…</div>'
     const { data, error } = await sb().from('rats')
-      .select('id,rat_seq,status,data_tarefa,tecnico_nome,cliente_nome,respostas,tarefa:tarefas(id,numero,status,pedido_compra,orcamento_id,orientacao)')
+      .select('id,rat_seq,status,data_tarefa,tecnico_nome,cliente_nome,respostas,tarefa:tarefas!rats_tarefa_id_fkey(id,numero,status,pedido_compra,orcamento_id,orientacao)')
       .gte('data_tarefa', start).lt('data_tarefa', end)
       .order('data_tarefa', { ascending: true })
     if (error) { document.getElementById('rc-grid').innerHTML = `<div class="rc-empty" style="grid-column:1/-1;color:var(--re)">Erro ao carregar: ${esc(error.message)}</div>`; return }

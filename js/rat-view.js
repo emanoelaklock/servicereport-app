@@ -19,7 +19,7 @@ window.RatView = (function () {
   }
 
   // Colunas necessárias para montar o detalhe de uma RAT (inclui dados fiscais do cliente e da OS).
-  const RAT_SELECT = 'id,cliente_id,cliente_nome,tecnico_nome,data_tarefa,status,sync_status,pendencias,assinatura_url,respostas,tempo_trabalhado,formulario_id,rat_seq,checkin_lat,checkin_lng,checkin_precisao,checkin_em,atendimento_executado,motivo_improdutiva,motivo_texto,tipos_servico(nome),cliente:clientes(nome,documento,endereco),tarefa:tarefas(id,numero,cliente_id,tipo_servico_id,orientacao,tipo:tipos_servico(nome))'
+  const RAT_SELECT = 'id,cliente_id,cliente_nome,tecnico_nome,data_tarefa,status,sync_status,pendencias,assinatura_url,respostas,tempo_trabalhado,formulario_id,rat_seq,checkin_lat,checkin_lng,checkin_precisao,checkin_em,atendimento_executado,motivo_improdutiva,motivo_texto,tipos_servico(nome),cliente:clientes(nome,documento,endereco),tarefa:tarefas!rats_tarefa_id_fkey(id,numero,cliente_id,tipo_servico_id,orientacao,tipo:tipos_servico(nome))'
 
   async function ensureForms() {
     if (Object.keys(forms).length) return
