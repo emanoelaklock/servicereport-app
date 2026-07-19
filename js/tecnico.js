@@ -557,9 +557,10 @@
     document.querySelectorAll('#po-pausa-seg button').forEach(b => { b.onclick = () => poSetTevePausa(b.dataset.v) })
     // Edição manual de horários nos modais (fora do #view-preorc-form) recalcula tempo + barras.
     ;['modal-po-desloc', 'modal-po-pausa'].forEach(id => { const m = document.getElementById(id); if (m) m.addEventListener('input', () => { atualizarTempoPo(); atualizarCardsPo(); poTimersRender() }) })
-    // Técnicos do levantamento (equipe, com avatar) — seletor próprio do pré-orçamento.
-    document.getElementById('po-tec-add-btn').onclick = () => { poRenderTecLista(); document.getElementById('modal-po-tec').classList.add('open') }
-    document.getElementById('po-tec-busca').addEventListener('input', poRenderTecLista)
+    // Técnico do levantamento: pré-orçamento é de 1 técnico só (o criador) — o botão
+    // "+ Adicionar técnico" e a busca de equipe foram removidos (guarda p/ DOM antigo).
+    { const b = document.getElementById('po-tec-add-btn'); if (b) b.onclick = () => { poRenderTecLista(); document.getElementById('modal-po-tec').classList.add('open') } }
+    { const b = document.getElementById('po-tec-busca'); if (b) b.addEventListener('input', poRenderTecLista) }
     // Timers Iniciar/Encerrar (igual à RAT) p/ visita, deslocamento, almoço e pausa.
     document.getElementById('view-preorc-form').addEventListener('input', poTimersRender)
     poTimersRender()
@@ -4066,9 +4067,9 @@
       const rl = t.cargo ? `${t.cargo} · Técnico` : 'Técnico'
       const foto = (typeof avatarUrl === 'function') ? avatarUrl(t.foto_url) : null
       const av = foto ? `<img src="${esc(foto)}" alt="">` : esc(iniciaisDe(n))
-      return `<div class="tec-card"><span class="av">${av}</span><span class="ti"><span class="nm">${esc(n)}</span><span class="rl">${esc(rl)}</span></span><button type="button" class="tc-x" data-potecrem="${esc(id)}" title="Remover">×</button></div>`
+      // sem X de remover: pré-orçamento é de 1 técnico só (o criador), fixo
+      return `<div class="tec-card"><span class="av">${av}</span><span class="ti"><span class="nm">${esc(n)}</span><span class="rl">${esc(rl)}</span></span></div>`
     }).join('') || '<div class="tec-vazio">Nenhum técnico selecionado.</div>'
-    box.querySelectorAll('[data-potecrem]').forEach(b => { b.onclick = () => { poTecSel.delete(b.dataset.potecrem); poRenderTecCards() } })
   }
   // Lista do modal de seleção (todos os técnicos, com avatar; toque alterna).
   function poRenderTecLista() {

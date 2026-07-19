@@ -1109,9 +1109,10 @@ try{if(localStorage.getItem('sr_dark')==='1')document.documentElement.classList.
           <div class="h"><span class="hi"><svg viewBox="0 0 24 24"><path d="M4 6h16M4 12h16M4 18h10"/></svg></span>O levantamento</div>
           <div class="po-lev-meta"><span id="po-lev-data" class="po-lev-data"></span></div>
           <div class="fg campo" style="margin:12px 0 0">
-            <label>Técnicos do levantamento</label>
-            <div id="po-tec-cards" style="display:flex;flex-direction:column;gap:8px;margin:6px 0 8px"></div>
-            <button type="button" class="btn btn-sm" id="po-tec-add-btn" style="width:auto;padding:9px 13px;font-size:13px">+ Adicionar técnico</button>
+            <label>Técnico do levantamento</label>
+            <!-- Pré-orçamento é de 1 técnico só (o criador) — sem "+ Adicionar técnico".
+                 Regra do processo: quem levanta é uma pessoa; o outro segue na atividade. -->
+            <div id="po-tec-cards" style="display:flex;flex-direction:column;gap:8px;margin:6px 0 0"></div>
           </div>
           <div class="fg campo" style="margin:12px 0 0">
             <label>Serviço a ser orçado <span class="req">*</span></label>
