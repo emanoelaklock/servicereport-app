@@ -14,6 +14,7 @@
 <script src="js/supabase-client.js"></script>
 <script src="js/auth.js"></script>
 <script src="js/sidebar.js"></script>
+<script src="js/trilha-nav.js"></script>
 <script src="js/push.js"></script>
 <script src="js/rat-view.js"></script>
 <script src="js/rat-editor.js"></script>
@@ -97,6 +98,19 @@
   .cc-desloc-item .dim{color:var(--tx3)}
   .cc-pane{display:none}
   .cc-pane.on{display:block}
+
+  /* Trilha comercial (C4) — cadeia pré → orçamento → OS */
+  .trilha-chain{display:flex;flex-wrap:wrap;gap:6px 10px;align-items:center}
+  .trilha-no{background:var(--sur2,#F3F5F9);border:1px solid var(--line,#EAEDF2);border-radius:9px;padding:7px 12px}
+  .trilha-no b{font-variant-numeric:tabular-nums}
+  .trilha-no .k{font-size:11px;color:var(--tx3,#7C8698);display:block;margin-bottom:2px}
+  .trilha-sep{color:var(--tx3,#7C8698)}
+  .trilha-no.trilha-atual{border-style:dashed}
+  .trilha-irmaos{margin-top:12px;border-top:1px dashed var(--line,#EAEDF2);padding-top:10px}
+  .trilha-irmaos .lab{font-size:11px;font-weight:700;color:var(--tx3,#7C8698);text-transform:uppercase;letter-spacing:.3px;margin-bottom:6px}
+  .trilha-irmaos .row{font-size:13px;padding:3px 0}
+  .trilha-irmaos .row b{font-variant-numeric:tabular-nums}
+  .trilha-removida{color:#E5403A;font-weight:600}
 
   /* Dados da Tarefa */
   .cc-dados-grid{display:grid;grid-template-columns:1fr 1fr 1fr;gap:14px}
@@ -435,6 +449,14 @@
               </div>
             </div>
             <div class="panel rsum" id="cc-rsum"></div>
+          </div>
+          <!-- Trilha comercial (C4): pré → orçamento → OS via RPC trilha_da_tarefa (0116).
+               SEPARADA da "Origem do atendimento" (F1, cc-d-origem-*). Vínculos canônicos
+               (orcamentos.pre_orcamento_id / tarefas.orcamento_id); sem valores. Só aparece
+               quando a tarefa tem orçamento. -->
+          <div class="panel" id="cc-trilha" style="display:none;margin-top:20px">
+            <h2>Trilha comercial</h2>
+            <div id="cc-trilha-body" style="font-size:13.5px"></div>
           </div>
           <div class="sec-lab" style="margin-top:20px">Linha do tempo da tarefa</div>
           <div class="timeline" id="cc-timeline"></div>

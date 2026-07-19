@@ -846,6 +846,54 @@ const TarefaApp = (() => {
     document.getElementById('cc-d-cli-busca').focus()
   }
 
+  // ── Trilha comercial (C4) ─────────────────────────────────────────────
+  // Cadeia pré → orçamento → OS via RPC trilha_da_tarefa (0116): UMA chamada,
+  // vínculos canônicos resolvidos e autorizados NO SERVIDOR (sem valores/
+  // observações). SEPARADA da "Origem do atendimento" (F1, origemRenderRO).
+  // A própria OS nunca vira link; OS irmãs (outros orçamentos do mesmo pré)
+  // linkam SÓ via TrilhaNav.urlTarefa (URL central e validada).
+  let trilhaReq = 0
+  const ORC_STATUS_LABEL = { rascunho: 'Aguardando aprovação', enviado: 'Enviado', aprovado: 'Aprovado', nao_aprovado: 'Não aprovado', arquivado: 'Arquivado' }
+  async function trilhaRender(t) {
+    const req = ++trilhaReq   // ANTES de qualquer return: invalida resposta em voo de outra tarefa
+    const box = document.getElementById('cc-trilha'), body = document.getElementById('cc-trilha-body')
+    if (!box || !body) return
+    if (!t.orcamento_id) { box.style.display = 'none'; body.innerHTML = ''; return }
+    box.style.display = ''
+    body.innerHTML = '<span class="muted">Carregando…</span>'
+    const { data: d, error } = await sb().rpc('trilha_da_tarefa', { p_tarefa: t.id })
+    if (req !== trilhaReq) return   // o usuário já abriu outra tarefa
+    if (error || !d || !d.tarefa) { body.innerHTML = '<span class="muted">Trilha indisponível no momento.</span>'; return }
+    const no = (k, v, extra, cls) =>
+      `<span class="trilha-no${cls ? ' ' + cls : ''}"><span class="k">${esc(k)}</span><b>${esc(v)}</b>${extra ? ` <span class="muted">· ${esc(extra)}</span>` : ''}</span>`
+    const sep = '<span class="trilha-sep">→</span>'
+    const parts = []
+    if (d.pre) parts.push(no('Pré-orçamento', `Nº ${d.pre.numero}`, d.pre.data ? dmy(d.pre.data) : ''))
+    if (d.orcamento) parts.push(no('Orçamento', `Nº ${d.orcamento.numero}`, ORC_STATUS_LABEL[d.orcamento.status] || d.orcamento.status))
+    parts.push(no('Tarefa (OS)', `Nº ${osNo(d.tarefa.numero)}`, 'esta tarefa', 'trilha-atual'))
+    let html = `<div class="trilha-chain">${parts.join(sep)}</div>`
+    const irmaos = (d.orcamentos || []).filter(o => !d.orcamento || o.numero !== d.orcamento.numero)
+    if (irmaos.length) {
+      html += '<div class="trilha-irmaos"><div class="lab">Outros orçamentos deste levantamento</div>'
+      for (const o of irmaos) {
+        let os
+        if (o.tarefa && o.tarefa.id && o.tarefa.id !== t.id) {
+          const url = (window.TrilhaNav && TrilhaNav.urlTarefa(o.tarefa.id)) || null
+          os = url ? `<a href="${esc(url)}">OS Nº ${esc(osNo(o.tarefa.numero))}</a>` : `OS Nº ${esc(osNo(o.tarefa.numero))}`
+        } else if (o.tarefa) {
+          os = `OS Nº ${esc(osNo(o.tarefa.numero))} <span class="muted">(esta tarefa)</span>`  // nunca link p/ si
+        } else if (o.tarefa_removida) {
+          os = '<span class="trilha-removida">OS removida</span>'  // rótulo SÓ com evento (garantido pela RPC)
+        } else {
+          os = '<span class="muted">sem OS</span>'
+        }
+        html += `<div class="row">Orçamento Nº <b>${esc(o.numero)}</b> <span class="muted">· ${esc(ORC_STATUS_LABEL[o.status] || o.status)}</span> — ${os}</div>`
+      }
+      html += '</div>'
+    }
+    body.innerHTML = html
+  }
+
   // ─────────────────────────── Detalhe ───────────────────────────
   async function abrirTarefa(id, aba) {
     const t = tarefas.find(x => x.id === id); if (!t) return
@@ -880,6 +928,7 @@ const TarefaApp = (() => {
     document.getElementById('cc-obs').value = t.conciliacao_obs || ''
     document.getElementById('cc-obs-hint').textContent = ''
     origemRenderRO(t)
+    trilhaRender(t)   // Trilha comercial (C4) — assíncrona, não atrasa a abertura
     limparAdd()
     document.getElementById('cc-eq-busca').value = ''; document.getElementById('cc-eq-sel').value = ''
     renderFaturamento(t)
