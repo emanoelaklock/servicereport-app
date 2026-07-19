@@ -1108,12 +1108,7 @@ try{if(localStorage.getItem('sr_dark')==='1')document.documentElement.classList.
         <div class="fcard fc-yellow">
           <div class="h"><span class="hi"><svg viewBox="0 0 24 24"><path d="M4 6h16M4 12h16M4 18h10"/></svg></span>O levantamento</div>
           <div class="po-lev-meta"><span id="po-lev-data" class="po-lev-data"></span></div>
-          <div class="fg campo" style="margin:12px 0 0">
-            <label>Técnico do levantamento</label>
-            <!-- Pré-orçamento é de 1 técnico só (o criador) — sem "+ Adicionar técnico".
-                 Regra do processo: quem levanta é uma pessoa; o outro segue na atividade. -->
-            <div id="po-tec-cards" style="display:flex;flex-direction:column;gap:8px;margin:6px 0 0"></div>
-          </div>
+          <!-- Pré-orçamento é de 1 técnico só (o criador, automático) — sem seção de técnico. -->
           <div class="fg campo" style="margin:12px 0 0">
             <label>Serviço a ser orçado <span class="req">*</span></label>
             <textarea class="ta-longo ta-servico" id="po-descricao" autocapitalize="sentences" placeholder="Descreva o serviço a ser orçado…"></textarea>
@@ -1236,12 +1231,6 @@ try{if(localStorage.getItem('sr_dark')==='1')document.documentElement.classList.
         <div class="po-mfoot"><button type="button" class="btn btn-primary" data-poclose="modal-po-pausa">Pronto</button></div>
       </div></div>
 
-      <div class="tm-back tskin" id="modal-po-tec"><div class="tm-box po-modal">
-        <div class="po-mh"><span>Técnicos do levantamento</span><button type="button" class="po-mx" data-poclose="modal-po-tec">×</button></div>
-        <input type="text" id="po-tec-busca" placeholder="Buscar técnico…" autocomplete="off" style="margin-bottom:8px">
-        <div id="po-tec-lista" class="tec-lista" style="max-height:48vh;overflow:auto"></div>
-        <div class="po-mfoot"><button type="button" class="btn btn-primary" data-poclose="modal-po-tec">Pronto</button></div>
-      </div></div>
 
     </div>
     <!-- Rodapé fixo: barra de navegação (telas principais) OU ações da RAT (no formulário) -->

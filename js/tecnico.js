@@ -557,10 +557,6 @@
     document.querySelectorAll('#po-pausa-seg button').forEach(b => { b.onclick = () => poSetTevePausa(b.dataset.v) })
     // Edição manual de horários nos modais (fora do #view-preorc-form) recalcula tempo + barras.
     ;['modal-po-desloc', 'modal-po-pausa'].forEach(id => { const m = document.getElementById(id); if (m) m.addEventListener('input', () => { atualizarTempoPo(); atualizarCardsPo(); poTimersRender() }) })
-    // Técnico do levantamento: pré-orçamento é de 1 técnico só (o criador) — o botão
-    // "+ Adicionar técnico" e a busca de equipe foram removidos (guarda p/ DOM antigo).
-    { const b = document.getElementById('po-tec-add-btn'); if (b) b.onclick = () => { poRenderTecLista(); document.getElementById('modal-po-tec').classList.add('open') } }
-    { const b = document.getElementById('po-tec-busca'); if (b) b.addEventListener('input', poRenderTecLista) }
     // Timers Iniciar/Encerrar (igual à RAT) p/ visita, deslocamento, almoço e pausa.
     document.getElementById('view-preorc-form').addEventListener('input', poTimersRender)
     poTimersRender()
@@ -4057,40 +4053,8 @@
     if (g('po-btn-cancelar')) g('po-btn-cancelar').textContent = poReadonly ? 'Voltar' : 'Cancelar'
     if (g('po-ro-aviso')) g('po-ro-aviso').style.display = poReadonly ? '' : 'none'
   }
-  // Card do técnico do levantamento (1 só — o criador). Como não há mais "+ Adicionar
-  // técnico", um poTecSel vazio seria um beco sem saída: garante o técnico logado, então
-  // "Nenhum técnico selecionado" nunca aparece pra quem está com sessão.
-  function poRenderTecCards() {
-    const box = document.getElementById('po-tec-cards'); if (!box) return
-    if (!poTecSel.size && tecnico.id) poTecSel = new Set([tecnico.id])
-    const ids = [...poTecSel]
-    box.innerHTML = ids.map(id => {
-      const t = (ref.tecnicos || []).find(x => x.id === id) || (id === tecnico.id ? { id, nome: tecnico.nome } : { id, nome: '—' })
-      const n = tcase(t.nome || '—')
-      const rl = t.cargo ? `${t.cargo} · Técnico` : 'Técnico'
-      const foto = (typeof avatarUrl === 'function') ? avatarUrl(t.foto_url) : null
-      const av = foto ? `<img src="${esc(foto)}" alt="">` : esc(iniciaisDe(n))
-      // sem X de remover: pré-orçamento é de 1 técnico só (o criador), fixo
-      return `<div class="tec-card"><span class="av">${av}</span><span class="ti"><span class="nm">${esc(n)}</span><span class="rl">${esc(rl)}</span></span></div>`
-    }).join('') || '<div class="tec-vazio">Nenhum técnico selecionado.</div>'
-  }
-  // Lista do modal de seleção (todos os técnicos, com avatar; toque alterna).
-  function poRenderTecLista() {
-    const lista = document.getElementById('po-tec-lista'); if (!lista) return
-    const q = normStr((document.getElementById('po-tec-busca') || {}).value || '')
-    const rows = (ref.tecnicos || []).filter(t => !q || normStr(t.nome).includes(q)).map(t => {
-      const n = tcase(t.nome || '—')
-      const rl = t.cargo ? `${t.cargo} · Técnico` : 'Técnico'
-      const foto = (typeof avatarUrl === 'function') ? avatarUrl(t.foto_url) : null
-      const av = foto ? `<img src="${esc(foto)}" alt="">` : esc(iniciaisDe(n))
-      const on = poTecSel.has(t.id)
-      return `<div class="tec-row" data-potectoggle="${esc(t.id)}"><span class="av">${av}</span><span class="ti"><span class="nm">${esc(n)}</span><span class="rl">${esc(rl)}</span></span><span class="pl ${on ? 'pl-rem' : 'pl-add'}">${on ? '✓' : '+'}</span></div>`
-    }).join('')
-    lista.innerHTML = rows || '<div class="tec-vazio" style="padding:14px 2px">Nenhum técnico.</div>'
-    lista.querySelectorAll('[data-potectoggle]').forEach(r => {
-      r.onclick = () => { const id = r.dataset.potectoggle; poTecSel.has(id) ? poTecSel.delete(id) : poTecSel.add(id); poRenderTecLista(); poRenderTecCards() }
-    })
-  }
+  // (Seção "Técnico do levantamento" removida — pré-orçamento é de 1 técnico só, o criador,
+  //  automático. poTecSel segue semeado com o criador para respostas.tecnicos/PDF/jornada.)
 
   async function renderPreorcLista() {
     const box = document.getElementById('lista-preorc')
@@ -4162,8 +4126,7 @@
     set('po-tempo', '—')
     poSetDesloc('')
     poSetTevePausa('')
-    poTecSel = new Set(tecnico.id ? [tecnico.id] : [])   // começa com o técnico logado
-    poRenderTecCards()
+    poTecSel = new Set(tecnico.id ? [tecnico.id] : [])   // técnico do levantamento = o logado (só ele)
     atualizarEstimativaPo()
     poAplicarReadonly(false)   // toda abertura começa editável; abrirPreorc reaplica se travado
   }
@@ -4200,10 +4163,10 @@
     const est = r.estimativa || {}
     set('po-est-tec', est.tecnicos); set('po-est-qtd', est.qtd); if (est.unidade) set('po-est-un', est.unidade)
     set('po-observacoes', r.observacoes)
-    // Técnicos do levantamento: carrega a equipe salva (ou cai pro técnico criador).
+    // Técnico(s) do levantamento (respostas.tecnicos): preserva o que foi gravado — os
+    // antigos com 2+ ficam como estão; novos têm só o criador. Sem UI de seleção.
     const tecsSalvos = (r.tecnicos || []).map(t => (t && t.id) ? t.id : t).filter(Boolean)
     poTecSel = new Set(tecsSalvos.length ? tecsSalvos : (po.tecnico_id ? [po.tecnico_id] : []))
-    poRenderTecCards()
     poSetDesloc(r.deslocamento || ''); poSetTevePausa(tevePausa); atualizarEstimativaPo()
     poBindAutocomplete()
     await poRefreshThumbs()
@@ -4329,7 +4292,6 @@
   function preencherLevantamentoPo() {
     const dEl = document.getElementById('po-lev-data')
     if (dEl) dEl.textContent = hojeBR().split('-').reverse().join('/')
-    poRenderTecCards()
   }
   // Estimativa de execução: "N técnicos × N dias/horas" (resumo + linha no card Tempo). Sem total.
   function atualizarEstimativaPo() {
