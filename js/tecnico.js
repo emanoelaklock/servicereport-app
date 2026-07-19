@@ -4057,9 +4057,12 @@
     if (g('po-btn-cancelar')) g('po-btn-cancelar').textContent = poReadonly ? 'Voltar' : 'Cancelar'
     if (g('po-ro-aviso')) g('po-ro-aviso').style.display = poReadonly ? '' : 'none'
   }
-  // Cards (avatar + nome) dos técnicos selecionados, no "O Levantamento".
+  // Card do técnico do levantamento (1 só — o criador). Como não há mais "+ Adicionar
+  // técnico", um poTecSel vazio seria um beco sem saída: garante o técnico logado, então
+  // "Nenhum técnico selecionado" nunca aparece pra quem está com sessão.
   function poRenderTecCards() {
     const box = document.getElementById('po-tec-cards'); if (!box) return
+    if (!poTecSel.size && tecnico.id) poTecSel = new Set([tecnico.id])
     const ids = [...poTecSel]
     box.innerHTML = ids.map(id => {
       const t = (ref.tecnicos || []).find(x => x.id === id) || (id === tecnico.id ? { id, nome: tecnico.nome } : { id, nome: '—' })
