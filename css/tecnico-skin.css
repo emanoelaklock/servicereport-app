@@ -174,3 +174,13 @@
 .tskin .btn.btn-auto{width:auto;padding:9px 13px;font-size:13px;}
 
 .tskin :focus-visible{outline:2px solid var(--blue);outline-offset:2px;}
+
+/* Pré-orçamento somente-leitura (já virou orçamento — trava 0114/commit 3).
+   Bloqueia interação de todos os controles menos o "Cancelar/Voltar";
+   sobrevive a re-render dos timers (a classe fica no container do form). */
+#po-ro-aviso.po-ro-aviso{display:flex;align-items:center;gap:9px;margin:0 0 12px;padding:10px 13px;
+  border:1px solid var(--bd);border-radius:11px;background:var(--card-2,#f4f5f8);color:var(--tx2);font-size:13px;line-height:1.4;}
+#po-ro-aviso.po-ro-aviso svg{width:18px;height:18px;flex:0 0 auto;stroke:currentColor;fill:none;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round;}
+#po-ro-aviso.po-ro-aviso b{color:var(--tx);}
+.tskin.po-ro button:not(#po-btn-cancelar){pointer-events:none;}
+.tskin.po-ro input:disabled,.tskin.po-ro textarea:disabled,.tskin.po-ro select:disabled{opacity:.85;}

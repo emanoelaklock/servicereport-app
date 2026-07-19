@@ -1055,6 +1055,11 @@ try{if(localStorage.getItem('sr_dark')==='1')document.documentElement.classList.
 
       <!-- PRÉ-ORÇAMENTO: FORMULÁRIO FIXO -->
       <div id="view-preorc-form" class="tskin" style="display:none">
+        <!-- aviso de somente-leitura: pré-orçamento que já virou orçamento (trava 0114) -->
+        <div id="po-ro-aviso" class="po-ro-aviso" style="display:none">
+          <svg viewBox="0 0 24 24"><rect x="5" y="11" width="14" height="9" rx="2"/><path d="M8 11V8a4 4 0 0 1 8 0v3"/></svg>
+          <span>Este pré-orçamento já virou orçamento — <b>somente leitura</b>.</span>
+        </div>
         <!-- contexto AMARELO (pré-orçamento, não RAT) -->
         <div class="ctx ctx-po">
           <div class="row1"><span class="tag">PRÉ-ORÇAMENTO</span><span class="no" id="preorc-titulo"></span></div>

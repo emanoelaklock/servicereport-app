@@ -4039,7 +4039,23 @@
 
   // ═══════════════════════ Pré-orçamento (form fixo) ═══════════════════════
   let curPo = null   // { client_uuid }
+  let poReadonly = false   // pré-orçamento que já virou orçamento (orcamento_em) → só leitura
   let poTecSel = new Set()   // IDs dos técnicos do levantamento (equipe)
+
+  // Trava de UI quando o pré-orçamento já virou orçamento (a 0114 tb bloqueia no servidor).
+  // Desabilita os campos, esconde Salvar/Enviar (Cancelar vira "Voltar") e mostra o aviso.
+  // A classe .po-ro no form sobrevive ao re-render dos timers (bloqueio via CSS).
+  function poAplicarReadonly(on) {
+    poReadonly = !!on
+    const form = document.getElementById('view-preorc-form'); if (!form) return
+    form.classList.toggle('po-ro', poReadonly)
+    form.querySelectorAll('input, textarea, select').forEach(el => { el.disabled = poReadonly })
+    const g = (id) => document.getElementById(id)
+    if (g('po-btn-rascunho')) g('po-btn-rascunho').style.display = poReadonly ? 'none' : ''
+    if (g('po-btn-salvar')) g('po-btn-salvar').style.display = poReadonly ? 'none' : ''
+    if (g('po-btn-cancelar')) g('po-btn-cancelar').textContent = poReadonly ? 'Voltar' : 'Cancelar'
+    if (g('po-ro-aviso')) g('po-ro-aviso').style.display = poReadonly ? '' : 'none'
+  }
   // Cards (avatar + nome) dos técnicos selecionados, no "O Levantamento".
   function poRenderTecCards() {
     const box = document.getElementById('po-tec-cards'); if (!box) return
@@ -4083,12 +4099,13 @@
     box.innerHTML = list.map(p => {
       const conf = p.sync_status === 'confirmado'
       const rasc = !conf && (p.sync_status === 'rascunho' || p.status === 'rascunho')
+      const orcado = !!p.orcamento_em   // já virou orçamento → só leitura
       const sk = conf ? 'done' : 'warn'
-      const badge = conf ? 'Enviado' : (rasc ? 'Rascunho' : 'na fila ↑')
+      const badge = orcado ? 'Orçado' : (conf ? 'Enviado' : (rasc ? 'Rascunho' : 'na fila ↑'))
       return `<div class="listcard lc-${conf ? 'done' : 'warn'}" data-uuid="${esc(p.client_uuid)}"><span class="edge e-${sk}"></span>
         <div class="t"><span class="cli">${esc(p.cliente_nome || 'Sem cliente')}</span><span class="badge b-${sk}">${badge}</span></div>
         <div class="meta">${p.numero ? 'Nº <b>' + esc(p.numero) + '</b> · ' : ''}${esc((p.descricao || '—').slice(0, 48))}</div>
-        <div class="meta" style="display:flex;justify-content:space-between;align-items:center"><span>${fdt(p.criado_em, { withTime: true })}</span><button type="button" class="rat-del" data-del="${esc(p.client_uuid)}" title="Excluir pré-orçamento" style="background:none;border:none;cursor:pointer"><svg viewBox="0 0 24 24"><path d="M3 6h18M8 6V4a1 1 0 0 1 1-1h6a1 1 0 0 1 1 1v2m4 0v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6"/></svg></button></div>
+        <div class="meta" style="display:flex;justify-content:space-between;align-items:center"><span>${fdt(p.criado_em, { withTime: true })}</span>${orcado ? '' : `<button type="button" class="rat-del" data-del="${esc(p.client_uuid)}" title="Excluir pré-orçamento" style="background:none;border:none;cursor:pointer"><svg viewBox="0 0 24 24"><path d="M3 6h18M8 6V4a1 1 0 0 1 1-1h6a1 1 0 0 1 1 1v2m4 0v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6"/></svg></button>`}</div>
       </div>`
     }).join('')
     box.querySelectorAll('.listcard').forEach(el => {
@@ -4144,6 +4161,7 @@
     poTecSel = new Set(tecnico.id ? [tecnico.id] : [])   // começa com o técnico logado
     poRenderTecCards()
     atualizarEstimativaPo()
+    poAplicarReadonly(false)   // toda abertura começa editável; abrirPreorc reaplica se travado
   }
 
   async function novoPreorcUI() {
@@ -4188,6 +4206,7 @@
     await poRefreshItens()
     mostrar('preorc-form')
     preencherLevantamentoPo(); atualizarCardsPo()
+    poAplicarReadonly(!!po.orcamento_em)   // já virou orçamento → só leitura (server tb trava)
   }
 
   function onDeslocPoChange() {
@@ -4416,13 +4435,13 @@
   }
   // Salvar (rascunho): grava o progresso e mantém RASCUNHO (não sincroniza) — continuar depois.
   async function salvarRascunhoPreorc() {
-    if (!curPo) return
+    if (!curPo || poReadonly) return
     await D().salvarPreorc(curPo.client_uuid, poMontarPayload('rascunho'))
     toast('Salvo. Você pode continuar depois.', 'ok')
     await renderPreorcLista()
   }
   async function concluirPreorc() {
-    if (!curPo) return
+    if (!curPo || poReadonly) return
     const cliId = document.getElementById('po-cliente').value
     const desc = document.getElementById('po-descricao').value.trim()
     if (!cliId) return toast('Selecione o cliente.', 'err')
