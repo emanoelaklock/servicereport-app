@@ -115,9 +115,16 @@ const JornadaApp = (() => {
     const preParts = []
     for (const p of (preo.data || [])) {
       const r = p.respostas || {}, ref = p.numero != null ? String(p.numero) : ''
-      const base = { tecnico_id: p.tecnico_id, artefato_id: p.id, referencia: ref, cliente_id: p.cliente_id }
-      if (r.visita_inicio && r.visita_termino) preParts.push({ ...base, artefato_tipo: 'preorc', inicio: r.visita_inicio, fim: r.visita_termino })
-      if (r.ida && r.retorno) preParts.push({ ...base, artefato_tipo: 'preorc_desloc', inicio: r.ida, fim: r.retorno })
+      // Atribui o levantamento a CADA técnico registrado (respostas.tecnicos); fallback ao dono.
+      // Novos pré-orçamentos têm 1 técnico só (= o dono); os poucos antigos com 2+ contam pra
+      // cada um — o que está feito está feito, os dois estiveram na visita.
+      const tecIds = (r.tecnicos || []).map(t => (t && t.id) ? t.id : t).filter(Boolean)
+      const alvos = [...new Set([...(p.tecnico_id ? [p.tecnico_id] : []), ...tecIds])]   // dono + equipe (dono nunca cai)
+      for (const tid of alvos) {
+        const base = { tecnico_id: tid, artefato_id: p.id, referencia: ref, cliente_id: p.cliente_id }
+        if (r.visita_inicio && r.visita_termino) preParts.push({ ...base, artefato_tipo: 'preorc', inicio: r.visita_inicio, fim: r.visita_termino })
+        if (r.ida && r.retorno) preParts.push({ ...base, artefato_tipo: 'preorc_desloc', inicio: r.ida, fim: r.retorno })
+      }
     }
     renderHorasDia([...(parts.data || []), ...preParts], alms.data || [], confs.data || [])
   }
@@ -335,11 +342,16 @@ const JornadaApp = (() => {
       }
     }
     for (const p of (preo.data || [])) {
-      if (tecFiltro && p.tecnico_id !== tecFiltro) continue
       const r = p.respostas || {}
       if (!r.ida && !r.retorno) continue   // pré-orç sem deslocamento não entra no recorte
       const dia = diaSP(p.data)   // bucket do dia no calendário de Brasília
-      itens.push({ tid: p.tecnico_id, cat: 'pre', dia, iniT: r.ida || null, fimT: r.retorno || null, ref: p.numero != null ? `Pré-orç Nº ${p.numero}` : 'Pré-orç' })
+      // cada técnico registrado no levantamento entra no seu recorte (fallback ao dono)
+      const tecIds = (r.tecnicos || []).map(t => (t && t.id) ? t.id : t).filter(Boolean)
+      const alvos = [...new Set([...(p.tecnico_id ? [p.tecnico_id] : []), ...tecIds])]   // dono + equipe (dono nunca cai)
+      for (const tid of alvos) {
+        if (tecFiltro && tid !== tecFiltro) continue
+        itens.push({ tid, cat: 'pre', dia, iniT: r.ida || null, fimT: r.retorno || null, ref: p.numero != null ? `Pré-orç Nº ${p.numero}` : 'Pré-orç' })
+      }
     }
     // almoço por técnico/dia (janela descontada de tudo que sobrepõe)
     const almDe = {}
