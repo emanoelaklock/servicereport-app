@@ -13,9 +13,12 @@
 --      atual esperado: nova assinatura (p_orcamento, p_novo_pre,
 --      p_justificativa, p_pre_atual_esperado). A assinatura antiga de 3
 --      argumentos é REMOVIDA (nenhum bypass sem o controle).
---      · alvo já aplicado (atual == novo) → sucesso idempotente, SEM novo
---        evento (retry após resposta perdida);
---      · atual ≠ esperado → CONFLITO_VINCULO (outra sessão mexeu — recarregar);
+--      · (C7b) o vínculo ATUAL é validado contra o ESPERADO ANTES de qualquer
+--        retorno: atual ≠ esperado → CONFLITO_VINCULO, MESMO quando o atual já
+--        coincide com o destino solicitado (outra sessão pode ter chegado ao
+--        mesmo estado por outro caminho — o operador precisa rever);
+--      · atual == esperado == novo → sucesso idempotente (ja_aplicado), SEM
+--        novo evento (reenvio com a tela já atualizada);
 --      · senão → UPDATE dentro da mesma transação; os triggers da 0115 validam
 --        cliente (FOR UPDATE no pré) e gravam EXATAMENTE UM evento imutável
 --        com vínculo E snapshot anteriores preservados (old/new).
@@ -105,13 +108,15 @@ begin
    where id = p_orcamento for update;   -- serializa correções concorrentes na linha
   if not found then raise exception 'ORCAMENTO_INEXISTENTE'; end if;
 
-  -- retry após resposta perdida: alvo já aplicado → sucesso, SEM novo evento
-  if v_atual is not distinct from p_novo_pre then
-    return jsonb_build_object('ok', true, 'ja_aplicado', true);
-  end if;
-  -- controle de concorrência: o vínculo atual precisa ser o que a tela viu
+  -- C7b: concorrência PRIMEIRO — o vínculo atual precisa ser o que a tela viu,
+  -- MESMO que o atual já coincida com o destino (outra sessão pode ter chegado
+  -- lá por outro caminho; o operador precisa rever antes de qualquer decisão)
   if v_atual is distinct from p_pre_atual_esperado then
     raise exception 'CONFLITO_VINCULO: o vinculo atual nao e o esperado (alterado por outra sessao) — recarregue e revise';
+  end if;
+  -- reenvio com a tela já atualizada (esperado == atual == novo) → idempotente
+  if v_atual is not distinct from p_novo_pre then
+    return jsonb_build_object('ok', true, 'ja_aplicado', true);
   end if;
 
   perform set_config('sr.trilha_motivo', trim(p_justificativa), true);
