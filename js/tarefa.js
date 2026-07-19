@@ -859,13 +859,23 @@ const TarefaApp = (() => {
   // cai no fallback seguro "Evento: <nome>" (escapado)
   const EV_LABEL = {
     orcamento_criado_de_pre: 'Orçamento criado do pré-orçamento',
-    elo_corrigido: 'Elo com o pré-orçamento corrigido',
-    elo_removido: 'Elo com o pré-orçamento removido',
+    // elo_corrigido tem rótulo CONDICIONAL (vinculação × substituição) — ver evLabel()
+    elo_removido: 'Vínculo com o pré-orçamento removido',
     tarefa_gerada: 'Tarefa (OS) gerada',
     tarefa_resincronizada: 'Orçada da Tarefa re-sincronizada',
     tarefa_removida: 'Tarefa (OS) removida',
     baseline_pre_orcamento: 'Vínculo histórico consolidado (pré → orçamento)',
     baseline_orcamento_tarefa: 'Vínculo histórico consolidado (orçamento → OS)',
+  }
+  // C7b: mensagens PRÓPRIAS por transição do elo — vinculação (sem pré anterior),
+  // substituição (pré → pré) e remoção têm rótulos distintos
+  function evLabel(ev) {
+    if (ev.evento === 'elo_corrigido') {
+      return ev.pre_numero_old == null
+        ? 'Pré-orçamento vinculado (correção)'
+        : 'Vínculo com o pré-orçamento substituído'
+    }
+    return EV_LABEL[ev.evento] || ('Evento: ' + ev.evento)   // fallback seguro
   }
   async function trilhaRender(t) {
     const req = ++trilhaReq   // ANTES de qualquer return: invalida resposta em voo de outra tarefa
@@ -932,7 +942,7 @@ const TarefaApp = (() => {
       html += '<div class="row muted">Sem eventos registrados.</div>'
     } else {
       for (const ev of tl.eventos) {
-        const label = EV_LABEL[ev.evento] || ('Evento: ' + ev.evento)   // fallback seguro
+        const label = evLabel(ev)
         const det = []
         if (ev.orcamento_numero != null) det.push(`Orç. Nº ${ev.orcamento_numero}`)
         if (ev.tarefa_numero != null) det.push(`OS Nº ${osNo(ev.tarefa_numero)}`)
