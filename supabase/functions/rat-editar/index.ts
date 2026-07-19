@@ -110,8 +110,11 @@ Deno.serve(async (req: Request) => {
     if (motivo === "outro" && !motivoDetalhe) return json({ error: "descreva o motivo (Outro)" }, 400)
     if (!alteracoes.length) return json({ error: "nada a alterar" }, 400)
 
-    const { data: rat } = await admin.from("rats")
-      .select("id,tarefa_id,respostas,tarefa:tarefas(status)").eq("id", ratId).maybeSingle()
+    const { data: rat, error: ratErr } = await admin.from("rats")
+      // hint de FK: a 0111 criou tarefas.rat_origem_id → rats(id), 2ª relação rats↔tarefas
+      // (embed sem hint = PGRST201). Sem isso o data vinha null e mascarava como 404.
+      .select("id,tarefa_id,respostas,tarefa:tarefas!rats_tarefa_id_fkey(status)").eq("id", ratId).maybeSingle()
+    if (ratErr) return json({ error: "Erro ao carregar a RAT: " + ratErr.message }, 500)
     if (!rat) return json({ error: "RAT não encontrada" }, 404)
     const tarefaStatus = (rat as any).tarefa?.status || ""
     const travado = FATURADO_LOCK.includes(tarefaStatus)
