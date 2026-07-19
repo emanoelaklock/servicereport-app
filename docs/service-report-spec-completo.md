@@ -69,6 +69,10 @@ Levantamento técnico em campo, para o comercial depois precificar.
 
 > Pré-orçamento e RAT são o **mesmo tipo de artefato** (visita de campo) com o mesmo esqueleto. Diferem só no propósito/alguns campos: pré-orçamento = *materiais necessários* + levantamento; RAT = *materiais usados* + serviço executado/checklist.
 
+**Baixar de volta + trava após virar orçamento (migração 0114, PR #106):** o pré-orçamento passou a ser **baixado** para o aparelho, não só subir — antes vivia só no celular que o criou (se a cópia local sumia, o técnico não reabria). Agora `pre_orcamentos` entra no pull (junto com itens e fotos, filtrado pela RLS do dono `tecnico_id = auth.uid()`), então o técnico **reabre em qualquer aparelho**. O merge é o mesmo das RATs (`aplicarDoServidor`): trabalho local pendente **vence** o servidor.
+- **Sinal "virou orçamento":** `pre_orcamentos.orcamento_em` (timestamp; nulo = não convertido), **materializado na linha** por um trigger em `orcamentos` (carimba no 1º orçamento que aponta pro pré-orçamento; **limpa** quando nenhum orçamento referencia mais — um pré-orçamento pode ter vários). Desce no pull, então o app sabe travar sem baixar a tabela `orcamentos`.
+- **Read-only após virar orçamento (total):** no app, um pré-orçamento convertido abre **somente leitura** (campos desabilitados, some Salvar/Enviar, aviso "já virou orçamento"; na lista, badge **"Orçado"** e sem excluir). A trava é **também no servidor** (trigger `BEFORE UPDATE` rejeita edição do técnico quando `orcamento_em` está setado → `PREORC_JA_ORCADO`); gestão/comercial seguem editando.
+
 ### 4.1 Deslocamento (pernoite) — artefato à parte
 
 Artefato **próprio** do técnico (não é um campo dentro da RAT — esse é o bloco de deslocamento/tempo). Registra **viagens com pernoite**. **Continua valendo** (decisão confirmada).
