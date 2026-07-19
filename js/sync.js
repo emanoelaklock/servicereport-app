@@ -379,6 +379,34 @@
   // (moram em deslocamento_trechos), então sem isto o app desenharia a viagem como trajeto
   // legado vazio. Busca em 1 query batched (só os ids do delta) e monta o formato local — o
   // MESMO que o app usa ao abrir uma viagem (tecnicos/motoristas/GPS/almoço). Espelho_legado fora.
+  // Hidrata os FILHOS de cada pré-orçamento baixado (o pai vem no pull, mas itens e
+  // fotos não). Roda ANTES do apply do pai, lendo o estado local atual: se houver
+  // trabalho local pendente, NÃO mexe (local vence — mesma regra do aplicarDoServidor).
+  // Fotos reusam o store de fotos (rat_uuid = client_uuid do pré-orçamento).
+  async function hidratarPreorcPull(sb, rows) {
+    const list = (rows || []).filter(r => r.id && r.client_uuid)
+    if (!list.length) return
+    for (const r of list) {
+      const loc = await D().obterPreorc(r.client_uuid)
+      if (loc && loc.sync_status && loc.sync_status !== D().STATUS.CONFIRMADO) continue   // pendente: preserva local
+      try {
+        const [ires, fres] = await Promise.all([
+          sb.from('pre_orcamento_itens').select('id,produto_id,codigo_produto,descricao,unidade,quantidade,criado_em').eq('pre_orcamento_id', r.id),
+          sb.from('relatorio_fotos').select('id,url,legenda,criado_em').eq('pre_orcamento_id', r.id),
+        ])
+        await D().hidratarItensPreorc(r.client_uuid, ires.data || [])
+        let fotos = fres.data || []
+        if (fotos.length) {
+          const paths = fotos.map(f => f.url).filter(Boolean)
+          const { data: signed } = await sb.storage.from(BUCKET).createSignedUrls(paths, 3600)
+          const sig = {}; (signed || []).forEach(s => { if (s && s.signedUrl) sig[s.path] = s.signedUrl })
+          fotos = fotos.map(f => ({ ...f, signedUrl: sig[f.url] || null }))
+        }
+        await D().hidratarFotosDaRat(r.client_uuid, fotos)
+      } catch (e) { console.warn('[pull] preorc filhos', r.numero, e && e.message) }
+    }
+  }
+
   async function hidratarTrechosPull(sb, rows) {
     const ids = rows.map(r => r.id).filter(Boolean)
     if (!ids.length) return
@@ -420,6 +448,7 @@
           .order('atualizado_em', { ascending: true }).limit(500)
         if (error) { console.warn('[pull]', tabela, error.message); continue }
         if (tabela === 'deslocamentos') await hidratarTrechosPull(sb, data || [])   // hidrata os trechos da viagem
+        if (tabela === 'pre_orcamentos') await hidratarPreorcPull(sb, data || [])   // hidrata itens+fotos do pré-orçamento
         let max = c
         for (const row of (data || [])) {
           if (await D().aplicarDoServidor(m.store, row)) { applied++; changed = true }
@@ -485,5 +514,5 @@
     if (navigator.onLine) { syncAll(); startRealtime() }
   }
 
-  window.SyncEngine = { syncAll, pullChanges, repararDeslocViagens, enviarRat, enviarPreorc, enviarSegmento, enviarDeslocamento, enviarTarefaLocal, start }
+  window.SyncEngine = { syncAll, pullChanges, repararDeslocViagens, hidratarPreorcPull, enviarRat, enviarPreorc, enviarSegmento, enviarDeslocamento, enviarTarefaLocal, start }
 })()

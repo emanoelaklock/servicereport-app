@@ -393,6 +393,29 @@
     })
   }
 
+  // Hidrata os ITENS de um pré-orçamento vindos do servidor (pull em outro aparelho).
+  // Espelha hidratarMateriaisDaRat: merge por `id`, sem preço (técnico nunca vê preço).
+  // Só é chamado quando o pré-orçamento NÃO tem trabalho local pendente.
+  async function hidratarItensPreorc(client_uuid, serverItens) {
+    if (!Array.isArray(serverItens) || !serverItens.length) return
+    await tx([ST_PREORC_ITENS], 'readwrite', (t) => {
+      const s = t.objectStore(ST_PREORC_ITENS)
+      for (const m of serverItens) {
+        reqP(s.get(m.id)).then((cur) => {
+          s.put({
+            id: m.id, preorc_uuid: client_uuid,
+            produto_id: m.produto_id || (cur && cur.produto_id) || null,
+            codigo_produto: m.codigo_produto || (cur && cur.codigo_produto) || null,
+            descricao: m.descricao || (cur && cur.descricao) || null,
+            unidade: m.unidade || (cur && cur.unidade) || null,
+            quantidade: Number(m.quantidade) || 0,
+            criado_em: m.criado_em || (cur && cur.criado_em) || agora(),
+          })
+        })
+      }
+    })
+  }
+
   // ── Pré-orçamentos (artefato de campo, #4.2) ──
   // Mesma máquina de sync_status das RATs. Fotos reutilizam o store ST_FOTOS
   // (rat_uuid = client_uuid do pré-orçamento). Sem trilha de eventos (sync_eventos
@@ -635,6 +658,9 @@
     deslocamentos:     { store: ST_DESLOC, key: 'id' },
     jornada_segmentos: { store: ST_SEGMENTOS, key: 'id' },
     rats:              { store: ST_RATS, key: 'client_uuid' },
+    // pré-orçamentos passam a ser BAIXADOS (antes só subiam): o técnico reabre em
+    // qualquer aparelho. Filhos (itens/fotos) hidratados no sync (hidratarPreorcPull).
+    pre_orcamentos:    { store: ST_PREORC, key: 'client_uuid' },
   }
   const storeKeyPath = (store) => (Object.values(SYNC_MAP).find(m => m.store === store) || { key: 'id' }).key
   async function obterPorChave(store, chave) {
@@ -685,7 +711,7 @@
     novoRat, salvarRat, obterRat, listarRats, definirStatus, removerRat,
     adicionarFoto, listarFotos, removerFoto, marcarFotoEnviada, fotosPendentes, atualizarLegendaFoto,
     adicionarMaterial, atualizarMaterial, listarMateriais, removerMaterial,
-    hidratarMateriaisDaRat, hidratarFotosDaRat,
+    hidratarMateriaisDaRat, hidratarFotosDaRat, hidratarItensPreorc,
     novoPreorc, salvarPreorc, obterPreorc, listarPreorc, definirStatusPreorc, removerPreorc,
     adicionarItemPreorc, listarItensPreorc, removerItemPreorc,
     listarEventos, marcarEventoEnviado,
