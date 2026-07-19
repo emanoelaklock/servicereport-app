@@ -9,7 +9,7 @@
    não do cache do SW.
 ═══════════════════════════════════════════════ */
 
-const CACHE = 'sr-shell-v660'
+const CACHE = 'sr-shell-v663'
 
 const SHELL = [
   'index.html',
@@ -20,7 +20,6 @@ const SHELL = [
   'deslocamento-calendario.html',
   'tecnico.html',
   'configuracoes.html',
-  'orcamentos.html',
   'tarefa.html',
   'rat.html',
   'jornada.html',
@@ -35,6 +34,7 @@ const SHELL = [
   'js/auth.js',
   'js/sidebar.js',
   'js/db-local.js',
+  'js/trilha-nav.js',
   'js/tecnico.js',
   'js/sync.js',
   'js/push.js',
@@ -50,7 +50,6 @@ const SHELL = [
   'js/desempenho.js',
   'js/deslocamentos.js',
   'js/configuracoes.js',
-  'js/orcamentos.js',
   'js/tarefa.js',
   'js/pdf-tarefa.js',
   'js/vendor/pdfmake.min.js',

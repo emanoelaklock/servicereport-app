@@ -64,6 +64,7 @@ try{if(localStorage.getItem('sr_dark')==='1')document.documentElement.classList.
 <script src="js/sync.js" crossorigin="anonymous"></script>
 <script src="js/push.js" crossorigin="anonymous"></script>
 <script src="js/placar-card.js" crossorigin="anonymous"></script>
+<script src="js/trilha-nav.js" crossorigin="anonymous"></script>
 <script src="js/tecnico.js" crossorigin="anonymous"></script>
 <style>
   /* SEM height:100% aqui: no iOS, 100% = viewport GRANDE (barra recolhida) e o shell usa 100dvh
@@ -1140,6 +1141,14 @@ try{if(localStorage.getItem('sr_dark')==='1')document.documentElement.classList.
             <div><div class="k">Estimativa de execução</div><div class="v" id="po-est-destaque">—</div></div>
           </div>
           <div class="po-tempo-est">Tempo da visita (calculado): <input id="po-tempo" readonly value="—" style="border:none;background:none;padding:0;font:inherit;width:auto;color:var(--tx2)"></div>
+        </div>
+
+        <!-- Trilha comercial (C4): orçamentos deste levantamento + OS de cada um, via
+             RPC trilha_do_pre (0116) — leitura ONLINE de uma chamada; a RPC não expõe
+             preço/valores ao técnico. Some offline, sem orçamento ou em pré só-local. -->
+        <div class="fcard fc-blue" id="po-trilha" style="display:none">
+          <div class="h"><span class="hi"><svg viewBox="0 0 24 24"><path d="M4 6h16"/><path d="M4 12h9"/><path d="M4 18h6"/><circle cx="17" cy="16" r="3.2"/><path d="M19.3 18.3 21 20"/></svg></span>Trilha comercial</div>
+          <div id="po-trilha-body" style="font-size:13.5px"></div>
         </div>
 
         <div class="foot">

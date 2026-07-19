@@ -4141,6 +4141,7 @@
     await poRefreshItens()
     mostrar('preorc-form')
     preencherLevantamentoPo(); atualizarCardsPo()
+    poTrilhaRender(null)                   // pré novo não tem trilha — esconde resto de outro pré
   }
 
   async function abrirPreorc(client_uuid) {
@@ -4174,6 +4175,45 @@
     mostrar('preorc-form')
     preencherLevantamentoPo(); atualizarCardsPo()
     poAplicarReadonly(!!po.orcamento_em)   // já virou orçamento → só leitura (server tb trava)
+    poTrilhaRender(po)                     // Trilha comercial (C4) — online, nunca bloqueia
+  }
+
+  // ── Trilha comercial (C4) ─────────────────────────────────────────────
+  // Orçamentos deste levantamento + a OS de cada um, via RPC trilha_do_pre
+  // (0116): UMA chamada, autorização e campos mínimos NO SERVIDOR — a RPC não
+  // expõe preço/valores/observações. Leitura online e apenas informativa:
+  // pré só-local (sem id do servidor), offline ou erro → seção oculta, o app
+  // offline-first segue intacto. "OS removida" só aparece quando existe o
+  // evento tarefa_removida (flag calculado pela RPC, nunca inferido aqui).
+  let poTrilhaReq = 0
+  async function poTrilhaRender(po) {
+    const req = ++poTrilhaReq   // ANTES de qualquer return: invalida resposta em voo de outro pré
+    const box = document.getElementById('po-trilha'), body = document.getElementById('po-trilha-body')
+    if (!box || !body || !window.TrilhaNav) return
+    const TN = window.TrilhaNav
+    box.style.display = ''   // C4b: estados explícitos, nunca falha silenciosa
+    if (!po || !po.id || !po.orcamento_em) { TN.renderEstado(body, { tipo: 'vazio', msg: TN.MSG.vazio }); return }
+    if (!navigator.onLine) { TN.renderEstado(body, { tipo: 'offline', msg: TN.MSG.offline }); return }
+    body.textContent = 'Carregando…'
+    try {
+      const cli = getSupabase()
+      if (!cli) { TN.renderEstado(body, { tipo: 'falha', msg: TN.MSG.falha, retry: true }, () => poTrilhaRender(po)); return }
+      const { data: d, error } = await cli.rpc('trilha_do_pre', { p_pre: po.id })
+      if (req !== poTrilhaReq) return   // já abriu outro pré
+      const st = TN.estadoTrilha({ online: navigator.onLine, error, vazio: !error && (!d || !(d.orcamentos || []).length) })
+      if (st.tipo !== 'ok') { TN.renderEstado(body, st, () => poTrilhaRender(po)); return }  // retry SÓ do bloco
+      const lab = { rascunho: 'Aguardando aprovação', enviado: 'Enviado', aprovado: 'Aprovado', nao_aprovado: 'Não aprovado', arquivado: 'Arquivado' }
+      const osNo5 = (n) => String(n).padStart(5, '0')
+      // sem links no app do técnico (o editor do Comercial não é acessível a este perfil)
+      body.innerHTML = d.orcamentos.map(o => {
+        const os = o.tarefa ? `OS Nº <b>${esc(osNo5(o.tarefa.numero))}</b>`
+          : o.tarefa_removida ? '<span style="color:#E5403A;font-weight:600">OS removida</span>'
+          : '<span style="color:var(--tx3,#7C8698)">sem OS</span>'
+        return `<div style="padding:4px 0">Orçamento Nº <b>${esc(o.numero)}</b> <span style="color:var(--tx3,#7C8698)">· ${esc(lab[o.status] || o.status)}</span> — ${os}</div>`
+      }).join('')
+    } catch (e) {
+      if (req === poTrilhaReq) TN.renderEstado(body, { tipo: 'falha', msg: TN.MSG.falha, retry: true }, () => poTrilhaRender(po))
+    }
   }
 
   function onDeslocPoChange() {

@@ -47,11 +47,18 @@ Deno.serve(async (req: Request) => {
       // Execução iniciada? (RAT existente) → não dá para reabrir sem perder execução
       const { data: rat } = await admin.from("rats").select("id").eq("tarefa_id", t.id).limit(1).maybeSingle()
       if (rat) return json({ error: `A Tarefa (OS) Nº ${t.numero} já tem RAT/execução iniciada. Não é possível reabrir esta proposta.` }, 409)
-      // desvincula (se a coluna estiver setada) e apaga a Tarefa (filhas caem em cascade)
-      await admin.from("orcamentos").update({ tarefa_id: null }).eq("id", id)
-      const del = await admin.from("tarefas").delete().eq("id", t.id)
-      if (del.error) return json({ error: "Falha ao remover a Tarefa: " + del.error.message }, 500)
-      tarefa_removida = t.numero
+      // C2b (trilha comercial): desvínculo legado + delete + evento tarefa_removida
+      // numa ÚNICA transação (RPC única; o evento nasce no trigger BEFORE DELETE).
+      // A RPC revalida a regra de RAT atomicamente (fecha a corrida do check acima).
+      const { data: rem, error: rerr } = await admin.rpc("remover_tarefa_orcamento", {
+        p_orcamento: id, p_ator: uid, p_motivo: "Reabertura do orçamento — Tarefa (OS) removida",
+      })
+      if (rerr) {
+        if ((rerr.message || "").includes("TAREFA_COM_RAT"))
+          return json({ error: `A Tarefa (OS) Nº ${t.numero} já tem RAT/execução iniciada. Não é possível reabrir esta proposta.` }, 409)
+        return json({ error: "Falha ao remover a Tarefa: " + rerr.message }, 500)
+      }
+      tarefa_removida = rem?.removida ? rem.tarefa_numero : null
     }
 
     const up = await admin.from("orcamentos").update({ status: "rascunho", data_resposta: null }).eq("id", id)
