@@ -18,7 +18,9 @@
 --   · Exposição MÍNIMA: números, status e datas de identificação. SEM snapshot,
 --     SEM valores, SEM observações, SEM nada destinado ao cliente. O id do
 --     orçamento é incluído EXCLUSIVAMENTE para a geração de rota no cliente
---     (C4b — urlOrcamento no helper central); a interface nunca o exibe.
+--     (C4b — urlOrcamento no helper central); a interface nunca o exibe — e
+--     (C4c) SÓ vai para quem tem acesso ao app Gestão Comercial: técnico sem
+--     esse acesso recebe id null e o portal rende o orçamento como texto.
 --   · "Removida" SÓ com evento: ausência de tarefa vira tarefa_removida=true
 --     apenas quando existe evento 'tarefa_removida' em trilha_comercial_eventos.
 --
@@ -31,23 +33,29 @@
 -- própria tarefa (regra do gate — decisão de UI, e o id da atual está no topo).
 create or replace function public.trilha_da_tarefa(p_tarefa uuid) returns jsonb
 language plpgsql stable security definer set search_path = public as $$
-declare v jsonb;
+declare v jsonb; v_orc_rota boolean;
 begin
   if not ((public.app_role() is not null)
        or exists (select 1 from public.portal_acessos pa
                    where pa.usuario_id = auth.uid() and pa.app_chave = 'gestao_comercial')) then
     raise exception 'SEM_PERMISSAO' using errcode = '42501';
   end if;
+  -- C4c: id de orçamento (rota p/ o editor do Comercial) só p/ quem tem acesso
+  -- ao Gestão Comercial; sem acesso → id null → portal rende texto sem link
+  v_orc_rota := exists (select 1 from public.portal_acessos pa
+                         where pa.usuario_id = auth.uid() and pa.app_chave = 'gestao_comercial');
 
   select jsonb_build_object(
     'tarefa', jsonb_build_object('id', t.id, 'numero', t.numero),
     'orcamento', case when o.id is null then null else jsonb_build_object(
-      'id', o.id, 'numero', o.numero, 'status', o.status, 'data', o.criado_em::date) end,
+      'id', case when v_orc_rota then o.id end,
+      'numero', o.numero, 'status', o.status, 'data', o.criado_em::date) end,
     'pre', case when p.id is null then null else jsonb_build_object(
       'id', p.id, 'numero', p.numero, 'data', p.data) end,
     'orcamentos', case when p.id is null then '[]'::jsonb else coalesce((
       select jsonb_agg(jsonb_build_object(
-          'id', o2.id, 'numero', o2.numero, 'status', o2.status, 'data', o2.criado_em::date,
+          'id', case when v_orc_rota then o2.id end,
+          'numero', o2.numero, 'status', o2.status, 'data', o2.criado_em::date,
           'tarefa', case when t2.id is null then null else jsonb_build_object(
             'id', t2.id, 'numero', t2.numero, 'status', t2.status) end,
           'tarefa_removida', (t2.id is null and exists (
@@ -74,19 +82,23 @@ grant execute on function public.trilha_da_tarefa(uuid) to authenticated;
 -- (quando existe) OU o flag tarefa_removida (só com evento na trilha).
 create or replace function public.trilha_do_pre(p_pre uuid) returns jsonb
 language plpgsql stable security definer set search_path = public as $$
-declare v jsonb;
+declare v jsonb; v_orc_rota boolean;
 begin
   if not ((public.app_role() is not null)
        or exists (select 1 from public.portal_acessos pa
                    where pa.usuario_id = auth.uid() and pa.app_chave = 'gestao_comercial')) then
     raise exception 'SEM_PERMISSAO' using errcode = '42501';
   end if;
+  -- C4c: idem trilha_da_tarefa — id de orçamento só com acesso ao Gestão Comercial
+  v_orc_rota := exists (select 1 from public.portal_acessos pa
+                         where pa.usuario_id = auth.uid() and pa.app_chave = 'gestao_comercial');
 
   select jsonb_build_object(
     'pre', jsonb_build_object('id', p.id, 'numero', p.numero, 'data', p.data),
     'orcamentos', coalesce((
       select jsonb_agg(jsonb_build_object(
-          'id', o.id, 'numero', o.numero, 'status', o.status, 'data', o.criado_em::date,
+          'id', case when v_orc_rota then o.id end,
+          'numero', o.numero, 'status', o.status, 'data', o.criado_em::date,
           'tarefa', case when t.id is null then null else jsonb_build_object(
             'id', t.id, 'numero', t.numero, 'status', t.status) end,
           'tarefa_removida', (t.id is null and exists (
