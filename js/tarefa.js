@@ -854,6 +854,19 @@ const TarefaApp = (() => {
   // linkam SÓ via TrilhaNav.urlTarefa (URL central e validada).
   let trilhaReq = 0
   const ORC_STATUS_LABEL = { rascunho: 'Aguardando aprovação', enviado: 'Enviado', aprovado: 'Aprovado', nao_aprovado: 'Não aprovado', arquivado: 'Arquivado' }
+  // C6: rótulos da timeline — SÓ leitura; baselines explicitamente "consolidados"
+  // (registrados no backfill, não observados na data original); tipo desconhecido
+  // cai no fallback seguro "Evento: <nome>" (escapado)
+  const EV_LABEL = {
+    orcamento_criado_de_pre: 'Orçamento criado do pré-orçamento',
+    elo_corrigido: 'Elo com o pré-orçamento corrigido',
+    elo_removido: 'Elo com o pré-orçamento removido',
+    tarefa_gerada: 'Tarefa (OS) gerada',
+    tarefa_resincronizada: 'Orçada da Tarefa re-sincronizada',
+    tarefa_removida: 'Tarefa (OS) removida',
+    baseline_pre_orcamento: 'Vínculo histórico consolidado (pré → orçamento)',
+    baseline_orcamento_tarefa: 'Vínculo histórico consolidado (orçamento → OS)',
+  }
   async function trilhaRender(t) {
     const req = ++trilhaReq   // ANTES de qualquer return: invalida resposta em voo de outra tarefa
     const box = document.getElementById('cc-trilha'), body = document.getElementById('cc-trilha-body')
@@ -862,9 +875,15 @@ const TarefaApp = (() => {
     if (!t.orcamento_id) { TrilhaNav.renderEstado(body, { tipo: 'vazio', msg: TrilhaNav.MSG.vazio }); return }
     if (!navigator.onLine) { TrilhaNav.renderEstado(body, { tipo: 'offline', msg: TrilhaNav.MSG.offline }); return }
     body.innerHTML = '<span class="muted">Carregando…</span>'
-    let d = null, error = null
-    try { const r = await sb().rpc('trilha_da_tarefa', { p_tarefa: t.id }); d = r.data; error = r.error }
-    catch (e) { error = { message: String(e && e.message || e) } }
+    let d = null, error = null, tl = null, tlError = null
+    try {
+      // duas chamadas FIXAS em paralelo (estado atual + timeline) — zero N+1
+      const [r1, r2] = await Promise.all([
+        sb().rpc('trilha_da_tarefa', { p_tarefa: t.id }),
+        sb().rpc('trilha_timeline', { p_tipo: 'tarefa', p_id: t.id }),
+      ])
+      d = r1.data; error = r1.error; tl = r2.data; tlError = r2.error
+    } catch (e) { error = { message: String(e && e.message || e) } }
     if (req !== trilhaReq) return   // o usuário já abriu outra tarefa
     const st = TrilhaNav.estadoTrilha({ online: navigator.onLine, error: error || ((!d || !d.tarefa) ? { message: 'resposta invalida' } : null), vazio: false })
     if (st.tipo !== 'ok') { TrilhaNav.renderEstado(body, st, () => trilhaRender(t)); return }  // retry SÓ do bloco
@@ -903,6 +922,31 @@ const TarefaApp = (() => {
       }
       html += '</div>'
     }
+    // ── Histórico comercial (C6): timeline SÓ leitura de trilha_comercial_eventos.
+    //    Separada da "Linha do tempo da tarefa" (operacional) e da F1; sem NENHUM
+    //    botão de correção/edição/exclusão.
+    html += '<div class="trilha-hist"><div class="lab">Histórico comercial</div>'
+    if (tlError || !tl || !Array.isArray(tl.eventos)) {
+      html += '<div class="row muted">Não foi possível carregar o histórico.</div>'
+    } else if (!tl.eventos.length) {
+      html += '<div class="row muted">Sem eventos registrados.</div>'
+    } else {
+      for (const ev of tl.eventos) {
+        const label = EV_LABEL[ev.evento] || ('Evento: ' + ev.evento)   // fallback seguro
+        const det = []
+        if (ev.orcamento_numero != null) det.push(`Orç. Nº ${ev.orcamento_numero}`)
+        if (ev.tarefa_numero != null) det.push(`OS Nº ${osNo(ev.tarefa_numero)}`)
+        if (ev.pre_numero_old != null || ev.pre_numero_new != null)
+          det.push(`pré ${ev.pre_numero_old ?? '—'} → ${ev.pre_numero_new ?? '—'}`)
+        if (ev.ator_nome) det.push(ev.ator_nome)
+        html += `<div class="row"><span class="muted">${esc(fdt(ev.em, { withTime: true, numeric: true, withYear: true }))}</span> · <b>${esc(label)}</b>`
+          + (ev.historico ? ' <span class="trilha-baseline">registrado no backfill — não observado na data original</span>' : '')
+          + (det.length ? ` <span class="muted">· ${esc(det.join(' · '))}</span>` : '')
+          + (ev.justificativa ? `<div class="muted" style="font-size:12px">${esc(ev.justificativa)}</div>` : '')
+          + '</div>'
+      }
+    }
+    html += '</div>'
     body.innerHTML = html
   }
 
