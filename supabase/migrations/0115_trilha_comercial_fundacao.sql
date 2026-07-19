@@ -21,17 +21,31 @@
 -- PRODUTOR ÚNICO por tipo de evento (decisão congelada): os eventos de ELO e
 -- SNAPSHOT nascem SÓ dos triggers desta migração — uma operação atômica gera UM
 -- evento (orcamento_criado_de_pre já carrega o snapshot; correção gera um único
--- elo_corrigido/elo_removido). Eventos de TAREFA (tarefa_gerada/resincronizada/
--- removida) nascem SÓ da RPC registrar_evento_tarefa_trilha (§8) — as edges
--- fornecem contexto (ator, motivo, op) e o BANCO grava; retry deduplicado pelo
--- índice único uq_tce_op. Sem sobreposição edge×trigger em nenhum tipo.
+-- elo_corrigido/elo_removido). Eventos de TAREFA (C2b — atomicidade): nascem
+-- SEMPRE NA MESMA TRANSAÇÃO da mutação — tarefa_gerada (trigger AFTER INSERT em
+-- tarefas com orcamento_id, §8), tarefa_removida (trigger BEFORE DELETE, §8) e
+-- tarefa_resincronizada (dentro da RPC sincronizar_tarefa_orcamento, §9). As
+-- edges NÃO gravam evento algum e NÃO fazem operação+auditoria em chamadas
+-- separadas: chamam UMA RPC (§9/§10) e o banco muta+registra atomicamente —
+-- falha no evento desfaz a mutação. Sem sobreposição edge×trigger em nenhum tipo.
 --
--- CONCORRÊNCIA (gate C1): a validação de cliente usa SELECT ... FOR UPDATE na
+-- IDEMPOTÊNCIA (C2b): derivada da TRANSIÇÃO REAL no banco, não de op aleatório —
+--   · tarefa_gerada: uq_tarefas_orcamento garante 1 tarefa/orçamento → 1 insert
+--     = 1 evento; retry cai no ramo de ressincronização;
+--   · tarefa_removida: a linha só é deletada uma vez; retry não encontra tarefa
+--     → nenhum evento novo;
+--   · tarefa_resincronizada: evento só quando a ressincronização ALTEROU algo
+--     (guardas IS DISTINCT FROM em cada escrita); retry da mesma solicitação
+--     (mesmo estado desejado) não muda nada → nenhum evento novo.
+--
+-- CONCORRÊNCIA (gates C1/C2): a validação de cliente usa SELECT ... FOR UPDATE na
 -- linha do pré — criação/correção de orçamento e troca de cliente do pré
 -- serializam na mesma row lock; nunca persiste orçamento e pré de clientes
 -- diferentes. A corrigir_elo_pre_orcamento serializa correções simultâneas na
 -- row lock do UPDATE em orcamentos, e retry da mesma correção não gera evento
--- (old IS NOT DISTINCT FROM new → trigger de evento não dispara).
+-- (old IS NOT DISTINCT FROM new → trigger de evento não dispara). As RPCs de
+-- tarefa (§9/§10) serializam na row lock do orçamento (FOR UPDATE): aprovações
+-- e reaberturas simultâneas do mesmo orçamento executam uma por vez.
 --
 -- Guarda de escopo: F1 (tarefas.origem_*, tarefa_origem_eventos) intocada;
 -- nenhuma view/RPC de desempenho tocada; 0114 (orcamento_em) intocada e
@@ -39,10 +53,13 @@
 --
 -- Rollback: drop trigger trg_trilha_orc_valida, trg_trilha_orc_evento on
 -- orcamentos; drop trigger trg_trilha_pre_cliente on pre_orcamentos; drop
+-- trigger trg_trilha_tarefa_ins, trg_trilha_tarefa_del on tarefas; drop
 -- trigger trg_tce_imutavel on trilha_comercial_eventos; drop function
--- corrigir_elo_pre_orcamento, trilha_orc_valida, trilha_orc_evento,
--- trilha_pre_cliente_valida, trilha_snapshot_pre, tce_imutavel; drop table
--- trilha_comercial_eventos; alter table orcamentos drop column levantamento_snapshot.
+-- corrigir_elo_pre_orcamento, sincronizar_tarefa_orcamento,
+-- remover_tarefa_orcamento, trilha_tarefa_gerada, trilha_tarefa_removida,
+-- trilha_orc_valida, trilha_orc_evento, trilha_pre_cliente_valida,
+-- trilha_snapshot_pre, tce_imutavel; drop table trilha_comercial_eventos;
+-- alter table orcamentos drop column levantamento_snapshot.
 
 -- ───────────────────────── 1 · Coluna do snapshot ─────────────────────────
 alter table public.orcamentos
@@ -58,15 +75,13 @@ create table if not exists public.trilha_comercial_eventos (
   pre_old uuid, pre_numero_old int,
   pre_new uuid, pre_numero_new int,
   snapshot_old jsonb, snapshot_new jsonb,
-  tarefa_id uuid, tarefa_numero int,   -- eventos de tarefa (C2): referência lógica, sem FK
-  op_id uuid,                          -- identificador da operação (dedup de retry das edges)
+  tarefa_id uuid, tarefa_numero int,   -- eventos de tarefa (C2b): referência lógica, sem FK
   justificativa text,
   ator uuid default auth.uid(),
   em timestamptz not null default now()
 );
--- retry da MESMA operação nunca duplica evento (dedup no banco, não na edge)
-create unique index if not exists uq_tce_op on public.trilha_comercial_eventos (evento, op_id)
-  where op_id is not null;
+-- (C2b) Sem op_id: a deduplicação de retry NÃO usa identificador aleatório da
+-- edge — deriva da transição real (ver IDEMPOTÊNCIA no cabeçalho e §§8-10).
 
 alter table public.trilha_comercial_eventos enable row level security;
 drop policy if exists tce_office_sel on public.trilha_comercial_eventos;
@@ -242,31 +257,189 @@ end $$;
 revoke all on function public.corrigir_elo_pre_orcamento(uuid,uuid,text) from public;
 grant execute on function public.corrigir_elo_pre_orcamento(uuid,uuid,text) to authenticated;
 
--- ───── 8 · Eventos de tarefa (C2): RPC controlada — produtor único no banco ─────
--- As edges (aprovar-orcamento / reabrir-orcamento) FORNECEM o contexto transacional
--- (ator, motivo, identificador da operação) e ESTA RPC grava o evento — nenhum
--- evento é inserido direto pela edge nem por trigger (sem duplicação edge×trigger).
--- Restrita ao service_role (só as edges chamam); retry da mesma operação (mesmo
--- p_op) é deduplicado pelo índice único uq_tce_op — sem evento duplicado.
-create or replace function public.registrar_evento_tarefa_trilha(
-  p_orcamento uuid, p_evento text, p_tarefa uuid, p_tarefa_numero int,
-  p_ator uuid, p_motivo text, p_op uuid
-) returns void
+-- ───── 8 · Eventos de tarefa (C2b): triggers — evento NA MESMA transação da mutação ─────
+-- Bloqueador de atomicidade resolvido no banco: nenhum evento nasce em request
+-- separada. Falha ao gravar o evento desfaz a própria mutação (mesma transação).
+-- O invariante vale para QUALQUER via de escrita (RPC, edge, SQL direto), não só
+-- para o caminho feliz das edges. Contexto (ator/motivo) chega por GUCs
+-- transacionais setados pelas RPCs §9/§10; sem GUC, ator cai em criado_por (insert)
+-- ou auth.uid(). INSERT...VALUES com subselect do número: o evento é gravado mesmo
+-- que o orçamento já não exista (referência lógica, sem FK).
+create or replace function public.trilha_tarefa_gerada() returns trigger
 language plpgsql security definer set search_path = public as $$
-declare v_num int;
 begin
-  if p_evento not in ('tarefa_gerada','tarefa_resincronizada','tarefa_removida') then
-    raise exception 'TRILHA_EVENTO_INVALIDO: %', p_evento;
-  end if;
-  if p_orcamento is null or p_op is null then
-    raise exception 'TRILHA_PARAMETROS: p_orcamento e p_op sao obrigatorios';
-  end if;
-  select o.numero into v_num from public.orcamentos o where o.id = p_orcamento;
   insert into public.trilha_comercial_eventos
-    (orcamento_id, orcamento_numero, evento, tarefa_id, tarefa_numero, op_id, justificativa, ator)
-  values (p_orcamento, v_num, p_evento, p_tarefa, p_tarefa_numero, p_op,
-          nullif(trim(coalesce(p_motivo, '')), ''), p_ator)
-  on conflict (evento, op_id) where op_id is not null do nothing;
+    (orcamento_id, orcamento_numero, evento, tarefa_id, tarefa_numero, justificativa, ator)
+  values (new.orcamento_id,
+          (select o.numero from public.orcamentos o where o.id = new.orcamento_id),
+          'tarefa_gerada', new.id, new.numero,
+          nullif(trim(coalesce(current_setting('sr.trilha_motivo', true), '')), ''),
+          coalesce(new.criado_por, auth.uid()));
+  return new;
 end $$;
-revoke all on function public.registrar_evento_tarefa_trilha(uuid,text,uuid,int,uuid,text,uuid) from public, anon, authenticated;
-grant execute on function public.registrar_evento_tarefa_trilha(uuid,text,uuid,int,uuid,text,uuid) to service_role;
+drop trigger if exists trg_trilha_tarefa_ins on public.tarefas;
+create trigger trg_trilha_tarefa_ins
+  after insert on public.tarefas
+  for each row when (new.orcamento_id is not null)
+  execute function public.trilha_tarefa_gerada();
+
+create or replace function public.trilha_tarefa_removida() returns trigger
+language plpgsql security definer set search_path = public as $$
+begin
+  insert into public.trilha_comercial_eventos
+    (orcamento_id, orcamento_numero, evento, tarefa_id, tarefa_numero, justificativa, ator)
+  values (old.orcamento_id,
+          (select o.numero from public.orcamentos o where o.id = old.orcamento_id),
+          'tarefa_removida', old.id, old.numero,
+          nullif(trim(coalesce(current_setting('sr.trilha_motivo', true), '')), ''),
+          coalesce(nullif(current_setting('sr.trilha_ator', true), '')::uuid, auth.uid()));
+  return old;
+end $$;
+drop trigger if exists trg_trilha_tarefa_del on public.tarefas;
+create trigger trg_trilha_tarefa_del
+  before delete on public.tarefas
+  for each row when (old.orcamento_id is not null)
+  execute function public.trilha_tarefa_removida();
+
+-- ───── 9 · RPC única de aprovação: gera OU ressincroniza a Tarefa (mesma transação) ─────
+-- A edge aprovar-orcamento chama SÓ esta RPC: mutação (tarefa + Orçada) e evento
+-- são uma transação. FOR UPDATE no orçamento serializa aprovações simultâneas.
+-- Consolidação da Orçada portada da edge v7 (1 linha por produto/descrição;
+-- "primeira ocorrência" determinística por criado_em, id — a chave espelha o
+-- match_key gerado de tarefa_materiais para linhas nascidas da aprovação).
+-- Idempotência: retry sem mudança real → alterou=false e NENHUM evento novo.
+create or replace function public.sincronizar_tarefa_orcamento(
+  p_orcamento uuid, p_ator uuid, p_motivo text default null
+) returns jsonb
+language plpgsql security definer set search_path = public as $$
+declare
+  v_o record; v_tid uuid; v_tnum int; v_orient text;
+  v_mudou int := 0; v_n int; v_materiais int;
+begin
+  select o.id, o.cliente_id, o.servico_descricao, o.servico_valor into v_o
+    from public.orcamentos o where o.id = p_orcamento for update;
+  if not found then raise exception 'ORCAMENTO_INEXISTENTE'; end if;
+
+  v_orient := nullif(v_o.servico_descricao, '');
+
+  -- Orçada desejada (consolidada por produto/descrição)
+  drop table if exists pg_temp._trilha_desejada;
+  create temp table _trilha_desejada as
+  with mats as (
+    select oi.produto_id,
+           coalesce(nullif(oi.descricao, ''), p.descricao, '(sem descrição)') as descricao,
+           oi.unidade,
+           case when oi.produto_id is not null then p.codigo end as codigo_produto,
+           coalesce(oi.preco_unitario, 0) as preco_unitario,
+           coalesce(oi.quantidade, 0) as quantidade,
+           oi.criado_em, oi.id
+      from public.orcamento_itens oi
+      left join public.produtos p on p.id = oi.produto_id
+     where oi.orcamento_id = p_orcamento and oi.tipo in ('material','avulso')
+  )
+  select coalesce(produto_id::text, btrim(lower(descricao))) as mkey,
+         (array_agg(produto_id      order by criado_em, id))[1] as produto_id,
+         (array_agg(descricao       order by criado_em, id))[1] as descricao,
+         (array_agg(unidade         order by criado_em, id))[1] as unidade,
+         (array_agg(codigo_produto  order by criado_em, id))[1] as codigo_produto,
+         (array_agg(preco_unitario  order by criado_em, id))[1] as preco_unitario,
+         sum(quantidade) as qtd_orcada
+    from mats group by 1;
+  select count(*) into v_materiais from pg_temp._trilha_desejada;
+
+  select t.id, t.numero into v_tid, v_tnum from public.tarefas t where t.orcamento_id = p_orcamento;
+
+  if v_tid is null then
+    -- regra de negócio (edge v7): tarefa só nasce se houver serviço
+    if nullif(trim(coalesce(v_o.servico_descricao, '')), '') is null
+       and coalesce(v_o.servico_valor, 0) <= 0 then
+      raise exception 'TAREFA_SEM_SERVICO: orcamento so de produtos nao gera Tarefa';
+    end if;
+    perform set_config('sr.trilha_motivo', coalesce(p_motivo, ''), true);
+    insert into public.tarefas (orcamento_id, cliente_id, status, criado_por, orientacao)
+    values (p_orcamento, v_o.cliente_id, 'aguardando_execucao', p_ator, v_orient)
+    returning id, numero into v_tid, v_tnum;  -- trg_trilha_tarefa_ins grava tarefa_gerada nesta transação
+    perform set_config('sr.trilha_motivo', '', true);
+    insert into public.tarefa_materiais
+      (tarefa_id, produto_id, codigo_produto, descricao, unidade, preco_unitario, qtd_orcada, qtd_levada, origem)
+    select v_tid, d.produto_id, d.codigo_produto, d.descricao, d.unidade, d.preco_unitario, d.qtd_orcada, 0, 'orcamento'
+      from pg_temp._trilha_desejada d;
+    return jsonb_build_object('acao','gerada','tarefa_id',v_tid,'tarefa_numero',v_tnum,'materiais',v_materiais);
+  end if;
+
+  -- ressincronização: só escreve o que estiver de fato diferente (a idempotência
+  -- deriva da transição real — retry sem mudança não escreve nem gera evento)
+  update public.tarefas set orientacao = v_orient
+   where id = v_tid and orientacao is distinct from v_orient;
+  get diagnostics v_n = row_count; v_mudou := v_mudou + v_n;
+
+  update public.tarefa_materiais tm set
+    qtd_orcada = d.qtd_orcada, preco_unitario = d.preco_unitario,
+    descricao = d.descricao, codigo_produto = d.codigo_produto, unidade = d.unidade,
+    atualizado_em = now()
+   from pg_temp._trilha_desejada d
+   where tm.tarefa_id = v_tid and tm.match_key = d.mkey
+     and (tm.qtd_orcada, tm.preco_unitario, tm.descricao, tm.codigo_produto, tm.unidade)
+         is distinct from (d.qtd_orcada, d.preco_unitario, d.descricao, d.codigo_produto, d.unidade);
+  get diagnostics v_n = row_count; v_mudou := v_mudou + v_n;
+
+  insert into public.tarefa_materiais
+    (tarefa_id, produto_id, codigo_produto, descricao, unidade, preco_unitario, qtd_orcada, qtd_levada, origem)
+  select v_tid, d.produto_id, d.codigo_produto, d.descricao, d.unidade, d.preco_unitario, d.qtd_orcada, 0, 'orcamento'
+    from pg_temp._trilha_desejada d
+   where not exists (select 1 from public.tarefa_materiais tm where tm.tarefa_id = v_tid and tm.match_key = d.mkey);
+  get diagnostics v_n = row_count; v_mudou := v_mudou + v_n;
+
+  update public.tarefa_materiais tm set qtd_orcada = 0, atualizado_em = now()
+   where tm.tarefa_id = v_tid and tm.origem = 'orcamento' and tm.qtd_levada > 0 and tm.qtd_orcada <> 0
+     and not exists (select 1 from pg_temp._trilha_desejada d where d.mkey = tm.match_key);
+  get diagnostics v_n = row_count; v_mudou := v_mudou + v_n;
+
+  delete from public.tarefa_materiais tm
+   where tm.tarefa_id = v_tid and tm.origem = 'orcamento' and tm.qtd_levada = 0
+     and not exists (select 1 from pg_temp._trilha_desejada d where d.mkey = tm.match_key);
+  get diagnostics v_n = row_count; v_mudou := v_mudou + v_n;
+
+  if v_mudou > 0 then
+    -- evento e mutação na MESMA transação: falha aqui desfaz a ressincronização
+    insert into public.trilha_comercial_eventos
+      (orcamento_id, orcamento_numero, evento, tarefa_id, tarefa_numero, justificativa, ator)
+    values (p_orcamento, (select o.numero from public.orcamentos o where o.id = p_orcamento),
+            'tarefa_resincronizada', v_tid, v_tnum,
+            nullif(trim(coalesce(p_motivo, '')), ''), p_ator);
+  end if;
+  return jsonb_build_object('acao','resincronizada','alterou', v_mudou > 0,
+    'alteracoes', v_mudou, 'tarefa_id', v_tid, 'tarefa_numero', v_tnum, 'materiais', v_materiais);
+end $$;
+revoke all on function public.sincronizar_tarefa_orcamento(uuid,uuid,text) from public, anon, authenticated;
+grant execute on function public.sincronizar_tarefa_orcamento(uuid,uuid,text) to service_role;
+
+-- ───── 10 · RPC única de reabertura: remove a Tarefa (evento no MESMO delete) ─────
+-- A edge reabrir-orcamento chama SÓ esta RPC: desvínculo legado + delete + evento
+-- (via trg_trilha_tarefa_del) numa única transação. Revalida a regra de RAT
+-- atomicamente (fecha a corrida entre o check da edge e o delete).
+create or replace function public.remover_tarefa_orcamento(
+  p_orcamento uuid, p_ator uuid, p_motivo text default null
+) returns jsonb
+language plpgsql security definer set search_path = public as $$
+declare v_tid uuid; v_tnum int;
+begin
+  perform 1 from public.orcamentos o where o.id = p_orcamento for update;
+  if not found then raise exception 'ORCAMENTO_INEXISTENTE'; end if;
+  select t.id, t.numero into v_tid, v_tnum from public.tarefas t where t.orcamento_id = p_orcamento;
+  if v_tid is null then
+    return jsonb_build_object('removida', false);  -- retry idempotente: nada a remover, nenhum evento
+  end if;
+  if exists (select 1 from public.rats r where r.tarefa_id = v_tid) then
+    raise exception 'TAREFA_COM_RAT: a Tarefa (OS) No % ja tem RAT/execucao iniciada', v_tnum;
+  end if;
+  perform set_config('sr.trilha_ator', coalesce(p_ator::text, ''), true);
+  perform set_config('sr.trilha_motivo', coalesce(p_motivo, ''), true);
+  update public.orcamentos set tarefa_id = null where id = p_orcamento;  -- elo legado, mesma transação
+  delete from public.tarefas where id = v_tid;  -- trg_trilha_tarefa_del grava tarefa_removida nesta transação
+  perform set_config('sr.trilha_ator', '', true);
+  perform set_config('sr.trilha_motivo', '', true);
+  return jsonb_build_object('removida', true, 'tarefa_numero', v_tnum);
+end $$;
+revoke all on function public.remover_tarefa_orcamento(uuid,uuid,text) from public, anon, authenticated;
+grant execute on function public.remover_tarefa_orcamento(uuid,uuid,text) to service_role;

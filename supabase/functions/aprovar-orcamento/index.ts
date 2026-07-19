@@ -36,21 +36,6 @@ Deno.serve(async (req: Request) => {
     const id = body.id
     if (!id) return json({ error: "id obrigatorio" }, 400)
 
-    // Trilha comercial (0115): quem GRAVA o evento é a RPC service_role-only no banco
-    // (produtor único) — a edge só fornece o contexto transacional (ator, motivo, op).
-    // Auditoria nunca bloqueia a operação de negócio: erro vai pro log e segue.
-    // Antes da 0115 aplicada a RPC não existe; a chamada falha e é apenas logada.
-    const opId = crypto.randomUUID()
-    const trilha = async (evento: string, tarefaId: string | null, tarefaNumero: number | null, motivo: string) => {
-      try {
-        const { error } = await admin.rpc("registrar_evento_tarefa_trilha", {
-          p_orcamento: id, p_evento: evento, p_tarefa: tarefaId, p_tarefa_numero: tarefaNumero,
-          p_ator: uid, p_motivo: motivo, p_op: opId,
-        })
-        if (error) console.error("[trilha]", evento, error.message)
-      } catch (e) { console.error("[trilha]", evento, String((e as Error)?.message || e)) }
-    }
-
     const { data: o, error: oerr } = await admin.from("orcamentos")
       .select("id,cliente_id,status,arquivado,servico_descricao,servico_valor").eq("id", id).single()
     if (oerr || !o) return json({ error: "orçamento não encontrado" }, 404)
@@ -71,80 +56,22 @@ Deno.serve(async (req: Request) => {
       return json({ ok: true, sem_servico: true })
     }
 
-    const { data: existente } = await admin.from("tarefas")
-      .select("id,numero").eq("orcamento_id", id).maybeSingle()
-
-    // ----- Monta a Orçada desejada a partir dos itens do orçamento (consolidada por produto) -----
-    const { data: itens } = await admin.from("orcamento_itens")
-      .select("produto_id,descricao,unidade,quantidade,preco_unitario,tipo")
-      .eq("orcamento_id", id)
-    const mats = (itens || []).filter((it: any) => it.tipo === "material" || it.tipo === "avulso")
-    const pids = [...new Set(mats.map((m: any) => m.produto_id).filter(Boolean))]
-    const cod: Record<string, string> = {}, des: Record<string, string> = {}
-    if (pids.length) {
-      const { data: prods } = await admin.from("produtos").select("id,codigo,descricao").in("id", pids)
-      for (const p of prods || []) { cod[p.id] = p.codigo; des[p.id] = p.descricao }
+    // C2b (trilha comercial): mutação e evento na MESMA transação — a RPC única no
+    // banco gera OU ressincroniza a Tarefa (consolidação da Orçada incluída) e o
+    // evento nasce dentro dela (tarefa_gerada via trigger; tarefa_resincronizada
+    // só quando algo mudou de fato). A edge não executa operação e auditoria em
+    // chamadas separadas; falha na RPC = nada persistido.
+    const { data: sync, error: serr } = await admin.rpc("sincronizar_tarefa_orcamento", {
+      p_orcamento: id, p_ator: uid, p_motivo: "Aprovação do orçamento (aprovar-orcamento)",
+    })
+    if (serr) return json({ error: "falha ao gerar/sincronizar a Tarefa: " + serr.message }, 500)
+    if (sync?.acao === "gerada") {
+      return json({ ok: true, tarefa_id: sync.tarefa_id, tarefa_numero: sync.tarefa_numero, materiais_orcados: sync.materiais })
     }
-    const byKey = new Map<string, any>()
-    for (const m of mats) {
-      const desc = m.descricao || (m.produto_id ? des[m.produto_id] : null) || "(sem descrição)"
-      const key = m.produto_id ? String(m.produto_id) : desc.trim().toLowerCase()
-      const qtd = Number(m.quantidade) || 0
-      const ex = byKey.get(key)
-      if (ex) { ex.qtd_orcada += qtd }
-      else byKey.set(key, {
-        produto_id: m.produto_id || null,
-        codigo_produto: m.produto_id ? (cod[m.produto_id] || null) : null,
-        descricao: desc,
-        unidade: m.unidade || null,
-        preco_unitario: Number(m.preco_unitario) || 0,
-        qtd_orcada: qtd,
-      })
-    }
-
-    if (existente) {
-      await admin.from("tarefas").update({ orientacao: o.servico_descricao || null }).eq("id", existente.id)
-      const { data: existing } = await admin.from("tarefa_materiais")
-        .select("id,match_key,qtd_levada,origem").eq("tarefa_id", existente.id)
-      const byMatch = new Map<string, any>((existing || []).map((r: any) => [r.match_key, r]))
-      for (const [key, d] of byKey) {
-        const ex = byMatch.get(key)
-        if (ex) {
-          await admin.from("tarefa_materiais").update({
-            qtd_orcada: d.qtd_orcada, preco_unitario: d.preco_unitario,
-            descricao: d.descricao, codigo_produto: d.codigo_produto, unidade: d.unidade,
-          }).eq("id", ex.id)
-        } else {
-          await admin.from("tarefa_materiais").insert({ tarefa_id: existente.id, ...d, qtd_levada: 0, origem: "orcamento" })
-        }
-      }
-      for (const r of existing || []) {
-        if (r.origem === "orcamento" && !byKey.has(r.match_key)) {
-          if (Number(r.qtd_levada) > 0) await admin.from("tarefa_materiais").update({ qtd_orcada: 0 }).eq("id", r.id)
-          else await admin.from("tarefa_materiais").delete().eq("id", r.id)
-        }
-      }
-      await trilha("tarefa_resincronizada", existente.id, existente.numero, "Reaprovação do orçamento — Orçada da Tarefa re-sincronizada")
-      return json({ ok: true, already: true, resynced: true, tarefa_id: existente.id, tarefa_numero: existente.numero, materiais_orcados: byKey.size })
-    }
-
-    const ins = await admin.from("tarefas").insert({
-      orcamento_id: id, cliente_id: o.cliente_id, status: "aguardando_execucao", criado_por: uid,
-      orientacao: o.servico_descricao || null,
-    }).select("id,numero").single()
-    if (ins.error) {
-      // corrida perdida: a outra request criou a Tarefa e registra o evento dela — aqui não duplica
-      const { data: ja } = await admin.from("tarefas").select("id,numero").eq("orcamento_id", id).maybeSingle()
-      if (ja) return json({ ok: true, already: true, tarefa_id: ja.id, tarefa_numero: ja.numero })
-      return json({ error: "falha ao gerar Tarefa: " + ins.error.message }, 500)
-    }
-    await trilha("tarefa_gerada", ins.data.id, ins.data.numero, "Aprovação do orçamento — Tarefa (OS) gerada")
-    const rows = [...byKey.values()].map((d: any) => ({ tarefa_id: ins.data.id, ...d, qtd_levada: 0, origem: "orcamento" }))
-    if (rows.length) {
-      const seed = await admin.from("tarefa_materiais").insert(rows)
-      if (seed.error) return json({ ok: true, tarefa_id: ins.data.id, tarefa_numero: ins.data.numero, seed_error: seed.error.message })
-    }
-    return json({ ok: true, tarefa_id: ins.data.id, tarefa_numero: ins.data.numero, materiais_orcados: rows.length })
+    return json({
+      ok: true, already: true, resynced: true, alterou: sync?.alterou === true,
+      tarefa_id: sync?.tarefa_id, tarefa_numero: sync?.tarefa_numero, materiais_orcados: sync?.materiais,
+    })
   } catch (e) {
     return json({ error: String((e as Error)?.message || e) }, 500)
   }
