@@ -17,8 +17,8 @@
 --     ou filtro vindo do frontend é usado.
 --   · Exposição MÍNIMA: números, status e datas de identificação. SEM snapshot,
 --     SEM valores, SEM observações, SEM nada destinado ao cliente. O id do
---     orçamento NÃO é exposto (o SR não navega para o editor do Comercial
---     neste gate); só pré e tarefa carregam id (telas internas do SR).
+--     orçamento é incluído EXCLUSIVAMENTE para a geração de rota no cliente
+--     (C4b — urlOrcamento no helper central); a interface nunca o exibe.
 --   · "Removida" SÓ com evento: ausência de tarefa vira tarefa_removida=true
 --     apenas quando existe evento 'tarefa_removida' em trilha_comercial_eventos.
 --
@@ -42,12 +42,12 @@ begin
   select jsonb_build_object(
     'tarefa', jsonb_build_object('id', t.id, 'numero', t.numero),
     'orcamento', case when o.id is null then null else jsonb_build_object(
-      'numero', o.numero, 'status', o.status, 'data', o.criado_em::date) end,
+      'id', o.id, 'numero', o.numero, 'status', o.status, 'data', o.criado_em::date) end,
     'pre', case when p.id is null then null else jsonb_build_object(
       'id', p.id, 'numero', p.numero, 'data', p.data) end,
     'orcamentos', case when p.id is null then '[]'::jsonb else coalesce((
       select jsonb_agg(jsonb_build_object(
-          'numero', o2.numero, 'status', o2.status, 'data', o2.criado_em::date,
+          'id', o2.id, 'numero', o2.numero, 'status', o2.status, 'data', o2.criado_em::date,
           'tarefa', case when t2.id is null then null else jsonb_build_object(
             'id', t2.id, 'numero', t2.numero, 'status', t2.status) end,
           'tarefa_removida', (t2.id is null and exists (
@@ -86,7 +86,7 @@ begin
     'pre', jsonb_build_object('id', p.id, 'numero', p.numero, 'data', p.data),
     'orcamentos', coalesce((
       select jsonb_agg(jsonb_build_object(
-          'numero', o.numero, 'status', o.status, 'data', o.criado_em::date,
+          'id', o.id, 'numero', o.numero, 'status', o.status, 'data', o.criado_em::date,
           'tarefa', case when t.id is null then null else jsonb_build_object(
             'id', t.id, 'numero', t.numero, 'status', t.status) end,
           'tarefa_removida', (t.id is null and exists (

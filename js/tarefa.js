@@ -857,37 +857,49 @@ const TarefaApp = (() => {
   async function trilhaRender(t) {
     const req = ++trilhaReq   // ANTES de qualquer return: invalida resposta em voo de outra tarefa
     const box = document.getElementById('cc-trilha'), body = document.getElementById('cc-trilha-body')
-    if (!box || !body) return
-    if (!t.orcamento_id) { box.style.display = 'none'; body.innerHTML = ''; return }
+    if (!box || !body || !window.TrilhaNav) return
     box.style.display = ''
+    if (!t.orcamento_id) { TrilhaNav.renderEstado(body, { tipo: 'vazio', msg: TrilhaNav.MSG.vazio }); return }
+    if (!navigator.onLine) { TrilhaNav.renderEstado(body, { tipo: 'offline', msg: TrilhaNav.MSG.offline }); return }
     body.innerHTML = '<span class="muted">Carregando…</span>'
-    const { data: d, error } = await sb().rpc('trilha_da_tarefa', { p_tarefa: t.id })
+    let d = null, error = null
+    try { const r = await sb().rpc('trilha_da_tarefa', { p_tarefa: t.id }); d = r.data; error = r.error }
+    catch (e) { error = { message: String(e && e.message || e) } }
     if (req !== trilhaReq) return   // o usuário já abriu outra tarefa
-    if (error || !d || !d.tarefa) { body.innerHTML = '<span class="muted">Trilha indisponível no momento.</span>'; return }
-    const no = (k, v, extra, cls) =>
-      `<span class="trilha-no${cls ? ' ' + cls : ''}"><span class="k">${esc(k)}</span><b>${esc(v)}</b>${extra ? ` <span class="muted">· ${esc(extra)}</span>` : ''}</span>`
+    const st = TrilhaNav.estadoTrilha({ online: navigator.onLine, error: error || ((!d || !d.tarefa) ? { message: 'resposta invalida' } : null), vazio: false })
+    if (st.tipo !== 'ok') { TrilhaNav.renderEstado(body, st, () => trilhaRender(t)); return }  // retry SÓ do bloco
+    // rota por ID interno (urlOrcamento/urlTarefa) — o ID nunca aparece no texto
+    const no = (k, v, extra, cls, href) => {
+      const inner = `<span class="k">${esc(k)}</span><b>${esc(v)}</b>${extra ? ` <span class="muted">· ${esc(extra)}</span>` : ''}`
+      return href
+        ? `<a class="trilha-no${cls ? ' ' + cls : ''}" href="${esc(href)}" target="_blank" rel="noopener">${inner}</a>`
+        : `<span class="trilha-no${cls ? ' ' + cls : ''}">${inner}</span>`
+    }
     const sep = '<span class="trilha-sep">→</span>'
     const parts = []
     if (d.pre) parts.push(no('Pré-orçamento', `Nº ${d.pre.numero}`, d.pre.data ? dmy(d.pre.data) : ''))
-    if (d.orcamento) parts.push(no('Orçamento', `Nº ${d.orcamento.numero}`, ORC_STATUS_LABEL[d.orcamento.status] || d.orcamento.status))
+    if (d.orcamento) parts.push(no('Orçamento', `Nº ${d.orcamento.numero}`, ORC_STATUS_LABEL[d.orcamento.status] || d.orcamento.status,
+      '', TrilhaNav.urlOrcamento(d.orcamento.id)))
     parts.push(no('Tarefa (OS)', `Nº ${osNo(d.tarefa.numero)}`, 'esta tarefa', 'trilha-atual'))
     let html = `<div class="trilha-chain">${parts.join(sep)}</div>`
-    const irmaos = (d.orcamentos || []).filter(o => !d.orcamento || o.numero !== d.orcamento.numero)
+    const irmaos = (d.orcamentos || []).filter(o => !d.orcamento || o.id !== d.orcamento.id)
     if (irmaos.length) {
       html += '<div class="trilha-irmaos"><div class="lab">Outros orçamentos deste levantamento</div>'
       for (const o of irmaos) {
         let os
         if (o.tarefa && o.tarefa.id && o.tarefa.id !== t.id) {
-          const url = (window.TrilhaNav && TrilhaNav.urlTarefa(o.tarefa.id)) || null
+          const url = TrilhaNav.urlTarefa(o.tarefa.id)
           os = url ? `<a href="${esc(url)}">OS Nº ${esc(osNo(o.tarefa.numero))}</a>` : `OS Nº ${esc(osNo(o.tarefa.numero))}`
         } else if (o.tarefa) {
           os = `OS Nº ${esc(osNo(o.tarefa.numero))} <span class="muted">(esta tarefa)</span>`  // nunca link p/ si
         } else if (o.tarefa_removida) {
-          os = '<span class="trilha-removida">OS removida</span>'  // rótulo SÓ com evento (garantido pela RPC)
+          os = '<span class="trilha-removida">OS removida</span>'  // ausência de OS + evento do MESMO orçamento (RPC)
         } else {
           os = '<span class="muted">sem OS</span>'
         }
-        html += `<div class="row">Orçamento Nº <b>${esc(o.numero)}</b> <span class="muted">· ${esc(ORC_STATUS_LABEL[o.status] || o.status)}</span> — ${os}</div>`
+        const urlO = TrilhaNav.urlOrcamento(o.id)
+        const orcTxt = urlO ? `<a href="${esc(urlO)}" target="_blank" rel="noopener">Orçamento Nº <b>${esc(o.numero)}</b></a>` : `Orçamento Nº <b>${esc(o.numero)}</b>`
+        html += `<div class="row">${orcTxt} <span class="muted">· ${esc(ORC_STATUS_LABEL[o.status] || o.status)}</span> — ${os}</div>`
       }
       html += '</div>'
     }
