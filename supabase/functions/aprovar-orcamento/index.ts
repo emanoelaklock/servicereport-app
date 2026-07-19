@@ -36,6 +36,21 @@ Deno.serve(async (req: Request) => {
     const id = body.id
     if (!id) return json({ error: "id obrigatorio" }, 400)
 
+    // Trilha comercial (0115): quem GRAVA o evento é a RPC service_role-only no banco
+    // (produtor único) — a edge só fornece o contexto transacional (ator, motivo, op).
+    // Auditoria nunca bloqueia a operação de negócio: erro vai pro log e segue.
+    // Antes da 0115 aplicada a RPC não existe; a chamada falha e é apenas logada.
+    const opId = crypto.randomUUID()
+    const trilha = async (evento: string, tarefaId: string | null, tarefaNumero: number | null, motivo: string) => {
+      try {
+        const { error } = await admin.rpc("registrar_evento_tarefa_trilha", {
+          p_orcamento: id, p_evento: evento, p_tarefa: tarefaId, p_tarefa_numero: tarefaNumero,
+          p_ator: uid, p_motivo: motivo, p_op: opId,
+        })
+        if (error) console.error("[trilha]", evento, error.message)
+      } catch (e) { console.error("[trilha]", evento, String((e as Error)?.message || e)) }
+    }
+
     const { data: o, error: oerr } = await admin.from("orcamentos")
       .select("id,cliente_id,status,arquivado,servico_descricao,servico_valor").eq("id", id).single()
     if (oerr || !o) return json({ error: "orçamento não encontrado" }, 404)
@@ -109,6 +124,7 @@ Deno.serve(async (req: Request) => {
           else await admin.from("tarefa_materiais").delete().eq("id", r.id)
         }
       }
+      await trilha("tarefa_resincronizada", existente.id, existente.numero, "Reaprovação do orçamento — Orçada da Tarefa re-sincronizada")
       return json({ ok: true, already: true, resynced: true, tarefa_id: existente.id, tarefa_numero: existente.numero, materiais_orcados: byKey.size })
     }
 
@@ -117,10 +133,12 @@ Deno.serve(async (req: Request) => {
       orientacao: o.servico_descricao || null,
     }).select("id,numero").single()
     if (ins.error) {
+      // corrida perdida: a outra request criou a Tarefa e registra o evento dela — aqui não duplica
       const { data: ja } = await admin.from("tarefas").select("id,numero").eq("orcamento_id", id).maybeSingle()
       if (ja) return json({ ok: true, already: true, tarefa_id: ja.id, tarefa_numero: ja.numero })
       return json({ error: "falha ao gerar Tarefa: " + ins.error.message }, 500)
     }
+    await trilha("tarefa_gerada", ins.data.id, ins.data.numero, "Aprovação do orçamento — Tarefa (OS) gerada")
     const rows = [...byKey.values()].map((d: any) => ({ tarefa_id: ins.data.id, ...d, qtd_levada: 0, origem: "orcamento" }))
     if (rows.length) {
       const seed = await admin.from("tarefa_materiais").insert(rows)

@@ -21,8 +21,17 @@
 -- PRODUTOR ÚNICO por tipo de evento (decisão congelada): os eventos de ELO e
 -- SNAPSHOT nascem SÓ dos triggers desta migração — uma operação atômica gera UM
 -- evento (orcamento_criado_de_pre já carrega o snapshot; correção gera um único
--- elo_corrigido/elo_removido). Eventos de aprovação/reabertura virão das edges
--- no C2, com tipos próprios — sem sobreposição edge×trigger.
+-- elo_corrigido/elo_removido). Eventos de TAREFA (tarefa_gerada/resincronizada/
+-- removida) nascem SÓ da RPC registrar_evento_tarefa_trilha (§8) — as edges
+-- fornecem contexto (ator, motivo, op) e o BANCO grava; retry deduplicado pelo
+-- índice único uq_tce_op. Sem sobreposição edge×trigger em nenhum tipo.
+--
+-- CONCORRÊNCIA (gate C1): a validação de cliente usa SELECT ... FOR UPDATE na
+-- linha do pré — criação/correção de orçamento e troca de cliente do pré
+-- serializam na mesma row lock; nunca persiste orçamento e pré de clientes
+-- diferentes. A corrigir_elo_pre_orcamento serializa correções simultâneas na
+-- row lock do UPDATE em orcamentos, e retry da mesma correção não gera evento
+-- (old IS NOT DISTINCT FROM new → trigger de evento não dispara).
 --
 -- Guarda de escopo: F1 (tarefas.origem_*, tarefa_origem_eventos) intocada;
 -- nenhuma view/RPC de desempenho tocada; 0114 (orcamento_em) intocada e
@@ -44,14 +53,20 @@ create table if not exists public.trilha_comercial_eventos (
   id uuid primary key default gen_random_uuid(),
   orcamento_id uuid not null,          -- referência LÓGICA (sem FK): sobrevive à exclusão
   orcamento_numero int,                -- identificação humana no histórico
-  evento text not null,                -- orcamento_criado_de_pre | elo_corrigido | elo_removido | (backfill no C5)
+  evento text not null,                -- orcamento_criado_de_pre | elo_corrigido | elo_removido |
+                                       -- tarefa_gerada | tarefa_resincronizada | tarefa_removida | (backfill no C5)
   pre_old uuid, pre_numero_old int,
   pre_new uuid, pre_numero_new int,
   snapshot_old jsonb, snapshot_new jsonb,
+  tarefa_id uuid, tarefa_numero int,   -- eventos de tarefa (C2): referência lógica, sem FK
+  op_id uuid,                          -- identificador da operação (dedup de retry das edges)
   justificativa text,
   ator uuid default auth.uid(),
   em timestamptz not null default now()
 );
+-- retry da MESMA operação nunca duplica evento (dedup no banco, não na edge)
+create unique index if not exists uq_tce_op on public.trilha_comercial_eventos (evento, op_id)
+  where op_id is not null;
 
 alter table public.trilha_comercial_eventos enable row level security;
 drop policy if exists tce_office_sel on public.trilha_comercial_eventos;
@@ -113,9 +128,15 @@ begin
   end if;
 
   -- mesmo cliente nos dois lados sempre que houver elo (cobre insert, troca do
-  -- pré e troca do cliente do orçamento vinculado)
+  -- pré e troca do cliente do orçamento vinculado).
+  -- FOR UPDATE (prova de concorrência do gate C1): a criação/correção segura a
+  -- LINHA DO PRÉ até o fim da transação; a troca de cliente do pré precisa do
+  -- mesmo lock — as duas operações serializam e nunca persiste orçamento e pré
+  -- de clientes diferentes (quem chega depois relê o estado commitado e cai na
+  -- validação TRILHA_CLIENTE_DIVERGENTE).
   if new.pre_orcamento_id is not null then
-    select p.cliente_id into v_cli from public.pre_orcamentos p where p.id = new.pre_orcamento_id;
+    select p.cliente_id into v_cli from public.pre_orcamentos p
+     where p.id = new.pre_orcamento_id for update;
     if not found then
       raise exception 'TRILHA_PRE_INEXISTENTE: pre-orcamento do elo nao existe';
     end if;
@@ -220,3 +241,32 @@ begin
 end $$;
 revoke all on function public.corrigir_elo_pre_orcamento(uuid,uuid,text) from public;
 grant execute on function public.corrigir_elo_pre_orcamento(uuid,uuid,text) to authenticated;
+
+-- ───── 8 · Eventos de tarefa (C2): RPC controlada — produtor único no banco ─────
+-- As edges (aprovar-orcamento / reabrir-orcamento) FORNECEM o contexto transacional
+-- (ator, motivo, identificador da operação) e ESTA RPC grava o evento — nenhum
+-- evento é inserido direto pela edge nem por trigger (sem duplicação edge×trigger).
+-- Restrita ao service_role (só as edges chamam); retry da mesma operação (mesmo
+-- p_op) é deduplicado pelo índice único uq_tce_op — sem evento duplicado.
+create or replace function public.registrar_evento_tarefa_trilha(
+  p_orcamento uuid, p_evento text, p_tarefa uuid, p_tarefa_numero int,
+  p_ator uuid, p_motivo text, p_op uuid
+) returns void
+language plpgsql security definer set search_path = public as $$
+declare v_num int;
+begin
+  if p_evento not in ('tarefa_gerada','tarefa_resincronizada','tarefa_removida') then
+    raise exception 'TRILHA_EVENTO_INVALIDO: %', p_evento;
+  end if;
+  if p_orcamento is null or p_op is null then
+    raise exception 'TRILHA_PARAMETROS: p_orcamento e p_op sao obrigatorios';
+  end if;
+  select o.numero into v_num from public.orcamentos o where o.id = p_orcamento;
+  insert into public.trilha_comercial_eventos
+    (orcamento_id, orcamento_numero, evento, tarefa_id, tarefa_numero, op_id, justificativa, ator)
+  values (p_orcamento, v_num, p_evento, p_tarefa, p_tarefa_numero, p_op,
+          nullif(trim(coalesce(p_motivo, '')), ''), p_ator)
+  on conflict (evento, op_id) where op_id is not null do nothing;
+end $$;
+revoke all on function public.registrar_evento_tarefa_trilha(uuid,text,uuid,int,uuid,text,uuid) from public, anon, authenticated;
+grant execute on function public.registrar_evento_tarefa_trilha(uuid,text,uuid,int,uuid,text,uuid) to service_role;

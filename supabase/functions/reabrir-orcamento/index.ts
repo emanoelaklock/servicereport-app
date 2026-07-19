@@ -52,6 +52,16 @@ Deno.serve(async (req: Request) => {
       const del = await admin.from("tarefas").delete().eq("id", t.id)
       if (del.error) return json({ error: "Falha ao remover a Tarefa: " + del.error.message }, 500)
       tarefa_removida = t.numero
+      // Trilha comercial (0115): produtor único é a RPC service_role-only no banco; a edge
+      // fornece só o contexto (ator, motivo, op). Auditoria nunca bloqueia a reabertura —
+      // erro vai pro log. Antes da 0115 aplicada a RPC não existe; a falha é apenas logada.
+      try {
+        const { error: terr } = await admin.rpc("registrar_evento_tarefa_trilha", {
+          p_orcamento: id, p_evento: "tarefa_removida", p_tarefa: t.id, p_tarefa_numero: t.numero,
+          p_ator: uid, p_motivo: "Reabertura do orçamento — Tarefa (OS) removida", p_op: crypto.randomUUID(),
+        })
+        if (terr) console.error("[trilha] tarefa_removida", terr.message)
+      } catch (e) { console.error("[trilha] tarefa_removida", String((e as Error)?.message || e)) }
     }
 
     const up = await admin.from("orcamentos").update({ status: "rascunho", data_resposta: null }).eq("id", id)
