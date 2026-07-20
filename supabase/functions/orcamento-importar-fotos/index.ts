@@ -10,7 +10,7 @@ const CORS = {
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
   "Access-Control-Allow-Methods": "POST, OPTIONS",
 }
-const OFFICE = ["admin", "gestor_axis", "comercial"]
+const OFFICE = ["admin", "gestor_axis"]   // P0 Fase B: papel por-app service_report (era usuarios.role global; 'comercial' nunca casava)
 const BUCKET = "rat-anexos"
 
 Deno.serve(async (req: Request) => {
@@ -26,8 +26,11 @@ Deno.serve(async (req: Request) => {
     const token = (req.headers.get("Authorization") || "").replace("Bearer ", "")
     const { data: ud, error: uerr } = await admin.auth.getUser(token)
     if (uerr || !ud?.user) return json({ error: "nao autenticado" }, 401)
-    const { data: prof } = await admin.from("usuarios").select("role").eq("id", ud.user.id).single()
-    if (!OFFICE.includes(prof?.role || "")) return json({ error: "apenas escritório" }, 403)
+    // Autoriza por portal_acessos do app service_report (P0 Fase B): papel por-app, não usuarios.role
+    // (coluna outrora auto-editável — migração 0124). Sem registro no app service_report → 403.
+    const { data: acc } = await admin.from("portal_acessos")
+      .select("role_chave").eq("usuario_id", ud.user.id).eq("app_chave", "service_report").maybeSingle()
+    if (!OFFICE.includes(acc?.role_chave || "")) return json({ error: "apenas escritório" }, 403)
 
     const body = await req.json().catch(() => ({}))
     const id = body.id
