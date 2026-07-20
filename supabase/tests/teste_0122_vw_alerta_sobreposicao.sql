@@ -16,6 +16,8 @@
 --  5. técnico diferente                  → janelas que se cruzam entre pessoas ≠ não geram par
 --  6. dia ainda aberto (hoje)            → fora da view
 --  extra: participação com fim nulo     → fora dos pares
+--  extra: autorização — sem claims (app_role() null) a view devolve 0 linhas; as asserções
+--         rodam com claims de um admin real (o filtro da view espelha o PAGE_ALLOWED da Jornada)
 do $$
 declare
   T1 uuid; T1_NOME text; T2 uuid; T2_NOME text;
@@ -60,6 +62,7 @@ begin
       left join clientes ca on ca.id = a.cliente_id
       left join clientes cb on cb.id = b.cliente_id
      where a.dia < (now() at time zone 'America/Sao_Paulo')::date
+       and public.app_role() = any (array['admin', 'gestor_axis'])
   $v$;
 
   -- dois técnicos reais de nome ÚNICO (case-insensitive) — o trigger casa por nome
@@ -122,6 +125,16 @@ begin
 
   ids := array[RA, RB, RC, RD, RE_, RF, RG, RH, RI, RJ];
 
+  -- ── extra (autorização): sem claims, app_role() é null → view vazia ──
+  select count(*) into v_n from vw_alerta_sobreposicao
+   where (rat_a->>'rat_id')::uuid = any(ids) or (rat_b->>'rat_id')::uuid = any(ids);
+  if v_n <> 0 then raise exception 'TESTE FALHOU (autorização): sem claims a view devolveu % linhas', v_n; end if;
+
+  -- daqui em diante, consulta como um ADMIN real (app_role() resolve por auth.uid())
+  perform set_config('request.jwt.claims',
+    (select jsonb_build_object('sub', usuario_id)::text from portal_acessos
+      where app_chave = 'service_report' and role_chave = 'admin' limit 1), true);
+
   -- ── asserções (sempre filtradas pelas RATs do fixture) ──
   select count(*) into v_n from vw_alerta_sobreposicao
    where (rat_a->>'rat_id')::uuid = any(ids) or (rat_b->>'rat_id')::uuid = any(ids);
@@ -167,5 +180,5 @@ begin
               where (rat_a->>'rat_id')::uuid = RJ or (rat_b->>'rat_id')::uuid = RJ)
      then raise exception 'TESTE FALHOU (extra): participação sem fim entrou num par'; end if;
 
-  raise exception 'TESTES_OK: 6 casos + extra passaram (rollback total — nada persistiu)';
+  raise exception 'TESTES_OK: 6 casos + extras (fim nulo, autorização) passaram (rollback total — nada persistiu)';
 end $$;

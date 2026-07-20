@@ -18,7 +18,12 @@
 --  · Intervalo inválido ou aberto (fim nulo ou fim <= início, ex. virada de meia-noite) fica
 --    fora — é dado pra outra conferência, não par de sobreposição.
 --  · rat_a é sempre a participação que COMEÇA primeiro (desempate por id) — cada par sai 1 vez.
---  · security_invoker = true → respeita o RLS de quem consulta (admin/gestor).
+--  · security_invoker = true + filtro app_role() in ('admin','gestor_axis') NA PRÓPRIA view:
+--    o invoker sozinho NÃO basta aqui, porque a vw_participacoes_dia interna é definer e fura
+--    o RLS de rats (anon/técnico leriam tudo pela API). O filtro espelha o PAGE_ALLOWED da
+--    Jornada; para anon/técnico/service_role a view devolve 0 linhas (app_role() = null/outro).
+--    Consequência operacional: consulta administrativa direta (SQL como postgres) também vê 0
+--    linhas sem claims — simular claims de um admin ao inspecionar (ver o teste).
 create or replace view vw_alerta_sobreposicao
 with (security_invoker = true) as
 with part as (
@@ -46,4 +51,5 @@ select a.tecnico_id,
   left join usuarios u  on u.id  = a.tecnico_id
   left join clientes ca on ca.id = a.cliente_id
   left join clientes cb on cb.id = b.cliente_id
- where a.dia < (now() at time zone 'America/Sao_Paulo')::date;
+ where a.dia < (now() at time zone 'America/Sao_Paulo')::date
+   and public.app_role() = any (array['admin', 'gestor_axis']);
