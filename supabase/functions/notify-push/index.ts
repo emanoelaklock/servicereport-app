@@ -66,9 +66,13 @@ Deno.serve(async (req: Request) => {
     targets = [...new Set(targets)].filter((t) => t && t !== ures.user.id)
     if (!targets.length) return json({ sent: 0 })
 
-    const { data: secrets } = await admin.from('app_secrets').select('chave,valor').in('chave', ['vapid_public', 'vapid_private'])
-    const pub = secrets?.find((s: any) => s.chave === 'vapid_public')?.valor
-    const prv = secrets?.find((s: any) => s.chave === 'vapid_private')?.valor
+    // P1a: env-first (Function Secrets) com fallback TEMPORÁRIO à tabela app_secrets (removido no 3º PR)
+    let pub = Deno.env.get('VAPID_PUBLIC'), prv = Deno.env.get('VAPID_PRIVATE')
+    if (!pub || !prv) {
+      const { data: secrets } = await admin.from('app_secrets').select('chave,valor').in('chave', ['vapid_public', 'vapid_private'])
+      pub = pub || secrets?.find((s: any) => s.chave === 'vapid_public')?.valor
+      prv = prv || secrets?.find((s: any) => s.chave === 'vapid_private')?.valor
+    }
     if (!pub || !prv) return json({ error: 'vapid ausente' }, 500)
     webpush.setVapidDetails('mailto:contato@tsrv.com.br', pub, prv)
 
