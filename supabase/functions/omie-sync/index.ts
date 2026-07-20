@@ -26,8 +26,12 @@ Deno.serve(async (req: Request) => {
     const token = (req.headers.get("Authorization") || "").replace("Bearer ", "")
     const { data: ud, error: uerr } = await admin.auth.getUser(token)
     if (uerr || !ud?.user) return json({ error: "nao autenticado" }, 401)
-    const { data: prof } = await admin.from("usuarios").select("role").eq("id", ud.user.id).single()
-    if (!prof || !["admin", "gestor_axis"].includes(prof.role)) return json({ error: "apenas admin/gestor" }, 403)
+    // Autoriza por portal_acessos do app service_report (P0 Fase B): o papel NÃO vem mais de
+    // usuarios.role (coluna outrora auto-editável — ver migração 0124), e sim do papel por-app.
+    // Sem registro no app service_report → 403.
+    const { data: acc } = await admin.from("portal_acessos")
+      .select("role_chave").eq("usuario_id", ud.user.id).eq("app_chave", "service_report").maybeSingle()
+    if (!["admin", "gestor_axis"].includes(acc?.role_chave || "")) return json({ error: "apenas admin/gestor" }, 403)
 
     const KEY = Deno.env.get("OMIE_APP_KEY") || Deno.env.get("APP_KEY")
     const SECRET = Deno.env.get("OMIE_APP_SECRET") || Deno.env.get("APP_SECRET")

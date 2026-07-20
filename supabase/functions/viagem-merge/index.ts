@@ -74,8 +74,12 @@ Deno.serve(async (req: Request) => {
     const { data: ud, error: uerr } = await admin.auth.getUser(token)
     if (uerr || !ud?.user) return json({ error: "nao autenticado" }, 401)
     const uid = ud.user.id
-    const { data: prof } = await admin.from("usuarios").select("role").eq("id", uid).single()
-    const office = OFFICE.includes(prof?.role || "")
+    // Escritório autoriza por portal_acessos do app service_report (P0 Fase B): papel por-app,
+    // não usuarios.role (coluna outrora auto-editável — migração 0124). Os caminhos "a bordo" e
+    // "criador da viagem" abaixo seguem inalterados.
+    const { data: acc } = await admin.from("portal_acessos")
+      .select("role_chave").eq("usuario_id", uid).eq("app_chave", "service_report").maybeSingle()
+    const office = OFFICE.includes(acc?.role_chave || "")
 
     const body = await req.json().catch(() => ({}))
     const trip = body.trip || body
