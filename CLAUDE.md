@@ -36,6 +36,7 @@ Regras do projeto que você (Claude Code) deve seguir em **toda** sessão. Leia 
 ## Segurança
 - Segredos (Omie, Resend, **Tangerino** `TANGERINO_TOKEN`, etc.) **só** como secrets/env da Edge Function no Supabase. **Nunca** no código do app, no repositório ou em texto. Use `Deno.env.get(...)`.
 - Não logar credenciais nem dados pessoais em URL/query.
+- **Views: sempre `with (security_invoker = true)`, e TODO `create or replace view` redeclara a opção** — o Postgres reseta as reloptions no replace (regressão real: a 0081 derrubou o invoker da `vw_alerta_desloc_sem_volta` em silêncio; F17/0123). View definer fura o RLS e fica legível pela anon key. Views de dados não levam SELECT para `anon`; regressão vigiada por `supabase/tests/teste_0123_views_invoker.sql`.
 
 ## Como trabalhar neste repo
 - **Planeje antes de editar.** Em tarefa grande, use plan mode e me mostre o plano antes de tocar em arquivo.
