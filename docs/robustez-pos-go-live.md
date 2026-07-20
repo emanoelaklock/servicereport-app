@@ -20,10 +20,9 @@
 ### F4 — (faz parte do F2) validação de RAT no servidor
 Coberto pela `validar_rat()` do F2. Mantido aqui só como lembrete de que tempo improdutiva / cronologia / término-futuro / passagem precisam do equivalente server-side.
 
-### F5 — `ratDoDiaDe` não reusa rascunho não salvo 🟠 (baixo)
-- **Onde:** `js/tecnico.js:498` exige `status === 'em_andamento' || 'registrado'`; mas `novoRat` (`js/db-local.js:148`) nasce com `status` indefinido e `iniciarRatDaTarefa` (`:809`) não injeta status. O comentário em `:496` ("reusa inclusive RASCUNHO") **diverge** do código.
-- **Risco:** tocar "Iniciar RAT" 2x sem salvar cria 2 rascunhos; `seqNova` (`:814`) conta RATs e infla o `/NN`. `limparRascunhosVazios` só limpa vazios na abertura do app.
-- **Correção:** no `ratDoDiaDe`, casar também o rascunho do dia (ex.: `sync_status === RASCUNHO` da mesma tarefa) **ou** `iniciarRatDaTarefa` setar `status:'em_andamento'` na criação. Alinhar o comentário.
+### F5 — `ratDoDiaDe` não reusa rascunho não salvo ✅ RESOLVIDO (2026-07-20)
+- **Era:** `ratDoDiaDe` exigia `status === 'em_andamento' || 'registrado'`; `novoRat` nasce sem status e o rascunho do dia ficava invisível pro dedup — 2º toque no card criava RAT duplicada. **Materializou em produção na Tarefa 4852** (2 RATs no dia 14/07, horas sobrepostas; dados consolidados nas migrações 0120/0121).
+- **Fix:** commit `c3272e7` (SW v666) — status ausente conta como `em_andamento` (`r.status || 'em_andamento'`); comentário alinhado. Improdutiva/concluída seguem fora do reuso. Verificado com teste do predicado real (8 cenários).
 
 ### F12 — Alerta de integridade "Concluída sem RAT registrada" (portal admin) 🟠
 - **Motivo:** hoje a trava de "exige RAT registrada pra concluir" só roda no **momento** de concluir (e o app esconde o botão). Não há **alerta retroativo**: se uma tarefa ficar concluída/concluida_pendencia com **0 RAT registrada** (burla de API — ver F2 —, "admin força", ou churn de dados), nada aponta. É o irmão retroativo do F2.
@@ -54,6 +53,7 @@ Coberto pela `validar_rat()` do F2. Mantido aqui só como lembrete de que tempo 
 - **F10 ⚪ — `js/sync.js:48`** foto é marcada `enviada` antes do upsert da RAT → fica órfã no Storage até o retry (converge sozinho). Mover o `relatorio_fotos.upsert` pra logo após cada foto, ou aceitar.
 - **F11 ⚪ — `js/tecnico.js:590`** `nt-data` (nova tarefa em campo) usa default `new Date().toISOString().slice(0,10)` (UTC). Trocar por `jorHoje()`.
 - **Fora de escopo — `js/tecnico.js:3236`** `data: toISOString()` em **pré-orçamento** (orçamento migrou pro comercial-app; código legado no SR).
+- **F16 ⚪ — `rat_seq` reutiliza o número de RAT excluída** (registrado 2026-07-20, caso 4852). `tg_rat_seq` atribui `max(rat_seq)+1` por tarefa (migration 0045): excluir a **última** RAT da tarefa libera o número — a próxima nasce com o mesmo `/NN` da excluída. Caso concreto: a 4852/02 foi excluída na consolidação (migração 0120); a próxima RAT da 4852 nascerá **"/02" de novo**, e trilhas antigas (auditoria/rat_edicoes/backup_0120) que citam "4852/02" passam a ser ambíguas se lidas só pelo número. Mitigação já praticada: as trilhas da 0120/0121 citam sempre `id`/`client_uuid` junto do número. Correção estrutural (se um dia doer): contador persistente por tarefa em vez de `max+1`, pra número de RAT nunca ser reutilizado. **Não bloqueante.**
 
 ## Verificado e SÃO (não mexer)
 - Invariante "RAT não conclui Tarefa": intacto (`js/sync.js:103` MAP só `→ em_execucao`; nenhum trigger/edge escreve `concluida` por RAT).
