@@ -17,8 +17,9 @@ Deno.serve(async (req: Request) => {
     const admin = createClient(Deno.env.get('SUPABASE_URL')!, Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!)
 
     // ── auth: segredo compartilhado do cron ──
-    const { data: cs } = await admin.from('app_secrets').select('valor').eq('chave', 'cron_secret').maybeSingle()
-    const esperado = cs?.valor
+    // P1a: env-first (Function Secret CRON_SECRET) com fallback TEMPORÁRIO à tabela (removido no 3º PR)
+    const esperado = Deno.env.get('CRON_SECRET')
+      || (await admin.from('app_secrets').select('valor').eq('chave', 'cron_secret').maybeSingle()).data?.valor
     if (!esperado || req.headers.get('x-cron-secret') !== esperado) return json({ error: 'unauthorized' }, 401)
 
     // ── 1) tarefas paradas há >= LIMITE_DIAS (da view) ──
@@ -47,9 +48,13 @@ Deno.serve(async (req: Request) => {
     for (const c of (clis || [])) nomeCli[c.id] = c.nome
 
     // ── VAPID ──
-    const { data: secrets } = await admin.from('app_secrets').select('chave,valor').in('chave', ['vapid_public', 'vapid_private'])
-    const pub = secrets?.find((s: any) => s.chave === 'vapid_public')?.valor
-    const prv = secrets?.find((s: any) => s.chave === 'vapid_private')?.valor
+    // P1a: env-first (Function Secrets) com fallback TEMPORÁRIO à tabela app_secrets (removido no 3º PR)
+    let pub = Deno.env.get('VAPID_PUBLIC'), prv = Deno.env.get('VAPID_PRIVATE')
+    if (!pub || !prv) {
+      const { data: secrets } = await admin.from('app_secrets').select('chave,valor').in('chave', ['vapid_public', 'vapid_private'])
+      pub = pub || secrets?.find((s: any) => s.chave === 'vapid_public')?.valor
+      prv = prv || secrets?.find((s: any) => s.chave === 'vapid_private')?.valor
+    }
     if (!pub || !prv) return json({ error: 'vapid ausente' }, 500)
     webpush.setVapidDetails('mailto:contato@tsrv.com.br', pub, prv)
 
