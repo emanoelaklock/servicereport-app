@@ -921,7 +921,9 @@
   const isHoje = (d) => { if (!d) return false; const x = new Date(String(d).length <= 10 ? d + 'T00:00:00' : d); if (isNaN(x)) return false; const h = new Date(); return x.getFullYear() === h.getFullYear() && x.getMonth() === h.getMonth() && x.getDate() === h.getDate() }
   // RAT do dia (uma por tarefa/dia): reusa a de hoje — inclusive RASCUNHO ainda não enviado —
   // pra "Iniciar RAT" reabrir em vez de criar outra. Não reusa improdutiva (visita fechada à parte).
-  const ratDoDiaDe = (rs, tid) => rs.find(r => r.tarefa_id === tid && (r.status === 'em_andamento' || r.status === 'registrado') && isHoje((r.respostas && r.respostas.data) || r.criado_em))
+  // Status ausente = rascunho antes do 1º "Salvar e continuar" (novoRat não define status):
+  // conta como em_andamento, senão um 2º toque no card cria RAT duplicada no dia (caso Tarefa 4852).
+  const ratDoDiaDe = (rs, tid) => rs.find(r => { const st = r.status || 'em_andamento'; return r.tarefa_id === tid && (st === 'em_andamento' || st === 'registrado') && isHoje((r.respostas && r.respostas.data) || r.criado_em) })
   function estadoAgenda(t, temRatHoje) {
     if (t.status === 'em_execucao') return { sk: 'info', txt: temRatHoje ? 'Atendimento continua' : 'Em execução' }
     if (t.status === 'em_pausa') return { sk: 'pausa', txt: temRatHoje ? 'Atendimento continua' : 'Em pausa — retomar' }
