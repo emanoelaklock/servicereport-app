@@ -9,7 +9,37 @@
     const sb = getSupabase()
     const { data: cRows } = await sb.from('clientes').select('id,nome')
     const cli = {}; (cRows || []).forEach(c => { cli[c.id] = c.nome })
-    await Promise.all([carregarDevolvidas(sb, cli), carregarAcompanhamento(sb, cli), carregarPendExec(sb, cli)])
+    await Promise.all([carregarDevolvidas(sb, cli), carregarAcompanhamento(sb, cli), carregarPendExec(sb, cli), carregarSobreposicoes(sb)])
+  }
+
+  // Sobreposição de horários entre RATs (vw_alerta_sobreposicao — rede de segurança da
+  // "passagem de bastão", Fase 1). Só leitura: não trava nem altera horários; a sobreposição
+  // pode ser legítima (saiu e voltou). O Painel mostra a janela recente (14 dias, mesma régua
+  // da lista do técnico); o histórico completo fica na Jornada.
+  async function carregarSobreposicoes(sb) {
+    const d = new Date(diaSP() + 'T00:00:00Z'); d.setUTCDate(d.getUTCDate() - 14)
+    const corte = d.toISOString().slice(0, 10)
+    const { data, error } = await sb.from('vw_alerta_sobreposicao')
+      .select('*').gte('dia', corte)
+      .order('dia', { ascending: false })
+    renderSobreposicoes(error ? [] : (data || []))
+  }
+  function renderSobreposicoes(rows) {
+    const box = document.getElementById('sobrep-alerta'); if (!box) return
+    if (!rows.length) { box.innerHTML = ''; return }
+    const dmy = (s) => s ? String(s).slice(0, 10).split('-').reverse().join('/') : '—'
+    const hm = (t) => String(t || '—').slice(0, 5)
+    const ratNo = (x) => `${x.numero || '—'}${x.rat_seq != null ? '/' + String(x.rat_seq).padStart(2, '0') : ''}`
+    const ICON = '<svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>'
+    box.innerHTML = `<div class="acomp-alert">
+      <div class="acomp-alert-h">${ICON} Horários sobrepostos entre RATs (14 dias) · ${rows.length}</div>
+      <div class="devol-alert-grid">${rows.map(r => `
+        <a class="acomp-alert-card" href="jornada.html?d=${esc(r.dia)}" title="Abrir a Jornada do dia">
+          <div class="dac-no">${esc(r.tecnico_nome || '—')} · ${dmy(r.dia)}</div>
+          <div class="dac-cli">RAT ${esc(ratNo(r.rat_a || {}))} × RAT ${esc(ratNo(r.rat_b || {}))}</div>
+          <div class="dac-age">Cruzam ${hm(r.conflito_inicio)}–${hm(r.conflito_fim)} · conferir na Jornada</div>
+        </a>`).join('')}</div>
+    </div>`
   }
 
   // Acompanhamento: tarefas EM EXECUÇÃO / EM PAUSA paradas há +5 dias (serviço começou e travou).

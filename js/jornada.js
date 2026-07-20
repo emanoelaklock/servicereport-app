@@ -40,11 +40,14 @@ const JornadaApp = (() => {
     // Dropdown de filtro: técnicos de campo ativos.
     const tecsCampo = todosUsuarios.filter(u => u.role === 'tecnico_campo' && u.ativo)
     document.getElementById('j-tec').innerHTML = tecsCampo.map(t => `<option value="${esc(t.id)}">${esc(t.nome || '(sem nome)')}</option>`).join('')
-    document.getElementById('j-data').value = hoje()
+    // ?d=YYYY-MM-DD abre a Jornada direto num dia (link dos alertas do Painel)
+    const qd = new URLSearchParams(location.search).get('d')
+    document.getElementById('j-data').value = (qd && /^\d{4}-\d{2}-\d{2}$/.test(qd)) ? qd : hoje()
     document.getElementById('j-tec').onchange = carregar
     document.getElementById('j-data').onchange = () => { carregar(); carregarHorasDia() }
     carregarHorasDia()
     carregarSemVolta()   // conferência (leitura): dias com deslocamento de ida sem volta registrada
+    carregarSobreposicoes()   // conferência (leitura): horários do técnico que se cruzam entre RATs
     // Pernoites: select de técnico (com "todos") + período = mês corrente
     document.getElementById('p-tec').innerHTML = '<option value="">Todos os técnicos</option>' +
       (tec.data || []).map(t => `<option value="${esc(t.id)}">${esc(t.nome || '(sem nome)')}</option>`).join('')
@@ -83,6 +86,28 @@ const JornadaApp = (() => {
         <div class="d">${esc(r.clientes || '—')} — ida registrada, <b>sem volta</b> no dia (e sem pernoite). Verificar: ${links}</div>
       </div></div>`
     }).join('')
+  }
+
+  // ───────────── Conferência: sobreposição de horários entre RATs (leitura) ─────────────
+  // vw_alerta_sobreposicao: pares de RATs do MESMO técnico no MESMO dia (já encerrado) cujos
+  // horários se cruzam. Só mostra; não trava e não altera nada — a sobreposição pode ser
+  // legítima (técnico atendeu um chamado rápido e voltou ao serviço anterior).
+  const hm5 = (t) => String(t || '—').slice(0, 5)   // 'HH:MM[:SS]' → 'HH:MM' (hhmm lá em cima é p/ ISO)
+  async function carregarSobreposicoes() {
+    const box = document.getElementById('sp-box'); if (!box) return
+    const { data, error } = await sb().from('vw_alerta_sobreposicao').select('*').order('dia', { ascending: false })
+    if (error) { box.innerHTML = '<div class="j-empty">Não foi possível carregar a conferência.</div>'; return }
+    const rows = data || []
+    if (!rows.length) { box.innerHTML = '<div class="j-empty">Nenhuma sobreposição de horários entre RATs a verificar.</div>'; return }
+    const linkRat = (x) => {
+      const num = x.numero ? ' ' + x.numero : ''
+      const seq = x.rat_seq != null ? '/' + String(x.rat_seq).padStart(2, '0') : ''
+      return `<a href="rat.html?id=${encodeURIComponent(x.rat_id)}" target="_blank" rel="noopener">RAT${esc(num)}${seq}${x.cliente ? ' · ' + esc(x.cliente) : ''} ↗</a> (${hm5(x.inicio)}–${hm5(x.fim)})`
+    }
+    box.innerHTML = rows.map(r => `<div class="hd-alert"><div>
+        <div class="t">${esc(r.tecnico_nome || '—')} · ${dmyDia(r.dia)} — horários se cruzam <b>${hm5(r.conflito_inicio)}–${hm5(r.conflito_fim)}</b></div>
+        <div class="d">${linkRat(r.rat_a || {})} × ${linkRat(r.rat_b || {})} — conferir se o período em dobro é real (pode ser legítimo: saiu e voltou).</div>
+      </div></div>`).join('')
   }
 
   // ───────────────────── Horas do dia por técnico (§8: tempo é da pessoa) ─────────────────────
