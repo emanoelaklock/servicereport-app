@@ -94,6 +94,7 @@
       if (ups.error) throw ups.error
     }
     const tarefaId = ups.data.id
+    if (rat.envio_bloqueado_rls) await D().salvarRat(client_uuid, { envio_bloqueado_rls: null })   // dono logou e o envio passou
 
     // 4) relatorio_fotos (idempotente: id = id local da foto)
     const rows = (await D().listarFotos(rat.client_uuid)).filter(f => f.url)
@@ -348,7 +349,13 @@
         catch (e) { console.warn('[sync] falha tarefa local', t.id, e); fail++ }
       }
       const todas = await D().listarRats()
-      const pend = todas.filter(r => PEND.includes(r.sync_status))
+      // RAT bloqueada por RLS (de OUTRA conta — aparelho trocou de login): não re-tenta sob o
+      // login errado (spam de "erro de envio" que nunca resolve); volta sozinha à fila quando a
+      // conta dona logar. NÃO apaga nada (§12): a RAT segue no aparelho, rotulada na lista.
+      let meId = null
+      try { const { data: { user: me } } = await getSupabase().auth.getUser(); meId = me && me.id } catch (e) { /* offline/expirado: não filtra */ }
+      const pend = todas.filter(r => PEND.includes(r.sync_status)
+        && !(r.envio_bloqueado_rls && meId && r.tecnico_id && r.tecnico_id !== meId))
       for (const r of pend) {
         try {
           await D().definirStatus(r.client_uuid, D().STATUS.NA_FILA, 'enfileirado')
@@ -356,8 +363,13 @@
           ok++
         } catch (e) {
           console.warn('[sync] falha rat', r.client_uuid, e)
-          await D().definirStatus(r.client_uuid, D().STATUS.ERRO, (e && e.message) || 'erro de envio')
-          fail++
+          // 42501 = RLS negou: sob o dono certo isso não acontece — é RAT de outra conta.
+          const rls = e && (e.code === '42501' || /row-level security/i.test(e.message || ''))
+          if (rls && !r.envio_bloqueado_rls) await D().salvarRat(r.client_uuid, { envio_bloqueado_rls: true })
+          await D().definirStatus(r.client_uuid, D().STATUS.ERRO, rls
+            ? 'sem permissão — RAT de outra conta; entre com a conta que a criou para enviar'
+            : ((e && e.message) || 'erro de envio'))
+          if (!rls) fail++   // bloqueada não conta no toast (o rótulo na lista já explica)
         }
       }
       const preorcs = (await D().listarPreorc()).filter(p => PEND.includes(p.sync_status))
