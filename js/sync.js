@@ -13,6 +13,7 @@
   const D = () => window.DBLocal
   const BUCKET = 'rat-anexos'
   let syncing = false
+  let refazer = false   // syncAll pedido (ou save detectado pela guarda do ACK) durante rodada em voo → nova rodada ao terminar
 
   // Colunas REAIS de public.tarefas (whitelist).
   // Exclui: relatorio_completo (gerada), recebido_em (servidor), criado_em/
@@ -38,12 +39,14 @@
   const extDoMime = (m) => (m && m.includes('png')) ? 'png' : (m && m.includes('webp')) ? 'webp' : 'jpg'
 
   // Envia UMA RAT. Lança em caso de falha (o chamador marca 'erro').
-  async function enviarRat(rat) {
+  // Recebe o client_uuid, não o objeto: o retrato é tirado DEPOIS de marcar 'enviando' —
+  // um save entre o retrato e a marca subiria dado velho e ainda seria confirmado (caso 04895).
+  async function enviarRat(client_uuid) {
     const sb = getSupabase()
-    const uid = rat.tecnico_id
+    await D().definirStatus(client_uuid, D().STATUS.ENVIANDO, 'iniciando envio')
+    const rat = await D().obterRat(client_uuid)
+    const uid = rat && rat.tecnico_id
     if (!uid) throw new Error('RAT sem tecnico_id')
-
-    await D().definirStatus(rat.client_uuid, D().STATUS.ENVIANDO, 'iniciando envio')
 
     // 1) Fotos pendentes → Storage (path sob a pasta do técnico p/ casar com a RLS)
     for (const f of await D().listarFotos(rat.client_uuid)) {
@@ -150,10 +153,19 @@
       }
     }
 
-    // 5) ACK do servidor: recebido_em carimbado → confirmado
-    if (ups.data.recebido_em) {
+    // 5) ACK do servidor: recebido_em carimbado → confirmado.
+    //    Guarda contra corrida (caso 04895): se o técnico salvou DURANTE o envio (ex.: encerrou
+    //    a RAT enquanto as fotos subiam), o sync_status local já não é 'enviando' e o retrato que
+    //    subiu está velho — NÃO confirma; volta pra fila e a rodada extra (refazer) reenvia.
+    const local = await D().obterRat(rat.client_uuid)
+    if (!local || local.sync_status !== D().STATUS.ENVIANDO) {
+      await D().definirStatus(rat.client_uuid, D().STATUS.NA_FILA, 'alterada durante o envio — reenviar')
+      refazer = true
+    } else if (ups.data.recebido_em) {
       await D().salvarRat(rat.client_uuid, { recebido_em: ups.data.recebido_em, assinatura_url })
-      await D().definirStatus(rat.client_uuid, D().STATUS.CONFIRMADO, 'recebido pelo servidor')
+      // CAS (apenasSe): fecha a janela restante — se um save escorregar entre a leitura da guarda
+      // e esta gravação, o confirmado NÃO aplica (a RAT fica pendente e sobe na próxima rodada).
+      await D().definirStatus(rat.client_uuid, D().STATUS.CONFIRMADO, 'recebido pelo servidor', D().STATUS.ENVIANDO)
     }
 
     // 6) sync_eventos pendentes → servidor (idempotente: id = id local do evento)
@@ -180,12 +192,13 @@
   ]
 
   // Envia UM pré-orçamento. Lança em caso de falha (o chamador marca 'erro').
-  async function enviarPreorc(po) {
+  // Mesma ordem da RAT: 'enviando' primeiro, retrato depois (guarda de corrida do ACK).
+  async function enviarPreorc(client_uuid) {
     const sb = getSupabase()
-    const uid = po.tecnico_id
+    await D().definirStatusPreorc(client_uuid, D().STATUS.ENVIANDO)
+    const po = await D().obterPreorc(client_uuid)
+    const uid = po && po.tecnico_id
     if (!uid) throw new Error('Pré-orçamento sem tecnico_id')
-
-    await D().definirStatusPreorc(po.client_uuid, D().STATUS.ENVIANDO)
 
     // 1) Fotos pendentes → Storage (pasta do técnico p/ casar com a RLS do bucket)
     for (const f of await D().listarFotos(po.client_uuid)) {
@@ -226,10 +239,15 @@
       if (ir.error) throw ir.error
     }
 
-    // 5) ACK do servidor: recebido_em carimbado → confirmado
-    if (ups.data.recebido_em) {
+    // 5) ACK do servidor: recebido_em carimbado → confirmado (mesma guarda de corrida da RAT:
+    //    save durante o envio → não confirma o retrato velho; volta pra fila e reenvia)
+    const localPo = await D().obterPreorc(po.client_uuid)
+    if (!localPo || localPo.sync_status !== D().STATUS.ENVIANDO) {
+      await D().definirStatusPreorc(po.client_uuid, D().STATUS.NA_FILA)
+      refazer = true
+    } else if (ups.data.recebido_em) {
       await D().salvarPreorc(po.client_uuid, { recebido_em: ups.data.recebido_em, numero: ups.data.numero })
-      await D().definirStatusPreorc(po.client_uuid, D().STATUS.CONFIRMADO)
+      await D().definirStatusPreorc(po.client_uuid, D().STATUS.CONFIRMADO, D().STATUS.ENVIANDO)   // CAS: não confirma por cima de save que escorregou
     }
 
     // 6) Pré-orçamento CONCLUÍDO → PDF (servidor) + e-mail ao comercial.
@@ -313,7 +331,10 @@
   }
 
   async function syncAll() {
-    if (syncing || !navigator.onLine) return { ok: 0, fail: 0, skipped: true }
+    if (!navigator.onLine) return { ok: 0, fail: 0, skipped: true }
+    // Rodada em voo: NÃO descarta o pedido (o encerramento da RAT chama syncAll na hora —
+    // caso 04895); marca pra rodar de novo assim que a rodada atual terminar.
+    if (syncing) { refazer = true; return { ok: 0, fail: 0, skipped: true } }
     syncing = true
     if (typeof window.onSyncStart === 'function') window.onSyncStart()
     let ok = 0, fail = 0
@@ -331,7 +352,7 @@
       for (const r of pend) {
         try {
           await D().definirStatus(r.client_uuid, D().STATUS.NA_FILA, 'enfileirado')
-          await enviarRat(await D().obterRat(r.client_uuid))
+          await enviarRat(r.client_uuid)
           ok++
         } catch (e) {
           console.warn('[sync] falha rat', r.client_uuid, e)
@@ -343,7 +364,7 @@
       for (const p of preorcs) {
         try {
           await D().definirStatusPreorc(p.client_uuid, D().STATUS.NA_FILA)
-          await enviarPreorc(await D().obterPreorc(p.client_uuid))
+          await enviarPreorc(p.client_uuid)
           ok++
         } catch (e) {
           console.warn('[sync] falha pré-orçamento', p.client_uuid, e)
@@ -364,6 +385,7 @@
     } finally { syncing = false; window.srCriticalEnd?.() }
     await pullChanges()   // depois de empurrar o local, puxa o que mudou no servidor
     if (typeof window.onSyncDone === 'function') window.onSyncDone({ ok, fail })
+    if (refazer) { refazer = false; setTimeout(syncAll, 0) }   // rodada pedida no meio, ou reenvio da guarda do ACK
     return { ok, fail }
   }
 
