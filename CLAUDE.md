@@ -46,6 +46,14 @@ Regras do projeto que você (Claude Code) deve seguir em **toda** sessão. Leia 
 - **Ajustes pequenos (CSS/UI, correção pontual) podem ir direto na `main` e com push, sem pedir confirmação a cada vez.** Bump do `CACHE` no `service-worker.js` quando mexer em CSS/JS servido. O push fica liberado para esses casos; pacote pesado continua em branch + PR.
 - Mudou comportamento? **Atualize o spec** correspondente.
 
+## Motor de PDF compartilhado (tsrv-pdf-engine)
+- `js/shared-pdf/` é **cópia sincronizada** do repo privado `tsrv-pdf-engine` (tag no
+  `ENGINE_MANIFEST.json`). **Nunca editar à mão** — mudança de motor nasce lá, chega por
+  `scripts/sync-pdf-engine.ps1 -Tag vX.Y.Z` (verificação: `scripts/check-pdf-engine.ps1`).
+- Bump de tag exige: sync + check + bump do `CACHE` do SW + **gate golden verde**
+  (byte a byte; `test/golden.html` no repo do motor). Ver `docs/pdf-engine-f1.md`.
+- `js/pdf-tarefa.js` é só o **template** da RAT/Tarefa (API `PdfTarefa.gerar(m)` estável).
+
 ## NÃO FAZER (decisões já tomadas — não reintroduzir)
 - Não rastreamento contínuo de GPS, **sem km/odômetro** (GPS só pontual nos eventos).
 - Não despesas de viagem, não trechos multimodais, não assinatura do cliente, não app/portal do cliente, não chat interno.

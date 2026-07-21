@@ -1,0 +1,10 @@
+{
+  "version": "v1.0.0",
+  "source": "C:\\Users\\Administrador\\Documents\\tsrv-pdf-engine",
+  "syncedAt": "2026-07-21 08:02:06",
+  "files": {
+    "js/shared-pdf/pdf-engine.js": "8e4082629f1f932948e0a8915a292952a346dfd21ed4725b09f7d12ba01dc160",
+    "js/vendor/pdfmake.min.js": "b51f553610b8b69f889c9b2f4e860c6b1691ae61bc8e55b3070a06e9dd895969",
+    "js/vendor/vfs_fonts.js": "fe4856f1904c96bf4db7111edaee4d4749176d824095fa08aa5b7b7519e169c2"
+  }
+}
