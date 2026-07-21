@@ -10,7 +10,10 @@ $falhas = 0
 foreach ($rel in $man.files.PSObject.Properties.Name) {
   $p = Join-Path $app ($rel -replace '/', '\')
   if (-not (Test-Path $p)) { Write-Host "FALTA   $rel"; $falhas++; continue }
-  $h = (Get-FileHash -Algorithm SHA256 -Path $p).Hash.ToLower()
+  # hash com CRLF→LF (mesma regra do sync): estável entre checkout Windows e deploy
+  $s = [System.IO.File]::ReadAllText($p) -replace "`r`n", "`n"
+  $sha = [System.Security.Cryptography.SHA256]::Create()
+  $h = [BitConverter]::ToString($sha.ComputeHash([System.Text.Encoding]::UTF8.GetBytes($s))).Replace('-', '').ToLower()
   if ($h -ne $man.files.$rel) { Write-Host "DIVERGE $rel"; $falhas++ } else { Write-Host "ok      $rel" }
 }
 if ($falhas) { Write-Error "check-pdf-engine: $falhas arquivo(s) divergente(s) da tag $($man.version). Rode scripts/sync-pdf-engine.ps1 — não edite a cópia à mão."; exit 1 }

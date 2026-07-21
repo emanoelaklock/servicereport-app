@@ -27,7 +27,12 @@ try {
 
   # 3) o vendor (pdfmake/vfs) fica em js/vendor/ — precisa ser IDÊNTICO ao do motor.
   #    Divergência é erro (não sobrescrevemos em silêncio: o vendor está no SW/offline).
-  $hash = { param($p) (Get-FileHash -Algorithm SHA256 -Path $p).Hash.ToLower() }
+  #    Hash com CRLF→LF: estável entre checkout Windows (autocrlf) e o deploy (LF do git).
+  $hash = { param($p)
+    $s = [System.IO.File]::ReadAllText($p) -replace "`r`n", "`n"
+    $sha = [System.Security.Cryptography.SHA256]::Create()
+    [BitConverter]::ToString($sha.ComputeHash([System.Text.Encoding]::UTF8.GetBytes($s))).Replace('-', '').ToLower()
+  }
   foreach ($v in 'pdfmake.min.js', 'vfs_fonts.js') {
     $doMotor = & $hash (Join-Path $tmp "vendor\$v")
     $doApp   = & $hash (Join-Path $app "js\vendor\$v")
