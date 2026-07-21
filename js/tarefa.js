@@ -1069,6 +1069,13 @@ const TarefaApp = (() => {
 
   async function salvarDados() {
     if (!cur) return
+    // Tipo é obrigatório: sem ele a RAT não tem formulário e o técnico trava em campo.
+    // Tarefa nascida de orçamento (trilha 0115) chega sem tipo — o Portal é quem completa.
+    if (!document.getElementById('cc-d-tipo').value) {
+      const sel = document.getElementById('cc-d-tipo')
+      sel.focus()
+      return toast('Selecione o tipo de tarefa — sem ele o técnico não consegue preencher a RAT.', 'err')
+    }
     const patch = {
       tipo_servico_id: document.getElementById('cc-d-tipo').value || null,
       status: document.getElementById('cc-d-status-sel').value,

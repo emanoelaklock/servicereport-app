@@ -188,7 +188,7 @@ O PDF cru anterior (só tabelas) **não** é o alvo.
 | Status | O que acontece |
 |--------|----------------|
 | **Aguardando aprovação** | Estado inicial (ao salvar). Continua **editável/revisável**; pode gerar PDF e enviar ao cliente. |
-| **Aprovado** | Gera a **OS/Tarefa** e **congela o orçado** (material e quantidades viram base imutável). Implementado via edge function `aprovar-orcamento`; **só gera Tarefa se o orçamento tiver serviço** (orçamento só-materiais não vira OS). **Reabrir** um aprovado desfaz: a edge function `reabrir-orcamento` remove a Tarefa gerada. |
+| **Aprovado** | Gera a **OS/Tarefa** e **congela o orçado** (material e quantidades viram base imutável). Implementado via edge function `aprovar-orcamento`; **só gera Tarefa se o orçamento tiver serviço** (orçamento só-materiais não vira OS). A Tarefa gerada **nasce sem tipo de serviço** (o orçamento não carrega essa informação) — o Portal **exige o tipo ao salvar a Tarefa** (07/26, caso 04840). **Reabrir** um aprovado desfaz: a edge function `reabrir-orcamento` remove a Tarefa gerada. |
 | **Não aprovado** | Sistema **avisa**; uma pessoa decide **excluir (arquivar) ou manter**. |
 | **Arquivado** | Soft delete — some das listas ativas, mantém histórico. |
 | **Sem retorno há 90 dias** | (orçamento ainda "Aguardando aprovação") Sistema **avisa** (nada automático); pessoa decide excluir (arquivar) ou manter. |
@@ -318,6 +318,7 @@ Referência visual: `docs/mockups/mockup-admin-tarefa-completa.html`. É o **hub
   - já faturado → sem ação.
 - **Linha do tempo da tarefa** — trilha de eventos (criada → responsáveis → RAT → produtos → pendência → concluída). É a leitura da **trilha de auditoria (`sync_eventos`, §12)**, não um dado novo.
 - "Dados da tarefa" no radar usa **"Preenchido"** (não "Concluído" — dados não concluem).
+- **Tipo de tarefa é obrigatório ao salvar (07/26):** o formulário da RAT deriva do tipo de serviço — tarefa sem tipo abre no app do técnico **sem campos** ("peça ao administrativo") e trava o atendimento (caso 04840). O modal Dados **bloqueia salvar/criar sem tipo**; tarefa nascida de orçamento aprovado chega sem tipo e é o Portal quem completa. Os fluxos de pendência e o app do técnico já exigiam o tipo.
 - Em tela menor, as duas colunas, a faixa de situação e a timeline **empilham**.
 - **Abrir em nova aba (06/26):** nas listas e calendários do portal (Tarefas, RATs, Deslocamentos) dá pra abrir um item em **nova aba** — ícone dedicado e **Ctrl/Cmd-clique** no chip/linha (os chips viraram links nativos). O **título do top bar** no detalhe mostra **`Tarefa Nº NNNNN`** (não só "Tarefa").
 - **Ordenação por cabeçalho (06/26):** clicar no cabeçalho de qualquer coluna ordena a tabela (em todas as listas do portal).

@@ -79,6 +79,7 @@
 /* Padroniza rótulos/cabeçalhos do admin em sentence case (theme.css usa uppercase global). */
 .tec-admin th{text-transform:none;letter-spacing:normal;}
 .tec-admin .fg label{text-transform:none;letter-spacing:normal;}
+.req{color:var(--red);}
 
 /* ---------- MAIN ---------- */
 .main{flex:1;min-width:0;display:flex;flex-direction:column;}
