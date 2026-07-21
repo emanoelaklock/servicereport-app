@@ -34,7 +34,7 @@
     rascunho:    ['rascunho', 'salvo_local'],
     salvo_local: ['salvo_local', 'na_fila', 'rascunho'],
     na_fila:     ['enviando', 'erro', 'na_fila'],
-    enviando:    ['confirmado', 'erro'],
+    enviando:    ['confirmado', 'erro', 'salvo_local'],   // salvo_local = técnico salvou DURANTE o envio; a guarda do ACK (sync.js) não confirma o retrato velho e reenvia
     erro:        ['na_fila'],          // retry
     confirmado:  ['salvo_local'],      // reabrir RAT confirmada p/ correção (devolução)
   }
@@ -277,11 +277,14 @@
   }
 
   // Muda o sync_status validando a transição e registrando o evento.
-  async function definirStatus(client_uuid, novo, detalhe) {
+  // `apenasSe`: compare-and-set atômico (dentro da tx) — só aplica se o status atual for esse.
+  // Usado pelo ACK do sync pra não confirmar por cima de um save que chegou durante o envio.
+  async function definirStatus(client_uuid, novo, detalhe, apenasSe) {
     return tx([ST_RATS, ST_EVENTOS], 'readwrite', (t) => {
       const s = t.objectStore(ST_RATS)
       reqP(s.get(client_uuid)).then((cur) => {
         if (!cur) return
+        if (apenasSe && cur.sync_status !== apenasSe) return
         const atual = cur.sync_status
         const ok = (TRANSICOES[atual] || []).includes(novo)
         if (!ok && atual !== novo) {
@@ -460,11 +463,12 @@
     return arr.sort((a, b) => (b.criado_em || '').localeCompare(a.criado_em || ''))
   }
 
-  async function definirStatusPreorc(client_uuid, novo) {
+  async function definirStatusPreorc(client_uuid, novo, apenasSe) {
     return tx([ST_PREORC], 'readwrite', (t) => {
       const s = t.objectStore(ST_PREORC)
       reqP(s.get(client_uuid)).then((cur) => {
         if (!cur) return
+        if (apenasSe && cur.sync_status !== apenasSe) return
         const patch = { ...cur, sync_status: novo, atualizado_em: agora() }
         if (novo === STATUS.CONFIRMADO && !patch.recebido_em) patch.recebido_em = agora()
         s.put(patch)
