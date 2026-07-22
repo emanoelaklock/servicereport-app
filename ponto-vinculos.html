@@ -1,0 +1,81 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Ponto · Vínculos — Service Report</title>
+<link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="css/theme.css">
+<link rel="stylesheet" href="css/design-system-admin.css">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="js/utils.js"></script>
+<script src="js/supabase-client.js"></script>
+<script src="js/auth.js"></script>
+<script src="js/sidebar.js"></script>
+<script src="js/ponto-vinculos.js"></script>
+<style>
+  /* Página C2 — vínculos Tangerino ↔ SR (tokens da casa; sem estilo solto de cor) */
+  .pv-note{display:flex;gap:12px;align-items:flex-start;background:var(--sr-info-bg);color:var(--sr-info-fg);border:1px solid var(--sr-info-m);border-left:4px solid var(--sr-info-m);border-radius:12px;padding:12px 16px;margin-bottom:14px;font-size:12.5px;line-height:1.5}
+  .pv-note svg{width:18px;height:18px;fill:none;stroke:currentColor;stroke-width:2;flex:none;margin-top:1px}
+  .pv-chips{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:14px}
+  .pv-chip{border:1px solid var(--bd);background:var(--sr-card);border-radius:999px;padding:6px 14px;font-size:12.5px;font-weight:700;color:var(--tx2);cursor:pointer}
+  .pv-chip.on{background:var(--sr-title);color:#fff;border-color:var(--sr-title)}
+  .pv-chip b{margin-left:5px}
+  table.pv{width:100%;border-collapse:collapse;background:var(--sr-card);border:1px solid var(--bd);border-radius:12px;overflow:hidden}
+  .pv th{font-size:11px;text-align:left;color:var(--tx3);padding:10px 12px;border-bottom:1px solid var(--bd);background:var(--sur2)}
+  .pv td{font-size:13px;padding:10px 12px;border-bottom:1px solid var(--bd);vertical-align:middle}
+  .pv tr:last-child td{border-bottom:none}
+  .pv .badge{font-size:11px;border-radius:999px;padding:3px 10px;font-weight:700;white-space:nowrap}
+  .b-conf{background:var(--sr-exec-bg);color:var(--sr-exec-fg)}
+  .b-pend{background:var(--sr-warn-bg);color:var(--sr-warn-fg)}
+  .b-sem{background:var(--sur2);color:var(--tx3)}
+  .b-inat{background:var(--sr-pend-bg);color:var(--sr-pend-fg)}
+  .b-ativo{background:var(--sur2);color:var(--tx3)}
+  .b-fe{background:var(--sr-jrny-bg);color:var(--sr-jrny-fg)}
+  .pv select{padding:7px 9px;border:1px solid var(--bd);border-radius:9px;font:inherit;font-size:12.5px;max-width:220px;background:var(--sr-card);color:var(--tx)}
+  .pv .act{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+  .pv button{border:none;border-radius:9px;padding:7px 12px;font-size:12.5px;font-weight:700;cursor:pointer}
+  .pv .b-vinc{background:var(--sr-exec-fg);color:#fff}
+  .pv .b-desv{background:transparent;color:var(--sr-pend-fg);border:1px solid var(--sr-pend-m)}
+  .pv .origem{font-size:11px;color:var(--tx3)}
+  .pv-hist{margin-top:18px}
+  .pv-hist h3{font-size:13px;color:var(--sr-title);margin:0 0 8px}
+  .pv-hist .ev{font-size:12.5px;color:var(--tx2);padding:7px 0;border-bottom:1px dashed var(--bd)}
+  #pv-aviso{font-size:12.5px;color:var(--tx3);margin-bottom:10px}
+  #pv-aviso.erro{color:var(--sr-pend-fg);font-weight:700}
+  .pv-ro{font-size:11px;background:var(--sur2);color:var(--tx3);border-radius:999px;padding:4px 11px;font-weight:700;margin-left:8px}
+</style>
+</head>
+<body class="tec-admin">
+<div id="sidebar-container"></div>
+<div class="main">
+  <div class="topbar">
+    <button class="hamb" onclick="toggleMobileSidebar()" aria-label="Menu"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 6h18M3 12h18M3 18h18"/></svg></button>
+    <h1>Ponto · Vínculos <span style="font-size:11px;background:var(--sr-info-bg);color:var(--sr-info-fg);border-radius:999px;padding:4px 11px;font-weight:700;vertical-align:middle">Tangerino × SR</span><span class="pv-ro" id="pv-ro" style="display:none">somente consulta</span></h1>
+  </div>
+  <div class="content">
+    <div class="pv-note">
+      <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 11v5M12 8h.01"/></svg>
+      <div>
+        <b>A sugestão é auxílio — a confirmação é sempre humana.</b> Vincular aqui apenas
+        registra a correspondência entre o colaborador do Tangerino e o usuário do SR;
+        <b>nenhum dado de ponto é importado nesta tela</b>. Toda ação fica auditada
+        (quem, quando, origem da sugestão).
+      </div>
+    </div>
+    <div id="pv-aviso"></div>
+    <div class="pv-chips" id="pv-chips"></div>
+    <div style="overflow-x:auto"><table class="pv"><thead><tr>
+      <th>Colaborador Tangerino</th><th>Usuário SR vinculado</th><th>Decisão · Situação</th>
+      <th>Origem</th><th>Confirmado por / em</th><th id="pv-th-acao">Ações</th>
+    </tr></thead><tbody id="pv-tbody"></tbody></table></div>
+    <div class="pv-hist"><h3>Histórico de vínculos (últimos 30 eventos)</h3><div id="pv-hist"></div></div>
+  </div>
+</div>
+<script>
+  window.PAGE_ALLOWED = ['admin', 'gestor_axis']
+  async function onPostLogin() { renderSidebar('ponto'); await PontoVinculosApp.init() }
+  renderSidebar('ponto')
+</script>
+</body>
+</html>

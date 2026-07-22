@@ -5,7 +5,7 @@ import test from 'node:test'
 import assert from 'node:assert/strict'
 import {
   normalizarData, diaLocalDe, normalizarPunch, calcularCursorNovo, janelaMs, sanitizarErro, ianaDe,
-  validarRequisicao, decidirRetry, coletarPaginado, corsPara,
+  validarRequisicao, decidirRetry, coletarPaginado, corsPara, sugerirVinculo, soDigitos, classificarPunch,
 } from './logic.mjs'
 
 const MAPA = new Map([[101, 'uuid-tec-101'], [102, 'uuid-tec-102']])
@@ -293,6 +293,88 @@ test('correção com mesmo id: linha atualizada mantém a chave de dedup', () =>
   assert.equal(depois.editado_origem, true)
   assert.ok(calcularCursorNovo([corrigido], MS_MOD) > MS_MOD)         // correção avança o cursor
 })
+// ═══════ C2 — modo colaboradores + sugestão de vínculo (CPF só no servidor) ═══════
+const USUARIOS = [
+  { id: 'A1B2C3D4-0000-0000-0000-000000000001'.toLowerCase(), nome: 'Usuário Um', cpf: '123.456.789-01', ativo: true },
+  { id: 'a1b2c3d4-0000-0000-0000-000000000002', nome: 'Usuário Dois', cpf: '98765432100', ativo: true },
+]
+test('C2 auth: modo colaboradores exige admin/gestor; cron sozinho não roda; independe do flag de reconhecimento', () => {
+  assert.equal(validarRequisicao({ metodo: 'POST', cronOk: true, papel: null, modo: 'colaboradores', reconhecimentoAtivo: false }).status, 403)
+  assert.equal(validarRequisicao({ metodo: 'POST', cronOk: false, papel: null, modo: 'colaboradores', reconhecimentoAtivo: true }).status, 401)
+  assert.equal(validarRequisicao({ metodo: 'POST', cronOk: false, papel: 'tecnico_campo', modo: 'colaboradores', reconhecimentoAtivo: true }).ok, false)
+  assert.equal(validarRequisicao({ metodo: 'POST', cronOk: false, papel: 'admin', modo: 'colaboradores', reconhecimentoAtivo: false }).ok, true)
+  assert.equal(validarRequisicao({ metodo: 'POST', cronOk: false, papel: 'gestor_axis', modo: 'colaboradores', reconhecimentoAtivo: false }).ok, true)
+})
+test('C2 matching: externalId tem prioridade sobre CPF (case-insensitive)', () => {
+  const colab = { externalId: 'A1B2C3D4-0000-0000-0000-000000000002'.toLowerCase(), cpf: '12345678901' }
+  assert.deepEqual(sugerirVinculo(colab, USUARIOS), { tecnicoId: USUARIOS[1].id, origem: 'externalId' })
+})
+test('C2 matching: CPF normalizado casa com e sem máscara; curto/ausente → null', () => {
+  assert.deepEqual(sugerirVinculo({ externalId: null, cpf: '12345678901' }, USUARIOS), { tecnicoId: USUARIOS[0].id, origem: 'cpf' })
+  assert.deepEqual(sugerirVinculo({ externalId: '', cpf: '987.654.321-00' }, USUARIOS), { tecnicoId: USUARIOS[1].id, origem: 'cpf' })
+  assert.equal(sugerirVinculo({ cpf: '123' }, USUARIOS), null)
+  assert.equal(sugerirVinculo({ cpf: null }, USUARIOS), null)
+  assert.equal(sugerirVinculo({ externalId: 'nao-e-uuid-de-ninguem', cpf: '00000000000' }, USUARIOS), null)
+})
+test('C2 sanitização: a sugestão NUNCA carrega CPF (só tecnicoId + origem)', () => {
+  const s = sugerirVinculo({ externalId: null, cpf: '12345678901' }, USUARIOS)
+  assert.deepEqual(Object.keys(s).sort(), ['origem', 'tecnicoId'])
+  assert.ok(!JSON.stringify(s).includes('12345678901'), 'CPF vazou na sugestão')
+  assert.ok(!('cpf' in s), 'propriedade cpf presente na sugestão')
+})
+test('C2 soDigitos: normalização de CPF', () => {
+  assert.equal(soDigitos('123.456.789-01'), '12345678901')
+  assert.equal(soDigitos(null), '')
+})
+
+// ═══════ C2 — classificação da importação (nada some em silêncio) ═══════
+test('classificação: vinculado importa; fora_escopo é intencional; sem decisão é PENDENTE (bloqueia)', () => {
+  const mapa = new Map([[101, 'uuid-tec-101']])
+  const fe = new Set([555])
+  assert.equal(classificarPunch({ employeeId: 101 }, mapa, fe), 'importar')
+  assert.equal(classificarPunch({ employeeId: 555 }, mapa, fe), 'fora_escopo')
+  assert.equal(classificarPunch({ employeeId: 999 }, mapa, fe), 'pendente_sem_vinculo')
+  assert.equal(classificarPunch({ employee: { id: 101 } }, mapa, fe), 'importar')   // id aninhado
+  assert.equal(classificarPunch({ employeeId: '101' }, mapa, fe), 'importar')       // coerção numérica
+})
+test('classificação: vínculo tem precedência sobre fora_escopo (estado impossível no banco, defensivo aqui)', () => {
+  const mapa = new Map([[101, 'uuid-tec-101']])
+  const fe = new Set([101])
+  assert.equal(classificarPunch({ employeeId: 101 }, mapa, fe), 'importar')
+})
+
+// ═══════ Duas dimensões: decisão × situação Tangerino (ajuste final C2) ═══════
+// A classificação da importação é CEGA à situação (ativo/inativo) — inatividade nunca
+// autoriza ignorar marcações (protege a carga histórica de ex-funcionários).
+const MAPA2 = new Map([[201, 'uuid-tec-201']])
+const FE2 = new Set([202])
+const punchDe = (empId, fired) => ({ employeeId: empId, employee: { id: empId, timezone: 'SAO_PAULO', fired } })
+test('inativo VINCULADO continua elegível para importação', () => {
+  assert.equal(classificarPunch(punchDe(201, true), MAPA2, FE2), 'importar')
+})
+test('inativo FORA DO ESCOPO é ignorado e contabilizado como fora_escopo (nunca como "inativa")', () => {
+  assert.equal(classificarPunch(punchDe(202, true), MAPA2, FE2), 'fora_escopo')
+})
+test('inativo PENDENTE com marcações na janela bloqueia (pendente_sem_vinculo)', () => {
+  assert.equal(classificarPunch(punchDe(203, true), MAPA2, FE2), 'pendente_sem_vinculo')
+})
+test('inativo pendente SEM marcações na janela não gera contagem artificial', () => {
+  // a contagem deriva SÓ das marcações da janela — cadastro inativo sem punch = zero em tudo
+  const janela = [punchDe(201, true), punchDe(202, true)]   // nenhuma marcação do pendente 203
+  const contagem = { importar: 0, fora_escopo: 0, pendente_sem_vinculo: 0 }
+  for (const p of janela) contagem[classificarPunch(p, MAPA2, FE2)]++
+  assert.deepEqual(contagem, { importar: 1, fora_escopo: 1, pendente_sem_vinculo: 0 })
+})
+test('situação nunca muda a decisão: mesmo colaborador, ativo ou inativo, classifica igual', () => {
+  for (const empId of [201, 202, 203]) {
+    assert.equal(classificarPunch(punchDe(empId, false), MAPA2, FE2), classificarPunch(punchDe(empId, true), MAPA2, FE2))
+  }
+})
+test('ninguém vira fora_escopo automaticamente por inatividade (só o conjunto explícito decide)', () => {
+  // punch de inativo NÃO listado no conjunto fora_escopo jamais classifica como fora_escopo
+  assert.notEqual(classificarPunch(punchDe(999, true), MAPA2, FE2), 'fora_escopo')
+})
+
 test('dia local com fuso não-SP: mesmo instante numérico, dia local pode diferir', () => {
   const meiaNoiteSP = Date.UTC(2026, 6, 23, 2, 30)   // 23:30 do dia 22 em SP; 22:30 em Manaus
   assert.equal(diaLocalDe(meiaNoiteSP, 'America/Sao_Paulo'), '2026-07-22')

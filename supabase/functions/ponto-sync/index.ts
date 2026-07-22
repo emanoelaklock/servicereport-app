@@ -15,10 +15,11 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 import {
   normalizarPunch, calcularCursorNovo, janelaMs, sanitizarErro,
-  validarRequisicao, decidirRetry, coletarPaginado, corsPara,
+  validarRequisicao, decidirRetry, coletarPaginado, corsPara, sugerirVinculo, classificarPunch,
 } from './logic.mjs'
 
 const API_BASE = 'https://api.tangerino.com.br/api/punch'
+const EMPLOYER_BASE = 'https://employer.tangerino.com.br'   // C2: consulta read-only de colaboradores
 const PAGE_SIZE = 200
 const MAX_PAGINAS = 300              // guarda de runaway (300×200 = 60k marcações/rodada)
 const PAUSA_ENTRE_PAGINAS_MS = 250   // conservador até a Sólides confirmar rate limit
@@ -91,7 +92,7 @@ Deno.serve(async (req: Request) => {
     }
 
     const body = req.method === 'POST' ? await req.json().catch(() => ({})) : {}
-    const modo = body?.modo === 'reconhecimento' ? 'reconhecimento' : 'delta'
+    const modo = ['reconhecimento', 'colaboradores'].includes(body?.modo) ? body.modo : 'delta'
     const { data: cfg } = await admin.from('ponto_config').select('reconhecimento_ativo').eq('id', 1).maybeSingle()
 
     const auth = validarRequisicao({
@@ -110,6 +111,36 @@ Deno.serve(async (req: Request) => {
       .select('tecnico_id,tangerino_employee_id').eq('ativo', true)
     if (eMap) throw eMap
     const mapa = new Map<number, string>((vincs || []).map((v: any) => [Number(v.tangerino_employee_id), v.tecnico_id]))
+    // Fora do escopo: decisão intencional e auditada — marcações destes são IGNORADAS
+    // de forma explícita e CONTABILIZADA (nunca silenciosa); jamais bloqueiam a carga.
+    const { data: fes, error: eFe } = await admin.from('ponto_fora_escopo').select('tangerino_employee_id')
+    if (eFe) throw eFe
+    const foraEscopo = new Set<number>((fes || []).map((f: any) => Number(f.tangerino_employee_id)))
+
+    // ── modo colaboradores (C2): consulta READ-ONLY p/ a tela de vínculos ──
+    // Lista colaboradores do Tangerino + sugestão de matching calculada AQUI no servidor
+    // (externalId > CPF normalizado). O CPF é usado só nesta função e NUNCA entra na
+    // resposta; nome vai como auxílio visual (regra C2). Nada é gravado em lugar nenhum.
+    if (modo === 'colaboradores') {
+      const { data: us, error: eUs } = await admin.from('usuarios').select('id,nome,cpf,ativo').eq('ativo', true)
+      if (eUs) throw eUs
+      const usuariosAtivos = us || []
+      const { punches: cols, paginas } = await coletarPaginado(
+        (page: number) => getComRetry(
+          `${EMPLOYER_BASE}/employee/find-all?${new URLSearchParams({ page: String(page), size: '200', showFired: 'true' })}`,
+          token,
+        ),
+        { maxPaginas: 20, deadlineMs: deadline, pausaMs: PAUSA_ENTRE_PAGINAS_MS, dorme: sleep },
+      )
+      const colaboradores = cols.map((p: any) => ({
+        employeeId: p.id ?? null,
+        nome: p.name ?? p.nome ?? null,                       // auxílio visual — nunca chave
+        externalId: p.externalId ?? null,
+        demitido: p.fired === true || p.excluded === true,
+        sugestao: sugerirVinculo({ externalId: p.externalId, cpf: p.cpf }, usuariosAtivos),  // CPF morre aqui
+      }))
+      return json({ modo, autorizadoPor: auth.autorizadoPor, total: colaboradores.length, paginas, colaboradores })
+    }
 
     // ── modo reconhecimento: amostra mínima sanitizada, SEM gravar em ponto_marcacoes ──
     // Só o necessário p/ R1 (formato/fuso), R2 (exclusão), R3 (lastUpdate) e id estável.
@@ -160,13 +191,17 @@ Deno.serve(async (req: Request) => {
           (page: number) => getComRetry(urlPagina(rodada.params, page, PAGE_SIZE), token),
           { maxPaginas: MAX_PAGINAS, deadlineMs: deadline, pausaMs: PAUSA_ENTRE_PAGINAS_MS, dorme: sleep },
         )
-        let descartadas = 0
+        // Métricas SEPARADAS (regra estrutural da C2): pendente ≠ fora de escopo ≠ inválida.
+        let pendentes = 0, ignoradasFE = 0, invalidas = 0
         const errosTz = new Map<string, number>()   // timezone desconhecido: registrado, nunca fallback silencioso
         const rows: any[] = []
         for (const p of punches) {
+          const cls = classificarPunch(p, mapa, foraEscopo)
+          if (cls === 'fora_escopo') { ignoradasFE++; continue }            // intencional, auditado, não bloqueia
+          if (cls === 'pendente_sem_vinculo') { pendentes++; continue }     // exige decisão → BLOQUEIA (parcial, sem cursor)
           const r = normalizarPunch(p, mapa)
           if ('erro' in r) { errosTz.set(r.erro, (errosTz.get(r.erro) || 0) + 1); continue }
-          if ('descartada' in r) { descartadas++; continue }
+          if ('descartada' in r) { invalidas++; continue }                  // sem id/dia utilizável — contada, nunca some
           rows.push(r.row)
         }
         let novas = 0, atualizadas = 0
@@ -181,21 +216,27 @@ Deno.serve(async (req: Request) => {
           if (eUp) throw eUp
           for (const r of lote) (jaTem.has(r.tangerino_punch_id) ? atualizadas++ : novas++)
         }
-        // Timezone desconhecido em qualquer marcação ⇒ execução PARCIAL: erro sanitizado na
-        // trilha (só o enum, sem dado pessoal) e SEM cursor_novo — o cursor só avança em
-        // execução integralmente concluída (a leitura do cursor filtra status='ok').
-        const temErroTz = errosTz.size > 0
-        const resumoTz = temErroTz
-          ? [...errosTz.entries()].map(([m, n]) => `${m} (${n} marcação(ões) não importada(s))`).join('; ').slice(0, 500)
-          : null
-        const cursorNovo = temErroTz ? null : calcularCursorNovo(punches, cursor)
+        // BLOQUEIO da execução (⇒ 'parcial', SEM cursor_novo): pendentes_sem_vinculo > 0
+        // (colaborador que exige decisão humana) OU timezone desconhecido. Fora de escopo e
+        // inválidas NÃO bloqueiam — são contabilizadas na trilha. Nada some em silêncio.
+        const motivos: string[] = []
+        if (pendentes > 0) motivos.push(`${pendentes} marcação(ões) de colaborador(es) SEM VÍNCULO (pendente de decisão)`)
+        for (const [m, n] of errosTz) motivos.push(`${m} (${n} marcação(ões) não importada(s))`)
+        const temBloqueio = motivos.length > 0
+        const cursorNovo = temBloqueio ? null : calcularCursorNovo(punches, cursor)
         await admin.from('ponto_sync_execucoes').insert({
           iniciado_em: iniciado, terminado_em: new Date().toISOString(), tipo: rodada.tipo,
           cursor_anterior: cursor, cursor_novo: cursorNovo,
-          paginas, novas, atualizadas, descartadas_sem_vinculo: descartadas,
-          status: temErroTz ? 'parcial' : 'ok', erro_sanitizado: resumoTz,
+          paginas, novas, atualizadas,
+          pendentes_sem_vinculo: pendentes, ignoradas_fora_escopo: ignoradasFE, invalidas,
+          status: temBloqueio ? 'parcial' : 'ok',
+          erro_sanitizado: temBloqueio ? motivos.join('; ').slice(0, 500) : null,
         })
-        resultados.push({ tipo: rodada.tipo, paginas, novas, atualizadas, descartadas, ...(temErroTz ? { errosTimezone: resumoTz } : {}) })
+        resultados.push({
+          tipo: rodada.tipo, paginas, importadas: { novas, atualizadas },
+          pendentes_sem_vinculo: pendentes, ignoradas_fora_escopo: ignoradasFE, invalidas,
+          ...(temBloqueio ? { bloqueio: motivos.join('; ') } : {}),
+        })
       } catch (e) {
         await admin.from('ponto_sync_execucoes').insert({
           iniciado_em: iniciado, terminado_em: new Date().toISOString(), tipo: rodada.tipo,
