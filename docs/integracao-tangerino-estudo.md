@@ -28,13 +28,16 @@
 O que **não** é dado ainda: liberação do token no plano contratado, fuso das datas da API, rate
 limit e o comportamento real das batidas de almoço dos nossos técnicos (ver §2 e §8).
 
-## 2. Pendências operacionais (internas — responder antes de acionar a Sólides)
+## 2. Pendências operacionais — ✅ RESPONDIDAS (22/07)
 
-| # | Pergunta | Por que importa |
+| # | Pergunta | Resposta |
 |---|---|---|
-| P1 | Os técnicos **batem saída e retorno do almoço** no Tangerino? Com que consistência (sempre / às vezes / pré-assinalado)? | Se o intervalo é pré-assinalado, o "ponto" não é medição — conciliar duração vira comparação contra um valor fixo, e a Fase B perde sentido como "horário real". |
-| P2 | O contrato com a Sólides tem **token de integração habilitado**? | Sem token, nada anda. Verificação no portal: Configurações → Integrações (ou Empregador → Integrações). |
-| P3 | O intervalo aparece como **duas marcações reais**, **pré-assinalação** ou **dado tratado só na folha**? | Define de onde ler: pares de `punch` crus × apuração × inviável por API. |
+| P1 | Os técnicos batem saída e retorno do almoço no Tangerino? | **Sim — é regra: devem registrar sempre** saída e retorno do almoço. |
+| P2 | O intervalo é marcação real ou pré-assinalação? | **Marcações reais** (não pré-assinaladas) — o ponto mede o almoço de verdade; a conciliação de duração e a futura Fase B fazem sentido. |
+| P3 | O contrato tem token de integração habilitado? | **Sim — acesso à API/token já existe.** Guardar exclusivamente como Function Secret quando a Fase C começar (nunca exibir/copiar/registrar). |
+
+Com as três respondidas, o estudo avança para o **desenho final da Fase C** —
+ver `docs/ponto-fase-c-desenho.md` (portão de implementação).
 
 **Estado do ambiente (verificado em 22/07, sem tocar em segredo):** não há **nenhuma** referência a
 `TANGERINO_TOKEN` no repositório (grep limpo), nenhuma Edge Function de ponto, nenhuma tabela de
