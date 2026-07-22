@@ -138,6 +138,10 @@ export function validarRequisicao({ metodo, cronOk, papel, modo, reconhecimentoA
   if (metodo !== 'POST') return { ok: false, status: 405, motivo: 'somente POST' }
   const ehAdmin = papel === 'admin' || papel === 'gestor_axis'
   if (!cronOk && !ehAdmin) return { ok: false, status: 401, motivo: 'unauthorized' }
+  // diagnóstico temporário (esquema da Employer): ESTRITAMENTE admin — gestor e cron não rodam
+  if (modo === 'diagnostico_employer' && papel !== 'admin') {
+    return { ok: false, status: 403, motivo: 'diagnostico_employer exige papel admin' }
+  }
   if (modo === 'reconhecimento' || modo === 'colaboradores') {
     if (!ehAdmin) return { ok: false, status: 403, motivo: `${modo} exige admin autenticado` }
     if (modo === 'reconhecimento' && !reconhecimentoAtivo) {
@@ -156,6 +160,43 @@ export function classificarPunch(punch, mapa, foraEscopo) {
   if (mapa.has(empId)) return 'importar'
   if (foraEscopo.has(empId)) return 'fora_escopo'
   return 'pendente_sem_vinculo'
+}
+
+// ── esquema sanitizado (diagnóstico C2 — NUNCA carrega valores) ──────────────
+// A partir de uma lista de objetos constrói {caminho → {tipos, nulos, preenchidos,
+// trues, falses}} até 2 níveis (objeto aninhado vira 'pai.filho'; array de objetos
+// vira 'campo[].filho'). Saída contém SÓ nomes de campos, tipos e contagens —
+// nenhum valor individual entra, por construção (só typeof/comparações).
+export function esquemaDe(itens, maxNivel = 2) {
+  const acc = {}
+  const visita = (obj, prefixo, nivel) => {
+    for (const [k, v] of Object.entries(obj || {})) {
+      const path = prefixo ? `${prefixo}.${k}` : k
+      const e = (acc[path] ||= { tipos: new Set(), nulos: 0, preenchidos: 0, trues: 0, falses: 0 })
+      if (v === null || v === undefined) { e.tipos.add('null'); e.nulos++ }
+      else {
+        e.preenchidos++
+        if (Array.isArray(v)) {
+          e.tipos.add('array')
+          if (nivel < maxNivel && v[0] && typeof v[0] === 'object') visita(v[0], path + '[]', nivel + 1)
+        } else if (typeof v === 'object') {
+          e.tipos.add('object')
+          if (nivel < maxNivel) visita(v, path, nivel + 1)
+        } else {
+          e.tipos.add(typeof v)
+          if (v === true) e.trues++
+          if (v === false) e.falses++
+        }
+      }
+    }
+  }
+  for (const it of itens || []) visita(it, '', 0)
+  const out = {}
+  for (const [p, e] of Object.entries(acc)) {
+    out[p] = { tipos: [...e.tipos].sort(), nulos: e.nulos, preenchidos: e.preenchidos,
+      ...(e.trues + e.falses > 0 ? { trues: e.trues, falses: e.falses } : {}) }
+  }
+  return out
 }
 
 // ── sugestão de vínculo (C2 — roda SÓ NO SERVIDOR; CPF jamais sai daqui) ─────

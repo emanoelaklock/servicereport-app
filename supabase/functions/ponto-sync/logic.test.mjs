@@ -5,7 +5,7 @@ import test from 'node:test'
 import assert from 'node:assert/strict'
 import {
   normalizarData, diaLocalDe, normalizarPunch, calcularCursorNovo, janelaMs, sanitizarErro, ianaDe,
-  validarRequisicao, decidirRetry, coletarPaginado, corsPara, sugerirVinculo, soDigitos, classificarPunch,
+  validarRequisicao, decidirRetry, coletarPaginado, corsPara, sugerirVinculo, soDigitos, classificarPunch, esquemaDe,
 } from './logic.mjs'
 
 const MAPA = new Map([[101, 'uuid-tec-101'], [102, 'uuid-tec-102']])
@@ -374,6 +374,34 @@ test('situação nunca muda a decisão: mesmo colaborador, ativo ou inativo, cla
 test('ninguém vira fora_escopo automaticamente por inatividade (só o conjunto explícito decide)', () => {
   // punch de inativo NÃO listado no conjunto fora_escopo jamais classifica como fora_escopo
   assert.notEqual(classificarPunch(punchDe(999, true), MAPA2, FE2), 'fora_escopo')
+})
+
+// ═══════ Diagnóstico Employer — esquema sanitizado (nenhum VALOR sai) ═══════
+test('diagnóstico: só admin roda (gestor, técnico, cron e anônimo bloqueados)', () => {
+  const base = { metodo: 'POST', modo: 'diagnostico_employer', reconhecimentoAtivo: true }
+  assert.equal(validarRequisicao({ ...base, cronOk: false, papel: 'admin' }).ok, true)
+  assert.equal(validarRequisicao({ ...base, cronOk: false, papel: 'gestor_axis' }).status, 403)
+  assert.equal(validarRequisicao({ ...base, cronOk: false, papel: 'tecnico_campo' }).ok, false)
+  assert.equal(validarRequisicao({ ...base, cronOk: true, papel: null }).status, 403)
+  assert.equal(validarRequisicao({ ...base, cronOk: false, papel: null }).status, 401)
+})
+test('esquemaDe: caminhos, tipos e contagens — sem NENHUM valor da fixture na saída', () => {
+  const fixtures = [
+    { id: 987001, name: 'NomeSensivelTeste', cpf: '11122233344', fired: false, extra: null,
+      workSchedule: { id: 55, label: 'EscalaTeste' }, tags: [{ t: 'TagTeste' }] },
+    { id: 987002, name: 'OutroNomeTeste', cpf: null, fired: true, extra: 'ValorTeste',
+      workSchedule: null, tags: [] },
+  ]
+  const e = esquemaDe(fixtures)
+  assert.deepEqual(e['id'], { tipos: ['number'], nulos: 0, preenchidos: 2 })
+  assert.deepEqual(e['cpf'], { tipos: ['null', 'string'], nulos: 1, preenchidos: 1 })
+  assert.deepEqual(e['fired'], { tipos: ['boolean'], nulos: 0, preenchidos: 2, trues: 1, falses: 1 })
+  assert.ok(e['workSchedule.id'])                       // caminho aninhado mapeado
+  assert.ok(e['tags[].t'])                              // array de objetos mapeado
+  const txt = JSON.stringify(e)
+  for (const vazamento of ['NomeSensivelTeste', 'OutroNomeTeste', '11122233344', 'ValorTeste', 'EscalaTeste', 'TagTeste', '987001', '987002']) {
+    assert.ok(!txt.includes(vazamento), `valor vazou no esquema: ${vazamento}`)
+  }
 })
 
 test('dia local com fuso não-SP: mesmo instante numérico, dia local pode diferir', () => {

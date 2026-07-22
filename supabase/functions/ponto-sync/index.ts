@@ -15,7 +15,7 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 import {
   normalizarPunch, calcularCursorNovo, janelaMs, sanitizarErro,
-  validarRequisicao, decidirRetry, coletarPaginado, corsPara, sugerirVinculo, classificarPunch,
+  validarRequisicao, decidirRetry, coletarPaginado, corsPara, sugerirVinculo, classificarPunch, esquemaDe,
 } from './logic.mjs'
 
 const API_BASE = 'https://api.tangerino.com.br/api/punch'
@@ -92,7 +92,7 @@ Deno.serve(async (req: Request) => {
     }
 
     const body = req.method === 'POST' ? await req.json().catch(() => ({})) : {}
-    const modo = ['reconhecimento', 'colaboradores'].includes(body?.modo) ? body.modo : 'delta'
+    const modo = ['reconhecimento', 'colaboradores', 'diagnostico_employer'].includes(body?.modo) ? body.modo : 'delta'
     const { data: cfg } = await admin.from('ponto_config').select('reconhecimento_ativo').eq('id', 1).maybeSingle()
 
     const auth = validarRequisicao({
@@ -116,6 +116,54 @@ Deno.serve(async (req: Request) => {
     const { data: fes, error: eFe } = await admin.from('ponto_fora_escopo').select('tangerino_employee_id')
     if (eFe) throw eFe
     const foraEscopo = new Set<number>((fes || []).map((f: any) => Number(f.tangerino_employee_id)))
+
+    // ── modo diagnostico_employer (TEMPORÁRIO, só admin): esquema sanitizado ──
+    // Mapeia o formato REAL do find-all sem expor nenhum valor: só nomes de campos,
+    // tipos, contagens e metadados de paginação. O payload NUNCA é logado nem devolvido.
+    if (modo === 'diagnostico_employer') {
+      const buscarPaginas = async (extra: Record<string, string>) => {
+        const itens: any[] = []
+        let meta: any = null
+        let rootKeys: string[] = []
+        let paginasLidas = 0
+        for (let page = 0; page < 20; page++) {
+          const q = new URLSearchParams({ page: String(page), size: '200', ...extra })
+          const b = await getComRetry(`${EMPLOYER_BASE}/employee/find-all?${q}`, token)
+          paginasLidas++
+          if (!meta) {
+            rootKeys = Object.keys(b || {}).sort()   // só NOMES de chaves do objeto raiz
+            meta = { totalElements: b?.totalElements ?? null, totalPages: b?.totalPages ?? null,
+              size: b?.size ?? null, numberPrimeiraResposta: b?.number ?? null, first: b?.first ?? null, last: b?.last ?? null }
+          }
+          const content = Array.isArray(b?.content) ? b.content : []
+          itens.push(...content)
+          if (b?.last === true || content.length === 0) break
+          await sleep(PAUSA_ENTRE_PAGINAS_MS)
+        }
+        return { itens, meta, rootKeys, paginasLidas }
+      }
+      const sem = await buscarPaginas({})
+      const com = await buscarPaginas({ showFired: 'true' })
+      // ids ficam SÓ em memória local (Sets) — apenas quantidades saem
+      const idsEmployer = new Set(com.itens.map((x: any) => x?.id).filter((x: any) => x != null))
+      const { inicioMs, fimMs } = janelaMs(3, agora)
+      const punchBody = await getComRetry(urlPagina({ startDateInMillis: inicioMs, endDateInMillis: fimMs }, 0, 200), token)
+      const punches = Array.isArray(punchBody?.content) ? punchBody.content : []
+      const idsPunch = new Set(punches.map((p: any) => p?.employeeId ?? p?.employee?.id).filter((x: any) => x != null))
+      let correspondencias = 0
+      for (const id of idsPunch) if (idsEmployer.has(id)) correspondencias++
+      return json({
+        modo, autorizadoPor: auth.autorizadoPor,
+        rootKeys: com.rootKeys,
+        paginacao: com.meta, paginacaoSemShowFired: sem.meta,
+        paginasConsultadas: { semShowFired: sem.paginasLidas, comShowFired: com.paginasLidas },
+        totais: { semShowFired: sem.itens.length, comShowFired: com.itens.length,
+          idsDistintosEmployer: idsEmployer.size },
+        esquemaColaborador: esquemaDe(com.itens),
+        punchJanela3d: { marcacoes: punches.length, idsDistintosPunch: idsPunch.size,
+          correspondenciasComEmployer: correspondencias },
+      })
+    }
 
     // ── modo colaboradores (C2): consulta READ-ONLY p/ a tela de vínculos ──
     // Lista colaboradores do Tangerino + sugestão de matching calculada AQUI no servidor
