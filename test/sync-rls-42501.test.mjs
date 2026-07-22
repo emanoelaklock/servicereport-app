@@ -97,6 +97,8 @@ gate('G2a bloqueio 42501: item permanece na fila, íntegro (uuid/tecnico_id inta
 gate('G2b registro local: em + usuario + provado=true',
   r2.envio_bloqueado_rls && typeof r2.envio_bloqueado_rls === 'object'
   && !!r2.envio_bloqueado_rls.em && r2.envio_bloqueado_rls.usuario === 'uuid-conta-teste' && r2.envio_bloqueado_rls.provado === true)
+gate('G2b2 estado mínimo: SOMENTE {em, usuario, provado} — sem payload/conteúdo/e-mail/token',
+  JSON.stringify(Object.keys(r2.envio_bloqueado_rls).sort()) === JSON.stringify(['em', 'provado', 'usuario']))
 gate('G2c mensagem exata (propriedade comprovada)',
   r2.sync_motivo === 'Esta RAT foi criada por outro usuário neste aparelho. Entre com a conta original para sincronizá-la.')
 gate('G2d sem alerta: fail=0 no bloqueio', res.fail === 0)
@@ -122,6 +124,14 @@ estado.upsertsRats = 0
 estado.upsertsRats = 0
 await sync.syncAll(); await sync.syncAll()
 gate('G3 zero tentativas em 2 syncs seguintes sob o mesmo login', estado.upsertsRats === 0, 'upserts=' + estado.upsertsRats)
+
+// ── G3b: "reinício do app" — recarrega o módulo sync.js do zero (estado só do storage) ──
+new Function(readFileSync(join(raiz, 'js', 'sync.js'), 'utf8'))()
+const sync2 = window.SyncEngine
+estado.upsertsRats = 0
+await sync2.syncAll()
+gate('G3b reinício do app: item bloqueado NÃO volta a re-tentar (estado persistido decide)',
+  estado.upsertsRats === 0, 'upserts=' + estado.upsertsRats)
 
 // ── G4: troca para o login DONO permite e conclui a sincronização ──
 estado.meId = M; estado.ratsUpsert = ok200; estado.upsertsRats = 0
@@ -159,6 +169,24 @@ await sync.syncAll()                        // bloqueia
 const antes = estado.upsertsRats
 await sync.syncAll({ manual: true })        // manual → tenta de novo
 gate('G6 sync manual re-tenta o bloqueado', estado.upsertsRats === antes + 1, 'upserts=' + estado.upsertsRats)
+// manual libera SÓ UMA tentativa: o auto seguinte volta a suprimir (sem loop)
+const aposManual = estado.upsertsRats
+await sync.syncAll()
+gate('G6b após o manual, o sync automático volta a suprimir (sem loop)',
+  estado.upsertsRats === aposManual, 'upserts=' + estado.upsertsRats)
+
+// ── G8: compatibilidade com flag LEGADO booleano (itens gravados pelo #120) ──
+limpar()
+estado.meId = 'uuid-conta-teste'; estado.ratsUpsert = rls42501; estado.upsertsRats = 0
+novaRat('rat-flag-legado', M)
+await db.salvarRat('rat-flag-legado', { envio_bloqueado_rls: true, sync_status: STATUS.ERRO })
+await sync.syncAll()
+gate('G8a flag legado booleano: suprimido sob login não-dono', estado.upsertsRats === 0, 'upserts=' + estado.upsertsRats)
+estado.meId = M; estado.ratsUpsert = ok200; estado.upsertsRats = 0
+await sync.syncAll()
+const r8 = rats.get('rat-flag-legado')
+gate('G8b flag legado: dono loga → sincroniza e limpa o flag',
+  estado.upsertsRats === 1 && r8.sync_status === STATUS.CONFIRMADO && !r8.envio_bloqueado_rls)
 
 // ── G7: 42501 SEM a marca do upsert de rats (outra origem) mantém comportamento padrão ──
 // Simula 42501 vindo de OUTRA tabela: upsert de rats passa, mas o teste injeta um erro
