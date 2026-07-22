@@ -1,5 +1,15 @@
 # Fase C — Conciliação de almoço SR × Sólides/Tangerino — DESENHO FINAL (portão)
 
+> **DECISÃO CONSOLIDADA (22/07):** Fases C e D **aprovadas conceitualmente**; autorizado
+> **somente o PR-C1** (fundação + espelho + vínculos + trilha + Edge GET-only + testes + docs),
+> entregue **parado antes do merge**. O `TANGERINO_TOKEN` será provisionado manualmente no
+> Dashboard **somente após a revisão do PR** — nunca solicitar, exibir ou registrar o valor.
+> A evolução visual (Fase D) será **na tela existente `jornada.html`** — não haverá tela nova;
+> mockup aprovado: `docs/mockups/mockup-jornada-conciliacao-tangerino.png`. Ainda **não**
+> implementar: mudanças em `jornada.html`, cálculo de cobertura, classificação manual,
+> fechamento mensal, mudanças em `almocos`, escrita no Tangerino, integração com Desempenho.
+> Processo: toda alteração (inclusive docs) via branch + PR — sem commit direto na `main`.
+
 > Sequência de `docs/integracao-tangerino-estudo.md` (estudo aprovado; pendências P1–P3
 > respondidas em 22/07: **técnicos devem bater sempre** saída/retorno do almoço; **marcações
 > reais**, não pré-assinaladas; **token de API já existe**). Este documento é o desenho de

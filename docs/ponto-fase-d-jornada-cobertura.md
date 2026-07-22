@@ -126,9 +126,30 @@ detalhe text (obrigatório se 'outro') · classificado_por uuid · classificado_
 - Tudo auditável (quem/quando); reclassificação gera histórico (update com trilha, padrão
   `auditoria`).
 
-## 7. Proposta visual — Jornada do Admin
+## 7. Proposta visual — Jornada do Admin ✅ DECISÃO CONSOLIDADA (22/07)
 
-**Linha do tempo por pessoa-dia** (nova faixa na tela Jornada existente, acima da tabela atual):
+**A integração evolui a tela existente `jornada.html` — não haverá tela nova.** Mockup aprovado:
+`docs/mockups/mockup-jornada-conciliacao-tangerino.png`. Elementos fixados:
+
+- **Tabela diária da equipe** (colunas): Jornada líquida oficial · Registrado no SR · Tempo não
+  classificado · Cobertura da jornada · Almoço Tangerino × SR · Status do ponto
+  (Completo/Incompleto/Sem vínculo/Não importado).
+- **Painel do técnico selecionado** (cards): jornada líquida · atendimento ao cliente ·
+  deslocamento · atividade interna · almoço oficial · operação registrada · **transição
+  tolerada** (total separado, nunca somado como atividade) · tempo não classificado ·
+  % de cobertura.
+- **Linha do tempo em DUAS camadas:** faixa "TANGERINO — jornada oficial" (períodos oficiais +
+  almoço em cinza) sobre a faixa "SERVICE REPORT — atividades registradas" (blocos coloridos).
+- A prioridade cliente > deslocamento > interno > pausa é **apenas atribuição visual e composição
+  por categoria** — os eventos originais permanecem intactos e sobreposições continuam
+  sinalizadas (alerta 0122).
+- Gaps pequenos **não desaparecem**: aparecem como "Transição tolerada", com total próprio,
+  fora da atividade operacional; limite calibrável com dados reais.
+- Texto fixo na tela: **"A ausência de RAT não comprova ausência de trabalho."**
+- Classificação manual (D2) registra: intervalo exato · categoria · justificativa · usuário ·
+  data/hora · **histórico de alterações** — e nunca modifica o ponto nem os eventos do SR.
+
+Detalhe original da proposta (mantido como referência):
 uma barra horizontal 06h–22h por técnico, com blocos:
 
 | Cor | Categoria | Token do design system |
