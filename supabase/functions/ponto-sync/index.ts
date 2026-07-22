@@ -1,86 +1,100 @@
 // Edge Function: ponto-sync — importa marcações do Sólides/Tangerino para o espelho
-// ponto_marcacoes. SOMENTE LEITURA da API (só GET — nenhuma rota de escrita entra aqui,
-// nem por precaução). Desenho: docs/ponto-fase-c-desenho.md §2.
+// ponto_marcacoes. SOMENTE LEITURA da API do Tangerino (só GET — nenhuma rota de escrita
+// entra aqui, nem por precaução). Desenho: docs/ponto-fase-c-desenho.md §2 + auditoria C1.
 //
-// Chamada pelo pg_cron (futuro PR-C4) ou manualmente pela gestão → verify_jwt=false
-// (deploy com --no-verify-jwt) + segredo compartilhado x-cron-secret (padrão lembrete-*).
-// TANGERINO_TOKEN: SÓ Function Secret (Deno.env) — nunca em tabela, log, erro ou resposta.
-//
-// Modos (body JSON): { "modo": "delta" }          → delta por lastUpdate + janela D-7 (default)
-//                    { "modo": "reconhecimento" } → diagnóstico R1/R2/R3 (não grava marcações)
-// Idempotência: upsert por tangerino_punch_id; o cursor só avança com execução OK —
-// falha no meio ⇒ próxima rodada repete o delta inteiro (autocorretivo).
+// A EXECUÇÃO grava no espelho do SR → a chamada é POST (GET operacional = 405; sem CORS:
+// esta função não é chamada por navegador). verify_jwt=false (deploy com --no-verify-jwt),
+// mas NINGUÉM anônimo passa:
+//   · cron (futuro PR-C4): header x-cron-secret com o segredo compartilhado da casa —
+//     nunca por parâmetro de URL; roda só o modo delta;
+//   · manual: JWT de admin/gestor_axis (portal_acessos do service_report) no Authorization.
+// Reconhecimento (R1/R2/R3): só admin autenticado E ponto_config.reconhecimento_ativo=true.
+// TANGERINO_TOKEN: SÓ Function Secret (Deno.env) — nunca em URL, resposta, log ou tabela.
+// Idempotência: upsert por tangerino_punch_id; cursor só avança com execução 100% OK —
+// falha em página intermediária aborta a rodada inteira (erro na trilha, cursor parado).
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 import {
   normalizarPunch, calcularCursorNovo, janelaMs, sanitizarErro,
+  validarRequisicao, decidirRetry, coletarPaginado,
 } from './logic.mjs'
 
 const API_BASE = 'https://api.tangerino.com.br/api/punch'
 const PAGE_SIZE = 200
-const MAX_PAGINAS = 300           // guarda de runaway (300×200 = 60k marcações/rodada)
-const PAUSA_ENTRE_PAGINAS_MS = 250 // conservador até a Sólides confirmar rate limit
+const MAX_PAGINAS = 300              // guarda de runaway (300×200 = 60k marcações/rodada)
+const PAUSA_ENTRE_PAGINAS_MS = 250   // conservador até a Sólides confirmar rate limit
+const ESPERAS_RETRY_MS = [1000, 3000, 9000]   // soma 13s — dentro do limite de execução da Edge
+const DEADLINE_MS = 100_000          // teto da rodada; estourou → aborta SEM avançar cursor
 const JANELA_DIAS = 7
 
 const json = (o: unknown, status = 200) =>
   new Response(JSON.stringify(o), { status, headers: { 'Content-Type': 'application/json' } })
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms))
 
-// GET com retry (3 tentativas, backoff 1s/5s/25s) para 429/5xx/rede.
-// 401/403 NÃO re-tenta: é token/permissão — precisa de humano.
+// GET na API do Tangerino com a política de retry de logic.decidirRetry
+// (401/403 não re-tenta; 429 respeita Retry-After com teto; 5xx/rede backoff).
 async function getComRetry(url: string, token: string): Promise<any> {
-  const backoff = [1000, 5000, 25000]
-  let ultimo: unknown = null
-  for (let t = 0; t <= backoff.length; t++) {
+  for (let tentativa = 0; ; tentativa++) {
+    let status = 0, retryAfter: number | null = null
     try {
       const res = await fetch(url, { method: 'GET', headers: { Authorization: `Basic ${token}` } })
       if (res.ok) return await res.json()
-      if (res.status === 401 || res.status === 403) throw new Error(`API negou acesso (HTTP ${res.status})`)
-      ultimo = new Error(`API HTTP ${res.status}`)
-      if (res.status !== 429 && res.status < 500) throw ultimo
-    } catch (e) {
-      if (String((e as Error).message || '').includes('negou acesso')) throw e
-      ultimo = e
+      status = res.status
+      const ra = res.headers.get('Retry-After')
+      retryAfter = ra != null && ra !== '' ? Number(ra) : null
+    } catch (_e) { status = 0 }
+    const espera = decidirRetry(status, tentativa, ESPERAS_RETRY_MS, retryAfter)
+    if (espera == null) {
+      throw new Error(status === 401 || status === 403
+        ? `API do ponto negou acesso (HTTP ${status})` : `API do ponto falhou (HTTP ${status || 'rede'})`)
     }
-    if (t < backoff.length) await sleep(backoff[t])
+    await sleep(espera)
   }
-  throw ultimo
 }
 
-// Coleta paginada (Page«Punch» estilo Spring: content[] + last).
-async function coletar(token: string, params: Record<string, string | number>) {
-  const punches: any[] = []
-  let paginas = 0
-  for (let page = 0; page < MAX_PAGINAS; page++) {
-    const q = new URLSearchParams({
-      ...Object.fromEntries(Object.entries(params).map(([k, v]) => [k, String(v)])),
-      page: String(page), size: String(PAGE_SIZE),
-    })
-    const body = await getComRetry(`${API_BASE}/?${q}`, token)
-    paginas++
-    const content = Array.isArray(body?.content) ? body.content : []
-    punches.push(...content)
-    if (body?.last === true || content.length === 0) break
-    await sleep(PAUSA_ENTRE_PAGINAS_MS)
-  }
-  return { punches, paginas }
+function urlPagina(params: Record<string, string | number>, page: number, size: number): string {
+  const q = new URLSearchParams({
+    ...Object.fromEntries(Object.entries(params).map(([k, v]) => [k, String(v)])),
+    page: String(page), size: String(size),
+  })
+  return `${API_BASE}/?${q}`
 }
 
 Deno.serve(async (req: Request) => {
   const admin = createClient(Deno.env.get('SUPABASE_URL')!, Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!)
   const token = Deno.env.get('TANGERINO_TOKEN') || ''
-  const segredos = [token, Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') || '']
+  const segredos = [token, Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') || '', Deno.env.get('CRON_SECRET') || '']
 
   try {
-    // ── auth: segredo compartilhado do cron (padrão da casa, env-first) ──
+    // ── fatos de autenticação (a decisão é pura, em validarRequisicao) ──
     const esperado = Deno.env.get('CRON_SECRET')
       || (await admin.from('app_secrets').select('valor').eq('chave', 'cron_secret').maybeSingle()).data?.valor
-    if (!esperado || req.headers.get('x-cron-secret') !== esperado) return json({ error: 'unauthorized' }, 401)
+    const cronOk = !!esperado && req.headers.get('x-cron-secret') === esperado   // header, nunca URL
+
+    let papel: string | null = null
+    const authz = req.headers.get('Authorization') || ''
+    if (authz.startsWith('Bearer ')) {
+      const { data: u } = await admin.auth.getUser(authz.slice(7))
+      if (u?.user?.id) {
+        const { data: pa } = await admin.from('portal_acessos').select('role_chave')
+          .eq('usuario_id', u.user.id).eq('app_chave', 'service_report').maybeSingle()
+        papel = pa?.role_chave ?? null
+      }
+    }
+
+    const body = req.method === 'POST' ? await req.json().catch(() => ({})) : {}
+    const modo = body?.modo === 'reconhecimento' ? 'reconhecimento' : 'delta'
+    const { data: cfg } = await admin.from('ponto_config').select('reconhecimento_ativo').eq('id', 1).maybeSingle()
+
+    const auth = validarRequisicao({
+      metodo: req.method, cronOk, papel, modo,
+      reconhecimentoAtivo: cfg?.reconhecimento_ativo === true,
+    })
+    if (!auth.ok) return json({ error: auth.motivo }, auth.status)
 
     if (!token) return json({ error: 'TANGERINO_TOKEN não provisionado (Function Secret)' }, 503)
 
-    const body = await req.json().catch(() => ({}))
-    const modo = body?.modo === 'reconhecimento' ? 'reconhecimento' : 'delta'
     const agora = Date.now()
+    const deadline = agora + DEADLINE_MS
 
     // ── vínculos confirmados: sem linha no map, a marcação é descartada (minimização) ──
     const { data: vincs, error: eMap } = await admin.from('ponto_colaboradores_map')
@@ -88,32 +102,34 @@ Deno.serve(async (req: Request) => {
     if (eMap) throw eMap
     const mapa = new Map<number, string>((vincs || []).map((v: any) => [Number(v.tangerino_employee_id), v.tecnico_id]))
 
-    // ── modo reconhecimento (R1/R2/R3): amostra crua sanitizada, SEM gravar marcações ──
+    // ── modo reconhecimento: amostra mínima sanitizada, SEM gravar em ponto_marcacoes ──
+    // Só o necessário p/ R1 (formato/fuso), R2 (exclusão), R3 (lastUpdate) e id estável.
+    // Sem nome, CPF, PIS, e-mail, token ou payload bruto.
     if (modo === 'reconhecimento') {
       const { inicioMs, fimMs } = janelaMs(3, agora)
-      const q = new URLSearchParams({ startDateInMillis: String(inicioMs), endDateInMillis: String(fimMs), page: '0', size: '20' })
-      const bodyApi = await getComRetry(`${API_BASE}/?${q}`, token)
+      const bodyApi = await getComRetry(urlPagina({ startDateInMillis: inicioMs, endDateInMillis: fimMs }, 0, 20), token)
       const content = Array.isArray(bodyApi?.content) ? bodyApi.content : []
-      const amostra = content.slice(0, 8).map((p: any) => ({
-        id: p.id, employeeId: p.employeeId ?? p.employee?.id,
-        dateIn: p.dateIn ?? null, dateOut: p.dateOut ?? null,           // strings CRUAS → R1 (fuso)
-        status: p.status ?? null, excluded: p.excluded ?? null,         // → R2 (exclusão)
-        edited: p.edited ?? null, adjust: p.adjust ?? null,
+      const amostra = content.slice(0, 5).map((p: any) => ({
+        id: p.id, employeeId: p.employeeId ?? p.employee?.id,          // identificador estável
+        dateIn: p.dateIn ?? null, dateOut: p.dateOut ?? null,          // formato/fuso (R1)
+        employeeTimezone: p.employee?.timezone ?? null,                // fuso declarado (R1)
+        lastModifiedDate: p.lastModifiedDate ?? null,                  // cursor (R3)
+        excluded: p.excluded ?? null, status: p.status ?? null,        // exclusão/invalidação (R2)
         pendingType: p.pendingType ?? null,
-        lastModifiedDate: p.lastModifiedDate ?? null,                   // → R3 (cursor)
-        employeeTimezone: p.employee?.timezone ?? null,
       }))
       await admin.from('ponto_sync_execucoes').insert({
         tipo: 'reconhecimento', terminado_em: new Date().toISOString(),
         paginas: 1, novas: 0, atualizadas: 0, status: 'ok',
       })
       return json({
-        modo, totalElements: bodyApi?.totalElements ?? null, totalPages: bodyApi?.totalPages ?? null,
-        size: bodyApi?.size ?? null, vinculados: mapa.size, amostra,
+        modo, autorizadoPor: auth.autorizadoPor, vinculados: mapa.size,
+        totalElements: bodyApi?.totalElements ?? null, totalPages: bodyApi?.totalPages ?? null,
+        size: bodyApi?.size ?? null, amostra,
       })
     }
 
-    // ── modo delta: (a) incremental por lastUpdate; (b) janela D-7 (correções tardias) ──
+    // ── modo delta: (a) incremental por lastUpdate; (b) janela D-7 (correções tardias — a
+    // suficiência da janela p/ exclusões/correções antigas AINDA depende do R2/R3) ──
     const { data: ult } = await admin.from('ponto_sync_execucoes')
       .select('cursor_novo').eq('status', 'ok').in('tipo', ['delta', 'janela7d'])
       .not('cursor_novo', 'is', null)
@@ -121,7 +137,7 @@ Deno.serve(async (req: Request) => {
     const cursor: number | null = ult?.cursor_novo ?? null
 
     const resultados: Record<string, unknown>[] = []
-    const rodadas: Array<{ tipo: 'delta' | 'janela7d'; params: Record<string, string | number> | null }> = []
+    const rodadas: Array<{ tipo: 'delta' | 'janela7d'; params: Record<string, string | number> }> = []
     if (cursor) rodadas.push({ tipo: 'delta', params: { lastUpdate: cursor } })
     const { inicioMs, fimMs } = janelaMs(JANELA_DIAS, agora)
     rodadas.push({ tipo: 'janela7d', params: { startDateInMillis: inicioMs, endDateInMillis: fimMs } })
@@ -129,7 +145,12 @@ Deno.serve(async (req: Request) => {
     for (const rodada of rodadas) {
       const iniciado = new Date().toISOString()
       try {
-        const { punches, paginas } = await coletar(token, rodada.params!)
+        // Falha em QUALQUER página aborta a rodada inteira (coletarPaginado propaga):
+        // nada parcial vira "carga concluída" e o cursor não avança.
+        const { punches, paginas } = await coletarPaginado(
+          (page: number) => getComRetry(urlPagina(rodada.params, page, PAGE_SIZE), token),
+          { maxPaginas: MAX_PAGINAS, deadlineMs: deadline, pausaMs: PAUSA_ENTRE_PAGINAS_MS, dorme: sleep },
+        )
         let descartadas = 0
         const rows: any[] = []
         for (const p of punches) {
@@ -137,7 +158,6 @@ Deno.serve(async (req: Request) => {
           if ('descartada' in r) { descartadas++; continue }
           rows.push(r.row)
         }
-        // novas × atualizadas: ids já existentes no espelho (em lotes de 500)
         let novas = 0, atualizadas = 0
         for (let i = 0; i < rows.length; i += 500) {
           const lote = rows.slice(i, i + 500)
@@ -166,7 +186,7 @@ Deno.serve(async (req: Request) => {
       }
     }
     const houveErro = resultados.some((r) => 'erro' in r)
-    return json({ modo, vinculados: mapa.size, resultados }, houveErro ? 500 : 200)
+    return json({ modo, autorizadoPor: auth.autorizadoPor, vinculados: mapa.size, resultados }, houveErro ? 500 : 200)
   } catch (e) {
     return json({ error: sanitizarErro(e, segredos) }, 500)
   }

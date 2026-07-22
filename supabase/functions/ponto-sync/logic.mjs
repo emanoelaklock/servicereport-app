@@ -98,8 +98,65 @@ export function normalizarPunch(punch, mapa) {
       pendente_metade: ['ENTRADA', 'SAIDA', 'AMBOS'].includes(punch.pendingType) ? punch.pendingType : null,
       tz_origem: tzEnum,
       origem_modificado_em: normalizarData(punch.lastModifiedDate ?? null, iana),
+      origem_modificado_raw: punch.lastModifiedDate == null ? null : String(punch.lastModifiedDate),
     },
   }
+}
+
+// ── autorização da requisição (decisão pura; o index.ts injeta os fatos) ──────
+// Regras da auditoria final do PR-C1:
+//   · somente POST (a execução GRAVA no espelho do SR — GET operacional é 405);
+//   · anônimo nunca passa (401);
+//   · modo manual = só admin/gestor autenticado por JWT;
+//   · cron autentica por segredo próprio (x-cron-secret) e só roda o delta;
+//   · reconhecimento exige admin E o flag ponto_config.reconhecimento_ativo
+//     (desligável após fechar R1/R2/R3).
+export function validarRequisicao({ metodo, cronOk, papel, modo, reconhecimentoAtivo }) {
+  if (metodo !== 'POST') return { ok: false, status: 405, motivo: 'somente POST' }
+  const ehAdmin = papel === 'admin' || papel === 'gestor_axis'
+  if (!cronOk && !ehAdmin) return { ok: false, status: 401, motivo: 'unauthorized' }
+  if (modo === 'reconhecimento') {
+    if (!ehAdmin) return { ok: false, status: 403, motivo: 'reconhecimento exige admin autenticado' }
+    if (!reconhecimentoAtivo) return { ok: false, status: 403, motivo: 'reconhecimento desabilitado (R1/R2/R3 fechados)' }
+  }
+  return { ok: true, status: 200, autorizadoPor: ehAdmin ? 'admin' : 'cron' }
+}
+
+// ── política de retry (decisão pura) ─────────────────────────────────────────
+// 401/403 nunca re-tenta (token/permissão — precisa de humano). 429 respeita
+// Retry-After quando fornecido (teto de 30s). 5xx/rede usam o backoff. Demais: desiste.
+export function decidirRetry(status, tentativa, esperasMs, retryAfterSeg) {
+  if (status === 401 || status === 403) return null
+  if (tentativa >= esperasMs.length) return null
+  if (status === 429 && retryAfterSeg != null && isFinite(retryAfterSeg)) {
+    return Math.min(Math.max(retryAfterSeg, 0) * 1000, 30_000)
+  }
+  if (status === 429 || status >= 500 || status === 0) return esperasMs[tentativa]   // 0 = erro de rede
+  return null
+}
+
+// ── coleta paginada (controle puro; fetchPagina/dorme/relógio injetáveis) ────
+// Falha em página intermediária PROPAGA (nenhum resultado parcial é devolvido —
+// o chamador marca a execução como erro e o cursor NÃO avança). O deadline protege
+// o limite de execução da Edge: estourou → aborta a rodada inteira, sem cursor.
+export async function coletarPaginado(fetchPagina, {
+  maxPaginas = 300, deadlineMs = null, agora = () => Date.now(),
+  pausaMs = 250, dorme = async () => {},
+} = {}) {
+  const punches = []
+  let paginas = 0
+  for (let page = 0; page < maxPaginas; page++) {
+    if (deadlineMs != null && agora() > deadlineMs) {
+      throw new Error('tempo limite da rodada atingido — interrompida sem avanço de cursor')
+    }
+    const body = await fetchPagina(page)
+    paginas++
+    const content = Array.isArray(body?.content) ? body.content : []
+    punches.push(...content)
+    if (body?.last === true || content.length === 0) break
+    if (pausaMs) await dorme(pausaMs)
+  }
+  return { punches, paginas }
 }
 
 // ── cursor incremental (millis) ───────────────────────────────────────────────

@@ -43,6 +43,7 @@ begin
       pendente_metade text check (pendente_metade in ('ENTRADA','SAIDA','AMBOS')),
       tz_origem text not null,
       origem_modificado_em timestamptz,
+      origem_modificado_raw text,
       importado_em timestamptz not null default now(),
       atualizado_em timestamptz not null default now()
     );
@@ -79,6 +80,8 @@ begin
       gap_minimo_almoco_min int not null default 15,
       transicao_max_min int not null default 5,
       retencao_meses int not null default 12,
+      retencao_execucoes_meses int not null default 12,
+      reconhecimento_ativo boolean not null default true,
       atualizado_em timestamptz not null default now()
     );
   $DDL$;
@@ -128,6 +131,10 @@ begin
   if v_n <> 0 then raise exception '0126: técnico lê o espelho (%)', v_n; end if;
   select count(*) into v_n from public.ponto_colaboradores_map;
   if v_n <> 0 then raise exception '0126: técnico lê o map (%)', v_n; end if;
+  select count(*) into v_n from public.ponto_sync_execucoes;
+  if v_n <> 0 then raise exception '0126: técnico lê a trilha (%)', v_n; end if;
+  select count(*) into v_n from public.ponto_config;
+  if v_n <> 0 then raise exception '0126: técnico lê a config (%)', v_n; end if;
 
   v_raised := false;
   begin
@@ -162,6 +169,8 @@ begin
   select count(*) into v_n from public.ponto_config
    where tolerancia_inicio_min is null and tolerancia_termino_min is null and tolerancia_duracao_min is null;
   if v_n <> 1 then raise exception '0126: tolerâncias deveriam nascer nulas'; end if;
+  select count(*) into v_n from public.ponto_config where reconhecimento_ativo = true;
+  if v_n <> 1 then raise exception '0126: reconhecimento_ativo deveria nascer true'; end if;
 
   raise exception 'TESTES_OK 0126 — fundação do ponto validada (rollback total desta transação)';
 end $MIG$;

@@ -40,12 +40,14 @@ create table if not exists public.ponto_marcacoes (
   editado_origem        boolean not null default false,    -- Punch.edited/adjust (qualquer flag)
   pendente_metade       text check (pendente_metade in ('ENTRADA','SAIDA','AMBOS')),
   tz_origem             text not null,                     -- enum Tangerino usado na normalização
-  origem_modificado_em  timestamptz,                       -- Punch.lastModifiedDate (cursor R3)
+  origem_modificado_em  timestamptz,                       -- Punch.lastModifiedDate normalizado (cursor R3)
+  origem_modificado_raw text,                              -- lastModifiedDate CRU (nenhuma conversão é irreversível)
   importado_em          timestamptz not null default now(),
   atualizado_em         timestamptz not null default now()
 );
 create index if not exists idx_ponto_marc_tec_dia on public.ponto_marcacoes (tecnico_id, dia);
 create index if not exists idx_ponto_marc_dia on public.ponto_marcacoes (dia);
+create index if not exists idx_ponto_marc_mod on public.ponto_marcacoes (origem_modificado_em);
 drop trigger if exists trg_upd_ponto_marcacoes on public.ponto_marcacoes;
 create trigger trg_upd_ponto_marcacoes before update on public.ponto_marcacoes
   for each row execute function public.tg_set_atualizado_em();
@@ -87,7 +89,9 @@ create table if not exists public.ponto_config (
   janela_almoco_fim      time not null default '15:00',
   gap_minimo_almoco_min  int not null default 15,
   transicao_max_min      int not null default 5,            -- Fase D (§4 do estudo D)
-  retencao_meses         int not null default 12,           -- purga entra em PR futuro, não no C1
+  retencao_meses         int not null default 12,           -- espelho; purga entra em PR futuro
+  retencao_execucoes_meses int not null default 12,         -- trilha de sync; purga futura
+  reconhecimento_ativo   boolean not null default true,     -- desligar após fechar R1/R2/R3
   atualizado_em          timestamptz not null default now()
 );
 drop trigger if exists trg_upd_ponto_config on public.ponto_config;
