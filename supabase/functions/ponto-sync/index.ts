@@ -161,9 +161,11 @@ Deno.serve(async (req: Request) => {
           { maxPaginas: MAX_PAGINAS, deadlineMs: deadline, pausaMs: PAUSA_ENTRE_PAGINAS_MS, dorme: sleep },
         )
         let descartadas = 0
+        const errosTz = new Map<string, number>()   // timezone desconhecido: registrado, nunca fallback silencioso
         const rows: any[] = []
         for (const p of punches) {
           const r = normalizarPunch(p, mapa)
+          if ('erro' in r) { errosTz.set(r.erro, (errosTz.get(r.erro) || 0) + 1); continue }
           if ('descartada' in r) { descartadas++; continue }
           rows.push(r.row)
         }
@@ -179,13 +181,21 @@ Deno.serve(async (req: Request) => {
           if (eUp) throw eUp
           for (const r of lote) (jaTem.has(r.tangerino_punch_id) ? atualizadas++ : novas++)
         }
-        const cursorNovo = calcularCursorNovo(punches, cursor)
+        // Timezone desconhecido em qualquer marcação ⇒ execução PARCIAL: erro sanitizado na
+        // trilha (só o enum, sem dado pessoal) e SEM cursor_novo — o cursor só avança em
+        // execução integralmente concluída (a leitura do cursor filtra status='ok').
+        const temErroTz = errosTz.size > 0
+        const resumoTz = temErroTz
+          ? [...errosTz.entries()].map(([m, n]) => `${m} (${n} marcação(ões) não importada(s))`).join('; ').slice(0, 500)
+          : null
+        const cursorNovo = temErroTz ? null : calcularCursorNovo(punches, cursor)
         await admin.from('ponto_sync_execucoes').insert({
           iniciado_em: iniciado, terminado_em: new Date().toISOString(), tipo: rodada.tipo,
           cursor_anterior: cursor, cursor_novo: cursorNovo,
-          paginas, novas, atualizadas, descartadas_sem_vinculo: descartadas, status: 'ok',
+          paginas, novas, atualizadas, descartadas_sem_vinculo: descartadas,
+          status: temErroTz ? 'parcial' : 'ok', erro_sanitizado: resumoTz,
         })
-        resultados.push({ tipo: rodada.tipo, paginas, novas, atualizadas, descartadas })
+        resultados.push({ tipo: rodada.tipo, paginas, novas, atualizadas, descartadas, ...(temErroTz ? { errosTimezone: resumoTz } : {}) })
       } catch (e) {
         await admin.from('ponto_sync_execucoes').insert({
           iniciado_em: iniciado, terminado_em: new Date().toISOString(), tipo: rodada.tipo,

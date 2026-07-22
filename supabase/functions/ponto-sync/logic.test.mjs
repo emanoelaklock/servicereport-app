@@ -116,9 +116,11 @@ test('sanitização: token e headers de auth NUNCA sobrevivem na mensagem', () =
   assert.equal(sanitizarErro(new Error('x'.repeat(2000)), []).length, 500)   // cap
 })
 
-test('fuso: enum desconhecido cai no fallback SP; typo RECIVE mapeado', () => {
-  assert.equal(ianaDe('ENUM_QUE_NAO_EXISTE'), 'America/Sao_Paulo')
+test('fuso: enum desconhecido NÃO tem fallback silencioso (null); typo RECIVE mapeado; SAO_PAULO ok', () => {
+  assert.equal(ianaDe('ENUM_QUE_NAO_EXISTE'), null)
+  assert.equal(ianaDe(null), null)
   assert.equal(ianaDe('RECIVE'), 'America/Recife')
+  assert.equal(ianaDe('SAO_PAULO'), 'America/Sao_Paulo')
 })
 
 test('diaLocalDe: string sem offset usa a própria parede', () => {
@@ -214,4 +216,85 @@ test('cursor: falha na coleta significa que calcularCursorNovo nem roda — repe
   const a = normalizarPunch(FX_PAR_SEM_OFFSET, MAPA).row
   const b = normalizarPunch(FX_PAR_SEM_OFFSET, MAPA).row
   assert.deepEqual(a, b)   // mesmo punch → mesma linha → upsert por tangerino_punch_id é no-op
+})
+
+// ═══════ Compatibilidade com os DADOS REAIS da Punch API (reconhecimento 22/07) ═══════
+// A API retorna EPOCH MILLIS NUMÉRICOS (o Swagger documentava string). Fixtures sanitizadas
+// no formato real observado — ids/instantes plausíveis, nenhum dado pessoal.
+const MS_ENTRADA = Date.UTC(2026, 6, 22, 11, 2, 11)          // 08:02:11 em SP (-03)
+const MS_SAIDA = Date.UTC(2026, 6, 22, 15, 1, 40)            // 12:01:40 em SP
+const MS_MOD = Date.UTC(2026, 6, 22, 15, 2, 0, 889)
+const FX_NUM_COMPLETO = {
+  id: 1726610737, employeeId: 101, employee: { id: 101, timezone: 'SAO_PAULO' },
+  dateIn: MS_ENTRADA, dateOut: MS_SAIDA,
+  status: 'APPROVED', excluded: false, pendingType: null, lastModifiedDate: MS_MOD,
+}
+const FX_NUM_ABERTO = {   // formato real observado: dateOut null E pendingType null
+  id: 1726599406, employeeId: 101, employee: { id: 101, timezone: 'SAO_PAULO' },
+  dateIn: MS_ENTRADA, dateOut: null,
+  status: 'APPROVED', excluded: false, pendingType: null, lastModifiedDate: MS_MOD,
+}
+const FX_NUM_MISTO = { ...FX_NUM_COMPLETO, id: 1726600001, dateOut: '2026-07-22T12:01:40' }  // número + string
+const FX_TZ_DESCONHECIDO = { ...FX_NUM_COMPLETO, id: 1726600002, employee: { id: 101, timezone: 'LISBOA_X' } }
+
+test('epoch millis: entrada/saída numéricas normalizam para o instante UTC correto', () => {
+  const r = normalizarPunch(FX_NUM_COMPLETO, MAPA)
+  assert.ok('row' in r, 'marcação numérica NÃO pode ser descartada')
+  assert.equal(r.row.entrada, '2026-07-22T11:02:11.000Z')
+  assert.equal(r.row.saida, '2026-07-22T15:01:40.000Z')
+  assert.equal(r.row.dia, '2026-07-22')                       // dia local via fuso do colaborador
+  assert.equal(r.row.entrada_raw, String(MS_ENTRADA))         // original preservado no _raw
+})
+test('epoch millis: lastModifiedDate numérico alimenta cursor e campos *_raw', () => {
+  const r = normalizarPunch(FX_NUM_COMPLETO, MAPA)
+  assert.equal(r.row.origem_modificado_raw, String(MS_MOD))
+  assert.ok(r.row.origem_modificado_em)
+  assert.equal(calcularCursorNovo([FX_NUM_COMPLETO], 0), MS_MOD)
+})
+test('mistura número + string no mesmo punch: ambos normalizados coerentes', () => {
+  const r = normalizarPunch(FX_NUM_MISTO, MAPA)
+  assert.ok('row' in r)
+  assert.equal(r.row.entrada, '2026-07-22T11:02:11.000Z')     // número
+  assert.equal(r.row.saida, '2026-07-22T15:01:40.000Z')       // string de parede em SP
+})
+test('dateOut null (formato real): marcação ABERTA preservada, nunca descartada', () => {
+  const r = normalizarPunch(FX_NUM_ABERTO, MAPA)
+  assert.ok('row' in r, 'aberta não pode ser descartada')
+  assert.equal(r.row.saida, null)
+  assert.equal(r.row.saida_raw, null)
+  assert.equal(r.row.pendente_metade, null)                   // pendingType null real: incompleto vem da AUSÊNCIA de saída
+})
+test('timezone desconhecido: erro sanitizado (só o enum), sem fallback e sem importação', () => {
+  const r = normalizarPunch(FX_TZ_DESCONHECIDO, MAPA)
+  assert.ok('erro' in r)
+  assert.equal(r.erro, 'timezone desconhecido: LISBOA_X')     // nenhum dado pessoal na mensagem
+})
+test('valores inválidos rejeitados: negativo, não-finito, fora de faixa, segundos, string de dígitos', () => {
+  const iana = 'America/Sao_Paulo'
+  assert.equal(normalizarData(-1784737860000, iana), null)    // negativo
+  assert.equal(normalizarData(NaN, iana), null)               // não-finito
+  assert.equal(normalizarData(Infinity, iana), null)
+  assert.equal(normalizarData(4102444800001, iana), null)     // > 2100 (fora de faixa)
+  assert.equal(normalizarData(1784737860, iana), null)        // epoch em SEGUNDOS: nunca inferir
+  assert.equal(normalizarData('1784737860000', iana), null)   // string só-dígitos: nunca inferir
+  assert.equal(diaLocalDe(-5, iana), null)
+  assert.equal(calcularCursorNovo([{ lastModifiedDate: -5 }, { lastModifiedDate: NaN }], 777), 777)  // inválido não regride nem avança
+})
+test('repetição idempotente com fixtures numéricas: mesma entrada → mesma linha', () => {
+  assert.deepEqual(normalizarPunch(FX_NUM_COMPLETO, MAPA).row, normalizarPunch(FX_NUM_COMPLETO, MAPA).row)
+})
+test('correção com mesmo id: linha atualizada mantém a chave de dedup', () => {
+  const antes = normalizarPunch(FX_NUM_ABERTO, MAPA).row
+  const corrigido = { ...FX_NUM_ABERTO, dateOut: MS_SAIDA, lastModifiedDate: MS_MOD + 60000, edited: true }
+  const depois = normalizarPunch(corrigido, MAPA).row
+  assert.equal(antes.tangerino_punch_id, depois.tangerino_punch_id)   // mesmo id → upsert atualiza
+  assert.equal(antes.saida, null)
+  assert.equal(depois.saida, '2026-07-22T15:01:40.000Z')
+  assert.equal(depois.editado_origem, true)
+  assert.ok(calcularCursorNovo([corrigido], MS_MOD) > MS_MOD)         // correção avança o cursor
+})
+test('dia local com fuso não-SP: mesmo instante numérico, dia local pode diferir', () => {
+  const meiaNoiteSP = Date.UTC(2026, 6, 23, 2, 30)   // 23:30 do dia 22 em SP; 22:30 em Manaus
+  assert.equal(diaLocalDe(meiaNoiteSP, 'America/Sao_Paulo'), '2026-07-22')
+  assert.equal(diaLocalDe(meiaNoiteSP, 'America/Noronha'), '2026-07-23')   // -02: já virou o dia
 })
