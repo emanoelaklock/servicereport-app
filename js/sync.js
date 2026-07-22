@@ -91,7 +91,13 @@
         })
         if (!cr.error) ups = await upsertRat()
       }
-      if (ups.error) throw ups.error
+      if (ups.error) {
+        // 42501 AQUI (e somente aqui): recusa de RLS no UPSERT DE RATS. Marca o erro na
+        // origem para o syncAll tratar como bloqueio de propriedade — um 42501 vindo de
+        // outra tabela (fotos/materiais) NÃO entra nesse tratamento (comportamento padrão).
+        if (ups.error.code === '42501' || /row-level security/i.test(ups.error.message || '')) ups.error.rlsRatsUpsert = true
+        throw ups.error
+      }
     }
     const tarefaId = ups.data.id
     if (rat.envio_bloqueado_rls) await D().salvarRat(client_uuid, { envio_bloqueado_rls: null })   // dono logou e o envio passou
@@ -331,7 +337,8 @@
     await D().marcarDeslocamentoStatus(d.id, D().STATUS.CONFIRMADO)
   }
 
-  async function syncAll() {
+  async function syncAll(opts) {
+    const manual = !!(opts && opts.manual)   // ação humana explícita (botão): re-tenta itens bloqueados por RLS
     if (!navigator.onLine) return { ok: 0, fail: 0, skipped: true }
     // Rodada em voo: NÃO descarta o pedido (o encerramento da RAT chama syncAll na hora —
     // caso 04895); marca pra rodar de novo assim que a rodada atual terminar.
@@ -349,13 +356,23 @@
         catch (e) { console.warn('[sync] falha tarefa local', t.id, e); fail++ }
       }
       const todas = await D().listarRats()
-      // RAT bloqueada por RLS (de OUTRA conta — aparelho trocou de login): não re-tenta sob o
-      // login errado (spam de "erro de envio" que nunca resolve); volta sozinha à fila quando a
-      // conta dona logar. NÃO apaga nada (§12): a RAT segue no aparelho, rotulada na lista.
+      // RAT bloqueada por RLS no upsert de rats (42501 — tipicamente aparelho que trocou de
+      // login com RAT de outra conta na fila): o retry automático é INTERROMPIDO na sessão
+      // (sem spam de erro), e uma nova tentativa acontece quando (a) o dono loga, (b) o login
+      // muda em relação ao que estava ativo no bloqueio, ou (c) o técnico aciona o sync
+      // manualmente. NÃO apaga nada (§12): a RAT segue no aparelho, rotulada na lista.
       let meId = null
-      try { const { data: { user: me } } = await getSupabase().auth.getUser(); meId = me && me.id } catch (e) { /* offline/expirado: não filtra */ }
-      const pend = todas.filter(r => PEND.includes(r.sync_status)
-        && !(r.envio_bloqueado_rls && meId && r.tecnico_id && r.tecnico_id !== meId))
+      try { const { data: { user: me } } = await getSupabase().auth.getUser(); meId = me && me.id } catch (e) { /* offline/expirado */ }
+      const pend = todas.filter(r => {
+        if (!PEND.includes(r.sync_status)) return false
+        const bloq = r.envio_bloqueado_rls
+        if (!bloq) return true
+        if (manual) return true                                          // ação manual explícita
+        if (meId && r.tecnico_id && r.tecnico_id === meId) return true   // dono logou → tenta
+        const bloqUsuario = (typeof bloq === 'object' && bloq) ? bloq.usuario : null
+        if (bloqUsuario && meId && bloqUsuario !== meId) return true     // trocou de login → 1 nova tentativa
+        return false                                                     // mesmo login do bloqueio: suprimido
+      })
       for (const r of pend) {
         try {
           await D().definirStatus(r.client_uuid, D().STATUS.NA_FILA, 'enfileirado')
@@ -363,13 +380,22 @@
           ok++
         } catch (e) {
           console.warn('[sync] falha rat', r.client_uuid, e)
-          // 42501 = RLS negou: sob o dono certo isso não acontece — é RAT de outra conta.
-          const rls = e && (e.code === '42501' || /row-level security/i.test(e.message || ''))
-          if (rls && !r.envio_bloqueado_rls) await D().salvarRat(r.client_uuid, { envio_bloqueado_rls: true })
-          await D().definirStatus(r.client_uuid, D().STATUS.ERRO, rls
-            ? 'sem permissão — RAT de outra conta; entre com a conta que a criou para enviar'
-            : ((e && e.message) || 'erro de envio'))
-          if (!rls) fail++   // bloqueada não conta no toast (o rótulo na lista já explica)
+          // Somente a recusa de RLS marcada NO UPSERT DE RATS (enviarRat) entra no bloqueio;
+          // qualquer outro erro (inclusive 42501 de outra tabela) mantém o retry padrão.
+          const rls = !!(e && e.rlsRatsUpsert)
+          if (rls) {
+            // registro local do bloqueio: quando, sob qual login, e se a propriedade
+            // divergente está comprovada pelos dados locais (tecnico_id do registro ≠ logado)
+            const provado = !!(meId && r.tecnico_id && r.tecnico_id !== meId)
+            await D().salvarRat(r.client_uuid, { envio_bloqueado_rls: { em: new Date().toISOString(), usuario: meId || null, provado } })
+            await D().definirStatus(r.client_uuid, D().STATUS.ERRO, provado
+              ? 'Esta RAT foi criada por outro usuário neste aparelho. Entre com a conta original para sincronizá-la.'
+              : 'Esta RAT não pôde ser sincronizada por restrição de acesso. O conteúdo permanece salvo neste aparelho.')
+            // bloqueada NÃO conta no toast (nenhum alerta repetido; o rótulo na lista explica)
+          } else {
+            await D().definirStatus(r.client_uuid, D().STATUS.ERRO, (e && e.message) || 'erro de envio')
+            fail++
+          }
         }
       }
       const preorcs = (await D().listarPreorc()).filter(p => PEND.includes(p.sync_status))
