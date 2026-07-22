@@ -15,7 +15,7 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 import {
   normalizarPunch, calcularCursorNovo, janelaMs, sanitizarErro,
-  validarRequisicao, decidirRetry, coletarPaginado,
+  validarRequisicao, decidirRetry, coletarPaginado, corsPara,
 } from './logic.mjs'
 
 const API_BASE = 'https://api.tangerino.com.br/api/punch'
@@ -26,8 +26,6 @@ const ESPERAS_RETRY_MS = [1000, 3000, 9000]   // soma 13s — dentro do limite d
 const DEADLINE_MS = 100_000          // teto da rodada; estourou → aborta SEM avançar cursor
 const JANELA_DIAS = 7
 
-const json = (o: unknown, status = 200) =>
-  new Response(JSON.stringify(o), { status, headers: { 'Content-Type': 'application/json' } })
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms))
 
 // GET na API do Tangerino com a política de retry de logic.decidirRetry
@@ -63,6 +61,14 @@ Deno.serve(async (req: Request) => {
   const admin = createClient(Deno.env.get('SUPABASE_URL')!, Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!)
   const token = Deno.env.get('TANGERINO_TOKEN') || ''
   const segredos = [token, Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') || '', Deno.env.get('CRON_SECRET') || '']
+
+  // CORS restrito: só a origem do portal recebe os headers (achado do reconhecimento — o
+  // JWT admin vive no navegador do portal). Preflight OPTIONS da origem certa → 204; de
+  // qualquer outra origem cai no 405 do validarRequisicao. Auth continua toda na função.
+  const cors = corsPara(req.headers.get('Origin') || '')
+  const json = (o: unknown, status = 200) =>
+    new Response(JSON.stringify(o), { status, headers: { 'Content-Type': 'application/json', ...cors } })
+  if (req.method === 'OPTIONS' && Object.keys(cors).length) return new Response(null, { status: 204, headers: cors })
 
   try {
     // ── fatos de autenticação (a decisão é pura, em validarRequisicao) ──

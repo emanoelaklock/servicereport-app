@@ -5,7 +5,7 @@ import test from 'node:test'
 import assert from 'node:assert/strict'
 import {
   normalizarData, diaLocalDe, normalizarPunch, calcularCursorNovo, janelaMs, sanitizarErro, ianaDe,
-  validarRequisicao, decidirRetry, coletarPaginado,
+  validarRequisicao, decidirRetry, coletarPaginado, corsPara,
 } from './logic.mjs'
 
 const MAPA = new Map([[101, 'uuid-tec-101'], [102, 'uuid-tec-102']])
@@ -201,6 +201,15 @@ test('paginação: deadline estourado aborta a rodada (sem avanço de cursor)', 
     /tempo limite/,
   )
 })
+test('CORS: só a origem exata do portal recebe headers; qualquer outra recebe {}', () => {
+  const ok = corsPara('https://servicereport-app.vercel.app')
+  assert.equal(ok['Access-Control-Allow-Origin'], 'https://servicereport-app.vercel.app')
+  assert.equal(ok['Access-Control-Allow-Methods'], 'POST, OPTIONS')
+  assert.deepEqual(corsPara('https://malicioso.example.com'), {})
+  assert.deepEqual(corsPara(''), {})
+  assert.deepEqual(corsPara('http://servicereport-app.vercel.app'), {})   // http ≠ https
+})
+
 test('cursor: falha na coleta significa que calcularCursorNovo nem roda — repetição da mesma janela re-normaliza idêntico (dedup é o unique do banco)', () => {
   const a = normalizarPunch(FX_PAR_SEM_OFFSET, MAPA).row
   const b = normalizarPunch(FX_PAR_SEM_OFFSET, MAPA).row

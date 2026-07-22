@@ -122,6 +122,23 @@ export function validarRequisicao({ metodo, cronOk, papel, modo, reconhecimentoA
   return { ok: true, status: 200, autorizadoPor: ehAdmin ? 'admin' : 'cron' }
 }
 
+// ── CORS restrito à origem do portal (decisão pura) ──────────────────────────
+// Achado do reconhecimento (22/07): o único portador de JWT admin é o navegador do
+// portal — sem CORS o preflight morre e o modo manual/reconhecimento fica inexecutável.
+// NÃO é CORS público: só a origem exata do portal recebe os headers; qualquer outra
+// origem recebe {} (o navegador bloqueia). A autenticação continua 100% na função.
+export const ORIGENS_PORTAL = ['https://servicereport-app.vercel.app']
+export function corsPara(origin) {
+  return ORIGENS_PORTAL.includes(origin)
+    ? {
+        'Access-Control-Allow-Origin': origin,
+        'Access-Control-Allow-Headers': 'authorization, content-type',
+        'Access-Control-Allow-Methods': 'POST, OPTIONS',
+        'Vary': 'Origin',
+      }
+    : {}
+}
+
 // ── política de retry (decisão pura) ─────────────────────────────────────────
 // 401/403 nunca re-tenta (token/permissão — precisa de humano). 429 respeita
 // Retry-After quando fornecido (teto de 30s). 5xx/rede usam o backoff. Demais: desiste.
