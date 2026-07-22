@@ -207,6 +207,7 @@ test('CORS: só a origem exata do portal recebe headers; qualquer outra recebe {
   const ok = corsPara('https://servicereport-app.vercel.app')
   assert.equal(ok['Access-Control-Allow-Origin'], 'https://servicereport-app.vercel.app')
   assert.equal(ok['Access-Control-Allow-Methods'], 'POST, OPTIONS')
+  assert.equal(ok['Access-Control-Allow-Headers'], 'authorization, apikey, content-type, x-client-info')   // preflight do functions.invoke
   assert.deepEqual(corsPara('https://malicioso.example.com'), {})
   assert.deepEqual(corsPara(''), {})
   assert.deepEqual(corsPara('http://servicereport-app.vercel.app'), {})   // http ≠ https

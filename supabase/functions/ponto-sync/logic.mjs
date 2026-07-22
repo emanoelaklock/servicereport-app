@@ -187,7 +187,7 @@ export function corsPara(origin) {
   return ORIGENS_PORTAL.includes(origin)
     ? {
         'Access-Control-Allow-Origin': origin,
-        'Access-Control-Allow-Headers': 'authorization, content-type',
+        'Access-Control-Allow-Headers': 'authorization, apikey, content-type, x-client-info',   // supabase-js functions.invoke envia apikey/x-client-info
         'Access-Control-Allow-Methods': 'POST, OPTIONS',
         'Vary': 'Origin',
       }
