@@ -15,10 +15,11 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 import {
   normalizarPunch, calcularCursorNovo, janelaMs, sanitizarErro,
-  validarRequisicao, decidirRetry, coletarPaginado, corsPara,
+  validarRequisicao, decidirRetry, coletarPaginado, corsPara, sugerirVinculo,
 } from './logic.mjs'
 
 const API_BASE = 'https://api.tangerino.com.br/api/punch'
+const EMPLOYER_BASE = 'https://employer.tangerino.com.br'   // C2: consulta read-only de colaboradores
 const PAGE_SIZE = 200
 const MAX_PAGINAS = 300              // guarda de runaway (300×200 = 60k marcações/rodada)
 const PAUSA_ENTRE_PAGINAS_MS = 250   // conservador até a Sólides confirmar rate limit
@@ -91,7 +92,7 @@ Deno.serve(async (req: Request) => {
     }
 
     const body = req.method === 'POST' ? await req.json().catch(() => ({})) : {}
-    const modo = body?.modo === 'reconhecimento' ? 'reconhecimento' : 'delta'
+    const modo = ['reconhecimento', 'colaboradores'].includes(body?.modo) ? body.modo : 'delta'
     const { data: cfg } = await admin.from('ponto_config').select('reconhecimento_ativo').eq('id', 1).maybeSingle()
 
     const auth = validarRequisicao({
@@ -110,6 +111,31 @@ Deno.serve(async (req: Request) => {
       .select('tecnico_id,tangerino_employee_id').eq('ativo', true)
     if (eMap) throw eMap
     const mapa = new Map<number, string>((vincs || []).map((v: any) => [Number(v.tangerino_employee_id), v.tecnico_id]))
+
+    // ── modo colaboradores (C2): consulta READ-ONLY p/ a tela de vínculos ──
+    // Lista colaboradores do Tangerino + sugestão de matching calculada AQUI no servidor
+    // (externalId > CPF normalizado). O CPF é usado só nesta função e NUNCA entra na
+    // resposta; nome vai como auxílio visual (regra C2). Nada é gravado em lugar nenhum.
+    if (modo === 'colaboradores') {
+      const { data: us, error: eUs } = await admin.from('usuarios').select('id,nome,cpf,ativo').eq('ativo', true)
+      if (eUs) throw eUs
+      const usuariosAtivos = us || []
+      const { punches: cols, paginas } = await coletarPaginado(
+        (page: number) => getComRetry(
+          `${EMPLOYER_BASE}/employee/find-all?${new URLSearchParams({ page: String(page), size: '200', showFired: 'true' })}`,
+          token,
+        ),
+        { maxPaginas: 20, deadlineMs: deadline, pausaMs: PAUSA_ENTRE_PAGINAS_MS, dorme: sleep },
+      )
+      const colaboradores = cols.map((p: any) => ({
+        employeeId: p.id ?? null,
+        nome: p.name ?? p.nome ?? null,                       // auxílio visual — nunca chave
+        externalId: p.externalId ?? null,
+        demitido: p.fired === true || p.excluded === true,
+        sugestao: sugerirVinculo({ externalId: p.externalId, cpf: p.cpf }, usuariosAtivos),  // CPF morre aqui
+      }))
+      return json({ modo, autorizadoPor: auth.autorizadoPor, total: colaboradores.length, paginas, colaboradores })
+    }
 
     // ── modo reconhecimento: amostra mínima sanitizada, SEM gravar em ponto_marcacoes ──
     // Só o necessário p/ R1 (formato/fuso), R2 (exclusão), R3 (lastUpdate) e id estável.

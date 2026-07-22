@@ -126,22 +126,44 @@ export function normalizarPunch(punch, mapa) {
 }
 
 // ── autorização da requisição (decisão pura; o index.ts injeta os fatos) ──────
-// Regras da auditoria final do PR-C1:
+// Regras da auditoria final do PR-C1 (+C2):
 //   · somente POST (a execução GRAVA no espelho do SR — GET operacional é 405);
 //   · anônimo nunca passa (401);
 //   · modo manual = só admin/gestor autenticado por JWT;
 //   · cron autentica por segredo próprio (x-cron-secret) e só roda o delta;
-//   · reconhecimento exige admin E o flag ponto_config.reconhecimento_ativo
-//     (desligável após fechar R1/R2/R3).
+//   · reconhecimento exige admin E o flag ponto_config.reconhecimento_ativo;
+//   · colaboradores (C2, consulta read-only p/ tela de vínculos) exige admin/gestor
+//     autenticado — cron NÃO roda (não é sync).
 export function validarRequisicao({ metodo, cronOk, papel, modo, reconhecimentoAtivo }) {
   if (metodo !== 'POST') return { ok: false, status: 405, motivo: 'somente POST' }
   const ehAdmin = papel === 'admin' || papel === 'gestor_axis'
   if (!cronOk && !ehAdmin) return { ok: false, status: 401, motivo: 'unauthorized' }
-  if (modo === 'reconhecimento') {
-    if (!ehAdmin) return { ok: false, status: 403, motivo: 'reconhecimento exige admin autenticado' }
-    if (!reconhecimentoAtivo) return { ok: false, status: 403, motivo: 'reconhecimento desabilitado (R1/R2/R3 fechados)' }
+  if (modo === 'reconhecimento' || modo === 'colaboradores') {
+    if (!ehAdmin) return { ok: false, status: 403, motivo: `${modo} exige admin autenticado` }
+    if (modo === 'reconhecimento' && !reconhecimentoAtivo) {
+      return { ok: false, status: 403, motivo: 'reconhecimento desabilitado (R1/R2/R3 fechados)' }
+    }
   }
   return { ok: true, status: 200, autorizadoPor: ehAdmin ? 'admin' : 'cron' }
+}
+
+// ── sugestão de vínculo (C2 — roda SÓ NO SERVIDOR; CPF jamais sai daqui) ─────
+// Prioridade: externalId (chave forte, se preenchido no Tangerino com o uuid do SR) >
+// CPF normalizado (só dígitos, 11 posições). Nome NUNCA é chave. A sugestão é auxílio:
+// quem confirma é humano na tela — nada aqui cria vínculo.
+export const soDigitos = (s) => String(s ?? '').replace(/\D+/g, '')
+export function sugerirVinculo(colab, usuariosAtivos) {
+  const ext = String(colab?.externalId ?? '').trim().toLowerCase()
+  if (ext) {
+    const u = (usuariosAtivos || []).find((x) => String(x.id).toLowerCase() === ext)
+    if (u) return { tecnicoId: u.id, origem: 'externalId' }
+  }
+  const cpf = soDigitos(colab?.cpf)
+  if (cpf.length === 11) {
+    const u = (usuariosAtivos || []).find((x) => soDigitos(x.cpf) === cpf)
+    if (u) return { tecnicoId: u.id, origem: 'cpf' }
+  }
+  return null
 }
 
 // ── CORS restrito à origem do portal (decisão pura) ──────────────────────────

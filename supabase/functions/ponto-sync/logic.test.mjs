@@ -5,7 +5,7 @@ import test from 'node:test'
 import assert from 'node:assert/strict'
 import {
   normalizarData, diaLocalDe, normalizarPunch, calcularCursorNovo, janelaMs, sanitizarErro, ianaDe,
-  validarRequisicao, decidirRetry, coletarPaginado, corsPara,
+  validarRequisicao, decidirRetry, coletarPaginado, corsPara, sugerirVinculo, soDigitos,
 } from './logic.mjs'
 
 const MAPA = new Map([[101, 'uuid-tec-101'], [102, 'uuid-tec-102']])
@@ -293,6 +293,40 @@ test('correção com mesmo id: linha atualizada mantém a chave de dedup', () =>
   assert.equal(depois.editado_origem, true)
   assert.ok(calcularCursorNovo([corrigido], MS_MOD) > MS_MOD)         // correção avança o cursor
 })
+// ═══════ C2 — modo colaboradores + sugestão de vínculo (CPF só no servidor) ═══════
+const USUARIOS = [
+  { id: 'A1B2C3D4-0000-0000-0000-000000000001'.toLowerCase(), nome: 'Usuário Um', cpf: '123.456.789-01', ativo: true },
+  { id: 'a1b2c3d4-0000-0000-0000-000000000002', nome: 'Usuário Dois', cpf: '98765432100', ativo: true },
+]
+test('C2 auth: modo colaboradores exige admin/gestor; cron sozinho não roda; independe do flag de reconhecimento', () => {
+  assert.equal(validarRequisicao({ metodo: 'POST', cronOk: true, papel: null, modo: 'colaboradores', reconhecimentoAtivo: false }).status, 403)
+  assert.equal(validarRequisicao({ metodo: 'POST', cronOk: false, papel: null, modo: 'colaboradores', reconhecimentoAtivo: true }).status, 401)
+  assert.equal(validarRequisicao({ metodo: 'POST', cronOk: false, papel: 'tecnico_campo', modo: 'colaboradores', reconhecimentoAtivo: true }).ok, false)
+  assert.equal(validarRequisicao({ metodo: 'POST', cronOk: false, papel: 'admin', modo: 'colaboradores', reconhecimentoAtivo: false }).ok, true)
+  assert.equal(validarRequisicao({ metodo: 'POST', cronOk: false, papel: 'gestor_axis', modo: 'colaboradores', reconhecimentoAtivo: false }).ok, true)
+})
+test('C2 matching: externalId tem prioridade sobre CPF (case-insensitive)', () => {
+  const colab = { externalId: 'A1B2C3D4-0000-0000-0000-000000000002'.toLowerCase(), cpf: '12345678901' }
+  assert.deepEqual(sugerirVinculo(colab, USUARIOS), { tecnicoId: USUARIOS[1].id, origem: 'externalId' })
+})
+test('C2 matching: CPF normalizado casa com e sem máscara; curto/ausente → null', () => {
+  assert.deepEqual(sugerirVinculo({ externalId: null, cpf: '12345678901' }, USUARIOS), { tecnicoId: USUARIOS[0].id, origem: 'cpf' })
+  assert.deepEqual(sugerirVinculo({ externalId: '', cpf: '987.654.321-00' }, USUARIOS), { tecnicoId: USUARIOS[1].id, origem: 'cpf' })
+  assert.equal(sugerirVinculo({ cpf: '123' }, USUARIOS), null)
+  assert.equal(sugerirVinculo({ cpf: null }, USUARIOS), null)
+  assert.equal(sugerirVinculo({ externalId: 'nao-e-uuid-de-ninguem', cpf: '00000000000' }, USUARIOS), null)
+})
+test('C2 sanitização: a sugestão NUNCA carrega CPF (só tecnicoId + origem)', () => {
+  const s = sugerirVinculo({ externalId: null, cpf: '12345678901' }, USUARIOS)
+  assert.deepEqual(Object.keys(s).sort(), ['origem', 'tecnicoId'])
+  assert.ok(!JSON.stringify(s).includes('12345678901'), 'CPF vazou na sugestão')
+  assert.ok(!('cpf' in s), 'propriedade cpf presente na sugestão')
+})
+test('C2 soDigitos: normalização de CPF', () => {
+  assert.equal(soDigitos('123.456.789-01'), '12345678901')
+  assert.equal(soDigitos(null), '')
+})
+
 test('dia local com fuso não-SP: mesmo instante numérico, dia local pode diferir', () => {
   const meiaNoiteSP = Date.UTC(2026, 6, 23, 2, 30)   // 23:30 do dia 22 em SP; 22:30 em Manaus
   assert.equal(diaLocalDe(meiaNoiteSP, 'America/Sao_Paulo'), '2026-07-22')
