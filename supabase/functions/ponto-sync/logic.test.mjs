@@ -5,7 +5,8 @@ import test from 'node:test'
 import assert from 'node:assert/strict'
 import {
   normalizarData, diaLocalDe, normalizarPunch, calcularCursorNovo, janelaMs, sanitizarErro, ianaDe,
-  validarRequisicao, decidirRetry, coletarPaginado, corsPara, sugerirVinculo, soDigitos, classificarPunch,
+  validarRequisicao, decidirRetry, coletarPaginado, corsPara, sugerirVinculo, soDigitos, classificarPunch, esquemaDe,
+  qsEmployerFindAll, unirColaboradores,
 } from './logic.mjs'
 
 const MAPA = new Map([[101, 'uuid-tec-101'], [102, 'uuid-tec-102']])
@@ -207,6 +208,7 @@ test('CORS: só a origem exata do portal recebe headers; qualquer outra recebe {
   const ok = corsPara('https://servicereport-app.vercel.app')
   assert.equal(ok['Access-Control-Allow-Origin'], 'https://servicereport-app.vercel.app')
   assert.equal(ok['Access-Control-Allow-Methods'], 'POST, OPTIONS')
+  assert.equal(ok['Access-Control-Allow-Headers'], 'authorization, apikey, content-type, x-client-info')   // preflight do functions.invoke
   assert.deepEqual(corsPara('https://malicioso.example.com'), {})
   assert.deepEqual(corsPara(''), {})
   assert.deepEqual(corsPara('http://servicereport-app.vercel.app'), {})   // http ≠ https
@@ -373,6 +375,83 @@ test('situação nunca muda a decisão: mesmo colaborador, ativo ou inativo, cla
 test('ninguém vira fora_escopo automaticamente por inatividade (só o conjunto explícito decide)', () => {
   // punch de inativo NÃO listado no conjunto fora_escopo jamais classifica como fora_escopo
   assert.notEqual(classificarPunch(punchDe(999, true), MAPA2, FE2), 'fora_escopo')
+})
+
+// ═══════ Diagnóstico Employer — esquema sanitizado (nenhum VALOR sai) ═══════
+
+// ═══════ Consulta definitiva de colaboradores (diagnóstico 22/07) ═══════
+const ATIVO = (id, extra = {}) => ({ id, name: `A${id}`, cpf: null, externalId: null, fired: false, ...extra })
+const DEMITIDO = (id, extra = {}) => ({ id, name: `D${id}`, cpf: null, externalId: null, fired: true, resignationDate: 1780000000000, ...extra })
+test('consulta: ativos SEM showFired; demitidos COM showFired=true (query pura)', () => {
+  assert.ok(!qsEmployerFindAll(0, 200, false).includes('showFired'))
+  assert.ok(qsEmployerFindAll(0, 200, true).includes('showFired=true'))
+  assert.ok(qsEmployerFindAll(3, 200, true).includes('page=3'))
+})
+test('união: dois conjuntos paginados independentes, deduplicados por id', async () => {
+  // paginação independente: 2 páginas de ativos + 1 de demitidos (via coletarPaginado real)
+  const pagsAtivos = [{ content: [ATIVO(1), ATIVO(2)], last: false }, { content: [ATIVO(3)], last: true }]
+  const pagsDem = [{ content: [DEMITIDO(9)], last: true }]
+  const a = await coletarPaginado(async (p) => pagsAtivos[p], { pausaMs: 0 })
+  const d = await coletarPaginado(async (p) => pagsDem[p], { pausaMs: 0 })
+  assert.equal(a.paginas, 2); assert.equal(d.paginas, 1)
+  const u = unirColaboradores(a.punches, d.punches)
+  assert.ok('colaboradores' in u)
+  assert.equal(u.colaboradores.length, 4)
+  // duplicata idêntica entre páginas não duplica
+  const u2 = unirColaboradores([ATIVO(1), ATIVO(1)], [DEMITIDO(9)])
+  assert.equal(u2.colaboradores.length, 2)
+})
+test('situação: fired=false → ativo; fired=true → inativo (normalização explícita)', () => {
+  const u = unirColaboradores([ATIVO(1)], [DEMITIDO(9)])
+  const porId = Object.fromEntries(u.colaboradores.map((c) => [c.id, c.fired === true]))
+  assert.equal(porId[1], false)
+  assert.equal(porId[9], true)
+})
+test('fired ausente, string ou número → ERRO sanitizado (nunca classificação silenciosa)', () => {
+  for (const ruim of [{ id: 5 }, { id: 5, fired: 'true' }, { id: 5, fired: 1 }]) {
+    const u = unirColaboradores([ruim], [])
+    assert.ok('erro' in u, `deveria falhar: ${JSON.stringify(Object.keys(ruim))}`)
+    assert.ok(u.erro.includes('fired'))
+    assert.ok(!u.erro.includes('A5') && !u.erro.includes('"5"'), 'valor vazou no erro')
+  }
+})
+test('conflito: mesmo id como ativo E inativo → ERRO', () => {
+  const u = unirColaboradores([ATIVO(7)], [DEMITIDO(7)])
+  assert.ok('erro' in u)
+  assert.ok(u.erro.includes('mesmo id'))
+})
+test('conjunto de demitidos com fired !== true → ERRO', () => {
+  const u = unirColaboradores([], [{ id: 8, fired: false }])
+  assert.ok('erro' in u)
+  assert.ok(u.erro.includes('demitidos'))
+})
+test('resignationDate NUNCA altera a classificação (só fired decide)', () => {
+  const ativoComResignation = ATIVO(2, { resignationDate: 1780000000000 })   // ruído: campo presente
+  const demitidoSemResignation = { id: 3, name: 'D3', fired: true }          // ruído: campo ausente
+  const u = unirColaboradores([ativoComResignation], [demitidoSemResignation])
+  assert.ok('colaboradores' in u)
+  const porId = Object.fromEntries(u.colaboradores.map((c) => [c.id, c.fired]))
+  assert.equal(porId[2], false)   // resignationDate presente não torna inativo
+  assert.equal(porId[3], true)    // resignationDate ausente não torna ativo
+})
+
+test('esquemaDe: caminhos, tipos e contagens — sem NENHUM valor da fixture na saída', () => {
+  const fixtures = [
+    { id: 987001, name: 'NomeSensivelTeste', cpf: '11122233344', fired: false, extra: null,
+      workSchedule: { id: 55, label: 'EscalaTeste' }, tags: [{ t: 'TagTeste' }] },
+    { id: 987002, name: 'OutroNomeTeste', cpf: null, fired: true, extra: 'ValorTeste',
+      workSchedule: null, tags: [] },
+  ]
+  const e = esquemaDe(fixtures)
+  assert.deepEqual(e['id'], { tipos: ['number'], nulos: 0, preenchidos: 2 })
+  assert.deepEqual(e['cpf'], { tipos: ['null', 'string'], nulos: 1, preenchidos: 1 })
+  assert.deepEqual(e['fired'], { tipos: ['boolean'], nulos: 0, preenchidos: 2, trues: 1, falses: 1 })
+  assert.ok(e['workSchedule.id'])                       // caminho aninhado mapeado
+  assert.ok(e['tags[].t'])                              // array de objetos mapeado
+  const txt = JSON.stringify(e)
+  for (const vazamento of ['NomeSensivelTeste', 'OutroNomeTeste', '11122233344', 'ValorTeste', 'EscalaTeste', 'TagTeste', '987001', '987002']) {
+    assert.ok(!txt.includes(vazamento), `valor vazou no esquema: ${vazamento}`)
+  }
 })
 
 test('dia local com fuso não-SP: mesmo instante numérico, dia local pode diferir', () => {

@@ -16,6 +16,7 @@ import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 import {
   normalizarPunch, calcularCursorNovo, janelaMs, sanitizarErro,
   validarRequisicao, decidirRetry, coletarPaginado, corsPara, sugerirVinculo, classificarPunch,
+  qsEmployerFindAll, unirColaboradores,
 } from './logic.mjs'
 
 const API_BASE = 'https://api.tangerino.com.br/api/punch'
@@ -125,21 +126,29 @@ Deno.serve(async (req: Request) => {
       const { data: us, error: eUs } = await admin.from('usuarios').select('id,nome,cpf,ativo').eq('ativo', true)
       if (eUs) throw eUs
       const usuariosAtivos = us || []
-      const { punches: cols, paginas } = await coletarPaginado(
+      // Diagnóstico 22/07 comprovou: showFired=true retorna SOMENTE demitidos.
+      // Duas consultas independentes e paginadas (ativos + demitidos), unidas por id
+      // com normalização ESTRITA de fired (inconsistência → erro sanitizado, nunca
+      // classificação silenciosa). Campos comprovados: id, name, cpf (server-side),
+      // externalId, fired. `excluded` NÃO existe no payload da Employer — removido.
+      const buscar = (somenteDemitidos: boolean) => coletarPaginado(
         (page: number) => getComRetry(
-          `${EMPLOYER_BASE}/employee/find-all?${new URLSearchParams({ page: String(page), size: '200', showFired: 'true' })}`,
-          token,
-        ),
+          `${EMPLOYER_BASE}/employee/find-all?${qsEmployerFindAll(page, 200, somenteDemitidos)}`, token),
         { maxPaginas: 20, deadlineMs: deadline, pausaMs: PAUSA_ENTRE_PAGINAS_MS, dorme: sleep },
       )
-      const colaboradores = cols.map((p: any) => ({
-        employeeId: p.id ?? null,
-        nome: p.name ?? p.nome ?? null,                       // auxílio visual — nunca chave
+      const ativos = await buscar(false)
+      const demitidos = await buscar(true)
+      const uniao = unirColaboradores(ativos.punches, demitidos.punches)
+      if ('erro' in uniao) return json({ error: uniao.erro }, 502)
+      const colaboradores = uniao.colaboradores.map((p: any) => ({
+        employeeId: p.id,
+        nome: p.name ?? null,                                 // auxílio visual — nunca chave
         externalId: p.externalId ?? null,
-        demitido: p.fired === true || p.excluded === true,
+        demitido: p.fired === true,                           // normalização explícita (nunca truthy)
         sugestao: sugerirVinculo({ externalId: p.externalId, cpf: p.cpf }, usuariosAtivos),  // CPF morre aqui
       }))
-      return json({ modo, autorizadoPor: auth.autorizadoPor, total: colaboradores.length, paginas, colaboradores })
+      return json({ modo, autorizadoPor: auth.autorizadoPor, total: colaboradores.length,
+        paginas: { ativos: ativos.paginas, demitidos: demitidos.paginas }, colaboradores })
     }
 
     // ── modo reconhecimento: amostra mínima sanitizada, SEM gravar em ponto_marcacoes ──
