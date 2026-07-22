@@ -147,6 +147,17 @@ export function validarRequisicao({ metodo, cronOk, papel, modo, reconhecimentoA
   return { ok: true, status: 200, autorizadoPor: ehAdmin ? 'admin' : 'cron' }
 }
 
+// ── classificação da marcação na importação (nada desaparece em silêncio) ────
+// 'importar' = colaborador vinculado · 'fora_escopo' = decisão intencional auditada
+// (não bloqueia) · 'pendente_sem_vinculo' = ainda exige decisão humana (BLOQUEIA a
+// execução: 'parcial', sem avanço de cursor — regra da 1ª carga).
+export function classificarPunch(punch, mapa, foraEscopo) {
+  const empId = Number(punch?.employeeId ?? punch?.employee?.id)
+  if (mapa.has(empId)) return 'importar'
+  if (foraEscopo.has(empId)) return 'fora_escopo'
+  return 'pendente_sem_vinculo'
+}
+
 // ── sugestão de vínculo (C2 — roda SÓ NO SERVIDOR; CPF jamais sai daqui) ─────
 // Prioridade: externalId (chave forte, se preenchido no Tangerino com o uuid do SR) >
 // CPF normalizado (só dígitos, 11 posições). Nome NUNCA é chave. A sugestão é auxílio:

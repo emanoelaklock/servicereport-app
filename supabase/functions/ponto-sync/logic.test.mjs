@@ -5,7 +5,7 @@ import test from 'node:test'
 import assert from 'node:assert/strict'
 import {
   normalizarData, diaLocalDe, normalizarPunch, calcularCursorNovo, janelaMs, sanitizarErro, ianaDe,
-  validarRequisicao, decidirRetry, coletarPaginado, corsPara, sugerirVinculo, soDigitos,
+  validarRequisicao, decidirRetry, coletarPaginado, corsPara, sugerirVinculo, soDigitos, classificarPunch,
 } from './logic.mjs'
 
 const MAPA = new Map([[101, 'uuid-tec-101'], [102, 'uuid-tec-102']])
@@ -325,6 +325,22 @@ test('C2 sanitização: a sugestão NUNCA carrega CPF (só tecnicoId + origem)',
 test('C2 soDigitos: normalização de CPF', () => {
   assert.equal(soDigitos('123.456.789-01'), '12345678901')
   assert.equal(soDigitos(null), '')
+})
+
+// ═══════ C2 — classificação da importação (nada some em silêncio) ═══════
+test('classificação: vinculado importa; fora_escopo é intencional; sem decisão é PENDENTE (bloqueia)', () => {
+  const mapa = new Map([[101, 'uuid-tec-101']])
+  const fe = new Set([555])
+  assert.equal(classificarPunch({ employeeId: 101 }, mapa, fe), 'importar')
+  assert.equal(classificarPunch({ employeeId: 555 }, mapa, fe), 'fora_escopo')
+  assert.equal(classificarPunch({ employeeId: 999 }, mapa, fe), 'pendente_sem_vinculo')
+  assert.equal(classificarPunch({ employee: { id: 101 } }, mapa, fe), 'importar')   // id aninhado
+  assert.equal(classificarPunch({ employeeId: '101' }, mapa, fe), 'importar')       // coerção numérica
+})
+test('classificação: vínculo tem precedência sobre fora_escopo (estado impossível no banco, defensivo aqui)', () => {
+  const mapa = new Map([[101, 'uuid-tec-101']])
+  const fe = new Set([101])
+  assert.equal(classificarPunch({ employeeId: 101 }, mapa, fe), 'importar')
 })
 
 test('dia local com fuso não-SP: mesmo instante numérico, dia local pode diferir', () => {
