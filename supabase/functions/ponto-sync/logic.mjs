@@ -138,10 +138,6 @@ export function validarRequisicao({ metodo, cronOk, papel, modo, reconhecimentoA
   if (metodo !== 'POST') return { ok: false, status: 405, motivo: 'somente POST' }
   const ehAdmin = papel === 'admin' || papel === 'gestor_axis'
   if (!cronOk && !ehAdmin) return { ok: false, status: 401, motivo: 'unauthorized' }
-  // diagnóstico temporário (esquema da Employer): ESTRITAMENTE admin — gestor e cron não rodam
-  if (modo === 'diagnostico_employer' && papel !== 'admin') {
-    return { ok: false, status: 403, motivo: 'diagnostico_employer exige papel admin' }
-  }
   if (modo === 'reconhecimento' || modo === 'colaboradores') {
     if (!ehAdmin) return { ok: false, status: 403, motivo: `${modo} exige admin autenticado` }
     if (modo === 'reconhecimento' && !reconhecimentoAtivo) {
@@ -203,6 +199,45 @@ export function esquemaDe(itens, maxNivel = 2) {
 // Prioridade: externalId (chave forte, se preenchido no Tangerino com o uuid do SR) >
 // CPF normalizado (só dígitos, 11 posições). Nome NUNCA é chave. A sugestão é auxílio:
 // quem confirma é humano na tela — nada aqui cria vínculo.
+// ── consulta definitiva de colaboradores (diagnóstico 22/07 comprovou) ────────
+// `showFired=true` retorna SOMENTE os demitidos ("mostrar OS demitidos", não incluir);
+// sem o parâmetro vêm os ATIVOS. Logo: duas consultas independentes, unidas por id.
+// A query string é pura para ser testável.
+export function qsEmployerFindAll(page, size, somenteDemitidos) {
+  const q = new URLSearchParams({ page: String(page), size: String(size) })
+  if (somenteDemitidos) q.set('showFired', 'true')
+  return q.toString()
+}
+
+// União por id com NORMALIZAÇÃO ESTRITA da situação (nunca truthy/falsy):
+//   fired === true → inativo · fired === false → ativo · qualquer outra coisa → ERRO.
+// Inconsistências BLOQUEIAM com erro sanitizado (sem classificar em silêncio):
+//   · mesmo id presente como ativo E inativo · registro do conjunto de demitidos com
+//   fired !== true · fired ausente/string/número. resignationDate NUNCA classifica.
+export function unirColaboradores(ativos, demitidos) {
+  const vistos = new Map()
+  const problemas = new Set()
+  const processa = (lista, conjuntoDemitidos) => {
+    for (const p of lista || []) {
+      const id = p?.id
+      if (id == null) { problemas.add('registro sem id'); continue }
+      if (typeof p.fired !== 'boolean') { problemas.add('fired ausente ou não-boolean'); continue }
+      if (conjuntoDemitidos && p.fired !== true) { problemas.add('conjunto de demitidos contém registro com fired !== true'); continue }
+      if (vistos.has(id)) {
+        if (vistos.get(id).fired !== p.fired) problemas.add('mesmo id presente como ativo e inativo')
+        continue   // duplicata idêntica: mantém a primeira (união por id)
+      }
+      vistos.set(id, p)
+    }
+  }
+  processa(ativos, false)
+  processa(demitidos, true)
+  if (problemas.size) {
+    return { erro: `inconsistência na lista de colaboradores: ${[...problemas].join('; ')}`.slice(0, 300) }
+  }
+  return { colaboradores: [...vistos.values()] }
+}
+
 export const soDigitos = (s) => String(s ?? '').replace(/\D+/g, '')
 export function sugerirVinculo(colab, usuariosAtivos) {
   const ext = String(colab?.externalId ?? '').trim().toLowerCase()

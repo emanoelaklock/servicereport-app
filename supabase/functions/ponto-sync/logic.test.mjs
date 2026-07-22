@@ -6,6 +6,7 @@ import assert from 'node:assert/strict'
 import {
   normalizarData, diaLocalDe, normalizarPunch, calcularCursorNovo, janelaMs, sanitizarErro, ianaDe,
   validarRequisicao, decidirRetry, coletarPaginado, corsPara, sugerirVinculo, soDigitos, classificarPunch, esquemaDe,
+  qsEmployerFindAll, unirColaboradores,
 } from './logic.mjs'
 
 const MAPA = new Map([[101, 'uuid-tec-101'], [102, 'uuid-tec-102']])
@@ -377,14 +378,63 @@ test('ninguém vira fora_escopo automaticamente por inatividade (só o conjunto 
 })
 
 // ═══════ Diagnóstico Employer — esquema sanitizado (nenhum VALOR sai) ═══════
-test('diagnóstico: só admin roda (gestor, técnico, cron e anônimo bloqueados)', () => {
-  const base = { metodo: 'POST', modo: 'diagnostico_employer', reconhecimentoAtivo: true }
-  assert.equal(validarRequisicao({ ...base, cronOk: false, papel: 'admin' }).ok, true)
-  assert.equal(validarRequisicao({ ...base, cronOk: false, papel: 'gestor_axis' }).status, 403)
-  assert.equal(validarRequisicao({ ...base, cronOk: false, papel: 'tecnico_campo' }).ok, false)
-  assert.equal(validarRequisicao({ ...base, cronOk: true, papel: null }).status, 403)
-  assert.equal(validarRequisicao({ ...base, cronOk: false, papel: null }).status, 401)
+
+// ═══════ Consulta definitiva de colaboradores (diagnóstico 22/07) ═══════
+const ATIVO = (id, extra = {}) => ({ id, name: `A${id}`, cpf: null, externalId: null, fired: false, ...extra })
+const DEMITIDO = (id, extra = {}) => ({ id, name: `D${id}`, cpf: null, externalId: null, fired: true, resignationDate: 1780000000000, ...extra })
+test('consulta: ativos SEM showFired; demitidos COM showFired=true (query pura)', () => {
+  assert.ok(!qsEmployerFindAll(0, 200, false).includes('showFired'))
+  assert.ok(qsEmployerFindAll(0, 200, true).includes('showFired=true'))
+  assert.ok(qsEmployerFindAll(3, 200, true).includes('page=3'))
 })
+test('união: dois conjuntos paginados independentes, deduplicados por id', async () => {
+  // paginação independente: 2 páginas de ativos + 1 de demitidos (via coletarPaginado real)
+  const pagsAtivos = [{ content: [ATIVO(1), ATIVO(2)], last: false }, { content: [ATIVO(3)], last: true }]
+  const pagsDem = [{ content: [DEMITIDO(9)], last: true }]
+  const a = await coletarPaginado(async (p) => pagsAtivos[p], { pausaMs: 0 })
+  const d = await coletarPaginado(async (p) => pagsDem[p], { pausaMs: 0 })
+  assert.equal(a.paginas, 2); assert.equal(d.paginas, 1)
+  const u = unirColaboradores(a.punches, d.punches)
+  assert.ok('colaboradores' in u)
+  assert.equal(u.colaboradores.length, 4)
+  // duplicata idêntica entre páginas não duplica
+  const u2 = unirColaboradores([ATIVO(1), ATIVO(1)], [DEMITIDO(9)])
+  assert.equal(u2.colaboradores.length, 2)
+})
+test('situação: fired=false → ativo; fired=true → inativo (normalização explícita)', () => {
+  const u = unirColaboradores([ATIVO(1)], [DEMITIDO(9)])
+  const porId = Object.fromEntries(u.colaboradores.map((c) => [c.id, c.fired === true]))
+  assert.equal(porId[1], false)
+  assert.equal(porId[9], true)
+})
+test('fired ausente, string ou número → ERRO sanitizado (nunca classificação silenciosa)', () => {
+  for (const ruim of [{ id: 5 }, { id: 5, fired: 'true' }, { id: 5, fired: 1 }]) {
+    const u = unirColaboradores([ruim], [])
+    assert.ok('erro' in u, `deveria falhar: ${JSON.stringify(Object.keys(ruim))}`)
+    assert.ok(u.erro.includes('fired'))
+    assert.ok(!u.erro.includes('A5') && !u.erro.includes('"5"'), 'valor vazou no erro')
+  }
+})
+test('conflito: mesmo id como ativo E inativo → ERRO', () => {
+  const u = unirColaboradores([ATIVO(7)], [DEMITIDO(7)])
+  assert.ok('erro' in u)
+  assert.ok(u.erro.includes('mesmo id'))
+})
+test('conjunto de demitidos com fired !== true → ERRO', () => {
+  const u = unirColaboradores([], [{ id: 8, fired: false }])
+  assert.ok('erro' in u)
+  assert.ok(u.erro.includes('demitidos'))
+})
+test('resignationDate NUNCA altera a classificação (só fired decide)', () => {
+  const ativoComResignation = ATIVO(2, { resignationDate: 1780000000000 })   // ruído: campo presente
+  const demitidoSemResignation = { id: 3, name: 'D3', fired: true }          // ruído: campo ausente
+  const u = unirColaboradores([ativoComResignation], [demitidoSemResignation])
+  assert.ok('colaboradores' in u)
+  const porId = Object.fromEntries(u.colaboradores.map((c) => [c.id, c.fired]))
+  assert.equal(porId[2], false)   // resignationDate presente não torna inativo
+  assert.equal(porId[3], true)    // resignationDate ausente não torna ativo
+})
+
 test('esquemaDe: caminhos, tipos e contagens — sem NENHUM valor da fixture na saída', () => {
   const fixtures = [
     { id: 987001, name: 'NomeSensivelTeste', cpf: '11122233344', fired: false, extra: null,

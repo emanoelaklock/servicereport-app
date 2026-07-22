@@ -41,6 +41,7 @@
 | **Exclusão** | ⚠️ `Punch.excluded` (bool) existe, semântica **não documentada**; não há filtro `excluded` no GET | Espelho guarda o flag; **R2** verifica se excluído some ou vem `true` |
 | **Rate limit** | ❌ nada documentado (nem 429) | Desenho conservador (§6) + pergunta formal à Sólides segue de pé |
 | **Escala** | ✅ bônus: `GET /v2/employee-work-schedule/{id}` retorna `startMainInterval`/`endMainInterval` e `preAssignedInterval` (bool) | Rotula qual gap é o almoço; `preAssignedInterval` vira **checagem defensiva** de P2 por colaborador |
+| **Employer `find-all` (diagnóstico server-side 22/07, sanitizado)** | ✅ **`showFired=true` retorna SOMENTE os demitidos** ("mostrar OS demitidos"); sem o parâmetro vêm os ativos. Campos comprovados: `id` (number), `name` (string), `cpf` (string, 8/8 no conjunto testado), `externalId` (string, 7/8), **`fired` (boolean explícito)**; reforço `resignationDate` (number). **`excluded` NÃO existe** no payload. Paginação Spring padrão (página inicial 0, `first`/`last`) | Consulta definitiva = **duas buscas paginadas unidas por id** (ativos + demitidos), `demitido = fired === true` estrito (inconsistência → erro sanitizado); contagens do dia: 12 ativos, 8 demitidos, 11 ids distintos batendo ponto na janela de 3 dias, 0∩demitidos |
 
 **Reconhecimento empírico (R1–R3)** — primeiro uso do token, dentro do PR-C1, só `GET`, resultados
 anotados no próprio doc (sem dados pessoais além do necessário):

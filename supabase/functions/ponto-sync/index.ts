@@ -15,7 +15,8 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 import {
   normalizarPunch, calcularCursorNovo, janelaMs, sanitizarErro,
-  validarRequisicao, decidirRetry, coletarPaginado, corsPara, sugerirVinculo, classificarPunch, esquemaDe,
+  validarRequisicao, decidirRetry, coletarPaginado, corsPara, sugerirVinculo, classificarPunch,
+  qsEmployerFindAll, unirColaboradores,
 } from './logic.mjs'
 
 const API_BASE = 'https://api.tangerino.com.br/api/punch'
@@ -92,7 +93,7 @@ Deno.serve(async (req: Request) => {
     }
 
     const body = req.method === 'POST' ? await req.json().catch(() => ({})) : {}
-    const modo = ['reconhecimento', 'colaboradores', 'diagnostico_employer'].includes(body?.modo) ? body.modo : 'delta'
+    const modo = ['reconhecimento', 'colaboradores'].includes(body?.modo) ? body.modo : 'delta'
     const { data: cfg } = await admin.from('ponto_config').select('reconhecimento_ativo').eq('id', 1).maybeSingle()
 
     const auth = validarRequisicao({
@@ -117,54 +118,6 @@ Deno.serve(async (req: Request) => {
     if (eFe) throw eFe
     const foraEscopo = new Set<number>((fes || []).map((f: any) => Number(f.tangerino_employee_id)))
 
-    // ── modo diagnostico_employer (TEMPORÁRIO, só admin): esquema sanitizado ──
-    // Mapeia o formato REAL do find-all sem expor nenhum valor: só nomes de campos,
-    // tipos, contagens e metadados de paginação. O payload NUNCA é logado nem devolvido.
-    if (modo === 'diagnostico_employer') {
-      const buscarPaginas = async (extra: Record<string, string>) => {
-        const itens: any[] = []
-        let meta: any = null
-        let rootKeys: string[] = []
-        let paginasLidas = 0
-        for (let page = 0; page < 20; page++) {
-          const q = new URLSearchParams({ page: String(page), size: '200', ...extra })
-          const b = await getComRetry(`${EMPLOYER_BASE}/employee/find-all?${q}`, token)
-          paginasLidas++
-          if (!meta) {
-            rootKeys = Object.keys(b || {}).sort()   // só NOMES de chaves do objeto raiz
-            meta = { totalElements: b?.totalElements ?? null, totalPages: b?.totalPages ?? null,
-              size: b?.size ?? null, numberPrimeiraResposta: b?.number ?? null, first: b?.first ?? null, last: b?.last ?? null }
-          }
-          const content = Array.isArray(b?.content) ? b.content : []
-          itens.push(...content)
-          if (b?.last === true || content.length === 0) break
-          await sleep(PAUSA_ENTRE_PAGINAS_MS)
-        }
-        return { itens, meta, rootKeys, paginasLidas }
-      }
-      const sem = await buscarPaginas({})
-      const com = await buscarPaginas({ showFired: 'true' })
-      // ids ficam SÓ em memória local (Sets) — apenas quantidades saem
-      const idsEmployer = new Set(com.itens.map((x: any) => x?.id).filter((x: any) => x != null))
-      const { inicioMs, fimMs } = janelaMs(3, agora)
-      const punchBody = await getComRetry(urlPagina({ startDateInMillis: inicioMs, endDateInMillis: fimMs }, 0, 200), token)
-      const punches = Array.isArray(punchBody?.content) ? punchBody.content : []
-      const idsPunch = new Set(punches.map((p: any) => p?.employeeId ?? p?.employee?.id).filter((x: any) => x != null))
-      let correspondencias = 0
-      for (const id of idsPunch) if (idsEmployer.has(id)) correspondencias++
-      return json({
-        modo, autorizadoPor: auth.autorizadoPor,
-        rootKeys: com.rootKeys,
-        paginacao: com.meta, paginacaoSemShowFired: sem.meta,
-        paginasConsultadas: { semShowFired: sem.paginasLidas, comShowFired: com.paginasLidas },
-        totais: { semShowFired: sem.itens.length, comShowFired: com.itens.length,
-          idsDistintosEmployer: idsEmployer.size },
-        esquemaColaborador: esquemaDe(com.itens),
-        punchJanela3d: { marcacoes: punches.length, idsDistintosPunch: idsPunch.size,
-          correspondenciasComEmployer: correspondencias },
-      })
-    }
-
     // ── modo colaboradores (C2): consulta READ-ONLY p/ a tela de vínculos ──
     // Lista colaboradores do Tangerino + sugestão de matching calculada AQUI no servidor
     // (externalId > CPF normalizado). O CPF é usado só nesta função e NUNCA entra na
@@ -173,21 +126,29 @@ Deno.serve(async (req: Request) => {
       const { data: us, error: eUs } = await admin.from('usuarios').select('id,nome,cpf,ativo').eq('ativo', true)
       if (eUs) throw eUs
       const usuariosAtivos = us || []
-      const { punches: cols, paginas } = await coletarPaginado(
+      // Diagnóstico 22/07 comprovou: showFired=true retorna SOMENTE demitidos.
+      // Duas consultas independentes e paginadas (ativos + demitidos), unidas por id
+      // com normalização ESTRITA de fired (inconsistência → erro sanitizado, nunca
+      // classificação silenciosa). Campos comprovados: id, name, cpf (server-side),
+      // externalId, fired. `excluded` NÃO existe no payload da Employer — removido.
+      const buscar = (somenteDemitidos: boolean) => coletarPaginado(
         (page: number) => getComRetry(
-          `${EMPLOYER_BASE}/employee/find-all?${new URLSearchParams({ page: String(page), size: '200', showFired: 'true' })}`,
-          token,
-        ),
+          `${EMPLOYER_BASE}/employee/find-all?${qsEmployerFindAll(page, 200, somenteDemitidos)}`, token),
         { maxPaginas: 20, deadlineMs: deadline, pausaMs: PAUSA_ENTRE_PAGINAS_MS, dorme: sleep },
       )
-      const colaboradores = cols.map((p: any) => ({
-        employeeId: p.id ?? null,
-        nome: p.name ?? p.nome ?? null,                       // auxílio visual — nunca chave
+      const ativos = await buscar(false)
+      const demitidos = await buscar(true)
+      const uniao = unirColaboradores(ativos.punches, demitidos.punches)
+      if ('erro' in uniao) return json({ error: uniao.erro }, 502)
+      const colaboradores = uniao.colaboradores.map((p: any) => ({
+        employeeId: p.id,
+        nome: p.name ?? null,                                 // auxílio visual — nunca chave
         externalId: p.externalId ?? null,
-        demitido: p.fired === true || p.excluded === true,
+        demitido: p.fired === true,                           // normalização explícita (nunca truthy)
         sugestao: sugerirVinculo({ externalId: p.externalId, cpf: p.cpf }, usuariosAtivos),  // CPF morre aqui
       }))
-      return json({ modo, autorizadoPor: auth.autorizadoPor, total: colaboradores.length, paginas, colaboradores })
+      return json({ modo, autorizadoPor: auth.autorizadoPor, total: colaboradores.length,
+        paginas: { ativos: ativos.paginas, demitidos: demitidos.paginas }, colaboradores })
     }
 
     // ── modo reconhecimento: amostra mínima sanitizada, SEM gravar em ponto_marcacoes ──
