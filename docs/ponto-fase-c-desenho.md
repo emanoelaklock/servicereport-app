@@ -164,8 +164,11 @@ não excluídos, ordenados por `entrada`.
    do dia como pausas adicionais (informativo, sem status próprio na Fase C).
 4. **Resultado por dia:** `(almoco_ponto_inicio, almoco_ponto_fim, qualidade)` onde qualidade ∈
    `ok | incompleto | inconclusivo`:
-   - `incompleto`: nº ímpar de metades (`pendente_metade` ≠ null), par sem saída, par cruzando
-     meia-noite, pares sobrepostos/duplicados após dedup;
+   - `incompleto`: **par sem saída (`saida` null) — critério DIRETO, comprovado no
+     reconhecimento de 22/07: a API retorna `dateOut: null` com `pendingType: null`, ou seja,
+     ponto incompleto é determinado pela AUSÊNCIA de saída, nunca apenas por `pendingType`** —
+     além de nº ímpar de metades (`pendente_metade` ≠ null), par cruzando meia-noite e pares
+     sobrepostos/duplicados após dedup;
    - `inconclusivo`: registro `PENDING` cobrindo a janela do almoço, ou nenhum gap na janela em
      dia com um único par longo (pode ser almoço não batido — vira tipologia, não qualidade).
 5. **Checagem defensiva de P2:** se a escala do colaborador vier com `preAssignedInterval=true`,

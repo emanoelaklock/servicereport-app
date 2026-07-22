@@ -12,14 +12,25 @@ export const TZ_TANGERINO_IANA = {
   RIO_BRANCO: 'America/Rio_Branco', BOA_VISTA: 'America/Boa_Vista', NORONHA: 'America/Noronha',
 }
 export const TZ_FALLBACK = 'America/Sao_Paulo'
-export const ianaDe = (enumTz) => TZ_TANGERINO_IANA[enumTz] || TZ_FALLBACK
+// Timezone desconhecido NÃO recebe fallback silencioso (regra do PR pós-reconhecimento):
+// enum fora do mapa → null; quem chama registra erro sanitizado e a marcação não é
+// importada com fuso chutado. TZ_FALLBACK permanece só para o cursor (instantes absolutos).
+export const ianaDe = (enumTz) => TZ_TANGERINO_IANA[enumTz] ?? null
 
 // ── datas ──────────────────────────────────────────────────────────────────────
-// O Swagger declara `date-time` sem documentar offset (R1 confirma na prática).
-// Estratégia defensiva: string COM offset explícito → confia no offset;
-// string SEM offset → interpreta como hora de parede no fuso do colaborador.
+// REALIDADE DA API (reconhecimento 22/07): dateIn/dateOut/lastModifiedDate chegam como
+// EPOCH MILLIS NUMÉRICOS — instantes absolutos, sem ambiguidade de fuso. O Swagger
+// documenta `date-time` string, então a compatibilidade defensiva com strings fica:
+// string COM offset → confia no offset; string SEM offset → hora de parede no fuso do
+// colaborador. NUNCA inferir epoch em segundos; número fora de faixa/negativo/não-finito
+// é rejeitado (null); string só-dígitos NÃO vira epoch (não inferir).
 const RE_OFFSET = /(Z|[+-]\d{2}:?\d{2})$/
 const RE_WALL = /^(\d{4})-(\d{2})-(\d{2})[T ](\d{2}):(\d{2})(?::(\d{2}))?(?:\.(\d+))?$/
+const EPOCH_MIN_MS = Date.UTC(2000, 0, 1)   // faixa sã: rejeita segundos (1784746037 < min)
+const EPOCH_MAX_MS = Date.UTC(2100, 0, 1)
+export function epochMsValido(v) {
+  return typeof v === 'number' && Number.isFinite(v) && v >= EPOCH_MIN_MS && v <= EPOCH_MAX_MS
+}
 
 function offsetMs(date, iana) {
   const dtf = new Intl.DateTimeFormat('en-US', {
@@ -42,21 +53,29 @@ export function wallTimeParaUtc(s, iana) {
   return new Date(ts).toISOString()
 }
 
-// String da API → instante UTC ISO (ou null se ausente/inválida).
+// Valor da API → instante UTC ISO (ou null se ausente/inválido).
+// Número = epoch millis validado; string segue o caminho defensivo documentado.
 export function normalizarData(raw, iana) {
   if (raw == null || raw === '') return null
+  if (typeof raw === 'number') return epochMsValido(raw) ? new Date(raw).toISOString() : null
   const s = String(raw)
   if (RE_OFFSET.test(s)) {
     const d = new Date(s)
     return isNaN(d.getTime()) ? null : d.toISOString()
   }
-  return wallTimeParaUtc(s, iana)
+  return wallTimeParaUtc(s, iana)   // string só-dígitos não casa RE_WALL → null (nunca inferir epoch)
 }
 
-// Dia LOCAL (no fuso do colaborador) de um instante/string da API — regra do desenho:
-// o par pertence ao dia local da ENTRADA.
+// Dia LOCAL (no fuso do colaborador) de um instante da API — regra do desenho:
+// o par pertence ao dia local da ENTRADA. Instante absoluto (número/offset) é convertido
+// para o dia no fuso IANA do colaborador — nunca assume Brasília.
+const diaEmTz = (instanteMsOuIso, iana) => {
+  const dtf = new Intl.DateTimeFormat('en-CA', { timeZone: iana, year: 'numeric', month: '2-digit', day: '2-digit' })
+  return dtf.format(new Date(instanteMsOuIso))   // en-CA → YYYY-MM-DD
+}
 export function diaLocalDe(raw, iana) {
   if (raw == null || raw === '') return null
+  if (typeof raw === 'number') return epochMsValido(raw) ? diaEmTz(raw, iana) : null
   const s = String(raw)
   if (!RE_OFFSET.test(s)) {
     const m = s.match(RE_WALL)
@@ -64,8 +83,7 @@ export function diaLocalDe(raw, iana) {
   }
   const iso = normalizarData(s, iana)
   if (!iso) return null
-  const dtf = new Intl.DateTimeFormat('en-CA', { timeZone: iana, year: 'numeric', month: '2-digit', day: '2-digit' })
-  return dtf.format(new Date(iso))   // en-CA → YYYY-MM-DD
+  return diaEmTz(iso, iana)
 }
 
 // ── normalização de um Punch da API → linha de ponto_marcacoes ────────────────
@@ -76,10 +94,14 @@ export function normalizarPunch(punch, mapa) {
   const tecnico_id = mapa.get(Number(empId))
   if (!tecnico_id) return { descartada: true }
 
-  const tzEnum = punch.employee?.timezone || 'SAO_PAULO'
+  // Timezone desconhecido/ausente → ERRO sanitizado (só o enum, nenhum dado pessoal);
+  // nunca fallback silencioso — marcação não é importada com fuso chutado.
+  const tzEnum = punch.employee?.timezone ?? null
   const iana = ianaDe(tzEnum)
+  if (!iana) return { erro: `timezone desconhecido: ${String(tzEnum).slice(0, 40)}` }
   const entradaRaw = punch.dateIn ?? null
   const saidaRaw = punch.dateOut ?? null
+  // dateOut null é MARCAÇÃO ABERTA — preservada (saida=null), jamais descartada.
   const dia = diaLocalDe(entradaRaw, iana) || diaLocalDe(saidaRaw, iana)
   if (!punch.id || !dia) return { descartada: true }   // sem id/sem dia não há como espelhar
 
@@ -177,14 +199,17 @@ export async function coletarPaginado(fetchPagina, {
 }
 
 // ── cursor incremental (millis) ───────────────────────────────────────────────
-// Avança para o maior lastModifiedDate visto; sem nada novo, mantém o anterior.
+// Avança para o MAIOR lastModifiedDate VÁLIDO visto (número epoch validado ou string
+// temporal válida); inválido é ignorado, nunca regride. O avanço efetivo continua sendo
+// responsabilidade do chamador: só grava cursor_novo em execução integralmente concluída.
 export function calcularCursorNovo(punches, cursorAnterior, iana = TZ_FALLBACK) {
   let max = cursorAnterior ?? 0
   for (const p of punches || []) {
-    const iso = normalizarData(p.lastModifiedDate ?? null, iana)
-    if (!iso) continue
-    const ms = Date.parse(iso)
-    if (ms > max) max = ms
+    const lm = p.lastModifiedDate ?? null
+    let ms = null
+    if (typeof lm === 'number') ms = epochMsValido(lm) ? lm : null
+    else { const iso = normalizarData(lm, iana); ms = iso ? Date.parse(iso) : null }
+    if (ms != null && ms > max) max = ms
   }
   return max || null
 }
