@@ -343,6 +343,38 @@ test('classificação: vínculo tem precedência sobre fora_escopo (estado impos
   assert.equal(classificarPunch({ employeeId: 101 }, mapa, fe), 'importar')
 })
 
+// ═══════ Duas dimensões: decisão × situação Tangerino (ajuste final C2) ═══════
+// A classificação da importação é CEGA à situação (ativo/inativo) — inatividade nunca
+// autoriza ignorar marcações (protege a carga histórica de ex-funcionários).
+const MAPA2 = new Map([[201, 'uuid-tec-201']])
+const FE2 = new Set([202])
+const punchDe = (empId, fired) => ({ employeeId: empId, employee: { id: empId, timezone: 'SAO_PAULO', fired } })
+test('inativo VINCULADO continua elegível para importação', () => {
+  assert.equal(classificarPunch(punchDe(201, true), MAPA2, FE2), 'importar')
+})
+test('inativo FORA DO ESCOPO é ignorado e contabilizado como fora_escopo (nunca como "inativa")', () => {
+  assert.equal(classificarPunch(punchDe(202, true), MAPA2, FE2), 'fora_escopo')
+})
+test('inativo PENDENTE com marcações na janela bloqueia (pendente_sem_vinculo)', () => {
+  assert.equal(classificarPunch(punchDe(203, true), MAPA2, FE2), 'pendente_sem_vinculo')
+})
+test('inativo pendente SEM marcações na janela não gera contagem artificial', () => {
+  // a contagem deriva SÓ das marcações da janela — cadastro inativo sem punch = zero em tudo
+  const janela = [punchDe(201, true), punchDe(202, true)]   // nenhuma marcação do pendente 203
+  const contagem = { importar: 0, fora_escopo: 0, pendente_sem_vinculo: 0 }
+  for (const p of janela) contagem[classificarPunch(p, MAPA2, FE2)]++
+  assert.deepEqual(contagem, { importar: 1, fora_escopo: 1, pendente_sem_vinculo: 0 })
+})
+test('situação nunca muda a decisão: mesmo colaborador, ativo ou inativo, classifica igual', () => {
+  for (const empId of [201, 202, 203]) {
+    assert.equal(classificarPunch(punchDe(empId, false), MAPA2, FE2), classificarPunch(punchDe(empId, true), MAPA2, FE2))
+  }
+})
+test('ninguém vira fora_escopo automaticamente por inatividade (só o conjunto explícito decide)', () => {
+  // punch de inativo NÃO listado no conjunto fora_escopo jamais classifica como fora_escopo
+  assert.notEqual(classificarPunch(punchDe(999, true), MAPA2, FE2), 'fora_escopo')
+})
+
 test('dia local com fuso não-SP: mesmo instante numérico, dia local pode diferir', () => {
   const meiaNoiteSP = Date.UTC(2026, 6, 23, 2, 30)   // 23:30 do dia 22 em SP; 22:30 em Manaus
   assert.equal(diaLocalDe(meiaNoiteSP, 'America/Sao_Paulo'), '2026-07-22')

@@ -19,7 +19,8 @@ const PontoVinculosApp = (() => {
   let eventos = []         // ponto_vinculo_eventos (30 últimos)
   let souAdmin = false
   let meuId = null
-  let filtro = 'todos'
+  let filtroDecisao = 'todos'    // dimensão 1: decisão operacional (vinculado/fora_escopo/pendente)
+  let filtroSituacao = 'todos'   // dimensão 2: situação no Tangerino (ativo/inativo) — badge, nunca decisão
   let feAberto = null      // employeeId com o campo de motivo aberto (marcar fora do escopo)
 
   const uNome = (id) => (usuarios.find((u) => u.id === id) || {}).nome || (id ? String(id).slice(0, 8) + '…' : '—')
@@ -67,44 +68,60 @@ const PontoVinculosApp = (() => {
     render()
   }
 
-  // Status (terminologia da decisão C2): vinculado · fora_escopo (decisão manual auditada)
-  // · inativo (desativado no Tangerino) · pendente (AINDA exige decisão — vincular ou
-  // marcar fora do escopo). Precedência: vínculo > escopo > inativo > pendente.
+  // DUAS DIMENSÕES SEPARADAS (regra final da C2):
+  // · Decisão operacional: vinculado · fora_escopo · pendente — inatividade NUNCA
+  //   dispensa a decisão (um inativo pendente continua pendente).
+  // · Situação no Tangerino: ativo · inativo — badge/filtro informativo, nunca decisão;
+  //   NÃO é persistida no SR (vem da API a cada consulta), logo jamais remove vínculo
+  //   ou histórico, e ninguém vira fora_escopo automaticamente por estar inativo.
   const feDe = (c) => foraEscopo.find((f) => Number(f.tangerino_employee_id) === Number(c.employeeId))
-  function statusDe(c) {
+  function decisaoDe(c) {
     if (mapa.some((v) => Number(v.tangerino_employee_id) === Number(c.employeeId))) return 'vinculado'
     if (feDe(c)) return 'fora_escopo'
-    if (c.demitido) return 'inativo'
     return 'pendente'
   }
+  const situacaoDe = (c) => (c.demitido ? 'inativo' : 'ativo')
   const ST = {
     vinculado: { cls: 'b-conf', txt: 'Vinculado' },
     pendente: { cls: 'b-pend', txt: 'Pendente' },
     fora_escopo: { cls: 'b-fe', txt: 'Fora do escopo' },
+  }
+  const SIT = {
+    ativo: { cls: 'b-ativo', txt: 'Ativo' },
     inativo: { cls: 'b-inat', txt: 'Inativo' },
   }
 
   function render() {
-    const porStatus = { todos: colaboradores.length, vinculado: 0, pendente: 0, fora_escopo: 0, inativo: 0 }
-    for (const c of colaboradores) porStatus[statusDe(c)]++
+    const porDecisao = { todos: colaboradores.length, vinculado: 0, pendente: 0, fora_escopo: 0 }
+    const porSituacao = { todos: colaboradores.length, ativo: 0, inativo: 0 }
+    for (const c of colaboradores) { porDecisao[decisaoDe(c)]++; porSituacao[situacaoDe(c)]++ }
     // usuários SR ativos ainda sem vínculo — visão que alimenta o gate da 1ª carga (C3)
     const semVinculoSR = usuarios.filter((u) => !mapa.some((v) => v.tecnico_id === u.id)).length
-    const chips = [['todos', 'Todos'], ['vinculado', 'Vinculados'], ['pendente', 'Pendentes'],
-      ['fora_escopo', 'Fora do escopo'], ['inativo', 'Inativos']]
-    document.getElementById('pv-chips').innerHTML = chips.map(([k, l]) =>
-      `<button class="pv-chip${filtro === k ? ' on' : ''}" data-f="${k}">${l}<b>${porStatus[k]}</b></button>`).join('') +
+    const chipsD = [['todos', 'Todos'], ['vinculado', 'Vinculados'], ['pendente', 'Pendentes'], ['fora_escopo', 'Fora do escopo']]
+    const chipsS = [['todos', 'Todos'], ['ativo', 'Ativos'], ['inativo', 'Inativos']]
+    document.getElementById('pv-chips').innerHTML =
+      `<span class="origem" style="align-self:center">Decisão:</span>` +
+      chipsD.map(([k, l]) => `<button class="pv-chip${filtroDecisao === k ? ' on' : ''}" data-fd="${k}">${l}<b>${porDecisao[k]}</b></button>`).join('') +
+      `<span class="origem" style="align-self:center;margin-left:10px">Situação Tangerino:</span>` +
+      chipsS.map(([k, l]) => `<button class="pv-chip${filtroSituacao === k ? ' on' : ''}" data-fs="${k}">${l}<b>${porSituacao[k]}</b></button>`).join('') +
       `<span class="pv-chip" style="cursor:default">Usuários SR sem vínculo<b>${semVinculoSR}</b></span>`
-    document.querySelectorAll('#pv-chips [data-f]').forEach((b) => { b.onclick = () => { filtro = b.dataset.f; render() } })
+    document.querySelectorAll('#pv-chips [data-fd]').forEach((b) => { b.onclick = () => { filtroDecisao = b.dataset.fd; render() } })
+    document.querySelectorAll('#pv-chips [data-fs]').forEach((b) => { b.onclick = () => { filtroSituacao = b.dataset.fs; render() } })
 
-    const linhas = colaboradores.filter((c) => filtro === 'todos' || statusDe(c) === filtro)
+    const linhas = colaboradores.filter((c) =>
+      (filtroDecisao === 'todos' || decisaoDe(c) === filtroDecisao) &&
+      (filtroSituacao === 'todos' || situacaoDe(c) === filtroSituacao))
     const jaVinculados = new Set(mapa.map((v) => v.tecnico_id))
     document.getElementById('pv-tbody').innerHTML = linhas.length ? linhas.map((c) => {
-      const st = statusDe(c)
+      const st = decisaoDe(c)
+      const sit = situacaoDe(c)
       const vinc = mapa.find((v) => Number(v.tangerino_employee_id) === Number(c.employeeId))
       const fe = feDe(c)
       const origem = vinc ? vinc.origem_sugestao : (c.sugestao ? c.sugestao.origem : null)
       const confPor = vinc ? `${esc(uNome(vinc.vinculado_por))} · ${fdt(vinc.vinculado_em, { withTime: true })}`
         : fe ? `${esc(uNome(fe.decidido_por))} · ${fdt(fe.decidido_em, { withTime: true })}` : '—'
+      // Ações valem para ATIVO E INATIVO: inatividade nunca dispensa vínculo/decisão de
+      // escopo (protege a carga histórica de ex-funcionários).
       let acao = ''
       if (souAdmin && vinc) {
         acao = `<button class="b-desv" data-desv="${esc(vinc.tecnico_id)}">Desvincular</button>`
@@ -127,7 +144,7 @@ const PontoVinculosApp = (() => {
       return `<tr>
         <td><b>${esc(c.nome || '(sem nome)')}</b><div class="origem">id ${esc(String(c.employeeId))}${c.externalId ? ' · ext ' + esc(String(c.externalId)).slice(0, 12) + '…' : ''}${fe ? '<br>motivo: ' + esc(fe.motivo) : ''}</div></td>
         <td>${vinc ? esc(uNome(vinc.tecnico_id)) : (c.sugestao && !fe ? `<span class="origem">sugerido: ${esc(uNome(c.sugestao.tecnicoId))}</span>` : '—')}</td>
-        <td><span class="badge ${ST[st].cls}">${ST[st].txt}</span></td>
+        <td><span class="badge ${ST[st].cls}">${ST[st].txt}</span> <span class="badge ${SIT[sit].cls}">${SIT[sit].txt}</span></td>
         <td class="origem">${vinc && origem ? esc(origem) : (!vinc && !fe && c.sugestao ? esc(c.sugestao.origem) : '—')}</td>
         <td class="origem">${confPor}</td>
         <td>${acao}</td>
