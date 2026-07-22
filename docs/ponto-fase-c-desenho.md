@@ -1,5 +1,15 @@
 # Fase C — Conciliação de almoço SR × Sólides/Tangerino — DESENHO FINAL (portão)
 
+> **DECISÃO CONSOLIDADA (22/07):** Fases C e D **aprovadas conceitualmente**; autorizado
+> **somente o PR-C1** (fundação + espelho + vínculos + trilha + Edge GET-only + testes + docs),
+> entregue **parado antes do merge**. O `TANGERINO_TOKEN` será provisionado manualmente no
+> Dashboard **somente após a revisão do PR** — nunca solicitar, exibir ou registrar o valor.
+> A evolução visual (Fase D) será **na tela existente `jornada.html`** — não haverá tela nova;
+> mockup aprovado: `docs/mockups/mockup-jornada-conciliacao-tangerino.png`. Ainda **não**
+> implementar: mudanças em `jornada.html`, cálculo de cobertura, classificação manual,
+> fechamento mensal, mudanças em `almocos`, escrita no Tangerino, integração com Desempenho.
+> Processo: toda alteração (inclusive docs) via branch + PR — sem commit direto na `main`.
+
 > Sequência de `docs/integracao-tangerino-estudo.md` (estudo aprovado; pendências P1–P3
 > respondidas em 22/07: **técnicos devem bater sempre** saída/retorno do almoço; **marcações
 > reais**, não pré-assinaladas; **token de API já existe**). Este documento é o desenho de
@@ -63,9 +73,23 @@ pg_cron (1×/dia 06:30 BRT)
   re-consulta a janela **D-7..D-0** por período (`startDateInMillis`/`endDateInMillis`) — pega
   correção tardia mesmo que o `lastUpdate` da Sólides tenha semântica inesperada. (Custo: ~7 dias
   × ~15 pessoas = pequeno.)
-- **Retry:** dentro da execução, 3 tentativas com backoff (1s/5s/25s) para 5xx/timeout/429; 401/403
-  aborta e marca `erro` (token/permissão — alerta humano); erro persistente deixa o cursor parado
-  (autocorretivo na próxima rodada).
+- **Retry (auditoria C1):** 3 tentativas com backoff 1s/3s/9s para 5xx/rede/429; **429 respeita
+  `Retry-After`** quando fornecido (teto 30s); 401/403 aborta sem re-tentar (token/permissão —
+  alerta humano); **deadline de 100s por rodada** (limite de execução da Edge) — estourou, aborta
+  a rodada inteira sem avançar cursor. Erro persistente deixa o cursor parado (autocorretivo).
+- **Método e autenticação (auditoria C1):** a execução grava no espelho do SR → **só POST**
+  (GET/OPTIONS = 405; sem CORS — nunca chamada por navegador). Anônimo nunca passa: cron
+  autentica por `x-cron-secret` (header, nunca URL) e só roda o delta; **modo manual exige JWT de
+  admin/gestor** (`portal_acessos`). **Reconhecimento**: só admin autenticado E
+  `ponto_config.reconhecimento_ativo` (desligar após fechar R1/R2/R3); amostra ≤5 linhas com o
+  mínimo p/ R1/R2/R3 (sem nome/CPF/PIS/e-mail/payload bruto); não grava em `ponto_marcacoes`.
+- **Preservação temporal (auditoria C1):** nenhuma conversão é irreversível — o espelho guarda
+  cru + normalizado + fuso de origem também para o `lastModifiedDate`
+  (`origem_modificado_raw`); a data local operacional é recalculável a partir do cru. Nada assume
+  UTC ou Brasília sem o R1.
+- **Ressalva D-7:** a janela é rede de segurança para correções **recentes**; a suficiência para
+  exclusões e correções antigas só se afirma depois do R2/R3 — até lá, não é apresentada como
+  solução definitiva.
 - **Observabilidade:** `ponto_sync_execucoes` é a fonte (status, contagens, duração, erro
   sanitizado); painel/Jornada pode mostrar "ponto sincronizado até <data>"; execução `erro` por
   2 rodadas seguidas → aparece no painel admin (padrão cards âmbar). Logs da Edge **sem** token,
