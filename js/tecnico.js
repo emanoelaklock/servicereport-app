@@ -524,7 +524,8 @@
     document.getElementById('nav-desloc').onclick = async () => { mostrar('desloc'); await renderDesloc() }
     bindJornada()
     bindDesloc()
-    const bsh = document.getElementById('btn-sync-home'); if (bsh) bsh.onclick = () => window.SyncEngine && SyncEngine.syncAll()
+    // botão = ação manual explícita: re-tenta inclusive itens bloqueados por RLS
+    const bsh = document.getElementById('btn-sync-home'); if (bsh) bsh.onclick = () => window.SyncEngine && SyncEngine.syncAll({ manual: true })
     // Pré-orçamento
     document.getElementById('btn-preorc-novo').onclick = novoPreorcUI
     document.getElementById('po-btn-cancelar').onclick = cancelarPreorc
@@ -762,9 +763,13 @@
       const emPausa = pausaAberta(r) && r.status === 'em_andamento'   // pausa aberta nesta RAT (local, imediato)
       const ts = emPausa ? 'em_pausa' : tarStatusDe(r); const sk = SKIN_STATUS[ts] || 'aguard'
       const lc = sk === 'info' ? 'lc-info' : sk === 'done' ? 'lc-done' : sk === 'warn' ? 'lc-warn' : ''
-      // Bloqueada por RLS (RAT de outra conta neste aparelho): rótulo explica em vez do "Erro" seco.
-      const syncTxt = (r.envio_bloqueado_rls && r.sync_status !== 'confirmado')
-        ? `não enviada — RAT de ${r.tecnico_nome || 'outra conta'}; entre com essa conta para enviar`
+      // Bloqueada por RLS: mensagem conforme a propriedade divergente esteja ou não
+      // comprovada pelos dados locais (flag gravada pelo sync no momento do bloqueio).
+      const bloqRls = r.envio_bloqueado_rls
+      const syncTxt = (bloqRls && r.sync_status !== 'confirmado')
+        ? ((typeof bloqRls === 'object' && bloqRls.provado === false)
+          ? 'Esta RAT não pôde ser sincronizada por restrição de acesso. O conteúdo permanece salvo neste aparelho.'
+          : 'Esta RAT foi criada por outro usuário neste aparelho. Entre com a conta original para sincronizá-la.')
         : (r.sync_status === 'confirmado' ? '✓ enviado' : ((BADGE[r.sync_status] || {}).txt || ''))
       return `<div class="listcard ${lc}" data-uuid="${esc(r.client_uuid)}"><span class="edge e-${sk}"></span>
         <div class="t"><span class="cli">${esc(r.cliente_nome || 'Sem cliente')}</span><span class="badge b-${sk}">${esc(emPausa ? 'Em pausa' : ratSit(r.status || 'em_andamento'))}</span></div>
