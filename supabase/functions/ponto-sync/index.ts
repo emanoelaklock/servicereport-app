@@ -30,11 +30,14 @@ const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms))
 
 // GET na API do Tangerino com a política de retry de logic.decidirRetry
 // (401/403 não re-tenta; 429 respeita Retry-After com teto; 5xx/rede backoff).
+// Header: token CRU em `Authorization` — forma comprovada empiricamente em 22/07 nas duas
+// APIs (Employer /test 200 e Punch 200 no teste same-origin do navegador do admin). A doc
+// narrativa dizia "Basic <token>", mas o teste real mandou sem prefixo e funcionou.
 async function getComRetry(url: string, token: string): Promise<any> {
   for (let tentativa = 0; ; tentativa++) {
     let status = 0, retryAfter: number | null = null
     try {
-      const res = await fetch(url, { method: 'GET', headers: { Authorization: `Basic ${token}` } })
+      const res = await fetch(url, { method: 'GET', headers: { Authorization: token } })
       if (res.ok) return await res.json()
       status = res.status
       const ra = res.headers.get('Retry-After')
