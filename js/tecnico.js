@@ -1544,8 +1544,10 @@
       set('home-st-exec', temT ? tarefas.filter(t => t.status === 'em_execucao').length : '—')
       set('home-cnt-tarefas', temT ? tarefas.length : '')
       const rats = await D().listarRats()
+      const preorcs = await D().listarPreorc()
       const PEND = [D().STATUS.SALVO_LOCAL, D().STATUS.NA_FILA, D().STATUS.ERRO]
       const fila = rats.filter(r => PEND.includes(r.sync_status)).length
+        + preorcs.filter(p => PEND.includes(p.sync_status)).length   // pré-orçamento também conta — senão o card mente
         + (await D().tarefasLocaisPendentes()).length + (await D().deslocamentosPendentes()).length
       set('home-st-fila', fila)
       set('home-cnt-rats', rats.length || '')
