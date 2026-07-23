@@ -217,14 +217,21 @@
       if (f.enviada || f.falha_permanente || f.url) continue   // já no Storage ou já sinalizada → não reprocessa
       try {
         const blob = f.blob
-        if (!blob || typeof blob.arrayBuffer !== 'function') throw Object.assign(new Error('foto ausente no aparelho'), { name: 'NotReadableError' })
+        // File file-backed invalidado no iOS lê VAZIO (0 bytes) → o Storage rejeita com
+        // "No content provided" (erro real do caso Maicon). Detecta antes do upload doomed.
+        if (!blob || typeof blob.arrayBuffer !== 'function' || !blob.size) {
+          throw Object.assign(new Error('foto ilegível no aparelho (0 bytes)'), { name: 'NotReadableError' })
+        }
         const path = `${uid}/${po.client_uuid}/foto-${f.id}.${extDoMime(blob.type)}`
         const up = await sb.storage.from(BUCKET).upload(path, blob, { upsert: true, contentType: blob.type || 'image/jpeg' })
         if (up.error) throw up.error
         await D().marcarFotoEnviada(f.id, path)
       } catch (e) {
-        const leitura = !!(e && (e.name === 'NotReadableError' || /could not be read|not be read|notreadable/i.test(String(e.message || ''))))
-        const motivo = (e && (e.message || e.name)) || 'falha ao enviar foto'
+        // Perda de leitura (blob morto/vazio) = PERMANENTE → re-anexar. Cobre NotReadableError e o
+        // StorageApiError "No content provided" (corpo vazio). Rede/servidor = transitório → re-tenta.
+        const txt = String((e && (e.message || e.name)) || '')
+        const leitura = !!(e && e.name === 'NotReadableError') || /notreadable|could not be read|not be read|no content provided|content provided|0 bytes/i.test(txt)
+        const motivo = txt || 'falha ao enviar foto'
         if (leitura) await D().marcarFotoFalha(f.id, motivo)
         fotosFalhas.push({ id: f.id, motivo, permanente: leitura })
         console.warn('[sync] foto pré-orçamento não enviada', f.id, e)
