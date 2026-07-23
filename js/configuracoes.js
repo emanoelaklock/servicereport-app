@@ -41,7 +41,7 @@
     .replace(/^_+|_+$/g, '').slice(0, 40) || 'campo'
 
   function mostrarSecao(sec) {
-    const map = { formularios: 'sec-formularios', tipos: 'sec-tipos', veiculos: 'sec-veiculos', status: 'sec-status', clientes: 'sec-clientes', produtos: 'sec-produtos', omie: 'sec-omie' }
+    const map = { formularios: 'sec-formularios', tipos: 'sec-tipos', veiculos: 'sec-veiculos', status: 'sec-status', clientes: 'sec-clientes', produtos: 'sec-produtos', omie: 'sec-omie', tangerino: 'sec-tangerino' }
     document.querySelectorAll('.cfg-section').forEach(el => { el.style.display = 'none' })
     const el = document.getElementById(map[sec]); if (el) el.style.display = ''
     document.querySelectorAll('.cfg-tab').forEach(t => t.classList.toggle('on', t.dataset.sec === sec))

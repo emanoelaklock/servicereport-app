@@ -108,6 +108,7 @@
         <button class="cfg-tab" data-sec="clientes">Empresas</button>
         <button class="cfg-tab" data-sec="produtos">Produtos</button>
         <button class="cfg-tab" data-sec="omie">Omie</button>
+        <button class="cfg-tab" data-sec="tangerino">Integração Tangerino</button>
       </div>
 
       <!-- Formulários -->
@@ -216,6 +217,15 @@
         <p class="dim" id="omie-last">—</p>
         <p id="omie-result" style="margin-top:8px;font-size:14px"></p>
         <p class="dim" style="margin-top:10px">Importa apenas <b>produtos</b> do Omie (somente leitura). <b>Empresas/clientes: cadastro manual</b> — a integração de clientes está desativada. Requer os secrets <b>OMIE_APP_KEY</b> / <b>OMIE_APP_SECRET</b> na Edge Function.</p>
+      </div>
+
+      <!-- Integração Tangerino -->
+      <div class="cfg-card cfg-section" id="sec-tangerino" style="display:none">
+        <div class="cfg-head">
+          <h2>Integração Tangerino</h2>
+        </div>
+        <p class="dim" style="margin-top:4px">O fluxo principal de vínculos (marcar "Participa da integração" e vincular o colaborador) agora fica no <b>cadastro de usuário do Portal</b>. Esta tela permanece apenas para <b>auditoria e exceções</b> (histórico de eventos, fora do escopo, casos que exigem revisão manual).</p>
+        <button class="btn btn-p" style="margin-top:12px" onclick="location.href='ponto-vinculos.html'">Abrir auditoria e exceções (Ponto · Vínculos)</button>
       </div>
 
     </div>

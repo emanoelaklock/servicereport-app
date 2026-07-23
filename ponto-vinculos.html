@@ -74,8 +74,10 @@
 </div>
 <script>
   window.PAGE_ALLOWED = ['admin', 'gestor_axis']
-  async function onPostLogin() { renderSidebar('ponto'); await PontoVinculosApp.init() }
-  renderSidebar('ponto')
+  // Tela rebaixada a auditoria/exceções (fora do sidebar, acessível via Configurações →
+  // Integração Tangerino). Mantém "Configurações" destacado enquanto aberta.
+  async function onPostLogin() { renderSidebar('config'); await PontoVinculosApp.init() }
+  renderSidebar('config')
   initAuth()
 </script>
 </body>
