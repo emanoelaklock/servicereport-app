@@ -51,8 +51,14 @@
     // 1) Fotos pendentes → Storage (path sob a pasta do técnico p/ casar com a RLS)
     for (const f of await D().listarFotos(rat.client_uuid)) {
       if (f.enviada) continue
-      const path = `${uid}/${rat.client_uuid}/foto-${f.id}.${extDoMime(f.blob.type)}`
-      const up = await sb.storage.from(BUCKET).upload(path, f.blob, { upsert: true, contentType: f.blob.type || 'image/jpeg' })
+      // Materializa os bytes antes de subir: no iOS, Blob file-backed do IndexedDB vira corpo
+      // VAZIO no fetch (StorageApiError "No content provided"). comprimirFoto pode devolver o File
+      // ORIGINAL quando o canvas não reduz o tamanho (JPEG já pequeno, PNG, imagem ≤1600px), então
+      // a RAT sofre o mesmo furo do pré-orçamento — a defesa real é aqui. (idem enviarPreorc)
+      const buf = await f.blob.arrayBuffer()
+      const body = new Blob([buf], { type: (f.blob && f.blob.type) || 'image/jpeg' })
+      const path = `${uid}/${rat.client_uuid}/foto-${f.id}.${extDoMime(body.type)}`
+      const up = await sb.storage.from(BUCKET).upload(path, body, { upsert: true, contentType: body.type })
       if (up.error) throw up.error
       await D().marcarFotoEnviada(f.id, path)
     }
