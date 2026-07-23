@@ -65,6 +65,9 @@ returns text language sql stable as $$
     else 'sistema'
   end;
 $$;
+-- Postgres dá EXECUTE a public por default — revoga: só os triggers (rodando como owner)
+-- usam esta função; nenhum cliente precisa chamá-la.
+revoke all on function public.ponto_origem_execucao() from public, anon, authenticated;
 
 -- ── (0d) regras do checkbox: só backend altera; desmarcar vinculado é bloqueado ──
 create or replace function public.tg_usuarios_tangerino_elegivel()
@@ -105,6 +108,12 @@ end $$;
 drop trigger if exists trg_usuarios_eleg_evento on public.usuarios;
 create trigger trg_usuarios_eleg_evento after update on public.usuarios
   for each row execute function public.tg_usuarios_eleg_evento();
+
+-- Higiene de EXECUTE nas funções de trigger (não são chamáveis por clientes de qualquer
+-- forma — retornam trigger — mas o default 'public' sai por princípio de menor privilégio).
+revoke all on function public.tg_ponto_eleg_ev_imutavel() from public, anon, authenticated;
+revoke all on function public.tg_usuarios_tangerino_elegivel() from public, anon, authenticated;
+revoke all on function public.tg_usuarios_eleg_evento() from public, anon, authenticated;
 
 -- ── (0f) setter oficial p/ a Edge portal-usuarios (admin já autenticado lá) ──
 -- security definer + grant SÓ a service_role: o ator verificado pela Edge chega por
