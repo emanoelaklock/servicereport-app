@@ -1,24 +1,77 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
+import { soDigitos, sugerirVinculo, qsEmployerFindAll, unirColaboradores }
+  from '../_shared/tangerino-logic.mjs';
 
 const URL = Deno.env.get('SUPABASE_URL')!;
 const SERVICE = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
 const admin = createClient(URL, SERVICE, { auth: { persistSession: false, autoRefreshToken: false } });
 
-const CORS = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
-  'Access-Control-Allow-Methods': 'POST, OPTIONS',
-};
-const json = (status: number, obj: unknown) =>
-  new Response(JSON.stringify(obj), { status, headers: { ...CORS, 'Content-Type': 'application/json' } });
+const EMPLOYER_BASE = 'https://employer.tangerino.com.br';
+
+// CORS restrito: origem EXATA do Hub. Sem wildcard. Ambiente local só entra por config
+// explícita (PORTAL_LOCAL_ORIGIN), nunca por '*'. Métodos POST/OPTIONS; Vary: Origin.
+const ORIGENS = ['https://portal-tross.vercel.app', Deno.env.get('PORTAL_LOCAL_ORIGIN') || '']
+  .filter(Boolean);
+function corsPara(origin: string): Record<string, string> {
+  const base: Record<string, string> = { 'Vary': 'Origin' };
+  if (ORIGENS.includes(origin)) {
+    base['Access-Control-Allow-Origin'] = origin;
+    base['Access-Control-Allow-Headers'] = 'authorization, apikey, content-type, x-client-info';
+    base['Access-Control-Allow-Methods'] = 'POST, OPTIONS';
+  }
+  return base;
+}
 
 function slug(s: string) {
   return (s || 'user').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '')
     .replace(/[^a-z0-9]+/g, '.').replace(/^\.+|\.+$/g, '');
 }
 
+// ── colaboradores do Tangerino (read-only; token só do Secret) ────────────────
+// Reusa as puras compartilhadas (qsEmployerFindAll, unirColaboradores). Retorna a lista
+// unida [{ id, name, cpf, externalId, fired }] — o CPF fica SÓ no servidor.
+async function getEmployerPage(page: number, somenteDemitidos: boolean, token: string): Promise<any> {
+  const res = await fetch(
+    `${EMPLOYER_BASE}/employee/find-all?${qsEmployerFindAll(page, 200, somenteDemitidos)}`,
+    { method: 'GET', headers: { Authorization: token } });
+  if (!res.ok) throw new Error(`Tangerino respondeu HTTP ${res.status}`);
+  return await res.json();
+}
+async function coletar(somenteDemitidos: boolean, token: string): Promise<any[]> {
+  const out: any[] = [];
+  for (let page = 0; page < 20; page++) {
+    const body = await getEmployerPage(page, somenteDemitidos, token);
+    const content = Array.isArray(body?.content) ? body.content : [];
+    out.push(...content);
+    if (body?.last === true || content.length === 0) break;
+  }
+  return out;
+}
+async function colaboradoresTangerino(token: string): Promise<any[]> {
+  const ativos = await coletar(false, token);
+  const demitidos = await coletar(true, token);
+  const uniao = unirColaboradores(ativos, demitidos);
+  if ('erro' in uniao) throw new Error(uniao.erro);
+  return uniao.colaboradores;
+}
+// employeeIds já vinculados a ALGUM usuário; opcional: excluir o do próprio usuário editado.
+async function empregadosVinculados(excetoUsuario?: string): Promise<Map<number, string>> {
+  const { data } = await admin.from('ponto_colaboradores_map')
+    .select('tecnico_id,tangerino_employee_id').eq('ativo', true);
+  const m = new Map<number, string>();
+  for (const r of data || []) {
+    if (excetoUsuario && r.tecnico_id === excetoUsuario) continue;
+    m.set(Number(r.tangerino_employee_id), r.tecnico_id);
+  }
+  return m;
+}
+const sanit = (c: any) => ({ employeeId: c.id, nome: c.name ?? null, inativo: c.fired === true });
+
 Deno.serve(async (req) => {
-  if (req.method === 'OPTIONS') return new Response('ok', { headers: CORS });
+  const cors = corsPara(req.headers.get('Origin') || '');
+  const json = (status: number, obj: unknown) =>
+    new Response(JSON.stringify(obj), { status, headers: { ...cors, 'Content-Type': 'application/json' } });
+  if (req.method === 'OPTIONS') return new Response(null, { status: 204, headers: cors });
   try {
     const token = (req.headers.get('Authorization') ?? '').replace('Bearer ', '');
     if (!token) return json(401, { error: 'Não autenticado.' });
@@ -62,6 +115,7 @@ Deno.serve(async (req) => {
         });
         if (eEl) return json(400, { error: eEl.message });
       }
+      // NUNCA cria vínculo no create — vínculo é ação explícita separada (tangerino_vincular).
       return json(200, { ok: true, id, email });
     }
 
@@ -93,6 +147,91 @@ Deno.serve(async (req) => {
       const { error } = await admin.auth.admin.updateUserById(b.id, { password: b.senha });
       if (error) return json(400, { error: error.message });
       await admin.from('usuarios').update({ must_change_password: true }).eq('id', b.id);
+      return json(200, { ok: true });
+    }
+
+    // ── VÍNCULO TANGERINO (fluxo do cadastro do Hub) ──────────────────────────
+    // Token só do Secret. Resposta NUNCA carrega CPF/PIS/externalId/token/payload bruto.
+    const tkn = Deno.env.get('TANGERINO_TOKEN') || '';
+
+    // status_usuario: elegibilidade + vínculo atual (para pré-carregar a edição).
+    if (action === 'tangerino_status_usuario') {
+      if (!b.usuarioId) return json(400, { error: 'usuarioId obrigatório.' });
+      const { data, error } = await admin.rpc('sr_status_vinculo_usuario', { p_usuario: b.usuarioId });
+      if (error) return json(400, { error: error.message });
+      const row = Array.isArray(data) ? data[0] : data;
+      return json(200, {
+        elegivel: row?.tangerino_elegivel === true,
+        vinculo: row?.employee_id != null ? { employeeId: row.employee_id } : null,
+      });
+    }
+
+    // colaboradores: disponíveis + sanitizados ({ employeeId, nome, inativo }).
+    if (action === 'tangerino_colaboradores') {
+      if (!b.usuarioId) return json(400, { error: 'usuarioId obrigatório.' });
+      if (!tkn) return json(503, { error: 'Integração Tangerino não provisionada.' });
+      const todos = await colaboradoresTangerino(tkn);
+      const vinc = await empregadosVinculados(b.usuarioId);   // exclui os de OUTROS; mantém o do próprio
+      const incluirInativos = b.incluirInativos === true;     // opção histórica explícita
+      const lista = todos
+        .filter((c: any) => !vinc.has(Number(c.id)))
+        .filter((c: any) => incluirInativos || c.fired !== true)
+        .map(sanit)
+        .sort((a: any, z: any) => String(a.nome || '').localeCompare(String(z.nome || '')));
+      return json(200, { colaboradores: lista });
+    }
+
+    // sugestao: correspondência por CPF calculada NO SERVIDOR; nunca vincula.
+    if (action === 'tangerino_sugestao') {
+      if (!b.usuarioId) return json(400, { error: 'usuarioId obrigatório.' });
+      if (!tkn) return json(503, { error: 'Integração Tangerino não provisionada.' });
+      const { data: u } = await admin.from('usuarios').select('id,cpf').eq('id', b.usuarioId).single();
+      if (!u) return json(404, { error: 'Usuário não encontrado.' });
+      const todos = await colaboradoresTangerino(tkn);
+      const vinc = await empregadosVinculados(b.usuarioId);
+      const cand = todos.find((c: any) =>
+        !vinc.has(Number(c.id)) && sugerirVinculo(c, [u]) != null);   // reusa a pura compartilhada
+      return json(200, { sugestao: cand ? sanit(cand) : null });
+    }
+
+    // vincular: recebe SÓ { usuarioId, employeeId } (+ permitirInativo, intenção do admin).
+    // A Edge RECONSULTA o colaborador no Tangerino e deriva no servidor externalId, situação,
+    // nome, disponibilidade e a ORIGEM (via sugerirVinculo). Nada de colaborador vem do browser.
+    if (action === 'tangerino_vincular') {
+      if (!b.usuarioId || b.employeeId == null) return json(400, { error: 'usuarioId e employeeId obrigatórios.' });
+      if (!tkn) return json(503, { error: 'Integração Tangerino não provisionada.' });
+      const employeeId = Number(b.employeeId);
+      const { data: u } = await admin.from('usuarios').select('id,cpf,tangerino_elegivel').eq('id', b.usuarioId).single();
+      if (!u) return json(404, { error: 'Usuário não encontrado.' });
+      if (u.tangerino_elegivel !== true) return json(400, { error: 'Usuário não está marcado como elegível para o Tangerino.' });
+
+      const todos = await colaboradoresTangerino(tkn);
+      const colab = todos.find((c: any) => Number(c.id) === employeeId);
+      if (!colab) return json(404, { error: 'Colaborador não encontrado no Tangerino.' });
+      if (colab.fired === true && b.permitirInativo !== true) {
+        return json(400, { error: 'Colaborador inativo — ative a opção histórica para vincular.' });
+      }
+      const vinc = await empregadosVinculados(b.usuarioId);
+      if (vinc.has(employeeId)) return json(409, { error: 'Este colaborador já está vinculado a outro usuário.' });
+
+      // origem e externalId derivados NO SERVIDOR (nunca do browser)
+      const s = sugerirVinculo(colab, [u]);              // { origem: 'externalId'|'cpf' } ou null
+      const origem = s ? s.origem : 'manual';
+      const externalId = colab.externalId ?? null;
+      const { error } = await admin.rpc('sr_vincular_colaborador', {
+        p_usuario: b.usuarioId, p_employee_id: employeeId,
+        p_external_id: externalId, p_origem: origem, p_ator: ures.user.id,
+      });
+      if (error) return json(400, { error: error.message });
+      return json(200, { ok: true, vinculo: sanit(colab), origem });
+    }
+
+    if (action === 'tangerino_desvincular') {
+      if (!b.usuarioId) return json(400, { error: 'usuarioId obrigatório.' });
+      const { error } = await admin.rpc('sr_desvincular_colaborador', {
+        p_usuario: b.usuarioId, p_ator: ures.user.id,
+      });
+      if (error) return json(400, { error: error.message });
       return json(200, { ok: true });
     }
 
