@@ -4368,7 +4368,10 @@
     if (!curPo) return
     for (const f of Array.from(fileList || [])) {
       if (!f.type.startsWith('image/')) continue
-      await D().adicionarFoto(curPo.client_uuid, f, null)
+      // Reencoda via canvas (igual à RAT): gera um Blob FRESCO em memória — imune à invalidação
+      // de File file-backed no IndexedDB do iOS (causa raiz do envio travado) — e leve p/ upload.
+      const blob = await comprimirFoto(f)
+      await D().adicionarFoto(curPo.client_uuid, blob, null)
     }
     document.getElementById('po-foto-input').value = ''
     await poRefreshThumbs()
@@ -4380,9 +4383,10 @@
     box.innerHTML = fotos.map(f => {
       // blob local → objectURL; foto hidratada (sem blob) → preview assinado; nunca usa o path cru.
       const src = f.blob ? URL.createObjectURL(f.blob) : (f.preview || f.url || '')
+      const falha = !!f.falha_permanente   // foto ilegível no aparelho (iOS) → sinaliza p/ remover e re-anexar
       return `<div class="thumb-card">
-        <div class="thumb"><img src="${src}" alt=""><button type="button" class="thumb-x" data-id="${esc(f.id)}">×</button></div>
-        <input type="text" class="thumb-leg" data-legid="${esc(f.id)}" placeholder="Legenda" value="${esc(f.legenda || '')}">
+        <div class="thumb"${falha ? ' style="outline:2px solid var(--pend-fg);border-radius:8px"' : ''}><img src="${src}" alt=""><button type="button" class="thumb-x" data-id="${esc(f.id)}">×</button></div>
+        ${falha ? '<div class="meta" style="color:var(--pend-fg);font-size:11px">Não enviada — remova e re-anexe</div>' : `<input type="text" class="thumb-leg" data-legid="${esc(f.id)}" placeholder="Legenda" value="${esc(f.legenda || '')}">`}
       </div>`
     }).join('')
     box.querySelectorAll('.thumb-x').forEach(b => {
