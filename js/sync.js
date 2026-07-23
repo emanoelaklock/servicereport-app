@@ -217,18 +217,26 @@
       if (f.enviada || f.falha_permanente || f.url) continue   // já no Storage ou já sinalizada → não reprocessa
       try {
         const blob = f.blob
-        // File file-backed invalidado no iOS lê VAZIO (0 bytes) → o Storage rejeita com
-        // "No content provided" (erro real do caso Maicon). Detecta antes do upload doomed.
-        if (!blob || typeof blob.arrayBuffer !== 'function' || !blob.size) {
-          throw Object.assign(new Error('foto ilegível no aparelho (0 bytes)'), { name: 'NotReadableError' })
+        if (!blob || typeof blob.arrayBuffer !== 'function') {
+          throw Object.assign(new Error('foto ausente no aparelho'), { name: 'NotReadableError' })
         }
-        const path = `${uid}/${po.client_uuid}/foto-${f.id}.${extDoMime(blob.type)}`
-        const up = await sb.storage.from(BUCKET).upload(path, blob, { upsert: true, contentType: blob.type || 'image/jpeg' })
+        // CAUSA RAIZ (caso Maicon, StorageApiError "No content provided"): o iOS Safari manda
+        // corpo VAZIO quando o body do fetch é um Blob file-backed vindo do IndexedDB — mesmo o
+        // blob tendo conteúdo (a miniatura renderiza). Materializa os bytes em memória e sobe um
+        // Blob FRESCO: corpo correto E recupera a foto existente sem precisar re-anexar. Só é
+        // "ilegível" de verdade se arrayBuffer() falhar ou vier 0 bytes.
+        const buf = await blob.arrayBuffer()
+        if (!buf || !buf.byteLength) {
+          throw Object.assign(new Error('foto vazia no aparelho (0 bytes)'), { name: 'NotReadableError' })
+        }
+        const body = new Blob([buf], { type: blob.type || 'image/jpeg' })
+        const path = `${uid}/${po.client_uuid}/foto-${f.id}.${extDoMime(body.type)}`
+        const up = await sb.storage.from(BUCKET).upload(path, body, { upsert: true, contentType: body.type })
         if (up.error) throw up.error
         await D().marcarFotoEnviada(f.id, path)
       } catch (e) {
-        // Perda de leitura (blob morto/vazio) = PERMANENTE → re-anexar. Cobre NotReadableError e o
-        // StorageApiError "No content provided" (corpo vazio). Rede/servidor = transitório → re-tenta.
+        // Rede/upserver = transitório → re-tenta. Blob genuinamente ilegível/vazio (arrayBuffer
+        // falhou/0 bytes) ou "No content provided" residual = PERMANENTE → sinaliza re-anexar.
         const txt = String((e && (e.message || e.name)) || '')
         const leitura = !!(e && e.name === 'NotReadableError') || /notreadable|could not be read|not be read|no content provided|content provided|0 bytes/i.test(txt)
         const motivo = txt || 'falha ao enviar foto'
