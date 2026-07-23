@@ -17,7 +17,6 @@ function renderSidebar(paginaAtiva) {
     deslocamentos: `<svg viewBox="0 0 24 24"><path d="M3 17h2m14 0h2M5 17a2 2 0 1 0 4 0 2 2 0 0 0-4 0Zm10 0a2 2 0 1 0 4 0 2 2 0 0 0-4 0Z"/><path d="M5 17V8a1 1 0 0 1 1-1h8l4 4v6"/></svg>`,
     desempenho:    `<svg viewBox="0 0 24 24"><path d="M3 3v18h18"/><path d="M7 15v3M12 10v8M17 6v12"/></svg>`,
     config:        `<svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M19.4 13a7 7 0 0 0 0-2l2-1.6-2-3.4-2.4 1a7 7 0 0 0-1.7-1L14.5 2h-5l-.8 3a7 7 0 0 0-1.7 1l-2.4-1-2 3.4 2 1.6a7 7 0 0 0 0 2l-2 1.6 2 3.4 2.4-1a7 7 0 0 0 1.7 1l.8 3h5l.8-3a7 7 0 0 0 1.7-1l2.4 1 2-3.4-2-1.6Z"/></svg>`,
-    ponto:         `<svg viewBox="0 0 24 24"><circle cx="9" cy="9" r="6"/><path d="M9 6v3l2 2"/><path d="M15 15l2 2 4-4"/></svg>`,
   }
   const a = paginaAtiva
   const item = (key, href, label, cor) =>
@@ -38,7 +37,6 @@ function renderSidebar(paginaAtiva) {
   ${item('desempenho', 'desempenho.html', 'Desempenho', 'pink')}
 
   <div class="ngrp">Sistema</div>
-  ${item('ponto', 'ponto-vinculos.html', 'Ponto · Vínculos', 'blue')}
   ${item('config', 'configuracoes.html', 'Configurações', 'gray')}
 
   <div class="foot" onclick="fazerLogout()" title="Sair" style="cursor:pointer">
