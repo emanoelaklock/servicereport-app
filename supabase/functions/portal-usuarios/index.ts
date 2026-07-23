@@ -65,6 +65,14 @@ async function empregadosVinculados(excetoUsuario?: string): Promise<Map<number,
   }
   return m;
 }
+// employeeIds marcados FORA DO ESCOPO (decisão manual auditada). Não são "disponíveis" para
+// novo vínculo e nunca devem ser sugeridos — o servidor já bloqueia o INSERT (trigger
+// tg_ponto_map_valida_escopo); aqui só evitamos oferecê-los na UI. A validação final
+// permanece obrigatória mesmo com este filtro.
+async function empregadosForaEscopo(): Promise<Set<number>> {
+  const { data } = await admin.from('ponto_fora_escopo').select('tangerino_employee_id');
+  return new Set<number>((data || []).map((r: any) => Number(r.tangerino_employee_id)));
+}
 const sanit = (c: any) => ({ employeeId: c.id, nome: c.name ?? null, inativo: c.fired === true });
 
 Deno.serve(async (req) => {
@@ -172,9 +180,10 @@ Deno.serve(async (req) => {
       if (!tkn) return json(503, { error: 'Integração Tangerino não provisionada.' });
       const todos = await colaboradoresTangerino(tkn);
       const vinc = await empregadosVinculados(b.usuarioId);   // exclui os de OUTROS; mantém o do próprio
+      const fora = await empregadosForaEscopo();              // fora do escopo nunca é "disponível"
       const incluirInativos = b.incluirInativos === true;     // opção histórica explícita
       const lista = todos
-        .filter((c: any) => !vinc.has(Number(c.id)))
+        .filter((c: any) => !vinc.has(Number(c.id)) && !fora.has(Number(c.id)))
         .filter((c: any) => incluirInativos || c.fired !== true)
         .map(sanit)
         .sort((a: any, z: any) => String(a.nome || '').localeCompare(String(z.nome || '')));
@@ -189,8 +198,9 @@ Deno.serve(async (req) => {
       if (!u) return json(404, { error: 'Usuário não encontrado.' });
       const todos = await colaboradoresTangerino(tkn);
       const vinc = await empregadosVinculados(b.usuarioId);
+      const fora = await empregadosForaEscopo();              // fora do escopo nunca é sugerido
       const cand = todos.find((c: any) =>
-        !vinc.has(Number(c.id)) && sugerirVinculo(c, [u]) != null);   // reusa a pura compartilhada
+        !vinc.has(Number(c.id)) && !fora.has(Number(c.id)) && sugerirVinculo(c, [u]) != null);   // reusa a pura compartilhada
       return json(200, { sugestao: cand ? sanit(cand) : null });
     }
 
