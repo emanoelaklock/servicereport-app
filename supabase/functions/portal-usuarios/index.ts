@@ -55,9 +55,11 @@ async function colaboradoresTangerino(token: string): Promise<any[]> {
   return uniao.colaboradores;
 }
 // employeeIds já vinculados a ALGUM usuário; opcional: excluir o do próprio usuário editado.
+// Erro na consulta ABORTA (throw): jamais devolver a lista sem este filtro de segurança.
 async function empregadosVinculados(excetoUsuario?: string): Promise<Map<number, string>> {
-  const { data } = await admin.from('ponto_colaboradores_map')
+  const { data, error } = await admin.from('ponto_colaboradores_map')
     .select('tecnico_id,tangerino_employee_id').eq('ativo', true);
+  if (error) throw new Error('não foi possível verificar vínculos existentes');
   const m = new Map<number, string>();
   for (const r of data || []) {
     if (excetoUsuario && r.tecnico_id === excetoUsuario) continue;
@@ -68,9 +70,11 @@ async function empregadosVinculados(excetoUsuario?: string): Promise<Map<number,
 // employeeIds marcados FORA DO ESCOPO (decisão manual auditada). Não são "disponíveis" para
 // novo vínculo e nunca devem ser sugeridos — o servidor já bloqueia o INSERT (trigger
 // tg_ponto_map_valida_escopo); aqui só evitamos oferecê-los na UI. A validação final
-// permanece obrigatória mesmo com este filtro.
+// permanece obrigatória mesmo com este filtro. Erro na consulta ABORTA (throw): nunca
+// devolver a lista de disponíveis sem o filtro de fora do escopo.
 async function empregadosForaEscopo(): Promise<Set<number>> {
-  const { data } = await admin.from('ponto_fora_escopo').select('tangerino_employee_id');
+  const { data, error } = await admin.from('ponto_fora_escopo').select('tangerino_employee_id');
+  if (error) throw new Error('não foi possível verificar colaboradores fora do escopo');
   return new Set<number>((data || []).map((r: any) => Number(r.tangerino_employee_id)));
 }
 const sanit = (c: any) => ({ employeeId: c.id, nome: c.name ?? null, inativo: c.fired === true });
