@@ -4078,13 +4078,17 @@
     }
     box.innerHTML = list.map(p => {
       const conf = p.sync_status === 'confirmado'
-      const rasc = !conf && (p.sync_status === 'rascunho' || p.status === 'rascunho')
+      const err = !conf && p.sync_status === 'erro'   // erro deixa de se disfarçar de "na fila ↑"
+      const rasc = !conf && !err && (p.sync_status === 'rascunho' || p.status === 'rascunho')
       const orcado = !!p.orcamento_em   // já virou orçamento → só leitura
-      const sk = conf ? 'done' : 'warn'
-      const badge = orcado ? 'Orçado' : (conf ? 'Enviado' : (rasc ? 'Rascunho' : 'na fila ↑'))
+      const sk = conf ? 'done' : 'warn'          // container/edge (classes existentes)
+      const bcls = err ? 'pend' : sk             // badge: erro = vermelho (b-pend = pendência grave)
+      const badge = orcado ? 'Orçado' : (conf ? 'Enviado' : (err ? 'Erro ao enviar' : (rasc ? 'Rascunho' : 'na fila ↑')))
+      const errLinha = err ? `<div class="meta" style="color:var(--pend-fg)">${esc(p.sync_erro || 'Falha no envio — toque para revisar')}</div>` : ''
       return `<div class="listcard lc-${conf ? 'done' : 'warn'}" data-uuid="${esc(p.client_uuid)}"><span class="edge e-${sk}"></span>
-        <div class="t"><span class="cli">${esc(p.cliente_nome || 'Sem cliente')}</span><span class="badge b-${sk}">${badge}</span></div>
+        <div class="t"><span class="cli">${esc(p.cliente_nome || 'Sem cliente')}</span><span class="badge b-${bcls}">${esc(badge)}</span></div>
         <div class="meta">${p.numero ? 'Nº <b>' + esc(p.numero) + '</b> · ' : ''}${esc((p.descricao || '—').slice(0, 48))}</div>
+        ${errLinha}
         <div class="meta" style="display:flex;justify-content:space-between;align-items:center"><span>${fdt(p.criado_em, { withTime: true })}</span>${orcado ? '' : `<button type="button" class="rat-del" data-del="${esc(p.client_uuid)}" title="Excluir pré-orçamento" style="background:none;border:none;cursor:pointer"><svg viewBox="0 0 24 24"><path d="M3 6h18M8 6V4a1 1 0 0 1 1-1h6a1 1 0 0 1 1 1v2m4 0v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6"/></svg></button>`}</div>
       </div>`
     }).join('')

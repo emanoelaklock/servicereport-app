@@ -403,9 +403,16 @@
         try {
           await D().definirStatusPreorc(p.client_uuid, D().STATUS.NA_FILA)
           await enviarPreorc(p.client_uuid)
+          if (p.sync_erro) await D().salvarPreorc(p.client_uuid, { sync_erro: null, sync_erro_em: null })   // subiu → limpa erro anterior
           ok++
         } catch (e) {
           console.warn('[sync] falha pré-orçamento', p.client_uuid, e)
+          // Persiste o erro EXATO no item — antes só havia console.warn (diagnóstico cego).
+          // name + message capturam o NotReadableError do iOS (File file-backed invalidado no
+          // IndexedDB após o PWA ser morto), além de HTTP/RLS/timeout de qualquer origem.
+          const msg = (e && (e.message || e.error_description)) || String(e || 'erro de envio')
+          const nome = (e && e.name && e.name !== 'Error') ? e.name + ': ' : ''
+          await D().salvarPreorc(p.client_uuid, { sync_erro: (nome + msg).slice(0, 300), sync_erro_em: new Date().toISOString() })
           await D().definirStatusPreorc(p.client_uuid, D().STATUS.ERRO)
           fail++
         }
