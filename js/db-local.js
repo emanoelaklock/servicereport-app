@@ -542,6 +542,15 @@
     })
   }
 
+  // Marca foto como ILEGÍVEL no aparelho (blob file-backed invalidado no iOS): o envio a pula
+  // daqui pra frente, mas ela NÃO é apagada — fica sinalizada p/ o técnico re-anexar (§12).
+  async function marcarFotoFalha(id, motivo) {
+    return tx([ST_FOTOS], 'readwrite', (t) => {
+      const s = t.objectStore(ST_FOTOS)
+      reqP(s.get(id)).then((cur) => { if (cur) s.put({ ...cur, falha_permanente: 1, falha_motivo: motivo || null }) })
+    })
+  }
+
   async function fotosPendentes(client_uuid) {
     return (await listarFotos(client_uuid)).filter(f => !f.enviada)
   }
@@ -713,7 +722,7 @@
     salvarTarefaLocal, listarTarefasLocais, tarefasLocaisPendentes, removerTarefaLocal,
     SYNC_MAP, obterPorChave, listarStore, aplicarDoServidor, removerDoServidor,
     novoRat, salvarRat, obterRat, listarRats, definirStatus, removerRat,
-    adicionarFoto, listarFotos, removerFoto, marcarFotoEnviada, fotosPendentes, atualizarLegendaFoto,
+    adicionarFoto, listarFotos, removerFoto, marcarFotoEnviada, marcarFotoFalha, fotosPendentes, atualizarLegendaFoto,
     adicionarMaterial, atualizarMaterial, listarMateriais, removerMaterial,
     hidratarMateriaisDaRat, hidratarFotosDaRat, hidratarItensPreorc,
     novoPreorc, salvarPreorc, obterPreorc, listarPreorc, definirStatusPreorc, removerPreorc,

@@ -207,13 +207,28 @@
     const uid = po && po.tecnico_id
     if (!uid) throw new Error('Pré-orçamento sem tecnico_id')
 
-    // 1) Fotos pendentes → Storage (pasta do técnico p/ casar com a RLS do bucket)
+    // 1) Fotos pendentes → Storage (pasta do técnico p/ casar com a RLS do bucket).
+    //    RESILIENTE: uma foto ilegível NÃO derruba o pré-orçamento inteiro. A leitura que falha
+    //    por File file-backed invalidado no iOS (NotReadableError) é marcada como falha permanente
+    //    (pulada daqui pra frente, mas NÃO apagada — o técnico re-anexa); erro de rede/servidor é
+    //    transitório e será re-tentado. O texto+itens+fotos boas sobem mesmo assim (§12).
+    const fotosFalhas = []
     for (const f of await D().listarFotos(po.client_uuid)) {
-      if (f.enviada) continue
-      const path = `${uid}/${po.client_uuid}/foto-${f.id}.${extDoMime(f.blob.type)}`
-      const up = await sb.storage.from(BUCKET).upload(path, f.blob, { upsert: true, contentType: f.blob.type || 'image/jpeg' })
-      if (up.error) throw up.error
-      await D().marcarFotoEnviada(f.id, path)
+      if (f.enviada || f.falha_permanente || f.url) continue   // já no Storage ou já sinalizada → não reprocessa
+      try {
+        const blob = f.blob
+        if (!blob || typeof blob.arrayBuffer !== 'function') throw Object.assign(new Error('foto ausente no aparelho'), { name: 'NotReadableError' })
+        const path = `${uid}/${po.client_uuid}/foto-${f.id}.${extDoMime(blob.type)}`
+        const up = await sb.storage.from(BUCKET).upload(path, blob, { upsert: true, contentType: blob.type || 'image/jpeg' })
+        if (up.error) throw up.error
+        await D().marcarFotoEnviada(f.id, path)
+      } catch (e) {
+        const leitura = !!(e && (e.name === 'NotReadableError' || /could not be read|not be read|notreadable/i.test(String(e.message || ''))))
+        const motivo = (e && (e.message || e.name)) || 'falha ao enviar foto'
+        if (leitura) await D().marcarFotoFalha(f.id, motivo)
+        fotosFalhas.push({ id: f.id, motivo, permanente: leitura })
+        console.warn('[sync] foto pré-orçamento não enviada', f.id, e)
+      }
     }
 
     // 2) Upsert do pré-orçamento (idempotente por client_uuid)
@@ -245,6 +260,25 @@
       const ir = await sb.from('pre_orcamento_itens').upsert(irows, { onConflict: 'id' })
       if (ir.error) throw ir.error
     }
+
+    // 4.5) Envio PARCIAL: dados no servidor, mas há foto(s) pendente(s) — ilegíveis no aparelho
+    //      (falha_permanente, re-anexar) ou que ainda não subiram (transitório). NÃO confirma
+    //      "verde limpo" e SEGURA o e-mail/PDF ao comercial (a etapa 6 fica fora de alcance).
+    //      Padrão do bloqueio da RAT: marca 'erro' com mensagem, mas o chamador NÃO conta no toast.
+    const fotosPendentes = (await D().listarFotos(po.client_uuid)).filter(f => f.falha_permanente && !f.enviada)
+    const transit = fotosFalhas.filter(x => !x.permanente)
+    if (fotosPendentes.length || transit.length) {
+      await D().salvarPreorc(po.client_uuid, {
+        recebido_em: ups.data.recebido_em || null, numero: ups.data.numero || po.numero || null,
+        fotos_falhas: fotosFalhas,
+      })
+      const nPerm = fotosPendentes.length
+      const msg = nPerm
+        ? `Enviado, mas ${nPerm} foto(s) não puderam ser lidas no aparelho — re-anexe a(s) foto(s).`
+        : `Enviado, mas ${transit.length} foto(s) não subiram — nova tentativa no próximo sync.`
+      throw Object.assign(new Error(msg), { preorcFotoPendente: true, soTransitorio: nPerm === 0 })
+    }
+    if (po.fotos_falhas) await D().salvarPreorc(po.client_uuid, { fotos_falhas: null })   // completo → limpa sinalização
 
     // 5) ACK do servidor: recebido_em carimbado → confirmado (mesma guarda de corrida da RAT:
     //    save durante o envio → não confirma o retrato velho; volta pra fila e reenvia)
@@ -410,11 +444,12 @@
           // Persiste o erro EXATO no item — antes só havia console.warn (diagnóstico cego).
           // name + message capturam o NotReadableError do iOS (File file-backed invalidado no
           // IndexedDB após o PWA ser morto), além de HTTP/RLS/timeout de qualquer origem.
+          const parcial = !!(e && e.preorcFotoPendente)   // envio parcial: dados subiram, falta re-anexar foto — mensagem já amigável
           const msg = (e && (e.message || e.error_description)) || String(e || 'erro de envio')
-          const nome = (e && e.name && e.name !== 'Error') ? e.name + ': ' : ''
+          const nome = (!parcial && e && e.name && e.name !== 'Error') ? e.name + ': ' : ''
           await D().salvarPreorc(p.client_uuid, { sync_erro: (nome + msg).slice(0, 300), sync_erro_em: new Date().toISOString() })
           await D().definirStatusPreorc(p.client_uuid, D().STATUS.ERRO)
-          fail++
+          if (!parcial) fail++   // parcial segue vermelho no badge/lista, mas sem "N item com erro" repetido a cada sync
         }
       }
       const segs = await D().segmentosPendentes()
