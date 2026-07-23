@@ -53,6 +53,15 @@ Deno.serve(async (req) => {
         foto: b.foto || null, login_mode: mode, must_change_password: b.must_change ?? true,
       });
       if (ierr) { await admin.auth.admin.deleteUser(id); return json(400, { error: ierr.message }); }
+      // "Participa da integração com o Tangerino" (0129): novo usuário NASCE false (default
+      // da coluna); marcar no cadastro passa pelo setter oficial → auditoria com o admin
+      // verificado como ator (nunca gravação direta sem trilha).
+      if (b.tangerino_elegivel === true) {
+        const { error: eEl } = await admin.rpc('sr_set_tangerino_elegivel', {
+          p_usuario: id, p_valor: true, p_ator: ures.user.id,
+        });
+        if (eEl) return json(400, { error: eEl.message });
+      }
       return json(200, { ok: true, id, email });
     }
 
@@ -66,6 +75,15 @@ Deno.serve(async (req) => {
       if (error) return json(400, { error: error.message });
       if (typeof b.ativo === 'boolean') {
         await admin.auth.admin.updateUserById(b.id, { ban_duration: b.ativo ? 'none' : '876000h' }).catch(() => {});
+      }
+      // tangerino_elegivel NUNCA entra no patch direto: só pelo setter oficial (0129), que
+      // audita valor anterior/novo com o admin verificado como ator. Desmarcar usuário com
+      // vínculo ativo é bloqueado pelo banco — o erro volta ao chamador, nunca silencioso.
+      if (typeof b.tangerino_elegivel === 'boolean') {
+        const { error: eEl } = await admin.rpc('sr_set_tangerino_elegivel', {
+          p_usuario: b.id, p_valor: b.tangerino_elegivel, p_ator: ures.user.id,
+        });
+        if (eEl) return json(400, { error: eEl.message });
       }
       return json(200, { ok: true });
     }

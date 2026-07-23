@@ -12,7 +12,10 @@
 ═══════════════════════════════════════════════ */
 const PontoVinculosApp = (() => {
   const sb = () => getSupabase()
-  let usuarios = []        // sr_usuarios ativos (nome/foto p/ exibição e dropdown)
+  let usuarios = []        // sr_usuarios (com acesso ao portal) — papel/identidade de quem usa a tela
+  let elegiveis = []       // sr_usuarios_vinculo (0129): TODOS os usuários SR elegíveis a vínculo,
+                           // com acesso ao portal OU NÃO (acesso nunca é requisito p/ vínculo)
+  let mostrarInativosSR = false   // opção explícita: incluir usuários SR inativos (vínculo histórico)
   let colaboradores = []   // Edge (sanitizado)
   let mapa = []            // ponto_colaboradores_map
   let foraEscopo = []      // ponto_fora_escopo (decisão manual auditada)
@@ -23,12 +26,28 @@ const PontoVinculosApp = (() => {
   let filtroSituacao = 'todos'   // dimensão 2: situação no Tangerino (ativo/inativo) — badge, nunca decisão
   let feAberto = null      // employeeId com o campo de motivo aberto (marcar fora do escopo)
 
-  const uNome = (id) => (usuarios.find((u) => u.id === id) || {}).nome || (id ? String(id).slice(0, 8) + '…' : '—')
+  const uNome = (id) => (elegiveis.find((u) => u.id === id) || usuarios.find((u) => u.id === id) || {}).nome
+    || (id ? String(id).slice(0, 8) + '…' : '—')
+  // Badges das TRÊS dimensões separadas do usuário SR (0129): ativo/inativo ·
+  // acesso ao portal · elegível p/ Tangerino. Só aparecem quando fogem do padrão.
+  const uBadges = (id) => {
+    const u = elegiveis.find((x) => x.id === id)
+    if (!u) return ''
+    let b = ''
+    if (!u.ativo) b += ' <span class="origem">· inativo</span>'
+    if (!u.tem_acesso) b += ' <span class="origem">· sem acesso ao portal</span>'
+    if (u.tangerino_elegivel === false) b += ' <span class="origem">· não elegível</span>'
+    return b
+  }
 
   async function init() {
     const { data: { user } } = await sb().auth.getUser()
     meuId = user && user.id
     try { const { data } = await sb().rpc('sr_usuarios'); usuarios = (data || []).filter((u) => u.ativo) } catch (e) { usuarios = [] }
+    // Elegíveis a vínculo (0129): todos os usuários SR, sem exigir acesso ao portal.
+    // Fallback defensivo (RPC ainda não aplicada): usa a lista com acesso, sem quebrar a tela.
+    try { const { data } = await sb().rpc('sr_usuarios_vinculo'); elegiveis = data || [] } catch (e) { elegiveis = [] }
+    if (!elegiveis.length) elegiveis = usuarios.map((u) => ({ id: u.id, nome: u.nome, ativo: u.ativo, tem_acesso: true, tangerino_elegivel: true }))
     const eu = usuarios.find((u) => u.id === meuId)
     souAdmin = !!eu && eu.role === 'admin'
     if (!souAdmin) {
@@ -95,8 +114,10 @@ const PontoVinculosApp = (() => {
     const porDecisao = { todos: colaboradores.length, vinculado: 0, pendente: 0, fora_escopo: 0 }
     const porSituacao = { todos: colaboradores.length, ativo: 0, inativo: 0 }
     for (const c of colaboradores) { porDecisao[decisaoDe(c)]++; porSituacao[situacaoDe(c)]++ }
-    // usuários SR ativos ainda sem vínculo — visão que alimenta o gate da 1ª carga (C3)
-    const semVinculoSR = usuarios.filter((u) => !mapa.some((v) => v.tecnico_id === u.id)).length
+    // usuários ELEGÍVEIS (tangerino_elegivel) ativos ainda sem vínculo — visão que alimenta
+    // o gate da 1ª carga (C3). Não elegíveis NÃO entram na conta (decisão de 23/07).
+    const semVinculoSR = elegiveis.filter((u) =>
+      u.tangerino_elegivel && u.ativo && !mapa.some((v) => v.tecnico_id === u.id)).length
     const chipsD = [['todos', 'Todos'], ['vinculado', 'Vinculados'], ['pendente', 'Pendentes'], ['fora_escopo', 'Fora do escopo']]
     const chipsS = [['todos', 'Todos'], ['ativo', 'Ativos'], ['inativo', 'Inativos']]
     document.getElementById('pv-chips').innerHTML =
@@ -104,9 +125,12 @@ const PontoVinculosApp = (() => {
       chipsD.map(([k, l]) => `<button class="pv-chip${filtroDecisao === k ? ' on' : ''}" data-fd="${k}">${l}<b>${porDecisao[k]}</b></button>`).join('') +
       `<span class="origem" style="align-self:center;margin-left:10px">Situação Tangerino:</span>` +
       chipsS.map(([k, l]) => `<button class="pv-chip${filtroSituacao === k ? ' on' : ''}" data-fs="${k}">${l}<b>${porSituacao[k]}</b></button>`).join('') +
-      `<span class="pv-chip" style="cursor:default">Usuários SR sem vínculo<b>${semVinculoSR}</b></span>`
+      `<span class="pv-chip" style="cursor:default">Usuários elegíveis sem vínculo<b>${semVinculoSR}</b></span>` +
+      `<label class="pv-chip" style="cursor:pointer"><input type="checkbox" id="pv-hist-sr"${mostrarInativosSR ? ' checked' : ''} style="margin-right:6px">incluir usuários SR inativos (vínculo histórico)</label>`
     document.querySelectorAll('#pv-chips [data-fd]').forEach((b) => { b.onclick = () => { filtroDecisao = b.dataset.fd; render() } })
     document.querySelectorAll('#pv-chips [data-fs]').forEach((b) => { b.onclick = () => { filtroSituacao = b.dataset.fs; render() } })
+    const cbHist = document.getElementById('pv-hist-sr')
+    if (cbHist) cbHist.onchange = () => { mostrarInativosSR = cbHist.checked; render() }
 
     const linhas = colaboradores.filter((c) =>
       (filtroDecisao === 'todos' || decisaoDe(c) === filtroDecisao) &&
@@ -134,8 +158,12 @@ const PontoVinculosApp = (() => {
             <button class="b-vinc" data-fe-conf="${esc(String(c.employeeId))}">Confirmar fora do escopo</button>
             <button class="b-desv" data-fe-cancel="1">Cancelar</button></span>`
         } else {
-          const ops = usuarios.filter((u) => !jaVinculados.has(u.id)).map((u) =>
-            `<option value="${esc(u.id)}"${c.sugestao && c.sugestao.tecnicoId === u.id ? ' selected' : ''}>${esc(u.nome)}</option>`).join('')
+          // Só usuários ELEGÍVEIS entram no dropdown (tangerino_elegivel=true); acesso ao
+          // portal NUNCA é requisito. Inativos só com a opção histórica ligada. Badges
+          // separados por dimensão. Ausência de elegível NUNCA vira fora_escopo sozinha.
+          const ops = elegiveis.filter((u) =>
+            u.tangerino_elegivel && !jaVinculados.has(u.id) && (u.ativo || mostrarInativosSR)).map((u) =>
+            `<option value="${esc(u.id)}"${c.sugestao && c.sugestao.tecnicoId === u.id ? ' selected' : ''}>${esc(u.nome)}${u.ativo ? '' : ' — inativo'}${u.tem_acesso ? '' : ' — sem acesso ao portal'}</option>`).join('')
           acao = `<span class="act"><select data-sel="${esc(String(c.employeeId))}"><option value="">— usuário SR —</option>${ops}</select>
             <button class="b-vinc" data-vinc="${esc(String(c.employeeId))}">Vincular</button>
             <button class="b-desv" data-fe-abrir="${esc(String(c.employeeId))}">Fora do escopo</button></span>`
@@ -143,7 +171,7 @@ const PontoVinculosApp = (() => {
       }
       return `<tr>
         <td><b>${esc(c.nome || '(sem nome)')}</b><div class="origem">id ${esc(String(c.employeeId))}${c.externalId ? ' · ext ' + esc(String(c.externalId)).slice(0, 12) + '…' : ''}${fe ? '<br>motivo: ' + esc(fe.motivo) : ''}</div></td>
-        <td>${vinc ? esc(uNome(vinc.tecnico_id)) : (c.sugestao && !fe ? `<span class="origem">sugerido: ${esc(uNome(c.sugestao.tecnicoId))}</span>` : '—')}</td>
+        <td>${vinc ? esc(uNome(vinc.tecnico_id)) + uBadges(vinc.tecnico_id) : (c.sugestao && !fe ? `<span class="origem">sugerido: ${esc(uNome(c.sugestao.tecnicoId))}</span>` : '—')}</td>
         <td><span class="badge ${ST[st].cls}">${ST[st].txt}</span> <span class="badge ${SIT[sit].cls}">${SIT[sit].txt}</span></td>
         <td class="origem">${vinc && origem ? esc(origem) : (!vinc && !fe && c.sugestao ? esc(c.sugestao.origem) : '—')}</td>
         <td class="origem">${confPor}</td>
@@ -160,9 +188,15 @@ const PontoVinculosApp = (() => {
 
     document.getElementById('pv-hist').innerHTML = eventos.length ? eventos.map((e) => {
       const acaoTx = { vinculado: 'vinculou', alterado: 'alterou', desvinculado: 'desvinculou',
-        fora_escopo: 'marcou FORA DO ESCOPO', retorno_escopo: 'retornou ao escopo' }[e.acao] || e.acao
+        fora_escopo: 'marcou FORA DO ESCOPO', retorno_escopo: 'retornou ao escopo',
+        regularizacao: 'REGULARIZOU (evento compensatório)' }[e.acao] || e.acao
       const alvo = e.tecnico_id ? ` <b>${esc(uNome(e.tecnico_id))}</b> ↔` : ''
-      return `<div class="ev"><b>${esc(uNome(e.ator))}</b> ${acaoTx}${alvo} colaborador ${esc(String(e.tangerino_employee_id))}${e.origem_sugestao ? ` (origem: ${esc(e.origem_sugestao)})` : ''} — ${fdt(e.em, { withTime: true })}${e.detalhe ? ` · ${esc(e.detalhe)}` : ''}</div>`
+      // Origem da execução (0129): sem ator = NÃO foi execução direta de usuário no portal —
+      // exibe a origem real e, quando houver, quem aprovou (nunca mascara como o usuário).
+      const quem = e.ator ? uNome(e.ator)
+        : ({ sql_assistido: 'operação administrativa (SQL assistido)', sistema: 'sistema' }[e.origem_execucao] || 'sistema')
+      const aprov = (!e.ator && e.aprovado_por) ? ` · aprovado por <b>${esc(uNome(e.aprovado_por))}</b>` : ''
+      return `<div class="ev"><b>${esc(quem)}</b> ${acaoTx}${alvo} colaborador ${esc(String(e.tangerino_employee_id))}${e.origem_sugestao ? ` (origem: ${esc(e.origem_sugestao)})` : ''} — ${fdt(e.em, { withTime: true })}${aprov}${e.detalhe ? ` · ${esc(e.detalhe)}` : ''}</div>`
     }).join('') : '<div class="ev">Nenhum evento ainda.</div>'
   }
 
