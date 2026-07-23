@@ -150,6 +150,38 @@ tolerância de **início** (min), **término** (min), **duração** (min), janel
 (default 10:00–15:00), duração mínima de gap considerada (default 15 min), retenção do espelho
 (default 12 meses). Editável só por admin; valores iniciais entram **após a calibração** (§5).
 
+### 3.1 Encerramento do C2 (0129, 23/07/2026) — elegibilidade e origem da execução
+
+**`usuarios.tangerino_elegivel`** — checkbox "**Participa da integração com o Tangerino**"
+(texto auxiliar: *"Marque apenas para técnicos que registram jornada e devem aparecer na
+conciliação."*). Regras cravadas:
+- default **false**; backfill da 0129 marcou **true só quem já tinha vínculo ativo** no map;
+- alteração **só pelo backend** (padrão 0124): a Edge `portal-usuarios` (admin-only) chama o
+  setter `sr_set_tangerino_elegivel` — papel de app nunca escreve; gestor/técnico nunca alteram;
+- **desmarcar usuário com vínculo ativo é bloqueado** (desvincule antes, pelo fluxo auditado);
+- marcar/desmarcar **nunca** cria/remove vínculo; ausência de elegível **nunca** vira
+  fora_escopo automaticamente;
+- trilha **imutável** `ponto_elegivel_eventos` (valor anterior/novo, ator, origem, data/hora);
+- acesso ao portal **não interfere**; ativo/inativo é dimensão separada. O dropdown da tela
+  lista **somente elegíveis** (por padrão os ativos; inativos via opção explícita de vínculo
+  histórico) e a métrica do gate da C3 passa a ser "**usuários elegíveis sem vínculo**".
+- O checkbox **visual** do cadastro vive no app do Portal (repo do hub); o contrato é:
+  `action create/update` da Edge `portal-usuarios` aceita `tangerino_elegivel: boolean`.
+
+**Origem da execução na auditoria** (`ponto_vinculo_eventos.origem_execucao` e trilha do
+checkbox): `portal` (usuário autenticado — JWT direto ou verificado pela Edge) ·
+`sql_assistido` (operação administrativa assistida por SQL, GUC `app.ponto_origem`) ·
+`sistema` (migration/rotina). `ator` é o `auth.uid()` **real** (null fora do portal — nunca
+mais mascarado como o usuário da linha); o responsável vai em `aprovado_por`. Ação
+`regularizacao` = evento **compensatório** (o original é imutável e fica referenciado em
+`evento_ref`); a 0129 regularizou assim o vínculo do colaborador 6140202 (feito por SQL
+assistido quando o dropdown ainda exigia acesso ao portal).
+
+**Classificação encerrada (23/07)**: 11 vinculados · 9 fora do escopo (8 desligados + 1 ativo
+não-técnico, decisão da administração) · 0 pendentes. Caso das duas contas "Arian": a admin
+identificou **Arian Camilo** como a conta técnica — troca feita pelo fluxo auditado
+(desvinculado + vinculado no histórico); a outra conta permanece não elegível.
+
 ## 4. Inferência do intervalo de almoço (pessoa-dia)
 
 Entrada: os registros de `ponto_marcacoes` do (tecnico, dia), `status_origem='APPROVED'`,
