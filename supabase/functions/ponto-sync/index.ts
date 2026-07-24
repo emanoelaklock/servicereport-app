@@ -16,7 +16,7 @@ import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 import {
   normalizarPunch, calcularCursorNovo, janelaMs, sanitizarErro,
   validarRequisicao, decidirRetry, coletarPaginado, corsPara, sugerirVinculo, classificarPunch,
-  qsEmployerFindAll, unirColaboradores,
+  qsEmployerFindAll, unirColaboradores, janelasHistoricas, classificarUpsert,
 } from './logic.mjs'
 
 const API_BASE = 'https://api.tangerino.com.br/api/punch'
@@ -93,7 +93,7 @@ Deno.serve(async (req: Request) => {
     }
 
     const body = req.method === 'POST' ? await req.json().catch(() => ({})) : {}
-    const modo = ['reconhecimento', 'colaboradores'].includes(body?.modo) ? body.modo : 'delta'
+    const modo = ['reconhecimento', 'colaboradores', 'carga'].includes(body?.modo) ? body.modo : 'delta'
     const { data: cfg } = await admin.from('ponto_config').select('reconhecimento_ativo').eq('id', 1).maybeSingle()
 
     const auth = validarRequisicao({
@@ -174,6 +174,119 @@ Deno.serve(async (req: Request) => {
         modo, autorizadoPor: auth.autorizadoPor, vinculados: mapa.size,
         totalElements: bodyApi?.totalElements ?? null, totalPages: bodyApi?.totalPages ?? null,
         size: bodyApi?.size ?? null, amostra,
+      })
+    }
+
+    // ── modo carga: PRIMEIRA CARGA HISTÓRICA manual (admin), período pequeno, janelas ──
+    // Período limitado (default 30 dias, teto 30) fatiado em janelas de `janelaDias`
+    // (default 1, teto 7). Cada janela é 100% paginada (getComRetry respeita Retry-After).
+    // Upsert por tangerino_punch_id: reimportar não duplica; mesmo id atualiza; excluded=true
+    // e dateOut=null preservados (normalizarPunch); nunca há DELETE (ausência não apaga).
+    // BLOQUEIO (⇒ 'parcial', SEM avanço de cursor): pendente_sem_vinculo > 0 OU timezone
+    // desconhecido em QUALQUER janela. fora_escopo e inválidas contam, nunca bloqueiam.
+    // Cursor candidato = maior lastModifiedDate de TODAS as janelas; só grava se NENHUMA
+    // janela bloqueou e NENHUMA falhou. Falha intermediária → erro, cursor NÃO avança.
+    if (modo === 'carga') {
+      const dias = Math.min(Math.max(1, Number(body.dias) || 30), 30)
+      const janelaDias = Math.min(Math.max(1, Number(body.janelaDias) || 1), 7)
+      const inicioMs = agora - dias * 24 * 3600 * 1000
+      const fimMs = agora
+      const janelas = janelasHistoricas(inicioMs, fimMs, janelaDias)
+
+      const { data: ultC } = await admin.from('ponto_sync_execucoes')
+        .select('cursor_novo').eq('status', 'ok').in('tipo', ['delta', 'janela7d', 'carga_historica'])
+        .not('cursor_novo', 'is', null).order('iniciado_em', { ascending: false }).limit(1).maybeSingle()
+      const cursorInicial: number | null = ultC?.cursor_novo ?? null
+
+      const iniciado = new Date().toISOString()
+      const tot = { paginas: 0, inseridas: 0, atualizadas: 0, inalteradas: 0, abertas: 0,
+        excluidas: 0, ignoradasFE: 0, pendentes: 0, invalidas: 0 }
+      const errosTz = new Map<string, number>()
+      let cursorCandidato: number | null = cursorInicial
+      let bloqueou = false
+      const janelasDetalhe: Array<Record<string, unknown>> = []
+      try {
+        for (const jan of janelas) {
+          const { punches, paginas } = await coletarPaginado(
+            (page: number) => getComRetry(urlPagina({ startDateInMillis: jan.inicioMs, endDateInMillis: jan.fimMs }, page, PAGE_SIZE), token),
+            { maxPaginas: MAX_PAGINAS, deadlineMs: deadline, pausaMs: PAUSA_ENTRE_PAGINAS_MS, dorme: sleep },
+          )
+          tot.paginas += paginas
+          cursorCandidato = calcularCursorNovo(punches, cursorCandidato)
+          let jPend = 0, jTz = 0
+          const rows: any[] = []
+          for (const p of punches) {
+            const cls = classificarPunch(p, mapa, foraEscopo)
+            if (cls === 'fora_escopo') { tot.ignoradasFE++; continue }           // intencional, auditado
+            if (cls === 'pendente_sem_vinculo') { tot.pendentes++; jPend++; continue }  // exige decisão → bloqueia
+            const r = normalizarPunch(p, mapa)
+            if ('erro' in r) { errosTz.set(r.erro, (errosTz.get(r.erro) || 0) + 1); jTz++; continue }  // tz desconhecido → bloqueia
+            if ('descartada' in r) { tot.invalidas++; continue }
+            rows.push(r.row)
+            if (r.row.saida == null) tot.abertas++
+            if (r.row.excluido_origem) tot.excluidas++
+          }
+          for (let i = 0; i < rows.length; i += 500) {
+            const lote = rows.slice(i, i + 500)
+            const ids = lote.map((r) => r.tangerino_punch_id)
+            const { data: exist } = await admin.from('ponto_marcacoes')
+              .select('tangerino_punch_id,origem_modificado_em').in('tangerino_punch_id', ids)
+            const prev = new Map<number, number | null>()
+            for (const e of exist || []) prev.set(Number(e.tangerino_punch_id), e.origem_modificado_em ? Date.parse(e.origem_modificado_em) : null)
+            const { error: eUp } = await admin.from('ponto_marcacoes').upsert(lote, { onConflict: 'tangerino_punch_id' })
+            if (eUp) throw eUp
+            for (const r of lote) {
+              const inMs = r.origem_modificado_em ? Date.parse(r.origem_modificado_em) : null
+              const cls2 = classificarUpsert(prev.has(r.tangerino_punch_id) ? prev.get(r.tangerino_punch_id) : undefined, inMs)
+              if (cls2 === 'nova') tot.inseridas++
+              else if (cls2 === 'atualizada') tot.atualizadas++
+              else tot.inalteradas++
+            }
+          }
+          const jBloqueou = jPend > 0 || jTz > 0
+          if (jBloqueou) bloqueou = true
+          janelasDetalhe.push({ inicio: new Date(jan.inicioMs).toISOString().slice(0, 10),
+            fim: new Date(jan.fimMs).toISOString().slice(0, 10), paginas, ...(jBloqueou ? { bloqueada: true } : {}) })
+        }
+      } catch (e) {
+        // falha intermediária: NADA de avanço de cursor; trilha registra o erro sanitizado
+        await admin.from('ponto_sync_execucoes').insert({
+          iniciado_em: iniciado, terminado_em: new Date().toISOString(), tipo: 'carga_historica',
+          cursor_anterior: cursorInicial, cursor_novo: null, paginas: tot.paginas,
+          novas: tot.inseridas, atualizadas: tot.atualizadas, inalteradas: tot.inalteradas,
+          abertas: tot.abertas, excluidas_sinalizadas: tot.excluidas,
+          pendentes_sem_vinculo: tot.pendentes, ignoradas_fora_escopo: tot.ignoradasFE, invalidas: tot.invalidas,
+          status: 'erro', erro_sanitizado: sanitizarErro(e, segredos),
+        })
+        return json({ modo, status: 'erro', erro: sanitizarErro(e, segredos), janelasDetalhe }, 500)
+      }
+
+      const motivos: string[] = []
+      if (tot.pendentes > 0) motivos.push(`${tot.pendentes} marcação(ões) de colaborador(es) SEM VÍNCULO (pendente de decisão)`)
+      for (const [m, n] of errosTz) motivos.push(`${m} (${n} marcação(ões) não importada(s))`)
+      const temBloqueio = bloqueou || motivos.length > 0
+      const cursorNovo = temBloqueio ? null : cursorCandidato   // cursor só avança em sucesso INTEGRAL
+      await admin.from('ponto_sync_execucoes').insert({
+        iniciado_em: iniciado, terminado_em: new Date().toISOString(), tipo: 'carga_historica',
+        cursor_anterior: cursorInicial, cursor_novo: cursorNovo, paginas: tot.paginas,
+        novas: tot.inseridas, atualizadas: tot.atualizadas, inalteradas: tot.inalteradas,
+        abertas: tot.abertas, excluidas_sinalizadas: tot.excluidas,
+        pendentes_sem_vinculo: tot.pendentes, ignoradas_fora_escopo: tot.ignoradasFE, invalidas: tot.invalidas,
+        status: temBloqueio ? 'parcial' : 'ok',
+        erro_sanitizado: temBloqueio ? motivos.join('; ').slice(0, 500) : null,
+      })
+      return json({
+        modo, autorizadoPor: auth.autorizadoPor,
+        periodo: { dias, janelaDias, janelas: janelas.length,
+          inicio: new Date(inicioMs).toISOString(), fim: new Date(fimMs).toISOString() },
+        paginas: tot.paginas,
+        contagens: { inseridas: tot.inseridas, atualizadas: tot.atualizadas, inalteradas: tot.inalteradas,
+          abertas: tot.abertas, excluidas_sinalizadas: tot.excluidas, ignoradas_fora_escopo: tot.ignoradasFE,
+          pendentes_sem_vinculo: tot.pendentes, invalidas: tot.invalidas },
+        cursor: { inicial: cursorInicial, candidato: cursorCandidato, avancou: cursorNovo != null },
+        status: temBloqueio ? 'parcial' : 'ok',
+        ...(temBloqueio ? { bloqueio: motivos.join('; ') } : {}),
+        janelasDetalhe,
       })
     }
 

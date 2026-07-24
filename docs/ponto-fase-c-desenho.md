@@ -229,6 +229,37 @@ por dia tocado — a tela não calcula nada.
   redonda" em 64% dos casos (amostra de 66), então espera-se tolerância de duração ≠ de início.
 - Os números finais são **decisão da gestão** sobre a proposta calibrada — apresentados no gate C3.
 
+### 5.1 Carga histórica (C3) — desenho implementado e regras conservadoras de R2/R3
+
+Modo `carga` da Edge `ponto-sync` (admin-only; gestor e cron **bloqueados**; POST autenticado; sem
+CORS público; Tangerino só por GET; token só Function Secret). **Primeira carga limitada a 30 dias.**
+- Período (default 30d, teto 30) fatiado em **janelas pequenas** (default 1d, teto 7). Cada janela é
+  **100% paginada** (`startDateInMillis`/`endDateInMillis`, páginas de 200), respeitando `Retry-After`.
+- **Upsert por `tangerino_punch_id`** — reexecutar a janela **não duplica**; **mesmo id atualiza** a
+  linha (correção). `dateOut=null`, campos `*_raw`, `tz_origem`/offset e `lastModifiedDate` preservados.
+- Datas: aceita **epoch millis** (faixa 2000–2100) e **strings temporais válidas**; **nunca infere
+  epoch em segundos**. **Timezone desconhecido bloqueia a janela** com erro sanitizado.
+- **Vinculados** (ativos e inativos) importados; **`fora_escopo` ignorado e contabilizado** (nunca
+  bloqueia); **pendentes_sem_vinculo** deixam a execução **parcial** e **impedem o avanço do cursor**.
+- **Cursor** avança **só após sucesso integral** de **todas as páginas e janelas**; qualquer bloqueio
+  ou falha intermediária → `parcial`/`erro`, cursor **não** avança.
+- Observabilidade sanitizada (na resposta e em `ponto_sync_execucoes`): período, janelas, páginas,
+  status; **inseridas, atualizadas, inalteradas, abertas, excluídas sinalizadas, ignoradas fora do
+  escopo, pendentes, inválidas**; cursor inicial e candidato. **Sem** token, headers, payload bruto,
+  nome, CPF, PIS, e-mail ou telefone.
+
+**Regras conservadoras de R2/R3 (validadas em uso, cravadas no espelho):**
+- **Mesmo ID recebido novamente → upsert** (atualiza a linha existente; nunca cria segunda linha).
+- **`excluded=true` é preservado no espelho** (coluna `excluido_origem`) — a marcação **permanece**,
+  sinalizada como excluída na origem.
+- **Nunca há apagamento físico** de uma marcação: a carga só faz INSERT/UPDATE (upsert), **jamais DELETE**.
+- **Ausência em uma consulta NÃO significa exclusão**: uma marcação que não volta numa janela/consulta
+  **não é apagada nem alterada** — permanece exatamente como estava.
+- ⚠️ **A reconciliação definitiva de exclusões continua PENDENTE**: como distinguir "marcação
+  legitimamente removida no Tangerino" de "ausente por recorte de janela/rate limit" exige o
+  fechamento do R2/R3 (comportamento real do Tangerino ao excluir) — só então se define se/como o
+  espelho marca algo como excluído a partir de *ausência*. Até lá, ausência **nunca** muda o espelho.
+
 ## 6. Tipologia, severidade e tela
 
 **Status por pessoa-dia ativo** (âncora: participação em `vw_participacoes_dia`; pré-orçamento
