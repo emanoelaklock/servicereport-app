@@ -401,7 +401,10 @@
     syncing = true
     if (typeof window.onSyncStart === 'function') window.onSyncStart()
     let ok = 0, fail = 0
-    const PEND = [D().STATUS.SALVO_LOCAL, D().STATUS.NA_FILA, D().STATUS.ERRO]
+    // ENVIANDO entra: item preso em 'enviando' (round anterior morto — ex.: iOS matou o PWA no
+    // meio do upload) é órfão — invisível e sem retry. Como o guard `syncing` garante um round por
+    // vez, qualquer 'enviando' aqui é obsoleto → recoleta e reenvia (upsert é idempotente).
+    const PEND = [D().STATUS.SALVO_LOCAL, D().STATUS.NA_FILA, D().STATUS.ERRO, D().STATUS.ENVIANDO]
     window.srCriticalBegin?.()   // guard: SIGNED_OUT durante o push do sync não navega (colado no try → finally garante o End)
     try {
       // Tarefas criadas offline primeiro (RAT depende da tarefa via FK).

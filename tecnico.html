@@ -1621,7 +1621,7 @@ try{if(localStorage.getItem('sr_dark')==='1')document.documentElement.classList.
       const D = window.DBLocal
       const rats = await D.listarRats()
       const preorcs = await D.listarPreorc()
-      const PEND = [D.STATUS.SALVO_LOCAL, D.STATUS.NA_FILA, D.STATUS.ERRO]
+      const PEND = [D.STATUS.SALVO_LOCAL, D.STATUS.NA_FILA, D.STATUS.ERRO, D.STATUS.ENVIANDO]   // ENVIANDO obsoleto (round morto) também conta — senão fica órfão invisível
       const fila = rats.filter(r => PEND.includes(r.sync_status)).length
         + preorcs.filter(p => PEND.includes(p.sync_status)).length   // pré-orçamento também conta (erro/na_fila/salvo_local) — senão o badge mente "sincronizado"
         + (await D.tarefasLocaisPendentes()).length + (await D.deslocamentosPendentes()).length

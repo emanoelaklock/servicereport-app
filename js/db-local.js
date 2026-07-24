@@ -34,7 +34,7 @@
     rascunho:    ['rascunho', 'salvo_local'],
     salvo_local: ['salvo_local', 'na_fila', 'rascunho'],
     na_fila:     ['enviando', 'erro', 'na_fila'],
-    enviando:    ['confirmado', 'erro', 'salvo_local'],   // salvo_local = técnico salvou DURANTE o envio; a guarda do ACK (sync.js) não confirma o retrato velho e reenvia
+    enviando:    ['confirmado', 'erro', 'salvo_local', 'na_fila'],   // salvo_local = técnico salvou DURANTE o envio; na_fila = retry de envio interrompido (round morto — ex.: iOS matou o PWA); a guarda do ACK (sync.js) não confirma o retrato velho e reenvia
     erro:        ['na_fila'],          // retry
     confirmado:  ['salvo_local'],      // reabrir RAT confirmada p/ correção (devolução)
   }
