@@ -276,6 +276,30 @@ limit** (pergunta pendente) — ajustável depois.
 - Idempotente na aplicação (remove agendamento anterior antes de recriar). Ajustar a frequência =
   reaplicar a 0132 com outro `schedule`.
 
+### 5.3 Conciliação de almoço (SR × Tangerino) — read-only em jornada.html
+
+View `vw_ponto_conciliacao_almoco` (0133, `security_invoker=true`) + card em `jornada.html`. **Só lê**
+dados já importados no SR; **nenhuma correção/desconto/compensação**. Por técnico/dia:
+- **Âncora**: pessoa-dia com atividade em `vw_participacoes_dia`. Sem atividade no SR → o dia nem
+  entra (ponto ignorado, sem gerar divergência). Só **vinculados**; não-vinculado → `sem_vinculo`.
+- **Inferência do almoço a partir do PONTO** (fonte oficial): períodos pareados (entrada/saída) do
+  dia em **hora local** (tz_origem → IANA); o almoço é o **gap entre períodos** que cai na janela
+  (`ponto_config.janela_almoco_ini/fim`) e dura ≥ `gap_minimo_almoco_min`. **Não** se assume que toda
+  pausa é almoço. **Inconclusivo → `incompleto`** (evidência preservada): batida aberta (`dateOut`
+  null), pendente, excluída, períodos **sobrepostos**, **virada de dia**, ou **>1 gap** candidato.
+- **Tolerâncias** de início/término/duração **separadas**, de `ponto_config`. **NULL = não calibrado
+  → `incompleto`** ("tolerâncias não configuradas"); **nunca** se fixa ±10 em silêncio. A calibração
+  (números na `ponto_config`) é decisão da gestão (ver §5).
+- **Status**: `conciliado` (dentro das tolerâncias) · `divergente` · `incompleto` · `sem_vinculo`.
+  **Divergências**: almoço SR sem intervalo no ponto · intervalo no ponto sem almoço SR · início/
+  término/duração divergente. Sub-tipo + `motivo` (regra usada) + evidências na própria linha.
+- **UI**: filtros por técnico e período; horários SR × ponto e os Δ; **âmbar** para divergência;
+  **vermelho só para inconsistência confirmada** na origem (sobreposição/virada/excluída); tela
+  **somente leitura** com aviso de que nada é corrigido automaticamente. Admin/gestor conforme RLS;
+  técnico **não** acessa (security_invoker → sem SELECT em `ponto_marcacoes` → 0 linhas).
+- **Limitação atual**: com as tolerâncias ainda **nulas**, pares casados aparecem como `incompleto`
+  até a calibração. A reconciliação de exclusões segue pendente do R2/R3 (§5.1).
+
 ## 6. Tipologia, severidade e tela
 
 **Status por pessoa-dia ativo** (âncora: participação em `vw_participacoes_dia`; pré-orçamento
