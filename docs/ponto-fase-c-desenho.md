@@ -260,6 +260,22 @@ CORS público; Tangerino só por GET; token só Function Secret). **Primeira car
   fechamento do R2/R3 (comportamento real do Tangerino ao excluir) — só então se define se/como o
   espelho marca algo como excluído a partir de *ausência*. Até lá, ausência **nunca** muda o espelho.
 
+### 5.2 Sincronização contínua (C4) — cron do delta
+
+Cron `ponto-sync-delta` (migration 0132) roda a Edge `ponto-sync` no **modo delta** (incremental
+por `lastUpdate` + janela D-7) **3×/dia**: **06:00, 14:00, 22:00 BRT** (= 01:00, 09:00, 17:00 UTC;
+`cron '0 1,9,17 * * *'`). Frequência **conservadora** enquanto a Sólides não confirma o **rate
+limit** (pergunta pendente) — ajustável depois.
+- **Padrão da casa** (mesma forma dos crons `lembrete-*`): `pg_cron` → `net.http_post` para a Edge
+  com `x-cron-secret` lido de `vault.decrypted_secrets['cron_secret']` (mesmo segredo dos outros
+  crons; `app_secrets.cron_secret == vault.cron_secret`, então a Edge autentica). O
+  `TANGERINO_TOKEN` **não** trafega aqui — fica só no Function Secret; o cron apenas dispara a Edge.
+- O cron **só roda o delta**. A **carga histórica** (`modo 'carga'`) é sempre **manual/admin** —
+  o cron nunca a executa. O delta segue as mesmas regras: upsert idempotente, pendentes → `parcial`
+  sem avanço de cursor, cursor só avança em sucesso, nunca apaga.
+- Idempotente na aplicação (remove agendamento anterior antes de recriar). Ajustar a frequência =
+  reaplicar a 0132 com outro `schedule`.
+
 ## 6. Tipologia, severidade e tela
 
 **Status por pessoa-dia ativo** (âncora: participação em `vw_participacoes_dia`; pré-orçamento
