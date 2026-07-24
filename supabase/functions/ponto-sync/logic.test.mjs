@@ -514,3 +514,24 @@ test('classificarUpsert: instante diferente → atualizada (correção com mesmo
   assert.equal(classificarUpsert(1784800000000, 1784800999000), 'atualizada')
   assert.equal(classificarUpsert(null, 1784800000000), 'atualizada')
 })
+
+// ── carga histórica C3: autorização (SÓ admin; gestor e cron bloqueados) ──
+test('auth carga: admin autenticado executa', () => {
+  const r = validarRequisicao({ metodo: 'POST', cronOk: false, papel: 'admin', modo: 'carga', reconhecimentoAtivo: false })
+  assert.deepEqual([r.ok, r.autorizadoPor], [true, 'admin'])
+})
+test('auth carga: gestor_axis é BLOQUEADO (403) — carga é admin-only', () => {
+  const r = validarRequisicao({ metodo: 'POST', cronOk: false, papel: 'gestor_axis', modo: 'carga', reconhecimentoAtivo: false })
+  assert.deepEqual([r.ok, r.status], [false, 403])
+})
+test('auth carga: cron (x-cron-secret) NÃO executa carga (403)', () => {
+  const r = validarRequisicao({ metodo: 'POST', cronOk: true, papel: null, modo: 'carga', reconhecimentoAtivo: false })
+  assert.deepEqual([r.ok, r.status], [false, 403])
+})
+test('auth carga: técnico → 401; anônimo → 401', () => {
+  assert.equal(validarRequisicao({ metodo: 'POST', cronOk: false, papel: 'tecnico_campo', modo: 'carga', reconhecimentoAtivo: false }).status, 401)
+  assert.equal(validarRequisicao({ metodo: 'POST', cronOk: false, papel: null, modo: 'carga', reconhecimentoAtivo: false }).status, 401)
+})
+test('auth carga: GET rejeitado (405)', () => {
+  assert.equal(validarRequisicao({ metodo: 'GET', cronOk: false, papel: 'admin', modo: 'carga', reconhecimentoAtivo: false }).status, 405)
+})
