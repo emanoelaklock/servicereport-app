@@ -432,6 +432,10 @@
       tem_foto: false,
       respostas: null,
       recebido_em: null,
+      // data REALIZADA do levantamento: fixada UMA vez na criação (dia em que o técnico abre
+      // o pré-orçamento em campo). NÃO é recarimbada no salvar/concluir — senão vira "último
+      // toque" e escorrega para o dia do sync, bagunçando PDF e jornada (início/fim do técnico).
+      data: agora(),
       criado_em: agora(),
       atualizado_em: agora(),
       ...dados,
