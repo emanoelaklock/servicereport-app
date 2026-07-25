@@ -606,7 +606,7 @@ const JornadaApp = (() => {
       </tr>`
     }).join('')
     res.textContent = `${rows.length} dia(s) · ${cont.conciliado} conciliado · ${cont.divergente} divergente · ${cont.incompleto} incompleto · ${cont.sem_vinculo} sem vínculo`
-    rod.textContent = 'Somente leitura — nenhuma correção automática. As tolerâncias de início/término/duração vêm de ponto_config; enquanto não calibradas, pares casados aparecem como “incompleto”.'
+    rod.textContent = 'Somente leitura — nenhuma correção automática. Tolerâncias (ponto_config): início 5 min, término 10 min, duração 5 min; sem calibração, pares casados ficam “incompleto”. Bloco único acima de 6h sem intervalo entra como “incompleto — jornada longa” (sinalização operacional, não afirma infração; o almoço nunca é inferido).'
   }
 
   return { init, carregarPernoites, carregarConciliacao }

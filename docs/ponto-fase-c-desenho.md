@@ -288,8 +288,15 @@ dados já importados no SR; **nenhuma correção/desconto/compensação**. Por t
   pausa é almoço. **Inconclusivo → `incompleto`** (evidência preservada): batida aberta (`dateOut`
   null), pendente, excluída, períodos **sobrepostos**, **virada de dia**, ou **>1 gap** candidato.
 - **Tolerâncias** de início/término/duração **separadas**, de `ponto_config`. **NULL = não calibrado
-  → `incompleto`** ("tolerâncias não configuradas"); **nunca** se fixa ±10 em silêncio. A calibração
-  (números na `ponto_config`) é decisão da gestão (ver §5).
+  → `incompleto`** ("tolerâncias não configuradas"); **nunca** se fixa ±10 em silêncio. **Calibração da
+  gestão (PR #138, migration `0134`): início 5 min · término 10 min · duração 5 min** — separada da view
+  (`0134` mexe só em `ponto_config`, para um `create or replace view` futuro não resetar os números).
+- **Bloco único sem intervalo e sem almoço no SR** (nenhum sistema declara pausa): a extensão da
+  jornada (primeira entrada → última saída, hora local) decide — **até 6h → `conciliado`**; **acima de
+  6h → `incompleto`, motivo "jornada longa sem marcação de intervalo"**. É **sinalização operacional**
+  (falta de marcação de intervalo), **não afirma infração trabalhista** e **nunca infere/cria almoço**.
+  Como não há sobreposição/virada/excluída, a linha é **cinza** ("Incompleto"), **nunca vermelha nem
+  divergência confirmada**.
 - **Status**: `conciliado` (dentro das tolerâncias) · `divergente` · `incompleto` · `sem_vinculo`.
   **Divergências**: almoço SR sem intervalo no ponto · intervalo no ponto sem almoço SR · início/
   término/duração divergente. Sub-tipo + `motivo` (regra usada) + evidências na própria linha.
@@ -297,8 +304,29 @@ dados já importados no SR; **nenhuma correção/desconto/compensação**. Por t
   **vermelho só para inconsistência confirmada** na origem (sobreposição/virada/excluída); tela
   **somente leitura** com aviso de que nada é corrigido automaticamente. Admin/gestor conforme RLS;
   técnico **não** acessa (security_invoker → sem SELECT em `ponto_marcacoes` → 0 linhas).
-- **Limitação atual**: com as tolerâncias ainda **nulas**, pares casados aparecem como `incompleto`
-  até a calibração. A reconciliação de exclusões segue pendente do R2/R3 (§5.1).
+- **Limitação atual**: a reconciliação de exclusões segue pendente do R2/R3 (§5.1).
+
+#### 5.3.1 Calibração das tolerâncias (amostra sanitizada — PR #138)
+
+Estudo read-only sobre a carga histórica (sem dado pessoal): **58 pares válidos** (excluídos 2 abertos,
+1 pendente; nenhum sobreposto/virada/múltiplo-gap na amostra casada). Distribuição dos Δ (em minutos):
+
+| Δ (min) | mín | mediana | P75 | P90 | P95 | máx |
+|---|---|---|---|---|---|---|
+| início   | 0 | 0 | 1,0 | 3,3 | 4,2 | 60,0 |
+| término  | 0 | 0 | 1,0 | 4,3 | 7,0 | 42,0 |
+| duração  | 0 | 0 | 1,0 | 3,3 | 5,0 | 18,0 |
+
+Dentro de cada limiar (pares casados): **início** ≤5:56 ≤10:56 ≤15:57 (1 outlier de 60′). **término**
+≤5:54 ≤10:55 ≤15:56 (1 outlier de 42′). **duração** ≤5:56 ≤10:56 ≤20:58 (0 acima de 30′). Os P95 (4,2 /
+7,0 / 5,0) fundamentam **5 / 10 / 5** — término mais folgado porque o SR carimba o retorno com menos
+precisão que a saída. Impacto projetado com 5/10/5 na amostra ativa: **62 conciliado · 29 divergente ·
+10 incompleto**.
+
+Os **7 "conciliados"** do estudo eram **todos bloco único** (`n_per=1`, sem intervalo em nenhum sistema),
+com jornadas de 3,8h / 3,8h / 6,2h / 8,1h / 11,9h / 11,9h / 12,4h. Ou seja, **4 dos 7 não representam
+"sem almoço" real, e sim falta de marcação oficial de intervalo** (>6h). Daí a regra do bloco único
+acima: os ≤6h seguem `conciliado`; os >6h passam a `incompleto — jornada longa`, sem inferir almoço.
 
 ## 6. Tipologia, severidade e tela
 

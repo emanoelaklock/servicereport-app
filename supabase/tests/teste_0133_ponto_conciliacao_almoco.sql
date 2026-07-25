@@ -9,6 +9,11 @@
 --  D intervalo no ponto sem almoço no SR
 --  E ponto aberto/incompleto → incompleto
 --  F múltiplas pausas → incompleto
+--  I bloco único 3h48 sem almoço → conciliado (até 6h)
+--  J bloco único de exatamente 6h → conciliado (limite inclusivo)
+--  K bloco único acima de 6h → incompleto "jornada longa" (NÃO divergente, NÃO vermelho)
+--  L limites exatos das 3 tolerâncias 5/10/5 → conciliado
+--  M1/M2/M3 1 min além de cada tolerância → divergente (inicio/termino/duracao)
 --  G par casado com tolerância NULA → incompleto (não fixa ±10 em silêncio)
 --  H técnico (RLS security_invoker) não vê nada
 -- (a DDL da view repete a da migration 0133, com o mapa de tz reduzido ao necessário do teste)
@@ -37,7 +42,8 @@ begin
     per_ord as (select p.*, lag(sai_loc) over w prev_sai from per p window w as (partition by tecnico_id,dia order by ent_loc)),
     agg as (select tecnico_id, dia, count(*) n_per, bool_or(aberta) tem_aberta, bool_or(excluido_origem) tem_excluido,
         bool_or(pendente) tem_pendente, bool_or(prev_sai is not null and ent_loc<prev_sai) tem_overlap,
-        bool_or(sai_loc::date<>ent_loc::date) tem_virada from per_ord group by tecnico_id,dia),
+        bool_or(sai_loc::date<>ent_loc::date) tem_virada,
+        extract(epoch from (max(sai_loc)-min(ent_loc)))/3600.0 span_horas from per_ord group by tecnico_id,dia),
     gaps as (select po.tecnico_id, po.dia, po.prev_sai::time g_ini, po.ent_loc::time g_fim from per_ord po cross join cfg
         where po.prev_sai is not null and po.prev_sai::time>=cfg.janela_almoco_ini and po.ent_loc::time<=cfg.janela_almoco_fim
         and extract(epoch from (po.ent_loc-po.prev_sai))/60.0>=cfg.gap_minimo_almoco_min),
@@ -47,7 +53,7 @@ begin
         from public.almocos group by tecnico_id,dia),
     base as (select a.tecnico_id, a.dia, (a.tecnico_id in (select tecnico_id from vinc)) vinculado, ag.n_per,
         coalesce(ag.tem_aberta,false) tem_aberta, coalesce(ag.tem_excluido,false) tem_excluido, coalesce(ag.tem_pendente,false) tem_pendente,
-        coalesce(ag.tem_overlap,false) tem_overlap, coalesce(ag.tem_virada,false) tem_virada,
+        coalesce(ag.tem_overlap,false) tem_overlap, coalesce(ag.tem_virada,false) tem_virada, ag.span_horas,
         ga.n_gap, ga.p_ini ponto_inicio, ga.p_fim ponto_fim, ga.p_dur ponto_duracao_min,
         al.sr_ini sr_inicio, al.sr_fim sr_fim, al.sr_dur sr_duracao_min,
         cfg.tolerancia_inicio_min ti, cfg.tolerancia_termino_min tt, cfg.tolerancia_duracao_min td
@@ -62,6 +68,7 @@ begin
         (tem_aberta or tem_excluido or tem_pendente or tem_overlap or tem_virada or coalesce(n_gap,0)>1) ponto_inconclusivo from base b)
     select tecnico_id, dia, vinculado, sr_inicio, sr_fim, sr_duracao_min, ponto_inicio, ponto_fim, ponto_duracao_min,
       delta_inicio_min, delta_termino_min, delta_duracao_min, n_per ponto_periodos, n_gap ponto_gaps_candidatos,
+      round(span_horas::numeric,1) ponto_span_horas,
       tem_aberta, tem_excluido, tem_pendente, tem_overlap, tem_virada,
       case when not vinculado then 'sem_vinculo'
         when n_per is null then (case when sr_inicio is not null then 'divergente' else 'incompleto' end)
@@ -69,7 +76,10 @@ begin
         when sr_inicio is not null and n_gap=1 then (case when ti is null or tt is null or td is null then 'incompleto'
           when abs(delta_inicio_min)<=ti and abs(delta_termino_min)<=tt and abs(delta_duracao_min)<=td then 'conciliado' else 'divergente' end)
         when sr_inicio is not null and coalesce(n_gap,0)=0 then 'divergente'
-        when sr_inicio is null and n_gap=1 then 'divergente' else 'conciliado' end status,
+        when sr_inicio is null and n_gap=1 then 'divergente'
+        when coalesce(span_horas,0)>6 then 'incompleto' else 'conciliado' end status,
+      case when coalesce(span_horas,0)>6 and sr_inicio is null and coalesce(n_gap,0)=0 and not ponto_inconclusivo and n_per is not null
+             then 'jornada longa sem marcação de intervalo' else null end motivo,
       case when n_per is not null and not ponto_inconclusivo and sr_inicio is not null and coalesce(n_gap,0)=0 then 'almoco_sr_sem_ponto'
         when n_per is null and sr_inicio is not null then 'almoco_sr_sem_ponto'
         when n_per is not null and not ponto_inconclusivo and sr_inicio is null and n_gap=1 then 'ponto_sem_almoco_sr'
@@ -80,7 +90,8 @@ begin
         else null end divergencia_tipo
     from calc $v$;
 
-  update ponto_config set tolerancia_inicio_min=10, tolerancia_termino_min=10, tolerancia_duracao_min=10 where id=1;
+  -- tolerâncias calibradas (PR #138 / migration 0134): início 5, término 10, duração 5
+  update ponto_config set tolerancia_inicio_min=5, tolerancia_termino_min=10, tolerancia_duracao_min=5 where id=1;
 
   insert into ponto_marcacoes (tangerino_punch_id, tecnico_id, dia, entrada, saida, status_origem, tz_origem) values
     (9995001, v_tec, v_dia, (v_dia||' 08:00-03')::timestamptz, (v_dia||' 12:00-03')::timestamptz, 'APPROVED','SAO_PAULO'),
@@ -121,7 +132,59 @@ begin
   select * into v_row from vw_ponto_conciliacao_almoco where tecnico_id=v_tec and dia=v_dia;
   if v_row.status <> 'incompleto' then raise exception '0133 F: % (gaps=%)', v_row.status, v_row.ponto_gaps_candidatos; end if;
 
+  -- I: bloco único de 3h48 sem intervalo e sem almoço no SR → conciliado (até 6h)
+  delete from almocos where tecnico_id=v_tec and dia=v_dia;
   delete from ponto_marcacoes where tecnico_id=v_tec and dia=v_dia;
+  insert into ponto_marcacoes (tangerino_punch_id, tecnico_id, dia, entrada, saida, status_origem, tz_origem) values
+    (9995012, v_tec, v_dia, (v_dia||' 08:00-03')::timestamptz, (v_dia||' 11:48-03')::timestamptz, 'APPROVED','SAO_PAULO');
+  select * into v_row from vw_ponto_conciliacao_almoco where tecnico_id=v_tec and dia=v_dia;
+  if v_row.status <> 'conciliado' or v_row.motivo is not null then raise exception '0133 I: % / % (span %)', v_row.status, v_row.motivo, v_row.ponto_span_horas; end if;
+
+  -- J: bloco único de exatamente 6h → conciliado (limite inclusivo)
+  delete from ponto_marcacoes where tecnico_id=v_tec and dia=v_dia;
+  insert into ponto_marcacoes (tangerino_punch_id, tecnico_id, dia, entrada, saida, status_origem, tz_origem) values
+    (9995013, v_tec, v_dia, (v_dia||' 08:00-03')::timestamptz, (v_dia||' 14:00-03')::timestamptz, 'APPROVED','SAO_PAULO');
+  select * into v_row from vw_ponto_conciliacao_almoco where tecnico_id=v_tec and dia=v_dia;
+  if v_row.status <> 'conciliado' or v_row.motivo is not null then raise exception '0133 J: % / % (span %)', v_row.status, v_row.motivo, v_row.ponto_span_horas; end if;
+
+  -- K: bloco único acima de 6h → incompleto "jornada longa" — NÃO divergente, NÃO vermelho
+  delete from ponto_marcacoes where tecnico_id=v_tec and dia=v_dia;
+  insert into ponto_marcacoes (tangerino_punch_id, tecnico_id, dia, entrada, saida, status_origem, tz_origem) values
+    (9995014, v_tec, v_dia, (v_dia||' 08:00-03')::timestamptz, (v_dia||' 17:00-03')::timestamptz, 'APPROVED','SAO_PAULO');
+  select * into v_row from vw_ponto_conciliacao_almoco where tecnico_id=v_tec and dia=v_dia;
+  if v_row.status <> 'incompleto' or v_row.motivo <> 'jornada longa sem marcação de intervalo'
+     or v_row.divergencia_tipo is not null or v_row.tem_overlap or v_row.tem_virada or v_row.tem_excluido
+     then raise exception '0133 K: % / % / tipo % (span %)', v_row.status, v_row.motivo, v_row.divergencia_tipo, v_row.ponto_span_horas; end if;
+
+  -- L: par casado nos limites EXATOS das três tolerâncias (5/10/5) → conciliado
+  --    ponto 08–12 / 13–17 (intervalo 12:00–13:00, dur 60); almoço 11:55–12:50
+  --    Δinício=+5 (=5) · Δtérmino=+10 (=10) · Δduração=+5 (55 vs 60, =5)
+  delete from ponto_marcacoes where tecnico_id=v_tec and dia=v_dia;
+  insert into ponto_marcacoes (tangerino_punch_id, tecnico_id, dia, entrada, saida, status_origem, tz_origem) values
+    (9995015, v_tec, v_dia, (v_dia||' 08:00-03')::timestamptz, (v_dia||' 12:00-03')::timestamptz, 'APPROVED','SAO_PAULO'),
+    (9995016, v_tec, v_dia, (v_dia||' 13:00-03')::timestamptz, (v_dia||' 17:00-03')::timestamptz, 'APPROVED','SAO_PAULO');
+  insert into almocos (tecnico_id, dia, inicio, fim, origem) values (v_tec, v_dia, '11:55','12:50','manual');
+  select * into v_row from vw_ponto_conciliacao_almoco where tecnico_id=v_tec and dia=v_dia;
+  if v_row.status <> 'conciliado' then raise exception '0133 L: % (Δi=% Δt=% Δd=%)', v_row.status, v_row.delta_inicio_min, v_row.delta_termino_min, v_row.delta_duracao_min; end if;
+
+  -- M1: início 1 min além do limite (11:54 → Δinício=+6>5) → divergente com 'inicio'
+  update almocos set inicio='11:54', fim='12:50' where tecnico_id=v_tec and dia=v_dia;
+  select * into v_row from vw_ponto_conciliacao_almoco where tecnico_id=v_tec and dia=v_dia;
+  if v_row.status <> 'divergente' or v_row.divergencia_tipo not like '%inicio%' then raise exception '0133 M1: % / %', v_row.status, v_row.divergencia_tipo; end if;
+
+  -- M2: término 1 min além do limite (12:49 → Δtérmino=+11>10) → divergente com 'termino'
+  update almocos set inicio='11:55', fim='12:49' where tecnico_id=v_tec and dia=v_dia;
+  select * into v_row from vw_ponto_conciliacao_almoco where tecnico_id=v_tec and dia=v_dia;
+  if v_row.status <> 'divergente' or v_row.divergencia_tipo not like '%termino%' then raise exception '0133 M2: % / %', v_row.status, v_row.divergencia_tipo; end if;
+
+  -- M3: duração 1 min além do limite, início/término dentro (12:00–12:54 → Δdur=+6>5, Δi=0, Δt=+6) → divergente com 'duracao'
+  update almocos set inicio='12:00', fim='12:54' where tecnico_id=v_tec and dia=v_dia;
+  select * into v_row from vw_ponto_conciliacao_almoco where tecnico_id=v_tec and dia=v_dia;
+  if v_row.status <> 'divergente' or v_row.divergencia_tipo not like '%duracao%' then raise exception '0133 M3: % / %', v_row.status, v_row.divergencia_tipo; end if;
+
+  -- G: par casado com tolerância NULA → incompleto (não fixa em silêncio)
+  delete from ponto_marcacoes where tecnico_id=v_tec and dia=v_dia;
+  delete from almocos where tecnico_id=v_tec and dia=v_dia;
   insert into ponto_marcacoes (tangerino_punch_id, tecnico_id, dia, entrada, saida, status_origem, tz_origem) values
     (9995010, v_tec, v_dia, (v_dia||' 08:00-03')::timestamptz, (v_dia||' 12:00-03')::timestamptz, 'APPROVED','SAO_PAULO'),
     (9995011, v_tec, v_dia, (v_dia||' 13:00-03')::timestamptz, (v_dia||' 17:00-03')::timestamptz, 'APPROVED','SAO_PAULO');
@@ -136,5 +199,5 @@ begin
   reset role;
   if v_n <> 0 then raise exception '0133 H: tecnico viu % linhas', v_n; end if;
 
-  raise exception '0133 OK: A-H verdes — rollback total';
+  raise exception '0133 OK: A-M verdes — rollback total';
 end $$;

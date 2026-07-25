@@ -52,7 +52,9 @@ agg as (
     bool_or(aberta) as tem_aberta, bool_or(excluido_origem) as tem_excluido, bool_or(pendente) as tem_pendente,
     bool_or(prev_sai is not null and ent_loc < prev_sai) as tem_overlap,
     bool_or(sai_loc::date <> ent_loc::date) as tem_virada,
-    bool_or(iana is null) as tem_tz_desconhecido
+    bool_or(iana is null) as tem_tz_desconhecido,
+    -- extensão do bloco trabalhado no dia (primeira entrada → última saída, hora local)
+    extract(epoch from (max(sai_loc) - min(ent_loc)))/3600.0 as span_horas
   from per_ord group by tecnico_id, dia
 ),
 gaps as (
@@ -79,6 +81,7 @@ base as (
     coalesce(ag.tem_aberta,false) as tem_aberta, coalesce(ag.tem_excluido,false) as tem_excluido,
     coalesce(ag.tem_pendente,false) as tem_pendente, coalesce(ag.tem_overlap,false) as tem_overlap,
     coalesce(ag.tem_virada,false) as tem_virada,
+    ag.span_horas,
     ga.n_gap, ga.p_ini as ponto_inicio, ga.p_fim as ponto_fim, ga.p_dur as ponto_duracao_min,
     al.sr_ini as sr_inicio, al.sr_fim as sr_fim, al.sr_dur as sr_duracao_min,
     cfg.tolerancia_inicio_min as ti, cfg.tolerancia_termino_min as tt, cfg.tolerancia_duracao_min as td
@@ -105,6 +108,7 @@ select
   delta_inicio_min, delta_termino_min, delta_duracao_min,
   -- evidências (explicam a regra usada / a inconclusão)
   n_per as ponto_periodos, n_gap as ponto_gaps_candidatos,
+  round(span_horas::numeric, 1) as ponto_span_horas,
   tem_aberta, tem_excluido, tem_pendente, tem_overlap, tem_virada,
   -- STATUS
   case
@@ -117,6 +121,9 @@ select
               then 'conciliado' else 'divergente' end)
     when sr_inicio is not null and coalesce(n_gap,0) = 0 then 'divergente'
     when sr_inicio is null and n_gap = 1 then 'divergente'
+    -- bloco único de ponto sem intervalo e sem almoço no SR:
+    -- até 6h de jornada → conciliado; acima de 6h → incompleto (regra operacional, não afirma infração)
+    when coalesce(span_horas, 0) > 6 then 'incompleto'
     else 'conciliado'
   end as status,
   -- SUB-TIPO da divergência (null quando não é 'divergente')
@@ -151,6 +158,7 @@ select
     when sr_inicio is not null and n_gap = 1 then 'almoço SR × intervalo do ponto comparados pelas tolerâncias'
     when sr_inicio is not null and coalesce(n_gap,0) = 0 then 'almoço declarado no SR sem intervalo correspondente no ponto'
     when sr_inicio is null and n_gap = 1 then 'intervalo de almoço no ponto sem almoço declarado no SR'
+    when coalesce(span_horas, 0) > 6 then 'jornada longa sem marcação de intervalo'
     else 'sem almoço no SR nem intervalo no ponto'
   end as motivo
 from calc;
