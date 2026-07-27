@@ -12,6 +12,7 @@ const TarefaApp = (() => {
   let cliNomes = {}          // cliente_id -> nome
   let cliConf = {}           // cliente_id -> { modalidade_padrao, valor_hora_padrao, dia_continuo }
   let tecNomes = {}          // tecnico_id -> nome
+  let tecInat = {}           // tecnico_id -> true se inativo (chip/nome cinza)
   let tecPorTarefa = {}      // tarefa_id -> [tecnico_id]
   let orcNo = {}             // orcamento_id -> numero
   let divPorTarefa = {}      // tarefa_id -> nº de linhas com divergência
@@ -81,11 +82,13 @@ const TarefaApp = (() => {
     const ids = (cur && cur.id && tecPorTarefa[cur.id]) || []
     const pUser = ids.length ? (ref.tecnicos.find(x => x.id === ids[0]) || {}) : {}
     const principal = pUser.nome || ''
-    const rEl = document.getElementById('cc-hd-resp'); if (rEl) rEl.textContent = principal || '—'
+    const inatP = pUser.ativo === false
+    const rEl = document.getElementById('cc-hd-resp'); if (rEl) { rEl.textContent = principal || '—'; rEl.classList.toggle('u-inativo', inatP); rEl.title = inatP ? 'Inativo' : '' }
     const avEl = document.getElementById('cc-hd-resp-av')
     if (avEl) {
       const foto = avatarUrl(pUser.foto_url)
       avEl.innerHTML = principal ? (foto ? `<img src="${esc(foto)}" alt="">` : esc(iniciais(principal))) : '—'
+      avEl.classList.toggle('u-inativo', inatP)
     }
     const noc = document.getElementById('cc-nochip'), dn = document.getElementById('cc-docno')
     if (noc) noc.style.display = (dn && dn.textContent.trim()) ? '' : 'none'
@@ -179,7 +182,7 @@ const TarefaApp = (() => {
     ref.equip = eq.data || []
     ref.clientes = cli.data || []
     const ROLE_TAG = { admin: ' (Admin)', gestor_axis: ' (Gestor)', tecnico_campo: '' }
-    tecNomes = {}; for (const t of ref.tecnicos) tecNomes[t.id] = (t.nome || '(sem nome)') + (ROLE_TAG[t.role] || '')
+    tecNomes = {}; tecInat = {}; for (const t of ref.tecnicos) { tecNomes[t.id] = (t.nome || '(sem nome)') + (ROLE_TAG[t.role] || ''); tecInat[t.id] = t.ativo === false }
     renderRespChips()
     document.getElementById('cc-d-tipo').innerHTML = '<option value="">— selecione —</option>' + ref.tipos.map(t => `<option value="${esc(t.id)}">${esc(t.nome || '')}</option>`).join('')
     await carregarStatus()
@@ -438,7 +441,7 @@ const TarefaApp = (() => {
         const d = divPorTarefa[t.id] || 0
         const concil = d ? `<span class="pill pill-warn">${d} a revisar</span>` : '<span class="pill pill-ok">OK</span>'
         const tids = tecPorTarefa[t.id] || []
-        const tec = tids.length ? esc(tids.map(id => tecNomes[id] || '—').join(', ')) : `<button class="pill pill-warn" data-atrib="${esc(t.id)}" style="cursor:pointer;border:none">atribuir</button>`
+        const tec = tids.length ? tids.map(id => tecInat[id] ? `<span class="u-inativo" title="Inativo">${esc(tecNomes[id] || '—')}</span>` : esc(tecNomes[id] || '—')).join(', ') : `<button class="pill pill-warn" data-atrib="${esc(t.id)}" style="cursor:pointer;border:none">atribuir</button>`
         return `<tr class="row-click" data-id="${esc(t.id)}">
           <td class="cc-num">${osNo(t.numero)}</td>
           <td>
