@@ -30,7 +30,7 @@
   const diaTrecho = (t) => { const d = t && t.data; if (typeof d === 'string' && /^\d{4}-\d{2}-\d{2}/.test(d)) return d.slice(0, 10); return diaBR(t && t.saida_em) }
 
   let ym = null
-  let tecNomes = {}, tecFotos = {}, veicLblMap = {}, cliNomes = {}, baseCidade = '', viagens = [], chips = [], clientesMes = []
+  let tecNomes = {}, tecFotos = {}, tecInativo = {}, veicLblMap = {}, cliNomes = {}, baseCidade = '', viagens = [], chips = [], clientesMes = []
   const filtros = { busca: '', cliente: '', revisao: '' }
   const COR = { em_curso: '#1E8AE0', falta_revisar: '#179A47', revisado: '#9CA3AF' }
   const veicLbl = (id) => veicLblMap[id] || ''
@@ -52,7 +52,7 @@
       sb().from('clientes').select('id,nome'),
       sb().from('org_config').select('base_cidade').eq('id', 1).maybeSingle(),
     ])
-    tecNomes = {}; tecFotos = {}; for (const u of (us.data || [])) { tecNomes[u.id] = u.nome; tecFotos[u.id] = u.foto_url || '' }
+    tecNomes = {}; tecFotos = {}; tecInativo = {}; for (const u of (us.data || [])) { tecNomes[u.id] = u.nome; tecFotos[u.id] = u.foto_url || ''; tecInativo[u.id] = u.ativo === false }
     veicLblMap = {}; for (const v of (vc.data || [])) veicLblMap[v.id] = `${v.modelo || ''} (${v.placa || ''})`
     cliNomes = {}; for (const c of (cl.data || [])) cliNomes[c.id] = c.nome
     baseCidade = (og.data && og.data.base_cidade) || ''
@@ -254,7 +254,7 @@
       return foto ? `<img src="${esc(foto)}" alt="">` : esc(inic(tecNomes[id]))
     }
     const tecsHTML = tecIds.length
-      ? tecIds.map(id => `<span class="det-tec"><i>${avT(id)}</i>${esc(tecNomes[id])}</span>`).join('')
+      ? tecIds.map(id => `<span class="det-tec${tecInativo[id] ? ' u-inativo' : ''}"${tecInativo[id] ? ' title="Inativo"' : ''}><i>${avT(id)}</i>${esc(tecNomes[id])}</span>`).join('')
       : '<span class="det-tec">—</span>'
     // trechos como linha do tempo
     const multiDia = dias.length > 1

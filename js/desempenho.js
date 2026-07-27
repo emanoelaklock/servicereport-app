@@ -185,7 +185,7 @@ const DesempenhoApp = (() => {
         const amostra = Number(l.rats) < 3 ? '<span class="dp-amostra">Amostra muito baixa</span>'
           : (Number(l.rats) <= 4 ? '<span class="dp-amostra">Amostra limitada</span>' : '')
         return `<tr class="dp-linha${aberto === l.tecnico_id ? ' on' : ''}" data-tec="${esc(l.tecnico_id)}">
-          <td><span class="dp-tec"><span class="dp-av">${av(u || { nome: l.tecnico_nome })}</span>${esc(l.tecnico_nome)}${amostra}</span></td>
+          <td><span class="dp-tec${u && u.ativo === false ? ' u-inativo' : ''}"${u && u.ativo === false ? ' title="Inativo"' : ''}><span class="dp-av">${av(u || { nome: l.tecnico_nome })}</span>${esc(l.tecnico_nome)}${amostra}</span></td>
           <td class="dp-po">${encOc}</td>
           <td>${tend}</td>
           <td class="dp-chev">${IC_CHEV}</td>

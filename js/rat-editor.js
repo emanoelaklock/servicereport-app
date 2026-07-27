@@ -42,7 +42,7 @@ window.RatEditor = (() => {
       const disp = usuarios().filter(u => u.role === 'tecnico_campo' && u.ativo !== false && !st.ratTecs.some(t => t.tecnico_id === u.id)).sort((a, b) => (a.nome || '').localeCompare(b.nome || ''))
       return `<div class="rd-sec-t">Técnicos responsáveis</div>
         <div class="rp-tecs">${atuais.length
-          ? atuais.map(u => `<span class="rp-tec"><span class="rp-av">${avTec(u)}</span><span class="rp-tnm">${esc(u.nome)}</span><button type="button" class="rp-tecx" data-tecdel="${esc(u.id)}" title="Remover">×</button></span>`).join('')
+          ? atuais.map(u => `<span class="rp-tec${u.ativo === false ? ' u-inativo' : ''}"${u.ativo === false ? ' title="Inativo"' : ''}><span class="rp-av">${avTec(u)}</span><span class="rp-tnm">${esc(u.nome)}</span><button type="button" class="rp-tecx" data-tecdel="${esc(u.id)}" title="Remover">×</button></span>`).join('')
           : '<span class="dim">Nenhum técnico — adicione abaixo.</span>'}</div>
         ${disp.length ? `<div class="rp-pick-l">Adicionar técnico:</div><div class="rp-tecpick">${disp.map(u => `<button type="button" class="rp-tecopt" data-tecadd="${esc(u.id)}"><span class="rp-av">${avTec(u)}</span><span class="rp-tnm">${esc(u.nome)}</span></button>`).join('')}</div>` : ''}`
     }

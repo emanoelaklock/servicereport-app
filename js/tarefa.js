@@ -125,10 +125,11 @@ const TarefaApp = (() => {
       const u = ref.tecnicos.find(x => x.id === id) || {}
       const nome = u.nome || tecNomes[id] || '—'
       const papel = ROLE_RL[u.role] || 'Responsável'
-      const rl = u.cargo ? `${u.cargo} · ${papel}` : papel
+      const inat = u.ativo === false
+      const rl = (u.cargo ? `${u.cargo} · ${papel}` : papel) + (inat ? ' · Inativo' : '')
       const foto = avatarUrl(u.foto_url)
       const av = foto ? `<img src="${esc(foto)}" alt="">` : esc(iniciais(nome))
-      return `<span class="chip"><span class="av">${av}</span>` +
+      return `<span class="chip${inat ? ' u-inativo' : ''}"><span class="av">${av}</span>` +
         `<span><span class="nm">${esc(nome)}</span><br><span class="rl">${rl}</span></span>` +
         `<span class="x" data-rem="${esc(id)}" title="Remover">×</span></span>`
     }).join('')

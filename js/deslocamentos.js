@@ -237,7 +237,8 @@ const DeslocApp = (() => {
     if (!lst.length) { tb.innerHTML = '<tr><td colspan="8" class="d-empty">Nenhum deslocamento para o filtro.</td></tr>'; return }
     const abChip = (tid) => {
       const n = (tecNomes[tid] || '—').trim()
-      return `<span class="abchip"><i>${avHtml(tid)}</i>${esc(n.split(/\s+/).slice(0, 2).join(' '))}</span>`
+      const inat = ((tecArr.find(x => x.id === tid) || {}).ativo === false)
+      return `<span class="abchip${inat ? ' u-inativo' : ''}"${inat ? ' title="Inativo"' : ''}><i>${avHtml(tid)}</i>${esc(n.split(/\s+/).slice(0, 2).join(' '))}</span>`
     }
     tb.innerHTML = lst.map(d => {
       const chips = (d.deslocamento_tecnicos || []).map(x => abChip(x.tecnico_id)).join('') || '—'
@@ -378,7 +379,7 @@ const DeslocApp = (() => {
   function fecharDetalhe() { document.getElementById('det-back').classList.remove('open') }
   function abrirDetalhe(id) {
     const d = rows.find(x => x.id === id); if (!d) return
-    const chip = (tid) => `<span class="abchip"><i>${avHtml(tid)}</i>${esc((tecNomes[tid] || '—').trim().split(/\s+/).slice(0, 2).join(' '))}</span>`
+    const chip = (tid) => { const inat = ((tecArr.find(x => x.id === tid) || {}).ativo === false); return `<span class="abchip${inat ? ' u-inativo' : ''}"${inat ? ' title="Inativo"' : ''}><i>${avHtml(tid)}</i>${esc((tecNomes[tid] || '—').trim().split(/\s+/).slice(0, 2).join(' '))}</span>` }
     const aBordo = (d.deslocamento_tecnicos || []).map(x => chip(x.tecnico_id)).join(' ') || '<span class="dim">—</span>'
     const kv = (k, v) => `<div class="det-kv"><span class="k">${esc(k)}</span><span class="v">${v}</span></div>`
     const ts = trechosDe(d)

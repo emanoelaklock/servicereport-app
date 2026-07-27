@@ -7,7 +7,7 @@
 ═══════════════════════════════════════════════ */
 const JornadaApp = (() => {
   const sb = () => getSupabase()
-  let cliNomes = {}, tecNomes = {}, tecFotos = {}
+  let cliNomes = {}, tecNomes = {}, tecFotos = {}, tecInativo = {}
   // Avatar com FOTO do Portal (mesmo componente das RATs/Tarefas/Deslocamentos); iniciais como fallback.
   const avHtml = (tid) => {
     const foto = (typeof avatarUrl === 'function') ? avatarUrl(tecFotos[tid]) : ''
@@ -35,7 +35,7 @@ const JornadaApp = (() => {
     // Nomes: TODOS os usuários do SR — RATs/deslocamentos podem ter participantes que não são
     // "tecnico_campo" no papel do Portal (ex.: um admin que também vai a campo, como o Arian),
     // e o nome deles precisa resolver na tabela do dia (senão aparece "—").
-    todosUsuarios.forEach(t => { tecNomes[t.id] = t.nome; tecFotos[t.id] = t.foto_url })
+    todosUsuarios.forEach(t => { tecNomes[t.id] = t.nome; tecFotos[t.id] = t.foto_url; tecInativo[t.id] = t.ativo === false })
     ;(cli.data || []).forEach(c => { cliNomes[c.id] = c.nome })
     // Dropdown de filtro: técnicos de campo (inclui inativos — a jornada histórica deles continua consultável).
     const tecsCampo = todosUsuarios.filter(u => u.role === 'tecnico_campo')
@@ -218,7 +218,7 @@ const JornadaApp = (() => {
         for (const u of uni) tot -= Math.max(0, Math.min(u[1], af) - Math.max(u[0], ai))
       }
       return `<tr>
-        <td><span class="hd-tec"><span class="av">${avHtml(tid)}</span><span class="nm">${esc(tecNomes[tid] || '—')}</span></span></td>
+        <td><span class="hd-tec${tecInativo[tid] ? ' u-inativo' : ''}"${tecInativo[tid] ? ' title="Inativo"' : ''}><span class="av">${avHtml(tid)}</span><span class="nm">${esc(tecNomes[tid] || '—')}</span></span></td>
         <td>${chips}</td>
         <td>${lunch}</td>
         <td style="text-align:right"><span class="hd-hrs">${String(Math.floor(tot / 60)).padStart(2, '0')}h${String(tot % 60).padStart(2, '0')}</span></td>
@@ -456,7 +456,7 @@ const JornadaApp = (() => {
         return `<div class="p-trip">${d}/${m}: ${linha}</div>`
       }).join('')
       return `<tr>
-        <td><span class="hd-tec"><span class="av">${avHtml(l.tid)}</span><span class="nm">${esc(l.nome)}</span></span></td>
+        <td><span class="hd-tec${tecInativo[l.tid] ? ' u-inativo' : ''}"${tecInativo[l.tid] ? ' title="Inativo"' : ''}><span class="av">${avHtml(l.tid)}</span><span class="nm">${esc(l.nome)}</span></span></td>
         <td>${l.dias}</td>
         <td>${l.viagem ? fmtHm2(l.viagem) : '—'}</td>
         <td>${l.dia ? fmtHm2(l.dia) : '—'}</td>
