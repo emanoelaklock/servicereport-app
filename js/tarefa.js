@@ -132,7 +132,7 @@ const TarefaApp = (() => {
         `<span><span class="nm">${esc(nome)}</span><br><span class="rl">${rl}</span></span>` +
         `<span class="x" data-rem="${esc(id)}" title="Remover">×</span></span>`
     }).join('')
-    const disponiveis = ref.tecnicos.filter(t => !respSel.has(t.id))
+    const disponiveis = ref.tecnicos.filter(t => t.ativo !== false && !respSel.has(t.id))
     box.innerHTML = chips + (disponiveis.length ? '<span class="chip add" id="cc-resp-add">+ Adicionar</span>' : '')
     box.querySelectorAll('[data-rem]').forEach(x => x.onclick = () => { respSel.delete(x.dataset.rem); renderRespChips() })
     const addBtn = document.getElementById('cc-resp-add')
@@ -172,7 +172,7 @@ const TarefaApp = (() => {
       sb().from('clientes').select('id,nome').eq('oculto', false).order('nome'),
     ])
     ref.produtos = prod.data || []
-    ref.tecnicos = (tec.data || []).filter(u => u.ativo)   // responsáveis atribuíveis (admin + técnico do SR)
+    ref.tecnicos = tec.data || []   // TODOS (inativos resolvem nomes do histórico); pickers filtram ativos
     souAdmin = ((ref.tecnicos.find(x => x.id === user.id) || {}).role) === 'admin'
     ref.tipos = tip.data || []
     ref.equip = eq.data || []
@@ -188,7 +188,7 @@ const TarefaApp = (() => {
       statusAtivos().map(s => `<option value="${esc(s.chave)}">${esc(s.label || s.chave)}</option>`).join('') +
       '<option value="a_faturar">• A faturar</option><option value="divergencia">• A revisar</option><option value="pendente_class">• Pendente de classificação</option>'
     document.getElementById('f-tec').innerHTML = '<option value="">Responsável: todos</option>' +
-      ref.tecnicos.map(t => `<option value="${esc(t.id)}">${esc(tecNomes[t.id] || t.nome || '(sem nome)')}</option>`).join('')
+      ref.tecnicos.map(t => `<option value="${esc(t.id)}">${esc((tecNomes[t.id] || t.nome || '(sem nome)') + (t.ativo === false ? ' — inativo' : ''))}</option>`).join('')
     document.getElementById('f-tipo').innerHTML = '<option value="">Tipo: todos</option>' +
       ref.tipos.map(t => `<option value="${esc(t.id)}">${esc(t.nome || '')}</option>`).join('')
     bind()

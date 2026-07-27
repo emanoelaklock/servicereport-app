@@ -36,7 +36,7 @@ const DesempenhoApp = (() => {
   const IC_CHEV = '<svg viewBox="0 0 24 24"><path d="m6 9 6 6 6-6"/></svg>'
 
   async function init() {
-    try { const { data } = await sb().rpc('sr_usuarios'); usuarios = (data || []).filter(u => u.ativo) } catch (e) { usuarios = [] }
+    try { const { data } = await sb().rpc('sr_usuarios'); usuarios = data || [] } catch (e) { usuarios = [] }   // TODOS (inativos ainda aparecem no histórico)
     try { const { data } = await sb().rpc('desempenho_status'); status = (data || [])[0] || null } catch (e) { status = null }
     document.getElementById('dp-prev').onclick = () => { mes = somaMes(mes, -1); carregar() }
     document.getElementById('dp-next').onclick = () => { mes = somaMes(mes, 1); carregar() }
