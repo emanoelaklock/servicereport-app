@@ -12,7 +12,7 @@ const RatPage = (() => {
   let tipos = []
   let pendOpId = null   // chave de idempotência da operação (1 por abertura do modal)
   let ratId = null
-  let usuarios = []          // técnicos do SR (p/ adicionar à RAT)
+  let usuarios = []          // usuários do SR — TODOS (inativos resolvem nomes do histórico; o editor filtra ativos ao adicionar)
   let histLista = []         // rat_edicoes carregadas
   let souAdmin = false       // só admin edita (gestor vê o histórico, não edita)
   const MOT_LABEL = { esquecimento_tecnico: 'Esquecimento do técnico', completacao: 'Completação', mudanca_processo: 'Mudança de processo', pedido_cliente: 'Pedido do cliente', correcao_texto: 'Correção de texto (fora do desempenho)', outro: 'Outro', sync_app: 'Reeditada pelo técnico no app (sync)' }
@@ -27,7 +27,7 @@ const RatPage = (() => {
 
   // Carrega auxiliares da edição (usuários p/ técnicos).
   async function carregarAux() {
-    try { const { data } = await sb().rpc('sr_usuarios'); usuarios = (data || []).filter(u => u.ativo) } catch (e) { usuarios = [] }
+    try { const { data } = await sb().rpc('sr_usuarios'); usuarios = data || [] } catch (e) { usuarios = [] }
     souAdmin = ((usuarios.find(u => u.id === user.id) || {}).role) === 'admin'
   }
 

@@ -61,7 +61,7 @@ const DeslocApp = (() => {
       sb().from('org_config').select('base_cidade').eq('id', 1).maybeSingle(),
     ])
     baseCidade = (og.data && og.data.base_cidade) || ''
-    if (tec.data) tec.data = tec.data.filter(u => u.role === 'tecnico_campo' && u.ativo)
+    if (tec.data) tec.data = tec.data.filter(u => u.role === 'tecnico_campo')   // inclui inativos: histórico/edição de registros antigos precisa deles
     // visível = mesma regra da tela Empresas (esconde só as "excluídas")
     const visivel = (c) => (c.oculto === false || c.oculto == null) || (c.sync_omie == null || c.sync_omie !== false)
     tecArr = (tec.data || [])
@@ -71,7 +71,7 @@ const DeslocApp = (() => {
     ;(cli.data || []).forEach(c => { cliNomes[c.id] = c.nome })
     ;(vc.data || []).forEach(v => { veic[v.id] = `${v.modelo || ''} (${v.placa || ''})` })
     document.getElementById('d-tec').innerHTML = '<option value="">Técnico: todos</option>' +
-      (tec.data || []).map(t => `<option value="${esc(t.id)}">${esc(t.nome || '')}</option>`).join('')
+      (tec.data || []).map(t => `<option value="${esc(t.id)}">${esc((t.nome || '') + (t.ativo === false ? ' — inativo' : ''))}</option>`).join('')
     document.getElementById('d-cli').innerHTML = '<option value="">Cliente: todos</option>' +
       cliArr.map(c => `<option value="${esc(c.id)}">${esc(c.nome || '')}</option>`).join('')
     ;['d-tec', 'd-cli', 'd-sent', 'd-de', 'd-ate'].forEach(id => { document.getElementById(id).onchange = render })

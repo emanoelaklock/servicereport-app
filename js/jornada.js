@@ -37,9 +37,9 @@ const JornadaApp = (() => {
     // e o nome deles precisa resolver na tabela do dia (senão aparece "—").
     todosUsuarios.forEach(t => { tecNomes[t.id] = t.nome; tecFotos[t.id] = t.foto_url })
     ;(cli.data || []).forEach(c => { cliNomes[c.id] = c.nome })
-    // Dropdown de filtro: técnicos de campo ativos.
-    const tecsCampo = todosUsuarios.filter(u => u.role === 'tecnico_campo' && u.ativo)
-    document.getElementById('j-tec').innerHTML = tecsCampo.map(t => `<option value="${esc(t.id)}">${esc(t.nome || '(sem nome)')}</option>`).join('')
+    // Dropdown de filtro: técnicos de campo (inclui inativos — a jornada histórica deles continua consultável).
+    const tecsCampo = todosUsuarios.filter(u => u.role === 'tecnico_campo')
+    document.getElementById('j-tec').innerHTML = tecsCampo.map(t => `<option value="${esc(t.id)}">${esc((t.nome || '(sem nome)') + (t.ativo === false ? ' — inativo' : ''))}</option>`).join('')
     // ?d=YYYY-MM-DD abre a Jornada direto num dia (link dos alertas do Painel)
     const qd = new URLSearchParams(location.search).get('d')
     document.getElementById('j-data').value = (qd && /^\d{4}-\d{2}-\d{2}$/.test(qd)) ? qd : hoje()

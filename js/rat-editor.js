@@ -11,7 +11,7 @@
 ═══════════════════════════════════════════════ */
 window.RatEditor = (() => {
 
-  // cfg: { sb: () => supabase, getUsuarios: () => [...sr_usuarios ativos],
+  // cfg: { sb: () => supabase, getUsuarios: () => [...sr_usuarios — TODOS, inclusive inativos (resolução de nomes); o picker abaixo filtra ativos],
   //        container: () => HTMLElement (onde o corpo em edição está renderizado),
   //        onSaved: async () => {} (recarregar a tela após salvar) }
   function criar(cfg) {
@@ -39,7 +39,7 @@ window.RatEditor = (() => {
     // ── Editor de TÉCNICOS (participantes) — só re-renderiza sua própria seção ──
     function tecEditorInner() {
       const atuais = st.ratTecs.map(t => usuarios().find(u => u.id === t.tecnico_id) || { id: t.tecnico_id, nome: nomeTec(t.tecnico_id) })
-      const disp = usuarios().filter(u => u.role === 'tecnico_campo' && !st.ratTecs.some(t => t.tecnico_id === u.id)).sort((a, b) => (a.nome || '').localeCompare(b.nome || ''))
+      const disp = usuarios().filter(u => u.role === 'tecnico_campo' && u.ativo !== false && !st.ratTecs.some(t => t.tecnico_id === u.id)).sort((a, b) => (a.nome || '').localeCompare(b.nome || ''))
       return `<div class="rd-sec-t">Técnicos responsáveis</div>
         <div class="rp-tecs">${atuais.length
           ? atuais.map(u => `<span class="rp-tec"><span class="rp-av">${avTec(u)}</span><span class="rp-tnm">${esc(u.nome)}</span><button type="button" class="rp-tecx" data-tecdel="${esc(u.id)}" title="Remover">×</button></span>`).join('')
