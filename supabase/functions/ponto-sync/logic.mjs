@@ -133,7 +133,8 @@ export function normalizarPunch(punch, mapa) {
 //   · cron autentica por segredo próprio (x-cron-secret) e só roda o delta;
 //   · reconhecimento exige admin E o flag ponto_config.reconhecimento_ativo;
 //   · colaboradores (C2, consulta read-only p/ tela de vínculos) exige admin/gestor
-//     autenticado — cron NÃO roda (não é sync).
+//     autenticado — cron NÃO roda (não é sync);
+//   · carga (C3, primeira carga histórica manual) exige ADMIN — gestor E cron BLOQUEADOS.
 export function validarRequisicao({ metodo, cronOk, papel, modo, reconhecimentoAtivo }) {
   if (metodo !== 'POST') return { ok: false, status: 405, motivo: 'somente POST' }
   const ehAdmin = papel === 'admin' || papel === 'gestor_axis'
@@ -143,6 +144,10 @@ export function validarRequisicao({ metodo, cronOk, papel, modo, reconhecimentoA
     if (modo === 'reconhecimento' && !reconhecimentoAtivo) {
       return { ok: false, status: 403, motivo: 'reconhecimento desabilitado (R1/R2/R3 fechados)' }
     }
+  }
+  if (modo === 'carga') {
+    // carga histórica: SÓ admin. Gestor (mesmo autenticado) e cron NÃO executam.
+    if (papel !== 'admin') return { ok: false, status: 403, motivo: 'carga histórica exige admin' }
   }
   return { ok: true, status: 200, autorizadoPor: ehAdmin ? 'admin' : 'cron' }
 }
@@ -283,6 +288,34 @@ export function janelaMs(dias, agoraMs) {
   const fim = agoraMs
   const inicio = agoraMs - dias * 24 * 3600 * 1000
   return { inicioMs: inicio, fimMs: fim }
+}
+
+// ── carga histórica (C3): divisão do período em janelas pequenas ──────────────
+// [inicioMs, fimMs] é fatiado em janelas de no máximo `tamanhoDias` (cada uma
+// [ini, fim) meio-aberta para não sobrepor bordas). Percorre-se TODAS as janelas;
+// o cursor só avança após sucesso integral de todas elas (decisão do chamador).
+// Faixa inválida (fim <= início) → []. tamanhoDias é limitado a >= 1.
+export function janelasHistoricas(inicioMs, fimMs, tamanhoDias) {
+  const passo = Math.max(1, Math.floor(tamanhoDias || 1)) * 24 * 3600 * 1000
+  const janelas = []
+  if (!(fimMs > inicioMs)) return janelas
+  for (let ini = inicioMs; ini < fimMs; ini += passo) {
+    janelas.push({ inicioMs: ini, fimMs: Math.min(ini + passo, fimMs) })
+  }
+  return janelas
+}
+
+// ── classificação de upsert por marcação (decisão pura) ──────────────────────
+// Compara o instante de modificação ARMAZENADO (origem_modificado_em, ms ou null)
+// com o que chega agora. Sem linha prévia → 'nova'. Mesmo instante (ou ambos nulos)
+// → 'inalterada' (reimportação idempotente, nada muda de fato). Instante diferente
+// → 'atualizada'. Não infere nada de datas: recebe millis já resolvidos (ou null).
+export function classificarUpsert(existenteModMs, incomingModMs) {
+  if (existenteModMs === undefined) return 'nova'   // undefined = id inexistente na tabela
+  const a = existenteModMs == null ? null : Number(existenteModMs)
+  const b = incomingModMs == null ? null : Number(incomingModMs)
+  if (a === b) return 'inalterada'
+  return 'atualizada'
 }
 
 // ── sanitização de erro (trilha/log NUNCA carrega segredo) ───────────────────

@@ -36,7 +36,7 @@ const DesempenhoApp = (() => {
   const IC_CHEV = '<svg viewBox="0 0 24 24"><path d="m6 9 6 6 6-6"/></svg>'
 
   async function init() {
-    try { const { data } = await sb().rpc('sr_usuarios'); usuarios = (data || []).filter(u => u.ativo) } catch (e) { usuarios = [] }
+    try { const { data } = await sb().rpc('sr_usuarios'); usuarios = data || [] } catch (e) { usuarios = [] }   // TODOS (inativos ainda aparecem no histórico)
     try { const { data } = await sb().rpc('desempenho_status'); status = (data || [])[0] || null } catch (e) { status = null }
     document.getElementById('dp-prev').onclick = () => { mes = somaMes(mes, -1); carregar() }
     document.getElementById('dp-next').onclick = () => { mes = somaMes(mes, 1); carregar() }
@@ -185,7 +185,7 @@ const DesempenhoApp = (() => {
         const amostra = Number(l.rats) < 3 ? '<span class="dp-amostra">Amostra muito baixa</span>'
           : (Number(l.rats) <= 4 ? '<span class="dp-amostra">Amostra limitada</span>' : '')
         return `<tr class="dp-linha${aberto === l.tecnico_id ? ' on' : ''}" data-tec="${esc(l.tecnico_id)}">
-          <td><span class="dp-tec"><span class="dp-av">${av(u || { nome: l.tecnico_nome })}</span>${esc(l.tecnico_nome)}${amostra}</span></td>
+          <td><span class="dp-tec${u && u.ativo === false ? ' u-inativo' : ''}"${u && u.ativo === false ? ' title="Inativo"' : ''}><span class="dp-av">${av(u || { nome: l.tecnico_nome })}</span>${esc(l.tecnico_nome)}${amostra}</span></td>
           <td class="dp-po">${encOc}</td>
           <td>${tend}</td>
           <td class="dp-chev">${IC_CHEV}</td>

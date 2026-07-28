@@ -140,6 +140,22 @@
         </table></div>
         <div class="dim" id="dt-rodape" style="font-size:12px;margin-top:8px"></div>
       </div>
+
+      <div class="j-card" id="conciliacao-almoco">
+        <h3>Conciliação de almoço — SR × Tangerino (ponto) <span class="dim" style="font-size:11.5px;font-weight:600">(somente leitura · horário local do colaborador)</span></h3>
+        <div class="dim" style="font-size:12px;margin:-4px 0 10px">Compara o almoço declarado no SR com o intervalo <b>inferido do ponto oficial</b> (Tangerino), por técnico/dia com atividade no SR. <b>Nenhuma correção, desconto ou compensação é feita</b> — é uma conferência. Só colaboradores vinculados.</div>
+        <div class="p-bar">
+          <select id="cc-tec"></select>
+          <span style="display:inline-flex;align-items:center;gap:5px;font-size:12px;color:var(--tx3)"><label>de</label><input type="date" id="cc-de"><label>até</label><input type="date" id="cc-ate"></span>
+          <button class="btn btn-p btn-sm" id="cc-gerar">Gerar</button>
+          <span class="dim" id="cc-resumo" style="font-size:12px"></span>
+        </div>
+        <div style="overflow-x:auto"><table class="p-tbl">
+          <thead><tr><th>Técnico</th><th>Dia</th><th>Status</th><th>Almoço SR</th><th>Intervalo (ponto)</th><th>Δ início / término / duração</th><th>Observação</th></tr></thead>
+          <tbody id="cc-tbody"></tbody>
+        </table></div>
+        <div class="dim" id="cc-rodape" style="font-size:12px;margin-top:8px"></div>
+      </div>
     </div>
   </div>
 </div>

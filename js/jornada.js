@@ -7,7 +7,7 @@
 ═══════════════════════════════════════════════ */
 const JornadaApp = (() => {
   const sb = () => getSupabase()
-  let cliNomes = {}, tecNomes = {}, tecFotos = {}
+  let cliNomes = {}, tecNomes = {}, tecFotos = {}, tecInativo = {}
   // Avatar com FOTO do Portal (mesmo componente das RATs/Tarefas/Deslocamentos); iniciais como fallback.
   const avHtml = (tid) => {
     const foto = (typeof avatarUrl === 'function') ? avatarUrl(tecFotos[tid]) : ''
@@ -35,11 +35,11 @@ const JornadaApp = (() => {
     // Nomes: TODOS os usuários do SR — RATs/deslocamentos podem ter participantes que não são
     // "tecnico_campo" no papel do Portal (ex.: um admin que também vai a campo, como o Arian),
     // e o nome deles precisa resolver na tabela do dia (senão aparece "—").
-    todosUsuarios.forEach(t => { tecNomes[t.id] = t.nome; tecFotos[t.id] = t.foto_url })
+    todosUsuarios.forEach(t => { tecNomes[t.id] = t.nome; tecFotos[t.id] = t.foto_url; tecInativo[t.id] = t.ativo === false })
     ;(cli.data || []).forEach(c => { cliNomes[c.id] = c.nome })
-    // Dropdown de filtro: técnicos de campo ativos.
-    const tecsCampo = todosUsuarios.filter(u => u.role === 'tecnico_campo' && u.ativo)
-    document.getElementById('j-tec').innerHTML = tecsCampo.map(t => `<option value="${esc(t.id)}">${esc(t.nome || '(sem nome)')}</option>`).join('')
+    // Dropdown de filtro: técnicos de campo (inclui inativos — a jornada histórica deles continua consultável).
+    const tecsCampo = todosUsuarios.filter(u => u.role === 'tecnico_campo')
+    document.getElementById('j-tec').innerHTML = tecsCampo.map(t => `<option value="${esc(t.id)}">${esc((t.nome || '(sem nome)') + (t.ativo === false ? ' — inativo' : ''))}</option>`).join('')
     // ?d=YYYY-MM-DD abre a Jornada direto num dia (link dos alertas do Painel)
     const qd = new URLSearchParams(location.search).get('d')
     document.getElementById('j-data').value = (qd && /^\d{4}-\d{2}-\d{2}$/.test(qd)) ? qd : hoje()
@@ -62,7 +62,13 @@ const JornadaApp = (() => {
     document.getElementById('dt-ate').value = hoje()
     document.getElementById('dt-gerar').onclick = carregarDeslocPeriodo
     document.getElementById('dt-csv').onclick = exportarDeslocCsv
-    if ((tec.data || []).length) { carregar(); carregarPernoites(); carregarDeslocPeriodo() }
+    // Conciliação de almoço (SR × ponto): mesmo padrão (todos + mês corrente); só leitura.
+    document.getElementById('cc-tec').innerHTML = '<option value="">Todos os técnicos</option>' +
+      (tec.data || []).map(t => `<option value="${esc(t.id)}">${esc(t.nome || '(sem nome)')}</option>`).join('')
+    document.getElementById('cc-de').value = mes01
+    document.getElementById('cc-ate').value = hoje()
+    document.getElementById('cc-gerar').onclick = carregarConciliacao
+    if ((tec.data || []).length) { carregar(); carregarPernoites(); carregarDeslocPeriodo(); carregarConciliacao() }
     else document.getElementById('j-timeline').innerHTML = '<div class="j-empty">Nenhum técnico ativo.</div>'
   }
 
@@ -212,7 +218,7 @@ const JornadaApp = (() => {
         for (const u of uni) tot -= Math.max(0, Math.min(u[1], af) - Math.max(u[0], ai))
       }
       return `<tr>
-        <td><span class="hd-tec"><span class="av">${avHtml(tid)}</span><span class="nm">${esc(tecNomes[tid] || '—')}</span></span></td>
+        <td><span class="hd-tec${tecInativo[tid] ? ' u-inativo' : ''}"${tecInativo[tid] ? ' title="Inativo"' : ''}><span class="av">${avHtml(tid)}</span><span class="nm">${esc(tecNomes[tid] || '—')}</span></span></td>
         <td>${chips}</td>
         <td>${lunch}</td>
         <td style="text-align:right"><span class="hd-hrs">${String(Math.floor(tot / 60)).padStart(2, '0')}h${String(tot % 60).padStart(2, '0')}</span></td>
@@ -450,7 +456,7 @@ const JornadaApp = (() => {
         return `<div class="p-trip">${d}/${m}: ${linha}</div>`
       }).join('')
       return `<tr>
-        <td><span class="hd-tec"><span class="av">${avHtml(l.tid)}</span><span class="nm">${esc(l.nome)}</span></span></td>
+        <td><span class="hd-tec${tecInativo[l.tid] ? ' u-inativo' : ''}"${tecInativo[l.tid] ? ' title="Inativo"' : ''}><span class="av">${avHtml(l.tid)}</span><span class="nm">${esc(l.nome)}</span></span></td>
         <td>${l.dias}</td>
         <td>${l.viagem ? fmtHm2(l.viagem) : '—'}</td>
         <td>${l.dia ? fmtHm2(l.dia) : '—'}</td>
@@ -545,5 +551,63 @@ const JornadaApp = (() => {
     tl.innerHTML = html
   }
 
-  return { init, carregarPernoites }
+  // ───────────────────── Conciliação de almoço: SR × Tangerino (somente leitura) ─────────────────────
+  // Lê a vw_ponto_conciliacao_almoco (toda a regra/inferência/tolerâncias moram na view, com
+  // security_invoker → RLS do usuário vale). Não escreve nada; nenhuma correção automática.
+  async function carregarConciliacao() {
+    const tb = document.getElementById('cc-tbody'), res = document.getElementById('cc-resumo')
+    const tec = document.getElementById('cc-tec').value
+    const de = document.getElementById('cc-de').value, ate = document.getElementById('cc-ate').value
+    res.textContent = 'Carregando…'
+    let q = sb().from('vw_ponto_conciliacao_almoco').select('*').gte('dia', de).lte('dia', ate)
+      .order('dia', { ascending: false })
+    if (tec) q = q.eq('tecnico_id', tec)
+    const { data, error } = await q
+    if (error) {
+      tb.innerHTML = '<tr><td colspan="7" class="j-empty">Conciliação indisponível (verifique se a carga do ponto já rodou).</td></tr>'
+      res.textContent = ''; return
+    }
+    renderConciliacao(data || [])
+  }
+  function renderConciliacao(rows) {
+    const tb = document.getElementById('cc-tbody'), res = document.getElementById('cc-resumo'), rod = document.getElementById('cc-rodape')
+    if (!rows.length) {
+      tb.innerHTML = '<tr><td colspan="7" class="j-empty">Nenhum dia com atividade no SR para conciliar no período.</td></tr>'
+      res.textContent = ''; rod.textContent = ''; return
+    }
+    const cont = { conciliado: 0, divergente: 0, incompleto: 0, sem_vinculo: 0 }
+    const chip = (r) => {
+      // âmbar = divergência; vermelho = SÓ inconsistência confirmada na origem (sobreposição/
+      // virada/excluída); demais 'incompleto' (aberto/pendente/sem dado/tolerância nula) = cinza.
+      if (r.status === 'conciliado') return badge('#0f7a37', '#e7f5ec', 'Conciliado')
+      if (r.status === 'divergente') return badge('#8a5a00', '#fdf1d6', 'Divergente')
+      if (r.status === 'incompleto') {
+        return (r.tem_overlap || r.tem_virada || r.tem_excluido)
+          ? badge('#a11', '#fde4e2', 'Inconsistente') : badge('#5b6472', '#eef0f3', 'Incompleto')
+      }
+      return badge('#5b6472', '#eef0f3', 'Sem vínculo')
+    }
+    const badge = (cor, bg, txt) => `<span style="display:inline-block;padding:2px 8px;border-radius:999px;font-size:11.5px;font-weight:700;color:${cor};background:${bg}">${txt}</span>`
+    const par = (i, f) => (i && f) ? `${hm5(i)}–${hm5(f)}` : '—'
+    const dlt = (v) => v == null ? '—' : (v > 0 ? '+' : '') + v + 'm'
+    tb.innerHTML = rows.map(r => {
+      cont[r.status] = (cont[r.status] || 0) + 1
+      const deltas = (r.delta_inicio_min == null && r.delta_termino_min == null && r.delta_duracao_min == null)
+        ? '—' : `${dlt(r.delta_inicio_min)} / ${dlt(r.delta_termino_min)} / ${dlt(r.delta_duracao_min)}`
+      const tipo = r.divergencia_tipo ? ` <span class="dim" style="font-size:11px">(${esc(String(r.divergencia_tipo).replace(/,/g, ', '))})</span>` : ''
+      return `<tr>
+        <td>${esc(tecNomes[r.tecnico_id] || '—')}</td>
+        <td>${dmyDia(r.dia)}</td>
+        <td>${chip(r)}${tipo}</td>
+        <td>${par(r.sr_inicio, r.sr_fim)}</td>
+        <td>${par(r.ponto_inicio, r.ponto_fim)}</td>
+        <td>${deltas}</td>
+        <td class="dim" style="font-size:12px">${esc(r.motivo || '')}</td>
+      </tr>`
+    }).join('')
+    res.textContent = `${rows.length} dia(s) · ${cont.conciliado} conciliado · ${cont.divergente} divergente · ${cont.incompleto} incompleto · ${cont.sem_vinculo} sem vínculo`
+    rod.textContent = 'Somente leitura — nenhuma correção automática. Tolerâncias (ponto_config): início 5 min, término 10 min, duração 5 min; sem calibração, pares casados ficam “incompleto”. Bloco único acima de 6h sem intervalo entra como “incompleto — jornada longa” (sinalização operacional, não afirma infração; o almoço nunca é inferido).'
+  }
+
+  return { init, carregarPernoites, carregarConciliacao }
 })()

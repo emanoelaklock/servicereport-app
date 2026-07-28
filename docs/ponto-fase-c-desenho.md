@@ -229,6 +229,105 @@ por dia tocado — a tela não calcula nada.
   redonda" em 64% dos casos (amostra de 66), então espera-se tolerância de duração ≠ de início.
 - Os números finais são **decisão da gestão** sobre a proposta calibrada — apresentados no gate C3.
 
+### 5.1 Carga histórica (C3) — desenho implementado e regras conservadoras de R2/R3
+
+Modo `carga` da Edge `ponto-sync` (admin-only; gestor e cron **bloqueados**; POST autenticado; sem
+CORS público; Tangerino só por GET; token só Function Secret). **Primeira carga limitada a 30 dias.**
+- Período (default 30d, teto 30) fatiado em **janelas pequenas** (default 1d, teto 7). Cada janela é
+  **100% paginada** (`startDateInMillis`/`endDateInMillis`, páginas de 200), respeitando `Retry-After`.
+- **Upsert por `tangerino_punch_id`** — reexecutar a janela **não duplica**; **mesmo id atualiza** a
+  linha (correção). `dateOut=null`, campos `*_raw`, `tz_origem`/offset e `lastModifiedDate` preservados.
+- Datas: aceita **epoch millis** (faixa 2000–2100) e **strings temporais válidas**; **nunca infere
+  epoch em segundos**. **Timezone desconhecido bloqueia a janela** com erro sanitizado.
+- **Vinculados** (ativos e inativos) importados; **`fora_escopo` ignorado e contabilizado** (nunca
+  bloqueia); **pendentes_sem_vinculo** deixam a execução **parcial** e **impedem o avanço do cursor**.
+- **Cursor** avança **só após sucesso integral** de **todas as páginas e janelas**; qualquer bloqueio
+  ou falha intermediária → `parcial`/`erro`, cursor **não** avança.
+- Observabilidade sanitizada (na resposta e em `ponto_sync_execucoes`): período, janelas, páginas,
+  status; **inseridas, atualizadas, inalteradas, abertas, excluídas sinalizadas, ignoradas fora do
+  escopo, pendentes, inválidas**; cursor inicial e candidato. **Sem** token, headers, payload bruto,
+  nome, CPF, PIS, e-mail ou telefone.
+
+**Regras conservadoras de R2/R3 (validadas em uso, cravadas no espelho):**
+- **Mesmo ID recebido novamente → upsert** (atualiza a linha existente; nunca cria segunda linha).
+- **`excluded=true` é preservado no espelho** (coluna `excluido_origem`) — a marcação **permanece**,
+  sinalizada como excluída na origem.
+- **Nunca há apagamento físico** de uma marcação: a carga só faz INSERT/UPDATE (upsert), **jamais DELETE**.
+- **Ausência em uma consulta NÃO significa exclusão**: uma marcação que não volta numa janela/consulta
+  **não é apagada nem alterada** — permanece exatamente como estava.
+- ⚠️ **A reconciliação definitiva de exclusões continua PENDENTE**: como distinguir "marcação
+  legitimamente removida no Tangerino" de "ausente por recorte de janela/rate limit" exige o
+  fechamento do R2/R3 (comportamento real do Tangerino ao excluir) — só então se define se/como o
+  espelho marca algo como excluído a partir de *ausência*. Até lá, ausência **nunca** muda o espelho.
+
+### 5.2 Sincronização contínua (C4) — cron do delta
+
+Cron `ponto-sync-delta` (migration 0132) roda a Edge `ponto-sync` no **modo delta** (incremental
+por `lastUpdate` + janela D-7) **3×/dia**: **06:00, 14:00, 22:00 BRT** (= 01:00, 09:00, 17:00 UTC;
+`cron '0 1,9,17 * * *'`). Frequência **conservadora** enquanto a Sólides não confirma o **rate
+limit** (pergunta pendente) — ajustável depois.
+- **Padrão da casa** (mesma forma dos crons `lembrete-*`): `pg_cron` → `net.http_post` para a Edge
+  com `x-cron-secret` lido de `vault.decrypted_secrets['cron_secret']` (mesmo segredo dos outros
+  crons; `app_secrets.cron_secret == vault.cron_secret`, então a Edge autentica). O
+  `TANGERINO_TOKEN` **não** trafega aqui — fica só no Function Secret; o cron apenas dispara a Edge.
+- O cron **só roda o delta**. A **carga histórica** (`modo 'carga'`) é sempre **manual/admin** —
+  o cron nunca a executa. O delta segue as mesmas regras: upsert idempotente, pendentes → `parcial`
+  sem avanço de cursor, cursor só avança em sucesso, nunca apaga.
+- Idempotente na aplicação (remove agendamento anterior antes de recriar). Ajustar a frequência =
+  reaplicar a 0132 com outro `schedule`.
+
+### 5.3 Conciliação de almoço (SR × Tangerino) — read-only em jornada.html
+
+View `vw_ponto_conciliacao_almoco` (0133, `security_invoker=true`) + card em `jornada.html`. **Só lê**
+dados já importados no SR; **nenhuma correção/desconto/compensação**. Por técnico/dia:
+- **Âncora**: pessoa-dia com atividade em `vw_participacoes_dia`. Sem atividade no SR → o dia nem
+  entra (ponto ignorado, sem gerar divergência). Só **vinculados**; não-vinculado → `sem_vinculo`.
+- **Inferência do almoço a partir do PONTO** (fonte oficial): períodos pareados (entrada/saída) do
+  dia em **hora local** (tz_origem → IANA); o almoço é o **gap entre períodos** que cai na janela
+  (`ponto_config.janela_almoco_ini/fim`) e dura ≥ `gap_minimo_almoco_min`. **Não** se assume que toda
+  pausa é almoço. **Inconclusivo → `incompleto`** (evidência preservada): batida aberta (`dateOut`
+  null), pendente, excluída, períodos **sobrepostos**, **virada de dia**, ou **>1 gap** candidato.
+- **Tolerâncias** de início/término/duração **separadas**, de `ponto_config`. **NULL = não calibrado
+  → `incompleto`** ("tolerâncias não configuradas"); **nunca** se fixa ±10 em silêncio. **Calibração da
+  gestão (PR #138, migration `0134`): início 5 min · término 10 min · duração 5 min** — separada da view
+  (`0134` mexe só em `ponto_config`, para um `create or replace view` futuro não resetar os números).
+- **Bloco único sem intervalo e sem almoço no SR** (nenhum sistema declara pausa): a extensão da
+  jornada (primeira entrada → última saída, hora local) decide — **até 6h → `conciliado`**; **acima de
+  6h → `incompleto`, motivo "jornada longa sem marcação de intervalo"**. É **sinalização operacional**
+  (falta de marcação de intervalo), **não afirma infração trabalhista** e **nunca infere/cria almoço**.
+  Como não há sobreposição/virada/excluída, a linha é **cinza** ("Incompleto"), **nunca vermelha nem
+  divergência confirmada**.
+- **Status**: `conciliado` (dentro das tolerâncias) · `divergente` · `incompleto` · `sem_vinculo`.
+  **Divergências**: almoço SR sem intervalo no ponto · intervalo no ponto sem almoço SR · início/
+  término/duração divergente. Sub-tipo + `motivo` (regra usada) + evidências na própria linha.
+- **UI**: filtros por técnico e período; horários SR × ponto e os Δ; **âmbar** para divergência;
+  **vermelho só para inconsistência confirmada** na origem (sobreposição/virada/excluída); tela
+  **somente leitura** com aviso de que nada é corrigido automaticamente. Admin/gestor conforme RLS;
+  técnico **não** acessa (security_invoker → sem SELECT em `ponto_marcacoes` → 0 linhas).
+- **Limitação atual**: a reconciliação de exclusões segue pendente do R2/R3 (§5.1).
+
+#### 5.3.1 Calibração das tolerâncias (amostra sanitizada — PR #138)
+
+Estudo read-only sobre a carga histórica (sem dado pessoal): **58 pares válidos** (excluídos 2 abertos,
+1 pendente; nenhum sobreposto/virada/múltiplo-gap na amostra casada). Distribuição dos Δ (em minutos):
+
+| Δ (min) | mín | mediana | P75 | P90 | P95 | máx |
+|---|---|---|---|---|---|---|
+| início   | 0 | 0 | 1,0 | 3,3 | 4,2 | 60,0 |
+| término  | 0 | 0 | 1,0 | 4,3 | 7,0 | 42,0 |
+| duração  | 0 | 0 | 1,0 | 3,3 | 5,0 | 18,0 |
+
+Dentro de cada limiar (pares casados): **início** ≤5:56 ≤10:56 ≤15:57 (1 outlier de 60′). **término**
+≤5:54 ≤10:55 ≤15:56 (1 outlier de 42′). **duração** ≤5:56 ≤10:56 ≤20:58 (0 acima de 30′). Os P95 (4,2 /
+7,0 / 5,0) fundamentam **5 / 10 / 5** — término mais folgado porque o SR carimba o retorno com menos
+precisão que a saída. Impacto projetado com 5/10/5 na amostra ativa: **62 conciliado · 29 divergente ·
+10 incompleto**.
+
+Os **7 "conciliados"** do estudo eram **todos bloco único** (`n_per=1`, sem intervalo em nenhum sistema),
+com jornadas de 3,8h / 3,8h / 6,2h / 8,1h / 11,9h / 11,9h / 12,4h. Ou seja, **4 dos 7 não representam
+"sem almoço" real, e sim falta de marcação oficial de intervalo** (>6h). Daí a regra do bloco único
+acima: os ≤6h seguem `conciliado`; os >6h passam a `incompleto — jornada longa`, sem inferir almoço.
+
 ## 6. Tipologia, severidade e tela
 
 **Status por pessoa-dia ativo** (âncora: participação em `vw_participacoes_dia`; pré-orçamento

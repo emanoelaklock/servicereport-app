@@ -631,7 +631,7 @@
       ref.tipos = tip.data || []
       ref.formularios = {}
       ;(forms.data || []).forEach(f => { ref.formularios[f.id] = f })
-      ref.tecnicos = tec.error ? (cacheRef.tecnicos || []) : (tec.data || []).filter(u => u.role === 'tecnico_campo' && u.ativo)
+      ref.tecnicos = tec.error ? (cacheRef.tecnicos || []) : (tec.data || []).filter(u => u.role === 'tecnico_campo')   // inclui inativos (nomes do histórico); pickers filtram ativos
       ref.veiculos = veic.error ? (cacheRef.veiculos || []) : (veic.data || [])
       ref.produtos = prod.error
         ? (((cacheRef.produtos || []).length > (prod.data || []).length) ? cacheRef.produtos : (prod.data || []))
@@ -673,8 +673,9 @@
   // Checkboxes de responsáveis no modal "Nova tarefa" — o próprio técnico vem marcado.
   function montarNtTecnicos() {
     const box = document.getElementById('nt-tecs'); if (!box) return
-    const eu = ref.tecnicos.find(t => t.id === tecnico.id)
-    const lista = eu ? ref.tecnicos : [{ id: tecnico.id, nome: tecnico.nome }].concat(ref.tecnicos)
+    const ativos = ref.tecnicos.filter(t => t.ativo !== false)
+    const eu = ativos.find(t => t.id === tecnico.id)
+    const lista = eu ? ativos : [{ id: tecnico.id, nome: tecnico.nome }].concat(ativos)
     box.innerHTML = lista.map(t => {
       const souEu = t.id === tecnico.id
       const n = tcase(t.nome)
@@ -2819,12 +2820,13 @@
       const ops = (c.opcoes || []).map(o => `<option value="${esc(o)}">${esc(o)}</option>`).join('')
       wrap.innerHTML = `${label}<select data-campo="${esc(c.id)}" data-tipo="selecao"><option value="">Selecione…</option>${ops}</select>`
     } else if (c.tipo === 'tecnico') {
-      const ops = (ref.tecnicos || []).map(t => { const n = tcase(t.nome); return `<option value="${esc(n)}"${n === tcase(tecnico.nome) ? ' selected' : ''}>${esc(n)}</option>` }).join('')
+      const ops = (ref.tecnicos || []).filter(t => t.ativo !== false).map(t => { const n = tcase(t.nome); return `<option value="${esc(n)}"${n === tcase(tecnico.nome) ? ' selected' : ''}>${esc(n)}</option>` }).join('')
       wrap.innerHTML = `${label}<select data-campo="${esc(c.id)}" data-tipo="tecnico"><option value="">Selecione…</option>${ops}</select>`
     } else if (c.tipo === 'tecnicos') {
       // cards dos selecionados (padrão do painel admin) + "+ Adicionar Técnico" → modal
       tecCampoId = c.id
-      const checks = (ref.tecnicos || []).map(t => {
+      // ativos + inativos que já são responsáveis da tarefa (não some quem está pré-marcado)
+      const checks = (ref.tecnicos || []).filter(t => t.ativo !== false || respTarefaIds.includes(t.id)).map(t => {
         const n = tcase(t.nome); const eu = n === tcase(tecnico.nome)
         const resp = eu || respTarefaIds.includes(t.id)   // pré-marca todos os responsáveis da tarefa
         const rl = t.cargo ? `${t.cargo} · Técnico` : 'Técnico'
@@ -3139,7 +3141,7 @@
       return `<div class="tec-row" data-${modo}="${esc(t.id)}"><span class="av">${av}</span><span class="ti"><span class="nm">${esc(n)}</span><span class="rl">${esc(rl)}</span></span><span class="pl ${modo === 'add' ? 'pl-add' : 'pl-rem'}">${modo === 'add' ? '+' : '×'}</span></div>`
     }
     const aBordo = (ref.tecnicos || []).filter(t => dlTecSel.has(t.id))
-    const disp = (ref.tecnicos || []).filter(t => !dlTecSel.has(t.id) && (!q || normStr(t.nome || '').includes(q)))
+    const disp = (ref.tecnicos || []).filter(t => t.ativo !== false && !dlTecSel.has(t.id) && (!q || normStr(t.nome || '').includes(q)))
     lista.innerHTML = aBordo.map(t => card(t, 'rem')).join('') + disp.map(t => card(t, 'add')).join('')
     const vz = document.getElementById('dltec-vazio'); if (vz) vz.style.display = (aBordo.length + disp.length) ? 'none' : ''
     const foot = document.getElementById('dltec-foot'); if (foot) foot.textContent = `${dlTecSel.size} a bordo`

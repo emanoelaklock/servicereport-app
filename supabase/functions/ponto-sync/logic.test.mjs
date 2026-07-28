@@ -6,7 +6,7 @@ import assert from 'node:assert/strict'
 import {
   normalizarData, diaLocalDe, normalizarPunch, calcularCursorNovo, janelaMs, sanitizarErro, ianaDe,
   validarRequisicao, decidirRetry, coletarPaginado, corsPara, sugerirVinculo, soDigitos, classificarPunch, esquemaDe,
-  qsEmployerFindAll, unirColaboradores,
+  qsEmployerFindAll, unirColaboradores, janelasHistoricas, classificarUpsert,
 } from './logic.mjs'
 
 const MAPA = new Map([[101, 'uuid-tec-101'], [102, 'uuid-tec-102']])
@@ -458,4 +458,80 @@ test('dia local com fuso não-SP: mesmo instante numérico, dia local pode difer
   const meiaNoiteSP = Date.UTC(2026, 6, 23, 2, 30)   // 23:30 do dia 22 em SP; 22:30 em Manaus
   assert.equal(diaLocalDe(meiaNoiteSP, 'America/Sao_Paulo'), '2026-07-22')
   assert.equal(diaLocalDe(meiaNoiteSP, 'America/Noronha'), '2026-07-23')   // -02: já virou o dia
+})
+
+// ── carga histórica C3: janelas + classificação de upsert ──
+const DIA = 24 * 3600 * 1000
+
+test('janelasHistoricas: fatia o período em janelas de tamanho máximo, meio-abertas', () => {
+  const ini = Date.UTC(2026, 6, 1), fim = Date.UTC(2026, 6, 4)   // 3 dias
+  const j = janelasHistoricas(ini, fim, 1)
+  assert.equal(j.length, 3)
+  assert.equal(j[0].inicioMs, ini)
+  assert.equal(j[0].fimMs, ini + DIA)
+  assert.equal(j[2].fimMs, fim)            // última janela não ultrapassa o fim
+  // sem sobreposição: fim de uma == início da próxima
+  assert.equal(j[0].fimMs, j[1].inicioMs)
+})
+
+test('janelasHistoricas: última janela é truncada no fim (período não múltiplo)', () => {
+  const ini = 0, fim = Math.floor(2.5 * DIA)
+  const j = janelasHistoricas(ini, fim, 1)
+  assert.equal(j.length, 3)
+  assert.equal(j[2].fimMs, fim)
+  assert.ok(j[2].fimMs - j[2].inicioMs <= DIA)
+})
+
+test('janelasHistoricas: tamanho maior que o período → uma janela só', () => {
+  const j = janelasHistoricas(0, 3 * DIA, 30)
+  assert.equal(j.length, 1)
+  assert.deepEqual(j[0], { inicioMs: 0, fimMs: 3 * DIA })
+})
+
+test('janelasHistoricas: faixa vazia/invertida → []', () => {
+  assert.deepEqual(janelasHistoricas(10, 10, 1), [])
+  assert.deepEqual(janelasHistoricas(10, 5, 1), [])
+})
+
+test('janelasHistoricas: tamanhoDias inválido é tratado como 1', () => {
+  assert.equal(janelasHistoricas(0, 2 * DIA, 0).length, 2)
+  assert.equal(janelasHistoricas(0, 2 * DIA, -5).length, 2)
+})
+
+test('classificarUpsert: id inexistente (undefined) → nova', () => {
+  assert.equal(classificarUpsert(undefined, 123), 'nova')
+})
+
+test('classificarUpsert: mesmo instante → inalterada (reimportação idempotente)', () => {
+  assert.equal(classificarUpsert(1784800000000, 1784800000000), 'inalterada')
+})
+
+test('classificarUpsert: ambos nulos → inalterada', () => {
+  assert.equal(classificarUpsert(null, null), 'inalterada')
+})
+
+test('classificarUpsert: instante diferente → atualizada (correção com mesmo id)', () => {
+  assert.equal(classificarUpsert(1784800000000, 1784800999000), 'atualizada')
+  assert.equal(classificarUpsert(null, 1784800000000), 'atualizada')
+})
+
+// ── carga histórica C3: autorização (SÓ admin; gestor e cron bloqueados) ──
+test('auth carga: admin autenticado executa', () => {
+  const r = validarRequisicao({ metodo: 'POST', cronOk: false, papel: 'admin', modo: 'carga', reconhecimentoAtivo: false })
+  assert.deepEqual([r.ok, r.autorizadoPor], [true, 'admin'])
+})
+test('auth carga: gestor_axis é BLOQUEADO (403) — carga é admin-only', () => {
+  const r = validarRequisicao({ metodo: 'POST', cronOk: false, papel: 'gestor_axis', modo: 'carga', reconhecimentoAtivo: false })
+  assert.deepEqual([r.ok, r.status], [false, 403])
+})
+test('auth carga: cron (x-cron-secret) NÃO executa carga (403)', () => {
+  const r = validarRequisicao({ metodo: 'POST', cronOk: true, papel: null, modo: 'carga', reconhecimentoAtivo: false })
+  assert.deepEqual([r.ok, r.status], [false, 403])
+})
+test('auth carga: técnico → 401; anônimo → 401', () => {
+  assert.equal(validarRequisicao({ metodo: 'POST', cronOk: false, papel: 'tecnico_campo', modo: 'carga', reconhecimentoAtivo: false }).status, 401)
+  assert.equal(validarRequisicao({ metodo: 'POST', cronOk: false, papel: null, modo: 'carga', reconhecimentoAtivo: false }).status, 401)
+})
+test('auth carga: GET rejeitado (405)', () => {
+  assert.equal(validarRequisicao({ metodo: 'GET', cronOk: false, papel: 'admin', modo: 'carga', reconhecimentoAtivo: false }).status, 405)
 })

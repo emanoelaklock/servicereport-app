@@ -12,6 +12,7 @@ const TarefaApp = (() => {
   let cliNomes = {}          // cliente_id -> nome
   let cliConf = {}           // cliente_id -> { modalidade_padrao, valor_hora_padrao, dia_continuo }
   let tecNomes = {}          // tecnico_id -> nome
+  let tecInat = {}           // tecnico_id -> true se inativo (chip/nome cinza)
   let tecPorTarefa = {}      // tarefa_id -> [tecnico_id]
   let orcNo = {}             // orcamento_id -> numero
   let divPorTarefa = {}      // tarefa_id -> nº de linhas com divergência
@@ -81,11 +82,13 @@ const TarefaApp = (() => {
     const ids = (cur && cur.id && tecPorTarefa[cur.id]) || []
     const pUser = ids.length ? (ref.tecnicos.find(x => x.id === ids[0]) || {}) : {}
     const principal = pUser.nome || ''
-    const rEl = document.getElementById('cc-hd-resp'); if (rEl) rEl.textContent = principal || '—'
+    const inatP = pUser.ativo === false
+    const rEl = document.getElementById('cc-hd-resp'); if (rEl) { rEl.textContent = principal || '—'; rEl.classList.toggle('u-inativo', inatP); rEl.title = inatP ? 'Inativo' : '' }
     const avEl = document.getElementById('cc-hd-resp-av')
     if (avEl) {
       const foto = avatarUrl(pUser.foto_url)
       avEl.innerHTML = principal ? (foto ? `<img src="${esc(foto)}" alt="">` : esc(iniciais(principal))) : '—'
+      avEl.classList.toggle('u-inativo', inatP)
     }
     const noc = document.getElementById('cc-nochip'), dn = document.getElementById('cc-docno')
     if (noc) noc.style.display = (dn && dn.textContent.trim()) ? '' : 'none'
@@ -125,14 +128,15 @@ const TarefaApp = (() => {
       const u = ref.tecnicos.find(x => x.id === id) || {}
       const nome = u.nome || tecNomes[id] || '—'
       const papel = ROLE_RL[u.role] || 'Responsável'
-      const rl = u.cargo ? `${u.cargo} · ${papel}` : papel
+      const inat = u.ativo === false
+      const rl = (u.cargo ? `${u.cargo} · ${papel}` : papel) + (inat ? ' · Inativo' : '')
       const foto = avatarUrl(u.foto_url)
       const av = foto ? `<img src="${esc(foto)}" alt="">` : esc(iniciais(nome))
-      return `<span class="chip"><span class="av">${av}</span>` +
+      return `<span class="chip${inat ? ' u-inativo' : ''}"><span class="av">${av}</span>` +
         `<span><span class="nm">${esc(nome)}</span><br><span class="rl">${rl}</span></span>` +
         `<span class="x" data-rem="${esc(id)}" title="Remover">×</span></span>`
     }).join('')
-    const disponiveis = ref.tecnicos.filter(t => !respSel.has(t.id))
+    const disponiveis = ref.tecnicos.filter(t => t.ativo !== false && !respSel.has(t.id))
     box.innerHTML = chips + (disponiveis.length ? '<span class="chip add" id="cc-resp-add">+ Adicionar</span>' : '')
     box.querySelectorAll('[data-rem]').forEach(x => x.onclick = () => { respSel.delete(x.dataset.rem); renderRespChips() })
     const addBtn = document.getElementById('cc-resp-add')
@@ -172,13 +176,13 @@ const TarefaApp = (() => {
       sb().from('clientes').select('id,nome').eq('oculto', false).order('nome'),
     ])
     ref.produtos = prod.data || []
-    ref.tecnicos = (tec.data || []).filter(u => u.ativo)   // responsáveis atribuíveis (admin + técnico do SR)
+    ref.tecnicos = tec.data || []   // TODOS (inativos resolvem nomes do histórico); pickers filtram ativos
     souAdmin = ((ref.tecnicos.find(x => x.id === user.id) || {}).role) === 'admin'
     ref.tipos = tip.data || []
     ref.equip = eq.data || []
     ref.clientes = cli.data || []
     const ROLE_TAG = { admin: ' (Admin)', gestor_axis: ' (Gestor)', tecnico_campo: '' }
-    tecNomes = {}; for (const t of ref.tecnicos) tecNomes[t.id] = (t.nome || '(sem nome)') + (ROLE_TAG[t.role] || '')
+    tecNomes = {}; tecInat = {}; for (const t of ref.tecnicos) { tecNomes[t.id] = (t.nome || '(sem nome)') + (ROLE_TAG[t.role] || ''); tecInat[t.id] = t.ativo === false }
     renderRespChips()
     document.getElementById('cc-d-tipo').innerHTML = '<option value="">— selecione —</option>' + ref.tipos.map(t => `<option value="${esc(t.id)}">${esc(t.nome || '')}</option>`).join('')
     await carregarStatus()
@@ -188,7 +192,7 @@ const TarefaApp = (() => {
       statusAtivos().map(s => `<option value="${esc(s.chave)}">${esc(s.label || s.chave)}</option>`).join('') +
       '<option value="a_faturar">• A faturar</option><option value="divergencia">• A revisar</option><option value="pendente_class">• Pendente de classificação</option>'
     document.getElementById('f-tec').innerHTML = '<option value="">Responsável: todos</option>' +
-      ref.tecnicos.map(t => `<option value="${esc(t.id)}">${esc(tecNomes[t.id] || t.nome || '(sem nome)')}</option>`).join('')
+      ref.tecnicos.map(t => `<option value="${esc(t.id)}">${esc((tecNomes[t.id] || t.nome || '(sem nome)') + (t.ativo === false ? ' — inativo' : ''))}</option>`).join('')
     document.getElementById('f-tipo').innerHTML = '<option value="">Tipo: todos</option>' +
       ref.tipos.map(t => `<option value="${esc(t.id)}">${esc(t.nome || '')}</option>`).join('')
     bind()
@@ -437,7 +441,7 @@ const TarefaApp = (() => {
         const d = divPorTarefa[t.id] || 0
         const concil = d ? `<span class="pill pill-warn">${d} a revisar</span>` : '<span class="pill pill-ok">OK</span>'
         const tids = tecPorTarefa[t.id] || []
-        const tec = tids.length ? esc(tids.map(id => tecNomes[id] || '—').join(', ')) : `<button class="pill pill-warn" data-atrib="${esc(t.id)}" style="cursor:pointer;border:none">atribuir</button>`
+        const tec = tids.length ? tids.map(id => tecInat[id] ? `<span class="u-inativo" title="Inativo">${esc(tecNomes[id] || '—')}</span>` : esc(tecNomes[id] || '—')).join(', ') : `<button class="pill pill-warn" data-atrib="${esc(t.id)}" style="cursor:pointer;border:none">atribuir</button>`
         return `<tr class="row-click" data-id="${esc(t.id)}">
           <td class="cc-num">${osNo(t.numero)}</td>
           <td>

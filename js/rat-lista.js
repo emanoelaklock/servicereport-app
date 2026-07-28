@@ -41,8 +41,9 @@
     // selects — filtro de Status pela situação da RAT
     document.getElementById('rlf-status').innerHTML = '<option value="">Todos</option>' +
       Object.keys(RAT_SIT).map(ch => `<option value="${esc(ch)}">${esc(RAT_SIT[ch].label)}</option>`).join('')
-    const tecs = (us.data || []).filter(u => u.role === 'tecnico_campo' && u.ativo).map(u => u.nome).filter(Boolean).sort((a, b) => a.localeCompare(b))
-    document.getElementById('rlf-tecnico').innerHTML = '<option value="">Todos</option>' + tecs.map(t => `<option>${esc(t)}</option>`).join('')
+    // inclui inativos (com rótulo): as RATs antigas deles continuam filtráveis; value = nome puro p/ o filtro casar
+    const tecs = (us.data || []).filter(u => u.role === 'tecnico_campo' && u.nome).sort((a, b) => a.nome.localeCompare(b.nome))
+    document.getElementById('rlf-tecnico').innerHTML = '<option value="">Todos</option>' + tecs.map(t => `<option value="${esc(t.nome)}">${esc(t.nome + (t.ativo === false ? ' — inativo' : ''))}</option>`).join('')
     bind()
     buscar()   // primeira página (sem filtro) = RATs mais recentes
   }
