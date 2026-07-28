@@ -4457,8 +4457,8 @@
         }),
       },
       tempo_trabalhado: calcTempoPo(),
-      // NÃO recarimba `data` aqui: ela é a data REALIZADA, fixada na criação (novoPreorc).
-      // Reescrever no salvar faria a data escorregar para o dia do último save/sync.
+      // NÃO recarimba `data`: é a data de REFERÊNCIA, fixada na criação (novoPreorc). Reescrever
+      // no salvar faria escorregar para o dia do último save/sync.
       status,
     }
   }
@@ -4500,8 +4500,8 @@
         }),
       },
       tempo_trabalhado: calcTempoPo(),
-      // NÃO recarimba `data`: mantém a data REALIZADA fixada na criação (novoPreorc) — concluir
-      // dias depois (ou o sync) não pode mudar o dia do levantamento.
+      // NÃO recarimba `data`: mantém a data de REFERÊNCIA fixada na criação (novoPreorc) — concluir
+      // dias depois (ou o sync) não pode mudar essa data.
       status: 'concluido',
     })
     await D().definirStatusPreorc(curPo.client_uuid, D().STATUS.SALVO_LOCAL)

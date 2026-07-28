@@ -8,6 +8,7 @@ import "jsr:@supabase/functions-js/edge-runtime.d.ts"
 import { createClient } from "jsr:@supabase/supabase-js@2"
 import { PDFDocument, StandardFonts, rgb } from "https://esm.sh/pdf-lib@1.17.1?target=deno"
 import { encodeBase64 } from "https://deno.land/std@0.224.0/encoding/base64.ts"
+import { fmtData, emissaoPreorc } from "./emissao.mjs"
 
 const CORS = {
   "Access-Control-Allow-Origin": "*",
@@ -39,12 +40,7 @@ const QTD = (n: number) => {
   const v = Number(n) || 0
   return Number.isInteger(v) ? String(v) : v.toLocaleString("pt-BR", { maximumFractionDigits: 3 })
 }
-function fmtData(d: Date): string {
-  const f = new Intl.DateTimeFormat("pt-BR", { timeZone: "America/Sao_Paulo", day: "2-digit", month: "2-digit", year: "numeric" })
-  const p: Record<string, string> = {}
-  for (const part of f.formatToParts(d)) p[part.type] = part.value
-  return `${p.day}/${p.month}/${p.year}`
-}
+// fmtData + emissaoPreorc → ./emissao.mjs (lógica pura, testável em Node sem Deno/rede).
 function fmtMinPdf(min?: number | null): string | null {
   const m = Number(min) || 0; if (m <= 0) return null
   const h = Math.floor(m / 60), mm = m % 60
@@ -376,7 +372,7 @@ Deno.serve(async (req: Request) => {
         } catch (_) { /* foto indisponível: pula */ }
       }
       docData = {
-        kind: "pre_orcamento", numero: po.numero, emissao: fmtData(po.criado_em ? new Date(po.criado_em) : new Date()), geradoPor,
+        kind: "pre_orcamento", numero: po.numero, emissao: fmtData(emissaoPreorc(po)), geradoPor,
         cliente: { nome: po.cliente_nome || cli?.nome, documento: cli?.documento, endereco: cli?.endereco },
         servicoDescricao: po.descricao, servicoValor: 0,
         materiais: (itens || []).map((m: Mat & { codigo_produto?: string }) => ({
