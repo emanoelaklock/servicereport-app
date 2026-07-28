@@ -432,6 +432,13 @@
       tem_foto: false,
       respostas: null,
       recebido_em: null,
+      // data de REFERÊNCIA do pré-orçamento: fixada UMA vez aqui, na criação. No fluxo normal a
+      // criação acontece durante a visita, então ela reflete o dia do levantamento — mas NÃO é
+      // garantia: registro tardio (criar no dia seguinte) usará a data de criação, não a da visita.
+      // Salvar/concluir/sincronizar NUNCA recarimbam (senão vira "último toque" e escorrega pro dia
+      // do sync, bagunçando PDF e jornada). Informar uma visita passada dependerá, no futuro, de
+      // campo de data editável (ou outra fonte comprovada).
+      data: agora(),
       criado_em: agora(),
       atualizado_em: agora(),
       ...dados,

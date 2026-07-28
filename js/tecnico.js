@@ -4457,7 +4457,8 @@
         }),
       },
       tempo_trabalhado: calcTempoPo(),
-      data: new Date().toISOString(),
+      // NÃO recarimba `data`: é a data de REFERÊNCIA, fixada na criação (novoPreorc). Reescrever
+      // no salvar faria escorregar para o dia do último save/sync.
       status,
     }
   }
@@ -4499,7 +4500,8 @@
         }),
       },
       tempo_trabalhado: calcTempoPo(),
-      data: new Date().toISOString(),
+      // NÃO recarimba `data`: mantém a data de REFERÊNCIA fixada na criação (novoPreorc) — concluir
+      // dias depois (ou o sync) não pode mudar essa data.
       status: 'concluido',
     })
     await D().definirStatusPreorc(curPo.client_uuid, D().STATUS.SALVO_LOCAL)
