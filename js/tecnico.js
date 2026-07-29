@@ -391,7 +391,11 @@
     } else {                                         // (b) já terminei → encerra SÓ o dia; Tarefa segue Em Execução
       rs.volta_amanha = 'Sim'; rs.passagem_motivo = null; rs.passagem_falta = null; rs.passagem_levar = null
     }
-    await D().salvarRat(client_uuid, { status: 'registrado', atendimento_executado: true, respostas: rs })
+    // O dia fecha SEM hora de término (não inventamos horário) → horas zeradas na conta.
+    // Pendência explícita pra gestão ajustar via edição da RAT — antes passava em silêncio
+    // (caso 04853: única RAT registrada da base sem hora_termino, ninguém viu).
+    const pend2 = 'Dia encerrado por pausa esquecida, sem hora de término — horas do dia precisam de ajuste da gestão.'
+    await D().salvarRat(client_uuid, { status: 'registrado', atendimento_executado: true, respostas: rs, pendencias: pend2 })
     await D().definirStatus(client_uuid, D().STATUS.SALVO_LOCAL, escolha === 'volto' ? 'pausa esquecida: volto depois' : 'pausa esquecida: dia concluído')
   }
 
@@ -3730,8 +3734,9 @@
         // enquanto está subindo (na_fila/enviando) pra não competir com o envio.
         if (!r || r.sync_status === S.NA_FILA || r.sync_status === S.ENVIANDO) return
         const eraConfirmada = r.sync_status === S.CONFIRMADO
-        const { respostas } = coletarRespostas()
-        if (usoProd) respostas.uso_produtos = usoProd
+        const { respostas: coletadas } = coletarRespostas()
+        if (usoProd) coletadas.uso_produtos = usoProd
+        const respostas = mesclarRespostas(r.respostas, coletadas)   // não engole chaves de outros fluxos
         await D().salvarRat(cur.client_uuid, {
           respostas: Object.keys(respostas).length ? respostas : null,
           tempo_trabalhado: calcTempo(),
@@ -3763,8 +3768,10 @@
     if (!cur || !cur.client_uuid) return
     const cliId = (document.getElementById('f-cliente') || {}).value || null
     const cli = ref.clientes.find(c => c.id === cliId)
-    const { respostas } = coletarRespostas()
-    if (usoProd) respostas.uso_produtos = usoProd
+    const atual = await D().obterRat(cur.client_uuid)
+    const { respostas: coletadas } = coletarRespostas()
+    if (usoProd) coletadas.uso_produtos = usoProd
+    const respostas = mesclarRespostas(atual && atual.respostas, coletadas)
     await D().salvarRat(cur.client_uuid, {
       tarefa_id: cur.tarefa_id || null, tarefa_numero: cur.tarefa_numero || null,
       cliente_id: cliId, cliente_nome: (cli && cli.nome) || null,
@@ -3774,6 +3781,20 @@
     })
     await D().definirStatus(cur.client_uuid, D().STATUS.SALVO_LOCAL, 'pausa (status em tempo real)')
     if (window.SyncEngine && navigator.onLine) SyncEngine.syncAll()
+  }
+
+  // O formulário é dono SÓ das suas chaves: mescla o coletado por cima do que está salvo,
+  // preservando chaves de outros fluxos (volta_amanha/passagem_* do encerramento, pausa_pendencia,
+  // legado, etc.). Substituir o objeto inteiro apagava esses campos ao reabrir uma RAT já
+  // registrada (caso 04853: autosave engoliu o "volto depois" e o histórico da passagem).
+  function mesclarRespostas(salvas, coletadas) {
+    const out = { ...(salvas || {}) }
+    for (const c of ((cur && cur.campos) || [])) {
+      if (c.tipo === 'foto' || c.tipo === 'assinatura' || c.tipo === 'produtos') continue
+      delete out[c.id]   // campo do form: o coletado é a verdade (inclusive vazio = limpou)
+    }
+    delete out.tecnicos_part; delete out.uso_produtos   // derivados recalculados a cada coleta
+    return Object.assign(out, coletadas)
   }
 
   function coletarRespostas() {
@@ -3923,6 +3944,10 @@
     // Guard de op crítica: SIGNED_OUT durante a gravação+notify não navega no meio do encerramento.
     // (salvarRat/definirStatus são locais; notificarPush é fire-and-forget — valor marginal, ver PR.)
     window.srStep && window.srStep('salvar: calcTempo + write salvarRat (IndexedDB)')
+    // Mescla sobre o salvo: preserva chaves que o form não possui (ex.: passagem de um
+    // encerramento anterior) — o bloco 'registrado' acima sobrescreve as dele por cima.
+    const guardadas = (await D().obterRat(cur.client_uuid))?.respostas
+    const respostasFinais = mesclarRespostas(guardadas, respostas)
     window.srCriticalBegin?.()
     try {
     await D().salvarRat(cur.client_uuid, {
@@ -3942,7 +3967,7 @@
       motivo_texto: null,
       tempo_trabalhado: calcTempo(),
       // data_tarefa fixado na criação (jorHoje, local) — não re-carimbar a cada save (evitava virar o dia em UTC)
-      respostas,
+      respostas: respostasFinais,
       uso_produtos: usoProd || null,
       questionario_ok: faltando.length === 0,
       tem_assinatura: !!temAssinatura,

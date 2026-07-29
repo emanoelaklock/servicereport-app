@@ -129,25 +129,16 @@
       if (mr.error) throw mr.error
     }
 
-    // 4c) Reflete a situação do atendimento no status da Tarefa-pai (#7.2).
-    //     Guardas: não mexe em tarefas já em faturamento; "em execução" só inicia
-    //     (não rebaixa uma tarefa concluída por causa de uma RAT antiga).
-    if (rat.tarefa_id && rat.status) {
-      // A RAT só leva a Tarefa a "em execução" (atendimento continua). Concluir o serviço
-      // ('concluida'/'concluida_pendencia') é deliberado na Tarefa — nunca a partir da RAT.
-      // Reabre tarefa PARADA (aguardando OU em_pausa) → em_execucao. Mas "volto depois"
-      // (não volto amanhã) NÃO reabre: deixa o trigger 0069 pôr em_pausa (espelho coerente).
-      const MAP = { em_andamento: 'em_execucao', registrado: 'em_execucao' }
-      const novo = MAP[rat.status]
-      if (novo) {
-        const rs = rat.respostas || {}
-        const ehPausa = rs.volta_amanha === 'Não' && rs.passagem_motivo === 'volto_depois'
-        const { data: tt } = await sb.from('tarefas').select('status,devolvida_em').eq('id', rat.tarefa_id).maybeSingle()
-        const atual = tt && tt.status
-        const terminal = ['aprovada_faturamento', 'faturada']
-        const aplicar = atual && !terminal.includes(atual) && !ehPausa &&
-          (atual === 'aguardando_execucao' || atual === 'em_pausa')
-        if (aplicar) await sb.from('tarefas').update({ status: novo }).eq('id', rat.tarefa_id)
+    // 4c) Situação da Tarefa-pai: DERIVADA NO SERVIDOR pelo trigger rat_inicia_tarefa (0130),
+    //     a partir do CONJUNTO de RATs (aguardando→em_execucao, pausa ativa/volto depois→
+    //     em_pausa, retomada→em_execucao). O update direto que existia aqui corria contra o
+    //     trigger e vencia com snapshot velho — o portal mostrava "Em execução" com pausa
+    //     aberta (caso 04853). Só permanece o destravamento de DEVOLVIDA, regra de correção
+    //     de preenchimento que o trigger não cobre.
+    if (rat.tarefa_id && rat.status === 'registrado') {
+      const rs = rat.respostas || {}
+      const ehPausa = rs.volta_amanha === 'Não' && rs.passagem_motivo === 'volto_depois'
+      if (!ehPausa) {
         // Tarefa DEVOLVIDA + técnico salvou a RAT ('registrado' = correção enviada) →
         // volta pra 'concluida' (o serviço já era concluído; a devolução é de preenchimento).
         // O trigger 0099 carimba resolvida_em sozinho ao sair de 'devolvida'; a gestão
@@ -158,9 +149,10 @@
         // de hoje" numa tarefa devolvida) NÃO tira a tarefa de 'devolvida' — senão vira
         // atalho pra limpar devolução sem corrigir e a métrica do painel perde o sentido.
         // devolvida_em null (devoluções pré-0088, legadas): comportamento antigo (destrava).
+        const { data: tt } = await sb.from('tarefas').select('status,devolvida_em').eq('id', rat.tarefa_id).maybeSingle()
         const corrigeDevolucao = !tt || !tt.devolvida_em ||
           (rat.criado_em && new Date(rat.criado_em) <= new Date(tt.devolvida_em))
-        if (atual === 'devolvida' && rat.status === 'registrado' && !ehPausa && corrigeDevolucao) {
+        if (tt && tt.status === 'devolvida' && corrigeDevolucao) {
           await sb.from('tarefas').update({ status: 'concluida' }).eq('id', rat.tarefa_id)
         }
       }
