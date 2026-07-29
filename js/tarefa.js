@@ -65,6 +65,13 @@ const TarefaApp = (() => {
     const b = document.getElementById('cc-badge'); if (b) { b.textContent = statusLabel(s); b.className = 'ed-badge'; b.style.cssText = statusStyleAttr(s) }
     const h = document.getElementById('cc-hd-status'); if (h) { h.textContent = statusLabel(s); h.style.color = corTextoLegivel(statusCor(s)) }
   }
+  // Pausa manual da gestão (0136): subtítulo "pela gestão · nome · data" da pílula/cabeçalho.
+  const pausaManualTxt = (t) => {
+    if (!t || !t.pausa_manual_em || t.status !== 'em_pausa') return ''
+    const quem = (ref.tecnicos.find(x => x.id === t.pausa_manual_por) || {}).nome || 'gestão'
+    const d = new Date(t.pausa_manual_em)
+    return `pela gestão · ${quem} · ${String(d.getDate()).padStart(2, '0')}/${String(d.getMonth() + 1).padStart(2, '0')}`
+  }
   // Colore o <select> de Status conforme o valor (mesma paleta do badge).
   const pintarStatusSel = () => {
     const sel = document.getElementById('cc-d-status-sel'); if (!sel) return
@@ -92,6 +99,18 @@ const TarefaApp = (() => {
     }
     const noc = document.getElementById('cc-nochip'), dn = document.getElementById('cc-docno')
     if (noc) noc.style.display = (dn && dn.textContent.trim()) ? '' : 'none'
+    // Pausa manual da gestão (0136): subtítulo sob o "Status geral" do cabeçalho.
+    const stEl = document.getElementById('cc-hd-status')
+    if (stEl) {
+      let pm = document.getElementById('cc-hd-pausam')
+      const txt = pausaManualTxt(t)
+      if (txt) {
+        if (!pm) { pm = document.createElement('span'); pm.id = 'cc-hd-pausam'; stEl.after(pm) }
+        pm.style.cssText = 'display:block;font-size:11px;font-weight:600;color:#D63384'
+        pm.textContent = txt
+        pm.title = (t && t.pausa_manual_motivo) || ''
+      } else if (pm) pm.remove()
+    }
   }
   const SIT = {
     ok:            { t: 'OK',               cls: 's-ok' },
@@ -352,7 +371,7 @@ const TarefaApp = (() => {
   // ─────────────────────────── Lista ───────────────────────────
   async function carregarTarefas() {
     const { data: ts, error } = await sb().from('tarefas')
-      .select('id,numero,status,criado_em,data_agendada,orcamento_id,cliente_id,orientacao,observacoes,pedido_compra,tipo_servico_id,conciliacao_obs,pendencias,faturado,data_faturamento,numero_nota,modalidade,valor_hora,motivo_devolucao,motivo_devolucao_cats,motivo_devolucao_detalhe,devolvida_em,origem_tipo,tarefa_origem_id,rat_origem_id,origem_ref_externa,local_servico')
+      .select('id,numero,status,criado_em,data_agendada,orcamento_id,cliente_id,orientacao,observacoes,pedido_compra,tipo_servico_id,conciliacao_obs,pendencias,faturado,data_faturamento,numero_nota,modalidade,valor_hora,motivo_devolucao,motivo_devolucao_cats,motivo_devolucao_detalhe,devolvida_em,origem_tipo,tarefa_origem_id,rat_origem_id,origem_ref_externa,local_servico,pausa_manual_em,pausa_manual_por,pausa_manual_motivo')
       .order('numero', { ascending: false })
     if (error) { toast('Erro ao carregar tarefas: ' + error.message, 'err'); tarefas = []; return }
     tarefas = ts || []
@@ -448,7 +467,7 @@ const TarefaApp = (() => {
             <div class="cc-cli">${esc(cliNomes[t.cliente_id] || '—')}</div>
             ${t.orientacao ? `<div class="cc-ori" title="${esc(t.orientacao)}">${esc(t.orientacao)}</div>` : ''}
           </td>
-          <td><span class="st-pill" style="${statusStyleAttr(t.status)}">${esc(statusLabel(t.status))}</span>${(t.faturado && t.status !== 'faturada') ? ' <span class="pill pill-fat">Faturada</span>' : ''}</td>
+          <td><span class="st-pill" style="${statusStyleAttr(t.status)}"${pausaManualTxt(t) ? ` title="${esc('Pausada ' + pausaManualTxt(t) + (t.pausa_manual_motivo ? ' — ' + t.pausa_manual_motivo : ''))}"` : ''}>${esc(statusLabel(t.status))}</span>${(t.faturado && t.status !== 'faturada') ? ' <span class="pill pill-fat">Faturada</span>' : ''}${pausaManualTxt(t) ? `<div style="font-size:11px;font-weight:600;color:#D63384;margin-top:2px">${esc(pausaManualTxt(t))}</div>` : ''}</td>
           <td>${tec}</td>
           <td>${t.data_agendada ? dmy(t.data_agendada) : '<span class="st">—</span>'}</td>
           <td>${concil}</td>
@@ -1071,6 +1090,28 @@ const TarefaApp = (() => {
     })
   }
 
+  // Modal da pausa manual (0136) — padrão da casa (mesmo esqueleto do modal de devolução).
+  // Resolve com { motivo } (texto ou null) — ou null se cancelar.
+  function pedirMotivoPausa() {
+    return new Promise((resolve) => {
+      const back = document.createElement('div')
+      back.style.cssText = 'position:fixed;inset:0;background:rgba(20,30,55,.5);z-index:400;display:flex;align-items:center;justify-content:center;padding:20px'
+      back.innerHTML = `<div style="background:#fff;border-radius:14px;max-width:480px;width:100%;padding:20px;box-shadow:0 20px 50px rgba(20,30,55,.3)">
+        <div style="font-size:16px;font-weight:700;color:#1B2A4A;margin-bottom:8px">Pausar tarefa</div>
+        <div style="font-size:12.5px;color:#2b3447;background:#FDF2F8;border:1px solid #F3CCE0;border-radius:9px;padding:9px 11px;line-height:1.45;margin-bottom:14px">A pausa da gestão <b>segura o status</b>: edições de RAT e syncs atrasados não a derrubam. Ela é liberada quando um técnico <b>abrir uma RAT nova</b> (retomada real) ou quando você escolher outro status aqui.</div>
+        <label style="font-size:12px;color:#5b6270;font-weight:600">Motivo <span style="font-weight:400;color:#7C8290">(opcional — aparece na auditoria)</span></label>
+        <textarea id="pm-mot" rows="3" style="width:100%;box-sizing:border-box;border:1px solid #D7DCE6;border-radius:10px;padding:10px;font:inherit;font-size:14px;resize:vertical;margin-top:4px" placeholder="Ex.: cliente pediu para segurar; aguardando definição comercial."></textarea>
+        <div style="display:flex;gap:10px;justify-content:flex-end;margin-top:14px">
+          <button id="pm-cancel" style="background:#EEF1F6;color:#5b6270;border:1px solid #D7DCE6;border-radius:10px;padding:9px 16px;cursor:pointer">Cancelar</button>
+          <button id="pm-ok" style="background:#D63384;color:#fff;border:none;border-radius:10px;padding:9px 16px;font-weight:700;cursor:pointer">Pausar</button>
+        </div></div>`
+      document.body.appendChild(back)
+      const close = (val) => { back.remove(); resolve(val) }
+      back.querySelector('#pm-cancel').onclick = () => close(null)
+      back.querySelector('#pm-ok').onclick = () => close({ motivo: back.querySelector('#pm-mot').value.trim() || null })
+    })
+  }
+
   async function salvarDados() {
     if (!cur) return
     // Tipo é obrigatório: sem ele a RAT não tem formulário e o técnico trava em campo.
@@ -1097,6 +1138,19 @@ const TarefaApp = (() => {
       patch.motivo_devolucao_detalhe = dv.detalhe
       patch.motivo_devolucao = dv.texto   // renderizado: display no app + fallback dos antigos
       patch.devolvida_em = new Date().toISOString()   // carimbo p/ o lembrete "sem retorno há +1 dia"
+    }
+    // Pausa manual da gestão (0136): ENTRAR em 'em_pausa' pelo portal grava o marcador (motivo
+    // opcional); escolher outro status limpa no MESMO update (é a despausa explícita que o
+    // guard reconhece — app antigo não envia a coluna e segue bloqueado). Status inalterado
+    // em 'em_pausa' não re-carimba (pausa derivada das RATs não ganha marcador).
+    if (cur.id && patch.status === 'em_pausa' && cur.status !== 'em_pausa') {
+      const pm = await pedirMotivoPausa()
+      if (!pm) return   // cancelou → não salva
+      patch.pausa_manual_em = new Date().toISOString()
+      patch.pausa_manual_por = user.id
+      patch.pausa_manual_motivo = pm.motivo
+    } else if (cur.id && patch.status !== 'em_pausa') {
+      patch.pausa_manual_em = null; patch.pausa_manual_por = null; patch.pausa_manual_motivo = null
     }
     // Modo "nova": cria a tarefa agora (cliente é obrigatório) e reabre já carregada.
     if (!cur.id) {
@@ -1125,6 +1179,11 @@ const TarefaApp = (() => {
     const up = await sb().from('tarefas').update(patch).eq('id', cur.id)
     if (up.error) return toast('Erro ao salvar: ' + up.error.message, 'err')
     cur.status = patch.status
+    if ('pausa_manual_em' in patch) {
+      cur.pausa_manual_em = patch.pausa_manual_em
+      cur.pausa_manual_por = patch.pausa_manual_por
+      cur.pausa_manual_motivo = patch.pausa_manual_motivo
+    }
     if (patch.motivo_devolucao !== undefined) {
       cur.motivo_devolucao = patch.motivo_devolucao
       cur.motivo_devolucao_cats = patch.motivo_devolucao_cats
