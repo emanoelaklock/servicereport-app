@@ -238,12 +238,13 @@ Os dois eixos podem colorir o card. Pausa/almoço **do dia** são estados **mome
 
 **`Em pausa` — status durável (≠ pausa do dia)** *(implementado 19/06; migrações 0068/0069/0070).* Distingue **continuidade imediata** ("Em execução · Atendimento continua", volta amanhã) de **interrompido sem previsão** de retorno ("vou voltar depois pra terminar"). **Não confundir** com a pausa momentânea de almoço/café (eixo de atividade acima), que **não** muda o status durável.
 - **Cor:** rosa `#D63384` (decisão de produto; **swap da migração 0073** — o teal `#0FA3A3` que a pausa usava passou pro `Em Espera (Produtos)`; pílula com contraste via `corTextoLegivel`).
-- **Transições automáticas** (trigger `rat_inicia_tarefa` no banco, `INSERT`/`UPDATE` — cobre offline, acerta no sync):
-  - RAT encerrada com **"Volta amanhã? = Não" + "vou voltar depois pra terminar"** → Tarefa **Em execução → Em pausa** (só dispara na RAT mais recente; nunca rebaixa status terminal/admin). O handoff **"o que falta / o que levar" segue obrigatório**.
+- **Transições automáticas** (trigger `rat_inicia_tarefa` no banco, `INSERT`/`UPDATE` — cobre offline, acerta no sync). **Desde a 0130 o alvo é DERIVADO DO CONJUNTO de RATs da Tarefa** (`tarefa_status_alvo(tarefa)`), não da linha sincronizada — reprocessar snapshot velho dá o mesmo alvo (ordem-independente; matou o flapping *Em execução ↔ Em pausa* do caso 04853). O app **não escreve mais status direto** no sync (o antigo passo 4c saiu; só ficou o destravamento devolvida→concluída), e um guard no banco (`trg_tarefa_status_guard`) segura escrita defasada de app antigo (`em_execucao` com pausa aberta → mantém `em_pausa`):
+  - **Pausa do dia ABERTA em qualquer RAT em andamento** → Tarefa **Em pausa** em tempo real (semântica 0072, agora global à Tarefa).
+  - RAT encerrada com **"Volta amanhã? = Não" + "vou voltar depois pra terminar"** (RAT mais recente) → Tarefa **Em execução → Em pausa** (nunca rebaixa status terminal/admin). O handoff **"o que falta / o que levar" segue obrigatório**.
   - **Nova RAT** numa Tarefa em pausa → **Em pausa → Em execução** (retomada; resolve o caso do técnico offline que abre RAT nova).
-  - **"Volta amanhã? = Sim"** → permanece **Em execução** (sem mudança).
+  - **"Volta amanhã? = Sim"** → permanece **Em execução** (sem mudança). RAT mais recente **improdutiva** → status não muda.
 - **Campo "Pendência do atendimento"** na pausa do mesmo dia (`Houve pausa? = Sim`): texto **opcional** (campo de config do formulário) pra anotar o que ficou pendente; **não** flipa o status durável.
-- **Fora do escopo (Parte B, futuro):** auto-encerramento da pausa na virada do dia (00:00).
+- **Pausa esquecida que cruza a meia-noite (Parte B — implementada):** ao abrir o app (e ao voltar do 2º plano), RAT `em_andamento` com pausa aberta de dia anterior dispara modal obrigatório — **"volto depois"** (fecha o dia como `registrado` + Tarefa Em pausa) ou **"já terminei"** (fecha só o dia; Tarefa segue). A pausa esquecida é **descartada** (não se inventa horário) e o dia fecha **sem `hora_termino`** → o app grava **`pendencias`** na RAT ("dia encerrado por pausa esquecida, sem hora de término") pra gestão ajustar as horas via edição auditada — **nunca fecha em silêncio com horas zeradas** (lição do caso 04853).
 
 ### Regras de RAT dentro da OS
 - **1 RAT por OS por dia** — não abre duas RATs pra mesma OS no mesmo dia. É na RAT do dia que se registra pausa, almoço, etc.
@@ -676,7 +677,7 @@ O **técnico nunca escolhe a modalidade** — ela é **derivada** (do contrato/o
 **Base / banco**
 - **Reestruturação dois níveis FEITA:** `tarefas` (pai, a OS) + `rats` (filhas, `rats.tarefa_id`). Numeração pelo servidor; exibição `#04744/01`.
 - Slice-1 completo: clientes, produtos, tipos_servico, formulario_modelos, tarefas, rats, relatorio_fotos, materiais, sync_eventos, sync_log, view de conciliação, RLS por papel, bucket de anexos.
-- **Trigger:** Tarefa entra em *Em execução* ao receber a primeira RAT; também faz *Em execução ↔ Em pausa* (RAT "volto depois" → Em pausa; nova RAT → Em execução) — `rat_inicia_tarefa`, INSERT/UPDATE (§7).
+- **Trigger:** Tarefa entra em *Em execução* ao receber a primeira RAT; também faz *Em execução ↔ Em pausa* (RAT "volto depois" → Em pausa; nova RAT → Em execução) — `rat_inicia_tarefa`, INSERT/UPDATE (§7). **Desde a 0130**, o alvo vem de `tarefa_status_alvo(tarefa)` (conjunto de RATs, ordem-independente) e `trg_tarefa_status_guard` barra escrita defasada de `em_execucao` com pausa aberta (caso 04853).
 - Papel `comercial` liberado; papel sincronizado com o Portal (`portal_acessos`); gestão de usuários **removida do SR** (centralizada no Portal); foto/cargo vindos do Portal.
 - **Preço de venda do Omie** em `produtos.preco_venda` (sync paginado; ~1.715 produtos).
 
