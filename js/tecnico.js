@@ -1567,6 +1567,17 @@
     else if (screen === 'lista') renderLista()
     else if (screen === 'tarefa-det' && tarefaAberta) abrirTarefaDet(tarefaAberta.id)
   }
+  // Sinal Realtime de tarefas/tarefa_tecnicos (0137): o portal mexeu (status, orientação,
+  // responsável) → re-busca do servidor e re-renderiza a tela que depende de tarefas.
+  // Tarefas não passam pelo SYNC_MAP/pull, por isso o sinal é separado do onSyncChanged.
+  // Guard de formulário: NUNCA re-renderiza por cima de RAT/pré-orçamento aberto (form) —
+  // mesma razão de o onSyncChanged não listar essas telas.
+  window.onTarefasSignal = () => {
+    if (document.hidden || !navigator.onLine) return
+    if (screen === 'home') renderHome()                 // re-busca tarefas + fila + contadores
+    else if (screen === 'tarefas') renderTarefas()
+    else if (screen === 'tarefa-det' && tarefaAberta) abrirTarefaDet(tarefaAberta.id)
+  }
   // Terminou um ciclo de envio (tarefas/RATs subiram/sumiram) → atualiza a tela atual.
   window.onSyncDone = () => {
     if (screen === 'home') renderHome()

@@ -610,8 +610,12 @@
   }
 
   // ───────────────────── Realtime (sinal → reconcilia) ─────────────────────
-  let rtChannel = null, pullTimer = null
+  let rtChannel = null, pullTimer = null, tarefasTimer = null
   const agendarPull = () => { clearTimeout(pullTimer); pullTimer = setTimeout(() => pullChanges(), 400) }
+  // Tarefas NÃO passam pelo pull (não estão no SYNC_MAP — a lista vem de SELECT direto
+  // em carregarTarefas): o sinal só avisa a UI pra re-buscar. Debounce próprio: um lote
+  // de mudanças no portal (ex.: distribuir a agenda do dia) vira UMA re-busca.
+  const agendarTarefas = () => { clearTimeout(tarefasTimer); tarefasTimer = setTimeout(() => { if (typeof window.onTarefasSignal === 'function') window.onTarefasSignal() }, 400) }
   function startRealtime() {
     const sb = getSupabase(); if (!sb || rtChannel) return
     try {
@@ -620,6 +624,10 @@
         rtChannel.on('postgres_changes', { event: '*', schema: 'public', table: tabela }, agendarPull)
       }
       rtChannel.on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'sync_tombstones' }, agendarPull)
+      // Tarefas e atribuições (0137): mudança feita no portal (status, orientação, novo
+      // responsável) chega na hora — antes só no tick de 60s da fila / troca de tela.
+      rtChannel.on('postgres_changes', { event: '*', schema: 'public', table: 'tarefas' }, agendarTarefas)
+      rtChannel.on('postgres_changes', { event: '*', schema: 'public', table: 'tarefa_tecnicos' }, agendarTarefas)
       rtChannel.subscribe()
     } catch (e) { console.warn('[realtime]', e) }
   }
