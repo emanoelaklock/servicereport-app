@@ -126,14 +126,26 @@ const JornadaApp = (() => {
         <div class="t">${esc(r.tecnico_nome || '—')} · ${dmyDia(r.dia)} — horários se cruzam <b>${hm5(r.conflito_inicio)}–${hm5(r.conflito_fim)}</b></div>
         <div class="d">${linkRat(r.rat_a || {})} × ${linkRat(r.rat_b || {})} — conferir se o período em dobro é real (pode ser legítimo: saiu e voltou).</div>
       </div><button type="button" class="btn btn-ghost sp-ok" ${dataPar(r)} data-dia="${esc(r.dia || '')}" data-ci="${hm5(r.conflito_inicio)}" data-cf="${hm5(r.conflito_fim)}" style="flex:none;padding:7px 12px;font-size:12px" title="Conferi — é legítimo; sai do Painel">Revisado</button></div>`).join('')
+    // Revisadas ficam OCULTAS por padrão (o clique em "Revisado" tira o item da tela na
+    // hora); o link abre a seção pra auditoria/reabrir. Estado zera a cada recarga — ok.
     const htmlFeitas = !feitas.length ? '' : `
-      <div class="j-empty" style="margin:12px 0 8px">${feitas.length} já revisada(s) — reabrir se precisar reconferir:</div>
+      <div class="j-empty" style="margin:12px 0 8px"><a href="#" id="sp-toggle-rev">Mostrar ${feitas.length} já revisada(s)</a></div>
+      <div id="sp-revisadas" style="display:none">
       ${feitas.map(r => { const v = revDe(r); return `<div class="hd-alert" style="opacity:.62"><div style="flex:1">
         <div class="t">${esc(r.tecnico_nome || '—')} · ${dmyDia(r.dia)} — cruzavam <b>${hm5(r.conflito_inicio)}–${hm5(r.conflito_fim)}</b></div>
         <div class="d">${linkRat(r.rat_a || {})} × ${linkRat(r.rat_b || {})} — revisada por ${esc(v.revisado_nome || '—')} em ${dmyDia(v.revisado_em)}.</div>
-      </div><button type="button" class="btn btn-ghost sp-reabrir" ${dataPar(r)} style="flex:none;padding:7px 12px;font-size:12px" title="Desfaz a revisão — volta a pendente">Reabrir</button></div>` }).join('')}`
+      </div><button type="button" class="btn btn-ghost sp-reabrir" ${dataPar(r)} style="flex:none;padding:7px 12px;font-size:12px" title="Desfaz a revisão — volta a pendente">Reabrir</button></div>` }).join('')}
+      </div>`
     box.innerHTML = (pend.length ? htmlPend : '<div class="j-empty">Nenhuma sobreposição pendente de verificação.</div>') + htmlFeitas
     box.onclick = onSobrepClick
+    const tg = document.getElementById('sp-toggle-rev')
+    if (tg) tg.onclick = (e) => {
+      e.preventDefault()
+      const el = document.getElementById('sp-revisadas')
+      const abrir = el.style.display === 'none'
+      el.style.display = abrir ? '' : 'none'
+      tg.textContent = `${abrir ? 'Ocultar' : 'Mostrar'} ${feitas.length} já revisada(s)`
+    }
   }
   async function onSobrepClick(e) {
     const ok = e.target.closest('.sp-ok'), re = e.target.closest('.sp-reabrir')
