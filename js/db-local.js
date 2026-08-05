@@ -172,6 +172,12 @@
         // onversionchange: se outra aba/instância quiser subir de versão, ESTA conexão cede (fecha)
         // em vez de bloquear o upgrade — metade preventiva do fix (um DB que não pendura em bloqueio).
         _dbConn.onversionchange = () => { window.srDbg && window.srDbg('db: onversionchange → fechando esta conexão', 'warn'); try { _dbConn.close() } catch (e) { /* nada */ } _dbConn = null; _dbp = null }
+        // onclose: a conexão morreu ANORMALMENTE (iOS suspende o PWA — câmera/troca de app — e o
+        // WebKit mata o IndexedDB por baixo; o close() explícito NÃO dispara este evento). Sem
+        // isso o cache aponta pra conexão defunta e TODA operação local aborta até recarregar a
+        // página (caso Arian, F21). Guarda de identidade: um onclose atrasado da conexão velha
+        // não pode derrubar a conexão nova que o retry já abriu.
+        req.result.onclose = () => { if (_dbConn === req.result) _derrubarConexao('onclose') }
         window.srDbg && window.srDbg('db: ok ' + _name)
         resolve(req.result)
       }
@@ -180,19 +186,62 @@
     return _dbp
   }
 
-  // helper: roda uma transação e resolve quando ela completa
+  // ── Morte de conexão (família iOS PWA): detecção + recuperação ──
+  // O WebKit mata a conexão do IndexedDB quando suspende a página (câmera aberta, troca de
+  // app). A conexão cacheada vira zumbi: transação nova lança InvalidStateError, transação
+  // em voo aborta com AbortError ("The operation was aborted."). SÓ esses dois nomes contam
+  // como morte de conexão — ConstraintError/QuotaExceededError/etc. são erro de DADO e
+  // nunca são retentados (retry não salvaria e mascararia o problema real).
+  function _erroConexaoMorta(e) {
+    return !!e && (e.name === 'InvalidStateError' || e.name === 'AbortError')
+  }
+  function _derrubarConexao(motivo) {
+    window.srDbg && window.srDbg('db: conexão morta (' + motivo + ') → descarta cache e reabre na próxima', 'warn')
+    if (_dbConn) { try { _dbConn.close() } catch (e) { /* nada */ } }
+    _dbConn = null; _dbp = null
+  }
+
+  // helper: roda uma transação e resolve quando ela completa.
+  // Retry de UMA vez, só para morte de conexão (_erroConexaoMorta). Re-rodar o fn é seguro:
+  // transação IndexedDB é atômica — a abortada não commitou NADA, então a 2ª tentativa parte
+  // do zero (nenhum add/put parcial sobrevive). Nenhum store usa autoincrement: toda chave é
+  // keyPath explícito gerado ANTES ou DENTRO do fn — se (hipótese impossível) a 1ª tivesse
+  // commitado, o add re-executado falharia alto com ConstraintError, nunca duplicaria em silêncio.
   async function tx(stores, mode, fn) {
+    try { return await _tx1(stores, mode, fn) } catch (e) {
+      if (!_erroConexaoMorta(e)) throw e
+      _derrubarConexao('tx ' + (e.name || 'erro'))
+      return _tx1(stores, mode, fn)
+    }
+  }
+  async function _tx1(stores, mode, fn) {
     const d = await db()
     return new Promise((resolve, reject) => {
-      const t = d.transaction(stores, mode)
+      let t
+      // conexão fechando/fechada → transaction() lança InvalidStateError síncrono
+      try { t = d.transaction(stores, mode) } catch (e) { return reject(e) }
       let out
       t.oncomplete = () => resolve(out)
       t.onerror = () => reject(t.error)
-      t.onabort = () => reject(t.error)
+      // t.error pode vir null quando o WebKit aborta ao matar a conexão — materializa o
+      // AbortError pra detecção do retry não depender do campo.
+      t.onabort = () => reject(t.error || new DOMException('The operation was aborted.', 'AbortError'))
       out = fn(t)
     })
   }
   const reqP = (r) => new Promise((res, rej) => { r.onsuccess = () => res(r.result); r.onerror = () => rej(r.error) })
+
+  // Leitura avulsa (transação readonly implícita) com o MESMO guarda de conexão morta do tx():
+  // detecta InvalidStateError/AbortError, derruba o cache e re-tenta UMA vez. `usar` recebe a
+  // objectStore readonly (pode chamar .index()). Leitura é idempotente por natureza.
+  async function ro(store, usar) {
+    const roda = async () => usar((await db()).transaction(store).objectStore(store))
+    try { return await roda() } catch (e) {
+      if (!_erroConexaoMorta(e)) throw e
+      _derrubarConexao('ro ' + (e.name || 'erro'))
+      return roda()
+    }
+  }
 
   // ── Eventos (trilha local imutável; sync.js sobe para sync_eventos) ──
   async function _registrarEvento(t, client_uuid, evento, detalhe) {
@@ -263,15 +312,12 @@
   }
 
   async function obterRat(client_uuid) {
-    const d = await db()
-    return reqP(d.transaction(ST_RATS).objectStore(ST_RATS).get(client_uuid))
+    return ro(ST_RATS, s => reqP(s.get(client_uuid)))
   }
 
   // Lista RATs (opcionalmente filtra por status). Ordena por criado_em desc.
   async function listarRats({ status } = {}) {
-    const d = await db()
-    const s = d.transaction(ST_RATS).objectStore(ST_RATS)
-    const all = await reqP(s.getAll())
+    const all = await ro(ST_RATS, s => reqP(s.getAll()))
     const arr = status ? all.filter(r => r.sync_status === status) : all
     return arr.sort((a, b) => (b.criado_em || '').localeCompare(a.criado_em || ''))
   }
@@ -332,9 +378,7 @@
     })
   }
   async function listarMateriais(client_uuid) {
-    const d = await db()
-    const idx = d.transaction(ST_MATERIAIS).objectStore(ST_MATERIAIS).index('rat_uuid')
-    const arr = await reqP(idx.getAll(client_uuid))
+    const arr = await ro(ST_MATERIAIS, s => reqP(s.index('rat_uuid').getAll(client_uuid)))
     return arr.sort((a, b) => (a.criado_em || '').localeCompare(b.criado_em || ''))
   }
   async function removerMaterial(id) {
@@ -458,14 +502,11 @@
   }
 
   async function obterPreorc(client_uuid) {
-    const d = await db()
-    return reqP(d.transaction(ST_PREORC).objectStore(ST_PREORC).get(client_uuid))
+    return ro(ST_PREORC, s => reqP(s.get(client_uuid)))
   }
 
   async function listarPreorc({ status } = {}) {
-    const d = await db()
-    const s = d.transaction(ST_PREORC).objectStore(ST_PREORC)
-    const all = await reqP(s.getAll())
+    const all = await ro(ST_PREORC, s => reqP(s.getAll()))
     const arr = status ? all.filter(r => r.sync_status === status) : all
     return arr.sort((a, b) => (b.criado_em || '').localeCompare(a.criado_em || ''))
   }
@@ -505,9 +546,7 @@
     return reg.id
   }
   async function listarItensPreorc(client_uuid) {
-    const d = await db()
-    const idx = d.transaction(ST_PREORC_ITENS).objectStore(ST_PREORC_ITENS).index('preorc_uuid')
-    const arr = await reqP(idx.getAll(client_uuid))
+    const arr = await ro(ST_PREORC_ITENS, s => reqP(s.index('preorc_uuid').getAll(client_uuid)))
     return arr.sort((a, b) => (a.criado_em || '').localeCompare(b.criado_em || ''))
   }
   async function removerItemPreorc(id) {
@@ -531,9 +570,7 @@
   }
 
   async function listarFotos(client_uuid) {
-    const d = await db()
-    const idx = d.transaction(ST_FOTOS).objectStore(ST_FOTOS).index('rat_uuid')
-    const arr = await reqP(idx.getAll(client_uuid))
+    const arr = await ro(ST_FOTOS, s => reqP(s.index('rat_uuid').getAll(client_uuid)))
     return arr.sort((a, b) => (a.criado_em || '').localeCompare(b.criado_em || ''))
   }
 
@@ -572,9 +609,7 @@
 
   // ── Eventos: leitura/baixa pelo sync.js ──
   async function listarEventos({ client_uuid, pendentes } = {}) {
-    const d = await db()
-    const s = d.transaction(ST_EVENTOS).objectStore(ST_EVENTOS)
-    let arr = await reqP(s.getAll())
+    let arr = await ro(ST_EVENTOS, s => reqP(s.getAll()))
     if (client_uuid) arr = arr.filter(e => e.client_uuid === client_uuid)
     if (pendentes) arr = arr.filter(e => !e.enviado)
     return arr.sort((a, b) => (a.em || '').localeCompare(b.em || ''))
@@ -598,12 +633,10 @@
     return seg
   }
   async function obterSegmento(id) {
-    const d = await db()
-    return reqP(d.transaction(ST_SEGMENTOS).objectStore(ST_SEGMENTOS).get(id))
+    return ro(ST_SEGMENTOS, s => reqP(s.get(id)))
   }
   async function listarSegmentos(data) {
-    const d = await db()
-    const all = await reqP(d.transaction(ST_SEGMENTOS).objectStore(ST_SEGMENTOS).getAll())
+    const all = await ro(ST_SEGMENTOS, s => reqP(s.getAll()))
     const arr = data ? all.filter(s => s.data === data) : all
     return arr.sort((a, b) => (a.inicio || '').localeCompare(b.inicio || ''))
   }
@@ -612,8 +645,7 @@
     return arr.find(s => !s.fim) || null
   }
   async function segmentosPendentes() {
-    const d = await db()
-    const all = await reqP(d.transaction(ST_SEGMENTOS).objectStore(ST_SEGMENTOS).getAll())
+    const all = await ro(ST_SEGMENTOS, s => reqP(s.getAll()))
     return all.filter(s => s.sync_status !== STATUS.CONFIRMADO)
   }
   async function marcarSegmentoStatus(id, novo) {
@@ -637,13 +669,11 @@
     return d
   }
   async function listarDeslocamentos() {
-    const dd = await db()
-    const all = await reqP(dd.transaction(ST_DESLOC).objectStore(ST_DESLOC).getAll())
+    const all = await ro(ST_DESLOC, s => reqP(s.getAll()))
     return all.sort((a, b) => (b.saida_em || '').localeCompare(a.saida_em || ''))
   }
   async function deslocamentosPendentes() {
-    const dd = await db()
-    const all = await reqP(dd.transaction(ST_DESLOC).objectStore(ST_DESLOC).getAll())
+    const all = await ro(ST_DESLOC, s => reqP(s.getAll()))
     return all.filter(x => x.sync_status !== STATUS.CONFIRMADO && !x.tombstoned)   // tombstoned: não reenviar
   }
   async function marcarDeslocamentoStatus(id, novo) {
@@ -663,8 +693,7 @@
     return t
   }
   async function listarTarefasLocais() {
-    const dd = await db()
-    return reqP(dd.transaction(ST_TAREFAS).objectStore(ST_TAREFAS).getAll())
+    return ro(ST_TAREFAS, s => reqP(s.getAll()))
   }
   async function tarefasLocaisPendentes() {
     return (await listarTarefasLocais()).filter(x => x.sync_status !== STATUS.CONFIRMADO)
@@ -684,12 +713,10 @@
   }
   const storeKeyPath = (store) => (Object.values(SYNC_MAP).find(m => m.store === store) || { key: 'id' }).key
   async function obterPorChave(store, chave) {
-    const dd = await db()
-    return reqP(dd.transaction(store).objectStore(store).get(chave))
+    return ro(store, s => reqP(s.get(chave)))
   }
   async function listarStore(store) {
-    const dd = await db()
-    return reqP(dd.transaction(store).objectStore(store).getAll())
+    return ro(store, s => reqP(s.getAll()))
   }
   // Grava uma linha vinda do SERVIDOR (já confirmada). Não mexe se a cópia local
   // estiver pendente de envio (preserva edição offline não sincronizada).
