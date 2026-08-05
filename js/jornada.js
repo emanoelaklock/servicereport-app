@@ -128,10 +128,15 @@ const JornadaApp = (() => {
       </div><button type="button" class="btn btn-ghost sp-ok" ${dataPar(r)} data-dia="${esc(r.dia || '')}" data-ci="${hm5(r.conflito_inicio)}" data-cf="${hm5(r.conflito_fim)}" style="flex:none;padding:7px 12px;font-size:12px" title="Conferi — é legítimo; sai do Painel">Revisado</button></div>`).join('')
     // Revisadas ficam OCULTAS por padrão (o clique em "Revisado" tira o item da tela na
     // hora); o link abre a seção pra auditoria/reabrir. Estado zera a cada recarga — ok.
-    const htmlFeitas = !feitas.length ? '' : `
-      <div class="j-empty" style="margin:12px 0 8px"><a href="#" id="sp-toggle-rev">Mostrar ${feitas.length} já revisada(s)</a></div>
+    // Janela de 30 DIAS só na EXIBIÇÃO (pedido da gestão 05/08: a lista não pode crescer
+    // pra sempre): revisão mais antiga segue valendo no filtro de pendentes (revMap usa
+    // TODAS) e gravada no banco — só sai desta seção da tela.
+    const corte30 = Date.now() - 30 * 86400000
+    const feitasRecentes = feitas.filter(r => { const v = revDe(r); return new Date(v.revisado_em).getTime() >= corte30 })
+    const htmlFeitas = !feitasRecentes.length ? '' : `
+      <div class="j-empty" style="margin:12px 0 8px"><a href="#" id="sp-toggle-rev">Mostrar ${feitasRecentes.length} revisada(s) nos últimos 30 dias</a></div>
       <div id="sp-revisadas" style="display:none">
-      ${feitas.map(r => { const v = revDe(r); return `<div class="hd-alert" style="opacity:.62"><div style="flex:1">
+      ${feitasRecentes.map(r => { const v = revDe(r); return `<div class="hd-alert" style="opacity:.62"><div style="flex:1">
         <div class="t">${esc(r.tecnico_nome || '—')} · ${dmyDia(r.dia)} — cruzavam <b>${hm5(r.conflito_inicio)}–${hm5(r.conflito_fim)}</b></div>
         <div class="d">${linkRat(r.rat_a || {})} × ${linkRat(r.rat_b || {})} — revisada por ${esc(v.revisado_nome || '—')} em ${dmyDia(v.revisado_em)}.</div>
       </div><button type="button" class="btn btn-ghost sp-reabrir" ${dataPar(r)} style="flex:none;padding:7px 12px;font-size:12px" title="Desfaz a revisão — volta a pendente">Reabrir</button></div>` }).join('')}
@@ -144,7 +149,7 @@ const JornadaApp = (() => {
       const el = document.getElementById('sp-revisadas')
       const abrir = el.style.display === 'none'
       el.style.display = abrir ? '' : 'none'
-      tg.textContent = `${abrir ? 'Ocultar' : 'Mostrar'} ${feitas.length} já revisada(s)`
+      tg.textContent = `${abrir ? 'Ocultar' : 'Mostrar'} ${feitasRecentes.length} revisada(s) nos últimos 30 dias`
     }
   }
   async function onSobrepClick(e) {
