@@ -46,6 +46,12 @@ Regras do projeto que você (Claude Code) deve seguir em **toda** sessão. Leia 
 - **Ajustes pequenos (CSS/UI, correção pontual) podem ir direto na `main` e com push, sem pedir confirmação a cada vez.** Bump do `CACHE` no `service-worker.js` quando mexer em CSS/JS servido. O push fica liberado para esses casos; pacote pesado continua em branch + PR.
 - Mudou comportamento? **Atualize o spec** correspondente.
 
+## Sessões paralelas (várias instâncias do Code no mesmo repo)
+- **Múltiplas sessões do Code podem operar em paralelo em frentes DISTINTAS.**
+- **Antes de criar migração: `git pull` na main e conferir o próximo número livre** — o contador de migrações é recurso compartilhado; **nunca presumir o próximo**.
+- **Trabalho encontrado na main que não é seu: presumir sessão paralela, não tocar, seguir** (como feito no `c63dd5d` ✓).
+- **O doc de robustez (`docs/robustez-pos-go-live.md`) e o spec são o cérebro compartilhado entre sessões.**
+
 ## Motor de PDF compartilhado (tsrv-pdf-engine)
 - `js/shared-pdf/` é **cópia sincronizada** do repo privado `tsrv-pdf-engine` (tag no
   `ENGINE_MANIFEST.json`). **Nunca editar à mão** — mudança de motor nasce lá, chega por
