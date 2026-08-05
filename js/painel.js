@@ -9,7 +9,33 @@
     const sb = getSupabase()
     const { data: cRows } = await sb.from('clientes').select('id,nome')
     const cli = {}; (cRows || []).forEach(c => { cli[c.id] = c.nome })
-    await Promise.all([carregarDevolvidas(sb, cli), carregarAcompanhamento(sb, cli), carregarPendExec(sb, cli), carregarSobreposicoes(sb)])
+    await Promise.all([carregarEnviosPresos(sb), carregarDevolvidas(sb, cli), carregarAcompanhamento(sb, cli), carregarPendExec(sb, cli), carregarSobreposicoes(sb)])
+  }
+
+  // Envios presos no aparelho (vw_alerta_rat_fotos_orfas — vigia F23/0139): pasta de fotos no
+  // Storage SEM RAT no banco = o sync subiu as fotos e morreu antes do upsert (caso 4806) ou a
+  // RAT foi excluída só localmente. A view já desconta pré-orçamento, tombstone e sync em voo
+  // (<1h) e devolve 0 linhas fora de admin/gestor_axis (o card simplesmente não aparece).
+  async function carregarEnviosPresos(sb) {
+    const { data, error } = await sb.from('vw_alerta_rat_fotos_orfas')
+      .select('*').order('ultimo_envio', { ascending: false })
+    renderEnviosPresos(error ? [] : (data || []))
+  }
+  function renderEnviosPresos(rows) {
+    const box = document.getElementById('presos-alerta'); if (!box) return
+    if (!rows.length) { box.innerHTML = ''; return }
+    const dmy = (iso) => iso ? String(iso).slice(0, 10).split('-').reverse().join('/') : '—'
+    const idade = (iso) => { const d = Math.floor((Date.now() - new Date(iso).getTime()) / 86400000); return d < 1 ? 'hoje' : d === 1 ? 'há 1 dia' : `há ${d} dias` }
+    const ICON = '<svg viewBox="0 0 24 24"><path d="M22.61 16.95A5 5 0 0 0 18 10h-1.26a8 8 0 0 0-7.05-6"/><path d="M5 5a8 8 0 0 0 4 15h9a5 5 0 0 0 1.7-.3"/><line x1="1" y1="1" x2="23" y2="23"/></svg>'
+    box.innerHTML = `<div class="devol-alert">
+      <div class="devol-alert-h">${ICON} Envios presos no aparelho (fotos sem RAT) · ${rows.length}</div>
+      <div class="devol-alert-grid">${rows.map(r => `
+        <div class="devol-alert-card" title="Fotos no Storage sem RAT correspondente — o envio parou no meio">
+          <div class="dac-no">${esc(r.tecnico_nome || 'Técnico desconhecido')}</div>
+          <div class="dac-cli">${r.arquivos} foto${r.arquivos > 1 ? 's' : ''} · ${dmy(r.primeiro_envio)}</div>
+          <div class="dac-age">RAT não chegou ao servidor (${esc(idade(r.ultimo_envio))}) · pedir ao técnico pra abrir o app online</div>
+        </div>`).join('')}</div>
+    </div>`
   }
 
   // Sobreposição de horários entre RATs (vw_alerta_sobreposicao — rede de segurança da
