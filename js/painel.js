@@ -17,11 +17,20 @@
   // RAT foi excluída só localmente. A view já desconta pré-orçamento, tombstone e sync em voo
   // (<1h) e devolve 0 linhas fora de admin/gestor_axis (o card simplesmente não aparece).
   async function carregarEnviosPresos(sb) {
-    const { data, error } = await sb.from('vw_alerta_rat_fotos_orfas')
-      .select('*').order('ultimo_envio', { ascending: false })
-    renderEnviosPresos(error ? [] : (data || []))
+    // Revisadas (0141) saem do card: a triagem vale POR ESTADO — se chegar foto NOVA na
+    // pasta depois da revisão (ultimo_envio > revisado_em), o item volta pra nova triagem.
+    const [vw, rev] = await Promise.all([
+      sb.from('vw_alerta_rat_fotos_orfas').select('*').order('ultimo_envio', { ascending: false }),
+      sb.from('envio_preso_revisoes').select('rat_client_uuid,revisado_em'),
+    ])
+    const revMap = {}; (rev.data || []).forEach(v => { revMap[v.rat_client_uuid] = v })
+    const pend = (vw.error ? [] : (vw.data || [])).filter(r => {
+      const v = revMap[r.rat_client_uuid]
+      return !(v && new Date(r.ultimo_envio).getTime() <= new Date(v.revisado_em).getTime())
+    })
+    renderEnviosPresos(pend, sb)
   }
-  function renderEnviosPresos(rows) {
+  function renderEnviosPresos(rows, sb) {
     const box = document.getElementById('presos-alerta'); if (!box) return
     if (!rows.length) { box.innerHTML = ''; return }
     const dmy = (iso) => iso ? String(iso).slice(0, 10).split('-').reverse().join('/') : '—'
@@ -29,13 +38,30 @@
     const ICON = '<svg viewBox="0 0 24 24"><path d="M22.61 16.95A5 5 0 0 0 18 10h-1.26a8 8 0 0 0-7.05-6"/><path d="M5 5a8 8 0 0 0 4 15h9a5 5 0 0 0 1.7-.3"/><line x1="1" y1="1" x2="23" y2="23"/></svg>'
     box.innerHTML = `<div class="devol-alert">
       <div class="devol-alert-h">${ICON} Envios presos no aparelho (fotos sem RAT) · ${rows.length}</div>
-      <div class="devol-alert-grid">${rows.map(r => `
+      <div class="devol-alert-grid">${rows.map((r, i) => `
         <div class="devol-alert-card" title="Fotos no Storage sem RAT correspondente — o envio parou no meio">
           <div class="dac-no">${esc(r.tecnico_nome || 'Técnico desconhecido')}</div>
           <div class="dac-cli">${r.arquivos} foto${r.arquivos > 1 ? 's' : ''} · ${dmy(r.primeiro_envio)}</div>
-          <div class="dac-age">RAT não chegou ao servidor (${esc(idade(r.ultimo_envio))}) · pedir ao técnico pra abrir o app online</div>
+          <div class="dac-age" style="display:flex;justify-content:space-between;align-items:center;gap:8px">
+            <span>RAT não chegou (${esc(idade(r.ultimo_envio))}) · pedir ao técnico pra abrir o app online</span>
+            <button type="button" class="btn btn-ghost" data-preso-ok="${i}" style="flex:none;padding:6px 10px;font-size:12px" title="Triagem feita com o técnico — sai do Painel; volta se chegar foto nova">Revisado</button>
+          </div>
         </div>`).join('')}</div>
     </div>`
+    box.querySelectorAll('[data-preso-ok]').forEach(btn => btn.onclick = async () => {
+      btn.disabled = true
+      const r = rows[Number(btn.dataset.presoOk)]
+      const { data: { user } } = await sb.auth.getUser()
+      let nome = null
+      if (user) { const u = await sb.from('usuarios').select('nome').eq('id', user.id).maybeSingle(); nome = (u.data || {}).nome || null }
+      const { error } = await sb.from('envio_preso_revisoes').upsert({
+        rat_client_uuid: r.rat_client_uuid, tecnico_id: r.tecnico_id || null,
+        revisado_por: (user && user.id) || null, revisado_nome: nome, revisado_em: new Date().toISOString(),
+      })
+      if (error) { toast('Erro ao registrar a revisão: ' + error.message, 'err'); btn.disabled = false; return }
+      toast('Envio preso revisado — sai do Painel.', 'ok')
+      carregarEnviosPresos(sb)
+    })
   }
 
   // Sobreposição de horários entre RATs (vw_alerta_sobreposicao — rede de segurança da
