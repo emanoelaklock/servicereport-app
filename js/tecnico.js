@@ -3285,24 +3285,50 @@
     const files = Array.from(fileList || [])
     // Falha ao gravar UMA foto não pode virar banner de crash nem derrubar as demais (família
     // iOS/F21: o retry do db-local resolve a conexão morta; sobra p/ cá o residual — ex.: quota).
-    let falhas = 0
+    let falhas = 0, primeiroErro = null
     for (const f of files) {
       if (!f.type.startsWith('image/')) continue
       try {
-        const blob = await comprimirFoto(f)
+        let blob = await comprimirFoto(f)
+        // Compressão caiu no fallback (=== arquivo cru do seletor): MATERIALIZA em memória antes
+        // de gravar. Blob file-backed do picker pode já estar com o arquivo temporário limpo pelo
+        // iOS — clonar pro IndexedDB aborta (irmão do caso Maicon, na escrita). Se o arquivo está
+        // ilegível, o arrayBuffer() falha AQUI com erro nomeado, não como abort anônimo da tx.
+        if (blob === f) blob = new Blob([await f.arrayBuffer()], { type: f.type || 'image/jpeg' })
         await D().adicionarFoto(cur.client_uuid, blob, null)   // legenda preenchida depois, por foto
       } catch (e) {
-        falhas++
+        falhas++; if (!primeiroErro) primeiroErro = e
         window.srDbg && srDbg('foto: falha ao salvar — ' + (e && (e.name + ': ' + e.message)), 'warn')
       }
     }
-    await refreshThumbs()
-    if (falhas) toast(falhas === 1 ? 'Não consegui salvar 1 foto — tente de novo.' : ('Não consegui salvar ' + falhas + ' fotos — tente de novo.'), 'err')
+    try { await refreshThumbs() } catch (e) { window.srDbg && srDbg('fotos: refresh falhou — ' + (e && e.name), 'warn') }
+    if (falhas) {
+      // Toast É o canal de diagnóstico de campo (o técnico manda print): nome do erro real +
+      // ocupação do armazenamento — distingue quota cheia / arquivo ilegível / IDB morto.
+      let det = primeiroErro ? ' [' + (primeiroErro.name || 'Erro') + ': ' + (primeiroErro.message || '?') + ']' : ''
+      try {
+        if (navigator.storage && navigator.storage.estimate) {
+          const est = await navigator.storage.estimate()
+          if (est && est.quota) det += ' · uso ' + Math.round((est.usage || 0) / 1048576) + '/' + Math.round(est.quota / 1048576) + ' MB'
+        }
+      } catch (e) { /* sem estimate, segue sem */ }
+      const dica = (primeiroErro && primeiroErro.name === 'AbortError')
+        ? ' Feche o app por completo e abra de novo; se repetir, confira o espaço livre do iPhone.'
+        : ' Tente de novo.'
+      toast('Não consegui salvar ' + falhas + ' foto' + (falhas === 1 ? '' : 's') + det + '.' + dica, 'err')
+    }
   }
   async function refreshThumbs() {
     const box = document.getElementById('thumbs')
     if (!box) return
-    const fotos = await D().listarFotos(cur.client_uuid)
+    let fotos
+    // Leitura falhou (IDB indisponível): avisa no lugar das miniaturas em vez de rejeição
+    // solta (que vira banner vermelho via unhandledrejection nos chamadores sem await).
+    try { fotos = await D().listarFotos(cur.client_uuid) } catch (e) {
+      window.srDbg && srDbg('fotos: listar falhou — ' + (e && e.name), 'warn')
+      box.innerHTML = '<p class="hintn">Não consegui carregar as fotos agora — feche e abra o app.</p>'
+      return
+    }
     box.setAttribute('data-lb-scope', '')   // fotos da RAT navegam entre si no lightbox
     box.innerHTML = fotos.map(f => {
       // blob local → objectURL; foto hidratada (sem blob) → preview assinado; nunca usa o path cru.
@@ -3325,7 +3351,9 @@
   async function atualizarResumoFotos() {
     const card = document.getElementById('form-fotos-btn'), st = document.getElementById('reg-fotos-st')
     if (!card || !st || !cur) return
-    const n = (await D().listarFotos(cur.client_uuid)).length
+    let n
+    // Leitura falhou: mantém o rótulo atual (não mente "Pendente" nem estoura banner).
+    try { n = (await D().listarFotos(cur.client_uuid)).length } catch (e) { return }
     if (n) { st.className = 'st st-ok'; st.textContent = `${n} foto${n === 1 ? '' : 's'} ✓`; card.classList.remove('btn-erro') }
     else { st.className = 'st st-pend'; st.textContent = 'Pendente' }
     atualizarProgresso()

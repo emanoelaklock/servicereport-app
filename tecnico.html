@@ -29,7 +29,11 @@ try{if(localStorage.getItem('sr_dark')==='1')document.documentElement.classList.
     var stk=(e&&e.error&&e.error.stack)?('\n'+e.error.stack):'';
     mostrarErro(msg+'\n'+loc+stk);
   });
-  window.addEventListener('unhandledrejection',function(e){ var r=e&&e.reason; mostrarErro('Promise: '+((r&&r.stack)?r.stack:(r&&r.message?r.message:String(r)))); });
+  window.addEventListener('unhandledrejection',function(e){ var r=e&&e.reason;
+    // DOMException não tem stack — sem o NOME, o banner vira "The operation was aborted." genérico
+    // (diagnóstico do F21 sofreu com isso). Nome sempre na frente quando existir.
+    var d=(r&&r.stack)?r.stack:(r&&r.message?((r.name?r.name+': ':'')+r.message):String(r));
+    mostrarErro('Promise: '+d); });
 })();</script>
 <script>/* O iOS Safari trata 100vh/100dvh como altura INDEFINIDA pro flex E rola o documento sob o shell
    estático → lá precisa de body position:fixed + altura em PX (window.innerHeight) via --app-h.
