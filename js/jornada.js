@@ -99,21 +99,64 @@ const JornadaApp = (() => {
   // horários se cruzam. Só mostra; não trava e não altera nada — a sobreposição pode ser
   // legítima (técnico atendeu um chamado rápido e voltou ao serviço anterior).
   const hm5 = (t) => String(t || '—').slice(0, 5)   // 'HH:MM[:SS]' → 'HH:MM' (hhmm lá em cima é p/ ISO)
+  // Revisão persistida (0140): chave é o PAR de RATs (ids ordenados) e a revisão só vale
+  // enquanto a JANELA do conflito for a mesma da conferência — horários editados depois
+  // mudam o cruzamento e o par volta a pendente (revisão não cobre o que ninguém viu).
+  const spParKey = (r) => { const a = (r.rat_a || {}).rat_id || '', b = (r.rat_b || {}).rat_id || ''; return a < b ? a + '|' + b : b + '|' + a }
   async function carregarSobreposicoes() {
     const box = document.getElementById('sp-box'); if (!box) return
-    const { data, error } = await sb().from('vw_alerta_sobreposicao').select('*').order('dia', { ascending: false })
-    if (error) { box.innerHTML = '<div class="j-empty">Não foi possível carregar a conferência.</div>'; return }
-    const rows = data || []
+    const [vw, rev] = await Promise.all([
+      sb().from('vw_alerta_sobreposicao').select('*').order('dia', { ascending: false }),
+      sb().from('sobreposicao_revisoes').select('*'),
+    ])
+    if (vw.error) { box.innerHTML = '<div class="j-empty">Não foi possível carregar a conferência.</div>'; return }
+    const rows = vw.data || []
     if (!rows.length) { box.innerHTML = '<div class="j-empty">Nenhuma sobreposição de horários entre RATs a verificar.</div>'; return }
+    const revMap = {}; (rev.data || []).forEach(v => { revMap[v.rat_menor + '|' + v.rat_maior] = v })
+    const revDe = (r) => { const v = revMap[spParKey(r)]; return (v && hm5(v.conflito_inicio) === hm5(r.conflito_inicio) && hm5(v.conflito_fim) === hm5(r.conflito_fim)) ? v : null }
+    const pend = rows.filter(r => !revDe(r))
+    const feitas = rows.filter(r => revDe(r))
     const linkRat = (x) => {
       const num = x.numero ? ' ' + x.numero : ''
       const seq = x.rat_seq != null ? '/' + String(x.rat_seq).padStart(2, '0') : ''
       return `<a href="rat.html?id=${encodeURIComponent(x.rat_id)}" target="_blank" rel="noopener">RAT${esc(num)}${seq}${x.cliente ? ' · ' + esc(x.cliente) : ''} ↗</a> (${hm5(x.inicio)}–${hm5(x.fim)})`
     }
-    box.innerHTML = rows.map(r => `<div class="hd-alert"><div>
+    const dataPar = (r) => `data-a="${esc((r.rat_a || {}).rat_id || '')}" data-b="${esc((r.rat_b || {}).rat_id || '')}"`
+    const htmlPend = pend.map(r => `<div class="hd-alert"><div style="flex:1">
         <div class="t">${esc(r.tecnico_nome || '—')} · ${dmyDia(r.dia)} — horários se cruzam <b>${hm5(r.conflito_inicio)}–${hm5(r.conflito_fim)}</b></div>
         <div class="d">${linkRat(r.rat_a || {})} × ${linkRat(r.rat_b || {})} — conferir se o período em dobro é real (pode ser legítimo: saiu e voltou).</div>
-      </div></div>`).join('')
+      </div><button type="button" class="btn btn-ghost sp-ok" ${dataPar(r)} data-dia="${esc(r.dia || '')}" data-ci="${hm5(r.conflito_inicio)}" data-cf="${hm5(r.conflito_fim)}" style="flex:none;padding:7px 12px;font-size:12px" title="Conferi — é legítimo; sai do Painel">Marcar verificada</button></div>`).join('')
+    const htmlFeitas = !feitas.length ? '' : `
+      <div class="j-empty" style="margin:12px 0 8px">${feitas.length} já verificada(s) — reabrir se precisar reconferir:</div>
+      ${feitas.map(r => { const v = revDe(r); return `<div class="hd-alert" style="opacity:.62"><div style="flex:1">
+        <div class="t">${esc(r.tecnico_nome || '—')} · ${dmyDia(r.dia)} — cruzavam <b>${hm5(r.conflito_inicio)}–${hm5(r.conflito_fim)}</b></div>
+        <div class="d">${linkRat(r.rat_a || {})} × ${linkRat(r.rat_b || {})} — verificada por ${esc(v.revisado_nome || '—')} em ${dmyDia(v.revisado_em)}.</div>
+      </div><button type="button" class="btn btn-ghost sp-reabrir" ${dataPar(r)} style="flex:none;padding:7px 12px;font-size:12px" title="Desfaz a revisão — volta a pendente">Reabrir</button></div>` }).join('')}`
+    box.innerHTML = (pend.length ? htmlPend : '<div class="j-empty">Nenhuma sobreposição pendente de verificação.</div>') + htmlFeitas
+    box.onclick = onSobrepClick
+  }
+  async function onSobrepClick(e) {
+    const ok = e.target.closest('.sp-ok'), re = e.target.closest('.sp-reabrir')
+    if (!ok && !re) return
+    const btn = ok || re; btn.disabled = true
+    const [a, b] = [btn.dataset.a, btn.dataset.b].sort()
+    if (ok) {
+      const { data: { user } } = await sb().auth.getUser()
+      let nome = null
+      if (user) { const u = await sb().from('usuarios').select('nome').eq('id', user.id).maybeSingle(); nome = (u.data || {}).nome || null }
+      const { error } = await sb().from('sobreposicao_revisoes').upsert({
+        rat_menor: a, rat_maior: b, dia: btn.dataset.dia || null,
+        conflito_inicio: btn.dataset.ci || null, conflito_fim: btn.dataset.cf || null,
+        revisado_por: (user && user.id) || null, revisado_nome: nome, revisado_em: new Date().toISOString(),
+      })
+      if (error) { toast('Erro ao registrar a revisão: ' + error.message, 'err'); btn.disabled = false; return }
+      toast('Sobreposição verificada — sai do Painel.', 'ok')
+    } else {
+      const { error } = await sb().from('sobreposicao_revisoes').delete().eq('rat_menor', a).eq('rat_maior', b)
+      if (error) { toast('Erro ao reabrir: ' + error.message, 'err'); btn.disabled = false; return }
+      toast('Revisão desfeita — voltou a pendente.', 'ok')
+    }
+    carregarSobreposicoes()
   }
 
   // ───────────────────── Horas do dia por técnico (§8: tempo é da pessoa) ─────────────────────

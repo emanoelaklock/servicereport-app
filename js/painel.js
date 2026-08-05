@@ -45,12 +45,22 @@
   async function carregarSobreposicoes(sb) {
     const d = new Date(diaSP() + 'T00:00:00Z'); d.setUTCDate(d.getUTCDate() - 14)
     const corte = d.toISOString().slice(0, 10)
-    const { data, error } = await sb.from('vw_alerta_sobreposicao')
-      .select('*').gte('dia', corte)
-      .order('dia', { ascending: false })
-    renderSobreposicoes(error ? [] : (data || []))
+    // Revisadas (0140) saem do card: chave = par de RATs ordenado; a revisão só vale
+    // enquanto a janela do conflito for a mesma (horários editados → volta a pendente).
+    const [vw, rev] = await Promise.all([
+      sb.from('vw_alerta_sobreposicao').select('*').gte('dia', corte).order('dia', { ascending: false }),
+      sb.from('sobreposicao_revisoes').select('rat_menor,rat_maior,conflito_inicio,conflito_fim'),
+    ])
+    const hm = (t) => String(t || '—').slice(0, 5)
+    const revMap = {}; (rev.data || []).forEach(v => { revMap[v.rat_menor + '|' + v.rat_maior] = v })
+    const pend = (vw.error ? [] : (vw.data || [])).filter(r => {
+      const a = (r.rat_a || {}).rat_id || '', b = (r.rat_b || {}).rat_id || ''
+      const v = revMap[a < b ? a + '|' + b : b + '|' + a]
+      return !(v && hm(v.conflito_inicio) === hm(r.conflito_inicio) && hm(v.conflito_fim) === hm(r.conflito_fim))
+    })
+    renderSobreposicoes(pend, sb)
   }
-  function renderSobreposicoes(rows) {
+  function renderSobreposicoes(rows, sb) {
     const box = document.getElementById('sobrep-alerta'); if (!box) return
     if (!rows.length) { box.innerHTML = ''; return }
     const dmy = (s) => s ? String(s).slice(0, 10).split('-').reverse().join('/') : '—'
@@ -59,13 +69,36 @@
     const ICON = '<svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>'
     box.innerHTML = `<div class="acomp-alert">
       <div class="acomp-alert-h">${ICON} Horários sobrepostos entre RATs (14 dias) · ${rows.length}</div>
-      <div class="devol-alert-grid">${rows.map(r => `
-        <a class="acomp-alert-card" href="jornada.html?d=${esc(r.dia)}" title="Abrir a Jornada do dia">
+      <div class="devol-alert-grid">${rows.map((r, i) => `
+        <div class="acomp-alert-card" data-nav="${esc(r.dia)}" style="cursor:pointer" title="Abrir a Jornada do dia">
           <div class="dac-no">${esc(r.tecnico_nome || '—')} · ${dmy(r.dia)}</div>
           <div class="dac-cli">RAT ${esc(ratNo(r.rat_a || {}))} × RAT ${esc(ratNo(r.rat_b || {}))}</div>
-          <div class="dac-age">Cruzam ${hm(r.conflito_inicio)}–${hm(r.conflito_fim)} · conferir na Jornada</div>
-        </a>`).join('')}</div>
+          <div class="dac-age" style="display:flex;justify-content:space-between;align-items:center;gap:8px">
+            <span>Cruzam ${hm(r.conflito_inicio)}–${hm(r.conflito_fim)}</span>
+            <button type="button" class="btn btn-ghost" data-ok="${i}" style="flex:none;padding:6px 10px;font-size:12px" title="Conferi — é legítimo; sai do Painel">Verificada</button>
+          </div>
+        </div>`).join('')}</div>
     </div>`
+    box.querySelectorAll('[data-nav]').forEach(el => el.onclick = (e) => {
+      if (e.target.closest('[data-ok]')) return
+      location.href = 'jornada.html?d=' + encodeURIComponent(el.dataset.nav)
+    })
+    box.querySelectorAll('[data-ok]').forEach(btn => btn.onclick = async () => {
+      btn.disabled = true
+      const r = rows[Number(btn.dataset.ok)]
+      const [a, b] = [(r.rat_a || {}).rat_id, (r.rat_b || {}).rat_id].sort()
+      const { data: { user } } = await sb.auth.getUser()
+      let nome = null
+      if (user) { const u = await sb.from('usuarios').select('nome').eq('id', user.id).maybeSingle(); nome = (u.data || {}).nome || null }
+      const { error } = await sb.from('sobreposicao_revisoes').upsert({
+        rat_menor: a, rat_maior: b, dia: r.dia || null,
+        conflito_inicio: hm(r.conflito_inicio), conflito_fim: hm(r.conflito_fim),
+        revisado_por: (user && user.id) || null, revisado_nome: nome, revisado_em: new Date().toISOString(),
+      })
+      if (error) { toast('Erro ao registrar a revisão: ' + error.message, 'err'); btn.disabled = false; return }
+      toast('Sobreposição verificada.', 'ok')
+      carregarSobreposicoes(sb)
+    })
   }
 
   // Acompanhamento: tarefas EM EXECUÇÃO / EM PAUSA paradas há +5 dias (serviço começou e travou).
