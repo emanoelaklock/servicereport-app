@@ -75,7 +75,7 @@
           <div class="dac-cli">RAT ${esc(ratNo(r.rat_a || {}))} × RAT ${esc(ratNo(r.rat_b || {}))}</div>
           <div class="dac-age" style="display:flex;justify-content:space-between;align-items:center;gap:8px">
             <span>Cruzam ${hm(r.conflito_inicio)}–${hm(r.conflito_fim)}</span>
-            <button type="button" class="btn btn-ghost" data-ok="${i}" style="flex:none;padding:6px 10px;font-size:12px" title="Conferi — é legítimo; sai do Painel">Verificada</button>
+            <button type="button" class="btn btn-ghost" data-ok="${i}" style="flex:none;padding:6px 10px;font-size:12px" title="Conferi — é legítimo; sai do Painel">Revisado</button>
           </div>
         </div>`).join('')}</div>
     </div>`
@@ -96,7 +96,7 @@
         revisado_por: (user && user.id) || null, revisado_nome: nome, revisado_em: new Date().toISOString(),
       })
       if (error) { toast('Erro ao registrar a revisão: ' + error.message, 'err'); btn.disabled = false; return }
-      toast('Sobreposição verificada.', 'ok')
+      toast('Sobreposição revisada.', 'ok')
       carregarSobreposicoes(sb)
     })
   }

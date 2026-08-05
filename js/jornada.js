@@ -125,12 +125,12 @@ const JornadaApp = (() => {
     const htmlPend = pend.map(r => `<div class="hd-alert"><div style="flex:1">
         <div class="t">${esc(r.tecnico_nome || '—')} · ${dmyDia(r.dia)} — horários se cruzam <b>${hm5(r.conflito_inicio)}–${hm5(r.conflito_fim)}</b></div>
         <div class="d">${linkRat(r.rat_a || {})} × ${linkRat(r.rat_b || {})} — conferir se o período em dobro é real (pode ser legítimo: saiu e voltou).</div>
-      </div><button type="button" class="btn btn-ghost sp-ok" ${dataPar(r)} data-dia="${esc(r.dia || '')}" data-ci="${hm5(r.conflito_inicio)}" data-cf="${hm5(r.conflito_fim)}" style="flex:none;padding:7px 12px;font-size:12px" title="Conferi — é legítimo; sai do Painel">Marcar verificada</button></div>`).join('')
+      </div><button type="button" class="btn btn-ghost sp-ok" ${dataPar(r)} data-dia="${esc(r.dia || '')}" data-ci="${hm5(r.conflito_inicio)}" data-cf="${hm5(r.conflito_fim)}" style="flex:none;padding:7px 12px;font-size:12px" title="Conferi — é legítimo; sai do Painel">Revisado</button></div>`).join('')
     const htmlFeitas = !feitas.length ? '' : `
-      <div class="j-empty" style="margin:12px 0 8px">${feitas.length} já verificada(s) — reabrir se precisar reconferir:</div>
+      <div class="j-empty" style="margin:12px 0 8px">${feitas.length} já revisada(s) — reabrir se precisar reconferir:</div>
       ${feitas.map(r => { const v = revDe(r); return `<div class="hd-alert" style="opacity:.62"><div style="flex:1">
         <div class="t">${esc(r.tecnico_nome || '—')} · ${dmyDia(r.dia)} — cruzavam <b>${hm5(r.conflito_inicio)}–${hm5(r.conflito_fim)}</b></div>
-        <div class="d">${linkRat(r.rat_a || {})} × ${linkRat(r.rat_b || {})} — verificada por ${esc(v.revisado_nome || '—')} em ${dmyDia(v.revisado_em)}.</div>
+        <div class="d">${linkRat(r.rat_a || {})} × ${linkRat(r.rat_b || {})} — revisada por ${esc(v.revisado_nome || '—')} em ${dmyDia(v.revisado_em)}.</div>
       </div><button type="button" class="btn btn-ghost sp-reabrir" ${dataPar(r)} style="flex:none;padding:7px 12px;font-size:12px" title="Desfaz a revisão — volta a pendente">Reabrir</button></div>` }).join('')}`
     box.innerHTML = (pend.length ? htmlPend : '<div class="j-empty">Nenhuma sobreposição pendente de verificação.</div>') + htmlFeitas
     box.onclick = onSobrepClick
@@ -150,7 +150,7 @@ const JornadaApp = (() => {
         revisado_por: (user && user.id) || null, revisado_nome: nome, revisado_em: new Date().toISOString(),
       })
       if (error) { toast('Erro ao registrar a revisão: ' + error.message, 'err'); btn.disabled = false; return }
-      toast('Sobreposição verificada — sai do Painel.', 'ok')
+      toast('Sobreposição revisada — sai do Painel.', 'ok')
     } else {
       const { error } = await sb().from('sobreposicao_revisoes').delete().eq('rat_menor', a).eq('rat_maior', b)
       if (error) { toast('Erro ao reabrir: ' + error.message, 'err'); btn.disabled = false; return }
