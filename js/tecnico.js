@@ -3283,12 +3283,21 @@
   }
   async function adicionarFotos(fileList) {
     const files = Array.from(fileList || [])
+    // Falha ao gravar UMA foto não pode virar banner de crash nem derrubar as demais (família
+    // iOS/F21: o retry do db-local resolve a conexão morta; sobra p/ cá o residual — ex.: quota).
+    let falhas = 0
     for (const f of files) {
       if (!f.type.startsWith('image/')) continue
-      const blob = await comprimirFoto(f)
-      await D().adicionarFoto(cur.client_uuid, blob, null)   // legenda preenchida depois, por foto
+      try {
+        const blob = await comprimirFoto(f)
+        await D().adicionarFoto(cur.client_uuid, blob, null)   // legenda preenchida depois, por foto
+      } catch (e) {
+        falhas++
+        window.srDbg && srDbg('foto: falha ao salvar — ' + (e && (e.name + ': ' + e.message)), 'warn')
+      }
     }
     await refreshThumbs()
+    if (falhas) toast(falhas === 1 ? 'Não consegui salvar 1 foto — tente de novo.' : ('Não consegui salvar ' + falhas + ' fotos — tente de novo.'), 'err')
   }
   async function refreshThumbs() {
     const box = document.getElementById('thumbs')
