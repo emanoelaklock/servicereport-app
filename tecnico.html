@@ -1137,6 +1137,19 @@ try{if(localStorage.getItem('sr_dark')==='1')document.documentElement.classList.
           </div>
         </div>
 
+        <!-- ACOMPANHANTE (2º técnico no levantamento — exige justificativa) -->
+        <div class="fcard fc-purple">
+          <div class="h"><span class="hi"><svg viewBox="0 0 24 24"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg></span>Acompanhante</div>
+          <div class="fg campo">
+            <label>Segundo técnico (opcional)</label>
+            <select id="po-acomp"><option value="">Somente eu</option></select>
+          </div>
+          <div class="fg campo" id="po-acomp-just-wrap" style="display:none;margin-top:10px">
+            <label>Justificativa do acompanhamento <span class="req">*</span></label>
+            <textarea class="ta-longo" id="po-acomp-just" autocapitalize="sentences" placeholder="Por que um segundo técnico acompanhou o levantamento?"></textarea>
+          </div>
+        </div>
+
         <!-- TEMPO (visita calculado) + estimativa (preenchida) — o comercial vê os dois -->
         <div class="fcard fc-green">
           <div class="h"><span class="hi"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg></span>Tempo</div>

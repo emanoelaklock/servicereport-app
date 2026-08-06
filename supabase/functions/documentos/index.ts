@@ -75,6 +75,7 @@ type DocData = {
   observacoes?: string | null
   // pré-orçamento: levantamento de campo (o PDF deve mostrar tudo que o técnico levantou)
   tecnicos?: string | null
+  acompJust?: string | null   // justificativa do 2º técnico (obrigatória quando há acompanhante)
   estimativa?: string | null
   tempoVisita?: string | null
   visita?: string | null
@@ -205,6 +206,7 @@ async function buildPdf(d: DocData): Promise<Uint8Array> {
     sh("Levantamento")
     const info: Array<[string, string]> = []
     if (d.tecnicos) info.push(["Técnicos", d.tecnicos])
+    if (d.acompJust) info.push(["Justificativa do acompanhante", d.acompJust])
     if (d.estimativa) info.push(["Estimativa de execução", d.estimativa])
     if (d.visita) info.push(["Visita", d.visita])
     if (d.tempoVisita) info.push(["Tempo da visita", d.tempoVisita])
@@ -379,7 +381,8 @@ Deno.serve(async (req: Request) => {
           descricao: m.descricao || (m as { codigo_produto?: string }).codigo_produto || "—",
           unidade: m.unidade, quantidade: Number(m.quantidade) || 0, preco_unitario: 0,
         })),
-        tecnicos: tecsTxt, estimativa: estTxt, tempoVisita: fmtMinPdf(po.tempo_trabalhado), visita: visitaTxt, deslocamento: deslocTxt,
+        tecnicos: tecsTxt, acompJust: (r.acompanhante_justificativa as string) || null,
+        estimativa: estTxt, tempoVisita: fmtMinPdf(po.tempo_trabalhado), visita: visitaTxt, deslocamento: deslocTxt,
         observacoes: (r.observacoes as string) || null,
         fotos,
       }

@@ -4140,8 +4140,28 @@
     if (g('po-btn-cancelar')) g('po-btn-cancelar').textContent = poReadonly ? 'Voltar' : 'Cancelar'
     if (g('po-ro-aviso')) g('po-ro-aviso').style.display = poReadonly ? '' : 'none'
   }
-  // (Seção "Técnico do levantamento" removida — pré-orçamento é de 1 técnico só, o criador,
-  //  automático. poTecSel segue semeado com o criador para respostas.tecnicos/PDF/jornada.)
+  // Acompanhante (decisão de gestão 06/08): o pré-orçamento aceita UM segundo técnico, e a
+  // presença dele EXIGE justificativa (validada no Concluir; rascunho salva sem). poTecSel
+  // continua sendo a fonte de respostas.tecnicos (PDF/jornada/almoço 0143 derivam dela).
+  function poAcompId() { const e = document.getElementById('po-acomp'); return (e && e.value) || null }
+  function poAcompSync() {
+    const wrap = document.getElementById('po-acomp-just-wrap')
+    const acomp = poAcompId()
+    if (wrap) wrap.style.display = acomp ? '' : 'none'
+    poTecSel = new Set([tecnico.id, ...(acomp ? [acomp] : [])].filter(Boolean))
+  }
+  function poPopularAcomp(selecionadoId) {
+    const sel = document.getElementById('po-acomp'); if (!sel) return
+    const ativos = (ref.tecnicos || []).filter(t => t.id !== tecnico.id && t.ativo !== false)
+    // técnico salvo que saiu da lista (inativado) continua selecionável neste pré (histórico)
+    if (selecionadoId && !ativos.some(t => t.id === selecionadoId)) {
+      const extra = (ref.tecnicos || []).find(t => t.id === selecionadoId)
+      ativos.push(extra || { id: selecionadoId, nome: 'Técnico' })
+    }
+    sel.innerHTML = '<option value="">Somente eu</option>' +
+      ativos.map(t => `<option value="${esc(t.id)}"${t.id === selecionadoId ? ' selected' : ''}>${esc(t.nome || '—')}</option>`).join('')
+    sel.onchange = poAcompSync
+  }
 
   async function renderPreorcLista() {
     const box = document.getElementById('lista-preorc')
@@ -4212,12 +4232,13 @@
     ;['po-cliente', 'po-cliente-busca', 'po-descricao', 'po-prod-sel', 'po-prod-busca', 'po-prod-qtd',
       'po-desloc', 'po-visita-ini', 'po-visita-fim', 'po-ida', 'po-retorno',
       'po-almoco-ini', 'po-almoco-fim', 'po-pausa-ini', 'po-pausa-fim',
-      'po-est-tec', 'po-est-qtd', 'po-observacoes'].forEach(id => set(id, ''))
+      'po-est-tec', 'po-est-qtd', 'po-observacoes', 'po-acomp-just'].forEach(id => set(id, ''))
     set('po-est-un', 'dias')
     set('po-tempo', '—')
     poSetDesloc('')
     poSetTevePausa('')
-    poTecSel = new Set(tecnico.id ? [tecnico.id] : [])   // técnico do levantamento = o logado (só ele)
+    poPopularAcomp(null)   // acompanhante zera junto (poAcompSync re-semeia poTecSel = só o logado)
+    poAcompSync()
     atualizarEstimativaPo()
     poAplicarReadonly(false)   // toda abertura começa editável; abrirPreorc reaplica se travado
   }
@@ -4255,10 +4276,14 @@
     const est = r.estimativa || {}
     set('po-est-tec', est.tecnicos); set('po-est-qtd', est.qtd); if (est.unidade) set('po-est-un', est.unidade)
     set('po-observacoes', r.observacoes)
-    // Técnico(s) do levantamento (respostas.tecnicos): preserva o que foi gravado — os
-    // antigos com 2+ ficam como estão; novos têm só o criador. Sem UI de seleção.
+    // Técnico(s) do levantamento (respostas.tecnicos): dono + acompanhante (se houver).
     const tecsSalvos = (r.tecnicos || []).map(t => (t && t.id) ? t.id : t).filter(Boolean)
-    poTecSel = new Set(tecsSalvos.length ? tecsSalvos : (po.tecnico_id ? [po.tecnico_id] : []))
+    const dono = po.tecnico_id || tecnico.id
+    const acompSalvo = tecsSalvos.find(id => id !== dono) || null
+    poPopularAcomp(acompSalvo)
+    set('po-acomp-just', r.acompanhante_justificativa)
+    poAcompSync()
+    if (dono !== tecnico.id) poTecSel = new Set([dono, ...(acompSalvo ? [acompSalvo] : [])])   // pré de outro dono: preserva
     poSetDesloc(r.deslocamento || ''); poSetTevePausa(tevePausa); atualizarEstimativaPo()
     poBindAutocomplete()
     await poRefreshThumbs()
@@ -4524,6 +4549,7 @@
           ? { tecnicos: Number(v('po-est-tec')) || 0, qtd: Number(v('po-est-qtd')) || 0, unidade: v('po-est-un') || 'dias' }
           : null,
         observacoes: v('po-observacoes').trim() || null,
+        acompanhante_justificativa: (poAcompId() && v('po-acomp-just').trim()) || null,
         tecnicos: [...poTecSel].map(id => {
           const t = (ref.tecnicos || []).find(x => x.id === id) || (id === tecnico.id ? { id, nome: tecnico.nome } : { id, nome: null })
           return { id, nome: t.nome || null }
@@ -4549,6 +4575,8 @@
     if (!cliId) return toast('Selecione o cliente.', 'err')
     if (!desc) return toast('Descreva o levantamento.', 'err')
     const v = (id) => { const e = document.getElementById(id); return e ? e.value : '' }
+    // Acompanhante exige justificativa (decisão 06/08) — rascunho salva sem, concluir não.
+    if (poAcompId() && !v('po-acomp-just').trim()) return toast('Informe a justificativa do acompanhamento do segundo técnico.', 'err')
     const cli = ref.clientes.find(c => c.id === cliId)
     await D().salvarPreorc(curPo.client_uuid, {
       cliente_id: cliId,
@@ -4567,6 +4595,7 @@
           ? { tecnicos: Number(v('po-est-tec')) || 0, qtd: Number(v('po-est-qtd')) || 0, unidade: v('po-est-un') || 'dias' }
           : null,
         observacoes: v('po-observacoes').trim() || null,
+        acompanhante_justificativa: (poAcompId() && v('po-acomp-just').trim()) || null,
         tecnicos: [...poTecSel].map(id => {
           const t = (ref.tecnicos || []).find(x => x.id === id) || (id === tecnico.id ? { id, nome: tecnico.nome } : { id, nome: null })
           return { id, nome: t.nome || null }
