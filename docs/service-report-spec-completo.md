@@ -254,6 +254,8 @@ Os dois eixos podem colorir o card. Pausa/almoço **do dia** são estados **mome
 
 → Restrições no banco: RAT única por `(tarefa, dia)`; almoço único por `(técnico, dia)`; sequência da RAT única por `(tarefa, sequência)` — numeração definitiva atribuída pelo servidor (já implementado).
 
+→ **O almoço do PRÉ-ORÇAMENTO também materializa em `almocos`** (06/08 — migração 0143, caso Pré-orç 16/Pablo): trigger `fn_preorc_sync_almoco` espelha o da RAT — registra pra cada técnico do levantamento via `fn_registrar_almoco` (mesmo dedup por pessoa/dia; divergência vira `almoco_conflitos`, nunca soma em silêncio). Na Jornada o almoço aparece com o chip rosa "Pré-orç Nº N".
+
 ### Home do técnico — agenda do dia + fila
 
 A tela inicial do app é a **agenda do dia**:

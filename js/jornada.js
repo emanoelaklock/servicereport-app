@@ -266,6 +266,11 @@ const JornadaApp = (() => {
           const cor = corRat[alm.artefato_id] || 'hd-rat0'
           const ref = rp && rp.referencia ? `RAT ${esc(rp.referencia)}${rp.rat_seq != null ? '/' + String(rp.rat_seq).padStart(2, '0') : ''}` : 'RAT'
           lunch = `<a href="rat.html?id=${encodeURIComponent(alm.artefato_id)}" target="_blank" rel="noopener" class="hd-seg ${cor}" title="Almoço lançado nesta RAT"><i></i>${faixaA} · ${ref}</a>`
+        } else if (alm.artefato_tipo === 'pre_orcamento') {
+          // Almoço lançado no pré-orçamento (0143) → chip rosa com o nº do levantamento.
+          const pp = ps.find(p => p.artefato_id === alm.artefato_id)
+          const refP = pp && pp.referencia ? `Pré-orç Nº ${esc(pp.referencia)}` : 'Pré-orç'
+          lunch = `<span class="hd-seg hd-preorc" title="Almoço lançado no pré-orçamento"><i></i>${faixaA} · ${refP}</span>`
         } else {
           const origemLbl = alm.origem === 'ponto' ? 'ponto' : (alm.artefato_tipo === 'deslocamento' ? 'Deslocamento' : 'manual')
           lunch = `<span class="hd-lunch${origemLbl === 'manual' ? ' man' : ''}">${faixaA} · ${origemLbl}</span>`
