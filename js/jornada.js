@@ -1,10 +1,9 @@
 /* ═══════════════════════════════════════════════
    Service Report — jornada.js  (§10.1 dia contínuo · visão do admin)
-   Mostra a jornada de um técnico num dia: linha do tempo de segmentos,
-   horas de trabalho por cliente (faturável por hora, arredondado p/ cima
-   30 min) e detecção de buraco entre atividades. (Os cards de totais por
-   tipo saíram em 08/26 — a fonte manual, jornada_segmentos, quase nunca
-   é preenchida e os cards zerados só confundiam.)
+   Mostra a jornada de um técnico num dia: linha do tempo de segmentos e
+   detecção de buraco entre atividades. (Cards de totais por tipo e Horas
+   por cliente saíram em 08/26 — a fonte manual, jornada_segmentos, quase
+   nunca é preenchida e as seções zeradas só confundiam.)
    Exposto como window.JornadaApp.
 ═══════════════════════════════════════════════ */
 const JornadaApp = (() => {
@@ -26,7 +25,6 @@ const JornadaApp = (() => {
   const hhmm = (iso) => iso ? hhSP(iso) : '—'
   const minBetween = (a, b) => Math.max(0, Math.round((new Date(b).getTime() - new Date(a).getTime()) / 60000))
   const fmtMin = (m) => `${Math.floor(m / 60)}h ${String(Math.round(m % 60)).padStart(2, '0')}min`
-  const ceil30 = (m) => Math.ceil(m / 30) * 30
 
   async function init() {
     const [tec, cli] = await Promise.all([
@@ -574,18 +572,6 @@ const JornadaApp = (() => {
     document.getElementById('j-resumo').textContent = segs.length
       ? `${segs.length} atividade(s) · ${hhmm(entrada)} → ${saida ? hhmm(saida) : 'em aberto'}`
       : ''
-
-    // horas de trabalho por cliente (faturável por hora)
-    const porCli = {}
-    for (const s of segs) {
-      if (s.tipo !== 'trabalho') continue
-      const k = s.cliente_id || '—'
-      porCli[k] = (porCli[k] || 0) + minBetween(s.inicio, s.fim || new Date().toISOString())
-    }
-    const clis = Object.entries(porCli)
-    document.getElementById('j-clientes').innerHTML = clis.length
-      ? clis.map(([id, m]) => `<div class="j-cli"><span>${esc(cliNomes[id] || (id === '—' ? 'Sem cliente' : '—'))}</span><span class="h">${fmtMin(ceil30(m))}<span class="raw">real ${fmtMin(m)}</span></span></div>`).join('')
-      : '<div class="j-empty" style="padding:14px 0">Sem atividades de trabalho.</div>'
 
     // linha do tempo + buracos
     const tl = document.getElementById('j-timeline')
