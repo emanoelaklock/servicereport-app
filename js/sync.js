@@ -102,11 +102,17 @@
         // origem para o syncAll tratar como bloqueio de propriedade — um 42501 vindo de
         // outra tabela (fotos/materiais) NÃO entra nesse tratamento (comportamento padrão).
         if (ups.error.code === '42501' || /row-level security/i.test(ups.error.message || '')) ups.error.rlsRatsUpsert = true
+        // 23505 do ÍNDICE DE DIA (0146, F3): já existe RAT DESTE técnico pra MESMA tarefa no
+        // MESMO dia sob OUTRO client_uuid (2º aparelho que criou offline, ou Data editada pra um
+        // dia já coberto). Marca na origem — o syncAll bloqueia SEM loop (espelho do F19).
+        // Só o índice nomeado entra: uq_rats_tarefa_seq (F22) e outros 23505 seguem o retry padrão.
+        if (ups.error.code === '23505' && /uq_rats_tarefa_dia_tecnico/i.test(ups.error.message || '')) ups.error.dupDiaRatsUpsert = true
         throw ups.error
       }
     }
     const tarefaId = ups.data.id
     if (rat.envio_bloqueado_rls) await D().salvarRat(client_uuid, { envio_bloqueado_rls: null })   // dono logou e o envio passou
+    if (rat.envio_bloqueado_dup) await D().salvarRat(client_uuid, { envio_bloqueado_dup: null })   // duplicata resolvida (dia mudou/RAT do dia saiu) e o envio passou
 
     // 4) relatorio_fotos (idempotente: id = id local da foto)
     const rows = (await D().listarFotos(rat.client_uuid)).filter(f => f.url)
@@ -415,6 +421,9 @@
       try { const { data: { user: me } } = await getSupabase().auth.getUser(); meId = me && me.id } catch (e) { /* offline/expirado */ }
       const pend = todas.filter(r => {
         if (!PEND.includes(r.sync_status)) return false
+        // duplicata de dia (0146/F3): retry automático suprimido — a duplicata não se resolve
+        // sozinha (o caminho é continuar na RAT do dia). Nova tentativa SÓ por ação manual.
+        if (r.envio_bloqueado_dup && !manual) return false
         const bloq = r.envio_bloqueado_rls
         if (!bloq) return true
         if (manual) return true                                          // ação manual explícita
@@ -432,8 +441,16 @@
           console.warn('[sync] falha rat', r.client_uuid, e)
           // Somente a recusa de RLS marcada NO UPSERT DE RATS (enviarRat) entra no bloqueio;
           // qualquer outro erro (inclusive 42501 de outra tabela) mantém o retry padrão.
+          const dup = !!(e && e.dupDiaRatsUpsert)
           const rls = !!(e && e.rlsRatsUpsert)
-          if (rls) {
+          if (dup) {
+            // registro local do bloqueio de duplicata (0146/F3): nada é apagado (§12) — a RAT
+            // segue no aparelho, rotulada na lista; o conflito nunca é mesclado em silêncio.
+            await D().salvarRat(r.client_uuid, { envio_bloqueado_dup: { em: new Date().toISOString(), usuario: meId || null } })
+            await D().definirStatus(r.client_uuid, D().STATUS.ERRO,
+              'Já existe uma RAT sua para esta tarefa neste dia (enviada de outro aparelho ou com a data ajustada). Continue na RAT do dia; este registro permanece salvo neste aparelho.')
+            // bloqueada NÃO conta no toast (nenhum alerta repetido; o rótulo na lista explica)
+          } else if (rls) {
             // registro local do bloqueio: quando, sob qual login, e se a propriedade
             // divergente está comprovada pelos dados locais (tecnico_id do registro ≠ logado)
             const provado = !!(meId && r.tecnico_id && r.tecnico_id !== meId)

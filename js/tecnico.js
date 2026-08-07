@@ -775,6 +775,8 @@
         ? ((typeof bloqRls === 'object' && bloqRls.provado === false)
           ? 'Esta RAT não pôde ser sincronizada por restrição de acesso. O conteúdo permanece salvo neste aparelho.'
           : 'Esta RAT foi criada por outro usuário neste aparelho. Entre com a conta original para sincronizá-la.')
+        : (r.envio_bloqueado_dup && r.sync_status !== 'confirmado')
+          ? 'Já existe uma RAT sua para esta tarefa neste dia — continue na RAT do dia. Este registro permanece salvo neste aparelho.'
         : (r.sync_status === 'confirmado' ? '✓ enviado' : ((BADGE[r.sync_status] || {}).txt || ''))
       return `<div class="listcard ${lc}" data-uuid="${esc(r.client_uuid)}"><span class="edge e-${sk}"></span>
         <div class="t"><span class="cli">${esc(r.cliente_nome || 'Sem cliente')}</span><span class="badge b-${sk}">${esc(emPausa ? 'Em pausa' : ratSit(r.status || 'em_andamento'))}</span></div>
