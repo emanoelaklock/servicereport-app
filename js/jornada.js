@@ -596,7 +596,7 @@ const JornadaApp = (() => {
         ? '—' : `${dlt(r.delta_inicio_min)} / ${dlt(r.delta_termino_min)} / ${dlt(r.delta_duracao_min)}`
       const tipo = r.divergencia_tipo ? ` <span class="dim" style="font-size:11px">(${esc(String(r.divergencia_tipo).replace(/,/g, ', '))})</span>` : ''
       return `<tr>
-        <td>${esc(tecNomes[r.tecnico_id] || '—')}</td>
+        <td><span class="hd-tec${tecInativo[r.tecnico_id] ? ' u-inativo' : ''}"${tecInativo[r.tecnico_id] ? ' title="Inativo"' : ''}><span class="av">${avHtml(r.tecnico_id)}</span><span class="nm">${esc(tecNomes[r.tecnico_id] || '—')}</span></span></td>
         <td>${dmyDia(r.dia)}</td>
         <td>${chip(r)}${tipo}</td>
         <td>${par(r.sr_inicio, r.sr_fim)}</td>
