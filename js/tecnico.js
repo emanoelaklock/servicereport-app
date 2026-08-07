@@ -1783,10 +1783,11 @@
       veiculo_id: null, sem_veiculo: false, nota_transporte: null,
       motoristas: [], tecnicos: [tecnico.id],
     }
-    if (base) {   // trecho novo herda veículo, direção, passageiros e data do anterior
+    if (base) {   // trecho novo herda veículo, direção e passageiros do anterior
       t.veiculo_id = base.veiculo_id; t.sem_veiculo = base.sem_veiculo; t.nota_transporte = base.nota_transporte
       t.tecnicos = [...(base.tecnicos || [])]
-      if (base.data) t.data = base.data
+      // data NÃO herda: o trecho nasce no dia em que é adicionado (a volta do pernoite
+      // entra dias depois da ida — herdar carimbava a volta com o dia do 1º trecho)
       const ult = (base.motoristas || [])[(base.motoristas || []).length - 1]
       t.motoristas = ult ? [{ tecnico_id: ult.tecnico_id, hora_de: null, hora_ate: null }] : []
       const loc = localDe(base.destino_local_id)
