@@ -28,6 +28,11 @@ const JornadaApp = (() => {
     // "tecnico_campo" no papel do Portal (ex.: um admin que também vai a campo, como o Arian),
     // e o nome deles precisa resolver na tabela do dia (senão aparece "—").
     todosUsuarios.forEach(t => { tecNomes[t.id] = t.nome; tecFotos[t.id] = t.foto_url; tecInativo[t.id] = t.ativo === false })
+    // Filtro da tabela do dia: "Todos" por padrão; técnicos de campo (inclui inativos — histórico consultável)
+    const tecsCampo = todosUsuarios.filter(u => u.role === 'tecnico_campo')
+    document.getElementById('j-tec').innerHTML = '<option value="">Todos os técnicos</option>' +
+      tecsCampo.map(t => `<option value="${esc(t.id)}">${esc((t.nome || '(sem nome)') + (t.ativo === false ? ' — inativo' : ''))}</option>`).join('')
+    document.getElementById('j-tec').onchange = carregarHorasDia
     // ?d=YYYY-MM-DD abre a Jornada direto num dia (link dos alertas do Painel)
     const qd = new URLSearchParams(location.search).get('d')
     document.getElementById('j-data').value = (qd && /^\d{4}-\d{2}-\d{2}$/.test(qd)) ? qd : hoje()
@@ -203,7 +208,13 @@ const JornadaApp = (() => {
         if (r.ida && r.retorno) preParts.push({ ...base, artefato_tipo: 'preorc_desloc', inicio: r.ida, fim: r.retorno })
       }
     }
-    renderHorasDia([...(parts.data || []), ...preParts], alms.data || [], confs.data || [])
+    // filtro do dropdown ("" = Todos): recorta participações e alertas de conflito pro técnico escolhido
+    const tecF = document.getElementById('j-tec').value
+    const todas = [...(parts.data || []), ...preParts]
+    renderHorasDia(
+      tecF ? todas.filter(p => p.tecnico_id === tecF) : todas,
+      alms.data || [],
+      tecF ? (confs.data || []).filter(c => c.tecnico_id === tecF) : (confs.data || []))
   }
   function renderHorasDia(parts, alms, confs) {
     const ab = document.getElementById('hd-alertas')
