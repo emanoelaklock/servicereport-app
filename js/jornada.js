@@ -375,7 +375,7 @@ const JornadaApp = (() => {
         ? `<div class="p-trip p-open">⚠ Em aberto — saiu ${dDMA(v.inicio)} (sem retorno, não contado)</div>`
         : `<div class="p-trip">${dDMA(v.inicio)} → ${dDMA(v.fim)} · ${v.noites} noite${v.noites === 1 ? '' : 's'}</div>`).join('')
       return `<tr>
-        <td>${esc(tecNomes[l.tid] || '—')}</td>
+        <td><span class="hd-tec${tecInativo[l.tid] ? ' u-inativo' : ''}"${tecInativo[l.tid] ? ' title="Inativo"' : ''}><span class="av">${avHtml(l.tid)}</span><span class="nm">${esc(tecNomes[l.tid] || '—')}</span></span></td>
         <td>${l.fechadas}${l.abertas ? ` <span class="p-open">(+${l.abertas} em aberto)</span>` : ''}</td>
         <td class="p-noites">${l.noites}</td>
         <td>${det || '—'}</td>
