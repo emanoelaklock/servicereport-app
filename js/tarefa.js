@@ -2210,6 +2210,10 @@ const TarefaApp = (() => {
       prodWarn: aRevisar > 0,
       matConflito: !!(cur && cur.matConflitoRats), matConflitoRats: (cur && cur.matConflitoRats) || 0,
       fat: !!t.faturado, anx: ((cur && cur.anexos) || []).length, equipLen: ((cur && cur.equip) || []).length,
+      // F12: tarefa pós-conclusão SEM nenhuma RAT registrada — órfã (burla de API, conclusão
+      // forçada ou churn de dados). Erro de carga NÃO conta como zero (cur.ratsErro).
+      semRatRegistrada: posExec && !(cur && cur.ratsErro)
+        && !rats.some(r => ['registrado', 'concluida', 'concluida_pendencia'].includes(r.status)),
     }
   }
 
@@ -2224,6 +2228,8 @@ const TarefaApp = (() => {
       situCard(e.dadosOk ? 's-ok' : 's-warn', SITU_ICO.dados, 'Dados da tarefa', e.dadosOk ? 'Preenchido' : 'Incompleto'),
       cur.ratsErro
         ? situCard('s-warn', SITU_ICO.rats, 'RATs', 'Erro ao carregar')
+        : e.semRatRegistrada
+          ? situCard('s-pend', SITU_ICO.rats, 'RATs', 'Concluída sem RAT registrada', 'verificar')
         : e.ratsLen === 0
           ? situCard('s-warn', SITU_ICO.rats, 'RATs', 'Sem RATs')
           : e.ratNaoEncN
@@ -2319,6 +2325,7 @@ const TarefaApp = (() => {
     const totalMin = ((cur && cur.rats) || []).reduce((s, r) => s + (Number(RatView.tempoRat(r)) || 0), 0)
     let next
     if (e.matConflito) next = 'Conflito de material: 2+ técnicos lançaram na MESMA RAT. Abra a RAT em conflito (aba RATs → "Editar ↗"), remova o conjunto duplicado e salve — depois é seguro faturar.'
+    else if (e.semRatRegistrada) next = 'Tarefa concluída sem NENHUMA RAT registrada — verificar antes de faturar (conclusão forçada, burla de API ou histórico alterado).'
     else if (e.ratsLen === 0) next = 'Aguardando a primeira RAT do técnico.'
     else if (e.ratNaoEncN) next = `RAT em aberto ${diasTxt(e.ratNaoEncDias)} — o técnico não encerrou. Use "✓ Encerrar" na aba RATs para concluir.`
     else if (e.ratEmAndHoje) next = 'Há RAT em andamento hoje — aguarde a conclusão pelo técnico.'
