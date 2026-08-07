@@ -19,11 +19,13 @@
   const diaBR = (iso) => iso ? fmtBR.format(new Date(iso)) : null
   const hojeBR = () => fmtBR.format(new Date())
   // DATA da RAT: o campo declarado no formulário (respostas.data, 'YYYY-MM-DD' local) tem
-  // prioridade; senão o timestamp da RAT em fuso BR. Mesma precedência do app (tecnico.js:661).
+  // prioridade; senão o carimbo pelo PREFIXO UTC (data_tarefa é meia-noite UTC da declarada —
+  // convertê-lo pra fuso BR voltaria 1 dia). Mesma precedência do app (tecnico.js:661).
   const ratDia = (r) => {
     const d = r && r.respostas && r.respostas.data
     if (typeof d === 'string' && /^\d{4}-\d{2}-\d{2}/.test(d)) return d.slice(0, 10)
-    return diaBR(r.data_tarefa)
+    const s = String((r && r.data_tarefa) || '')
+    return /^\d{4}-\d{2}-\d{2}/.test(s) ? s.slice(0, 10) : diaBR(r.data_tarefa)
   }
   // limites do mês em UTC. data_tarefa é gravado como MEIA-NOITE UTC da data declarada
   // (respostas.data) — ex.: RAT de 01/07 tem data_tarefa='2026-07-01T00:00:00+00'. Se os limites

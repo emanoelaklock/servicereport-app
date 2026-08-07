@@ -67,6 +67,9 @@ window.RatView = (function () {
   }
   // Data ISO (AAAA-MM-DD) → DD/MM/AAAA por split de string (sem new Date, evita off-by-one UTC).
   const fmtDataBR = (s) => { const m = String(s == null ? '' : s).match(/^(\d{4})-(\d{2})-(\d{2})/); return m ? `${m[3]}/${m[2]}/${m[1]}` : esc(String(s == null ? '' : s)) }
+  // Data da RAT p/ exibição: a DECLARADA (respostas.data) com fallback no carimbo — sempre pelo
+  // PREFIXO da string (data_tarefa é meia-noite UTC; converter pra fuso BR voltaria 1 dia).
+  const dataRat = (r) => fmtDataBR((r && r.respostas && r.respostas.data) || (r && r.data_tarefa))
   const tipoNomeRat = (r) => (r.tarefa && r.tarefa.tipo && r.tarefa.tipo.nome) || (r.tipos_servico && r.tipos_servico.nome) || '—'
 
   // ── Snapshot estático do Local (GPS): satélite montado com tiles públicos (Esri World
@@ -200,7 +203,7 @@ window.RatView = (function () {
     // cliente nem contrato. "RAT NNNNN/SS · Técnico · Data" + status/tempo.
     if (opts.slim) h += `
       <div class="rd-head rd-head-slim">
-        <div class="rd-sub">RAT ${tarefaNo ? esc(tarefaNo) : '—'} · ${esc(r.tecnico_nome || '—')} · ${fdt(r.data_tarefa, { numeric: true })}</div>
+        <div class="rd-sub">RAT ${tarefaNo ? esc(tarefaNo) : '—'} · ${esc(r.tecnico_nome || '—')} · ${dataRat(r)}</div>
         <div class="rd-meta"><span><b>Status:</b> ${esc(statusInfo(r.status).label)}</span><span><b>Tempo:</b> ${fmtMin(tempoRat(r))}</span></div>
       </div>`
     else if (!opts.noHeader) {
@@ -210,7 +213,7 @@ window.RatView = (function () {
       <div class="rd-head">
         <div class="rd-head-main">
           <span class="rd-num">RAT ${tarefaNo ? esc(tarefaNo) : '—'}</span>
-          <span class="rd-hmeta"><span class="sep">·</span> ${fdt(r.data_tarefa, { numeric: true })} <span class="sep">·</span> ${esc(r.tecnico_nome || '—')} <span class="sep">·</span> ${fmtMin(tempoRat(r))}</span>
+          <span class="rd-hmeta"><span class="sep">·</span> ${dataRat(r)} <span class="sep">·</span> ${esc(r.tecnico_nome || '—')} <span class="sep">·</span> ${fmtMin(tempoRat(r))}</span>
         </div>
         <span class="rd-pill ${st.cls}">${esc(st.label)}</span>
         <div class="rd-sub">${esc(r.cliente_nome || '—')} · ${esc(tipoNomeRat(r))}</div>
@@ -224,7 +227,7 @@ window.RatView = (function () {
     const campoOS = (ic, label, valor) => `<div class="rd-f">${fic(ic)}<div class="rd-fc"><label>${label}</label><div class="v">${valor}</div></div></div>`
     h += `<div class="rd-sec"><div class="rd-sec-t">Dados da OS</div><div class="rd-grid">
       ${campoOS('doc', 'Nº da OS', tarefaNo ? '#' + tarefaNo : '—')}
-      ${campoOS('cal', 'Data da Tarefa', fdt(r.data_tarefa, { numeric: true }))}
+      ${campoOS('cal', 'Data da Tarefa', dataRat(r))}
       ${campoOS('tag', 'Tipo de tarefa', esc(tipoNomeRat(r)))}
       ${campoOS('clock', 'Duração', fmtMin(tempoRat(r)))}
       ${(r.checkin_lat != null && r.checkin_lng != null)
@@ -408,6 +411,6 @@ window.RatView = (function () {
 
   return {
     RAT_SELECT, ensureForms, loadDetalhe, buildReportBody, coletarEdicao, salvarPrecos, aplicarCondicionais,
-    calcTempoDe, tempoRat, fmtMin, tipoNomeRat, statusInfo, campoVisivel, motivoImprodutivaLabel,
+    calcTempoDe, tempoRat, fmtMin, tipoNomeRat, statusInfo, campoVisivel, motivoImprodutivaLabel, dataRat,
   }
 })()

@@ -85,7 +85,7 @@ const RatPage = (() => {
       <div class="rp-sub">${esc(RatView.tipoNomeRat(r))}${tarefaNo ? ' · Tarefa Nº ' + tarefaNo : ''}</div>
       <div class="rp-chips">
         <span class="rp-chip"><i>Técnico</i>${esc(r.tecnico_nome || '—')}</span>
-        <span class="rp-chip"><i>Data</i>${fdt(r.data_tarefa, { numeric: true })}</span>
+        <span class="rp-chip"><i>Data</i>${RatView.dataRat(r)}</span>
         <span class="rp-chip"><i>Tempo trabalhado</i>${RatView.fmtMin(RatView.tempoRat(r))}</span>
         ${stBadge}
         ${r.ajustada_gestao ? '<span class="rp-pill" style="background:#FBE3EE;color:#A82A66" title="Esta RAT foi ajustada pela gestão (ver histórico)">Ajustada pela gestão</span>' : ''}

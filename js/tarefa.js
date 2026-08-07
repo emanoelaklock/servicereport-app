@@ -38,7 +38,7 @@ const TarefaApp = (() => {
       const [y, m, d] = s.slice(0, 10).split('-').map(Number)
       return new Date(y, m - 1, d).toLocaleDateString('pt-BR', { day: '2-digit', month: 'short', year: 'numeric' })
     }
-    return fdt(r.data_tarefa, { withTime: true })   // RAT sem data própria: cai na data/hora da tarefa
+    return dmy(r.data_tarefa)   // RAT sem data própria: cai no carimbo — pelo PREFIXO UTC (fuso BR voltaria 1 dia)
   }
   // Cresce o textarea para caber todo o conteúdo (sem barra de rolagem).
   const autoGrow = (el) => { if (!el) return; el.style.height = 'auto'; el.style.height = (el.scrollHeight + 2) + 'px' }
@@ -607,7 +607,7 @@ const TarefaApp = (() => {
     sel.innerHTML = '<option value="">RAT de origem (opcional)</option>'
     const { data } = await sb().from('rats').select('id,rat_seq,data_tarefa').eq('tarefa_id', tid).order('rat_seq')
     ;(data || []).forEach(r => {
-      const dt = r.data_tarefa ? new Date(r.data_tarefa).toLocaleDateString('pt-BR') : ''
+      const dt = r.data_tarefa ? dmy(r.data_tarefa) : ''   // prefixo UTC (fuso do navegador voltaria 1 dia)
       sel.insertAdjacentHTML('beforeend', `<option value="${esc(r.id)}">RAT ${esc(osNo(numero))}/${String(r.rat_seq || '?').padStart(2, '0')}${dt ? ' · ' + dt : ''}</option>`)
     })
   }
