@@ -1,14 +1,16 @@
 /* ═══════════════════════════════════════════════
-   Service Report — jornada.js  (§10.1 dia contínuo · visão do admin)
-   Mostra a jornada de um técnico num dia: linha do tempo de segmentos e
-   detecção de buraco entre atividades. (Cards de totais por tipo e Horas
-   por cliente saíram em 08/26 — a fonte manual, jornada_segmentos, quase
-   nunca é preenchida e as seções zeradas só confundiam.)
+   Service Report — jornada.js  (visão do admin)
+   Conferências (desloc sem volta, sobreposição de RATs), Horas do dia por
+   técnico (§8: participações em RATs/Deslocamentos/Pré-orçamentos − almoço
+   único), Pernoites, Deslocamento por técnico e Conciliação de almoço.
+   (A visão "dia contínuo" de jornada_segmentos — cards, horas por cliente
+   e linha do tempo — saiu em 08/26: a fonte manual quase nunca é
+   preenchida e as seções zeradas só confundiam.)
    Exposto como window.JornadaApp.
 ═══════════════════════════════════════════════ */
 const JornadaApp = (() => {
   const sb = () => getSupabase()
-  let cliNomes = {}, tecNomes = {}, tecFotos = {}, tecInativo = {}
+  let tecNomes = {}, tecFotos = {}, tecInativo = {}
   // Avatar com FOTO do Portal (mesmo componente das RATs/Tarefas/Deslocamentos); iniciais como fallback.
   const avHtml = (tid) => {
     const foto = (typeof avatarUrl === 'function') ? avatarUrl(tecFotos[tid]) : ''
@@ -16,35 +18,20 @@ const JornadaApp = (() => {
     return esc((tecNomes[tid] || '—').trim().split(/\s+/).slice(0, 2).map(p => p[0] || '').join('').toUpperCase())
   }
 
-  const SEG_META = {
-    trabalho: { ic: '🔧', lb: 'Trabalho' }, pausa: { ic: '⏸️', lb: 'Pausa' },
-    almoco: { ic: '🍽️', lb: 'Almoço' }, deslocamento: { ic: '🚗', lb: 'Deslocamento' },
-  }
-  // "hoje" e horas SEMPRE no calendário/relógio de Brasília (regra da casa — fuso do navegador nunca é fonte)
+  // "hoje" SEMPRE no calendário de Brasília (regra da casa — fuso do navegador nunca é fonte)
   const hoje = () => diaSP()
-  const hhmm = (iso) => iso ? hhSP(iso) : '—'
-  const minBetween = (a, b) => Math.max(0, Math.round((new Date(b).getTime() - new Date(a).getTime()) / 60000))
-  const fmtMin = (m) => `${Math.floor(m / 60)}h ${String(Math.round(m % 60)).padStart(2, '0')}min`
 
   async function init() {
-    const [tec, cli] = await Promise.all([
-      sb().rpc('sr_usuarios'),   // usuários do SR (papel vindo do Portal); filtra técnicos abaixo
-      sb().from('clientes').select('id,nome'),
-    ])
+    const tec = await sb().rpc('sr_usuarios')   // usuários do SR (papel vindo do Portal)
     const todosUsuarios = tec.data || []
     // Nomes: TODOS os usuários do SR — RATs/deslocamentos podem ter participantes que não são
     // "tecnico_campo" no papel do Portal (ex.: um admin que também vai a campo, como o Arian),
     // e o nome deles precisa resolver na tabela do dia (senão aparece "—").
     todosUsuarios.forEach(t => { tecNomes[t.id] = t.nome; tecFotos[t.id] = t.foto_url; tecInativo[t.id] = t.ativo === false })
-    ;(cli.data || []).forEach(c => { cliNomes[c.id] = c.nome })
-    // Dropdown de filtro: técnicos de campo (inclui inativos — a jornada histórica deles continua consultável).
-    const tecsCampo = todosUsuarios.filter(u => u.role === 'tecnico_campo')
-    document.getElementById('j-tec').innerHTML = tecsCampo.map(t => `<option value="${esc(t.id)}">${esc((t.nome || '(sem nome)') + (t.ativo === false ? ' — inativo' : ''))}</option>`).join('')
     // ?d=YYYY-MM-DD abre a Jornada direto num dia (link dos alertas do Painel)
     const qd = new URLSearchParams(location.search).get('d')
     document.getElementById('j-data').value = (qd && /^\d{4}-\d{2}-\d{2}$/.test(qd)) ? qd : hoje()
-    document.getElementById('j-tec').onchange = carregar
-    document.getElementById('j-data').onchange = () => { carregar(); carregarHorasDia() }
+    document.getElementById('j-data').onchange = carregarHorasDia
     carregarHorasDia()
     carregarSemVolta()   // conferência (leitura): dias com deslocamento de ida sem volta registrada
     carregarSobreposicoes()   // conferência (leitura): horários do técnico que se cruzam entre RATs
@@ -68,8 +55,7 @@ const JornadaApp = (() => {
     document.getElementById('cc-de').value = mes01
     document.getElementById('cc-ate').value = hoje()
     document.getElementById('cc-gerar').onclick = carregarConciliacao
-    if ((tec.data || []).length) { carregar(); carregarPernoites(); carregarDeslocPeriodo(); carregarConciliacao() }
-    else document.getElementById('j-timeline').innerHTML = '<div class="j-empty">Nenhum técnico ativo.</div>'
+    if ((tec.data || []).length) { carregarPernoites(); carregarDeslocPeriodo(); carregarConciliacao() }
   }
 
   // ───────────────────── Conferência: deslocamento de ida sem volta (leitura) ─────────────────────
@@ -98,7 +84,7 @@ const JornadaApp = (() => {
   // vw_alerta_sobreposicao: pares de RATs do MESMO técnico no MESMO dia (já encerrado) cujos
   // horários se cruzam. Só mostra; não trava e não altera nada — a sobreposição pode ser
   // legítima (técnico atendeu um chamado rápido e voltou ao serviço anterior).
-  const hm5 = (t) => String(t || '—').slice(0, 5)   // 'HH:MM[:SS]' → 'HH:MM' (hhmm lá em cima é p/ ISO)
+  const hm5 = (t) => String(t || '—').slice(0, 5)   // 'HH:MM[:SS]' → 'HH:MM'
   // Revisão persistida (0140): chave é o PAR de RATs (ids ordenados) e a revisão só vale
   // enquanto a JANELA do conflito for a mesma da conferência — horários editados depois
   // mudam o cruzamento e o par volta a pendente (revisão não cobre o que ninguém viu).
@@ -552,44 +538,6 @@ const JornadaApp = (() => {
     a.download = `deslocamento-por-tecnico_${de}_a_${ate}.csv`
     a.click()
     URL.revokeObjectURL(a.href)
-  }
-
-  async function carregar() {
-    const tid = document.getElementById('j-tec').value
-    const data = document.getElementById('j-data').value
-    if (!tid || !data) return
-    const { data: segs, error } = await sb().from('jornada_segmentos')
-      .select('id,tipo,titulo,cliente_id,inicio,fim').eq('tecnico_id', tid).eq('data', data).order('inicio')
-    if (error) { toast('Erro: ' + error.message, 'err'); return }
-    render(segs || [])
-  }
-
-  function render(segs) {
-    const entrada = segs.length ? segs[0].inicio : null
-    const saidaSeg = segs.length ? segs[segs.length - 1] : null
-    const saida = saidaSeg ? (saidaSeg.fim || null) : null
-
-    document.getElementById('j-resumo').textContent = segs.length
-      ? `${segs.length} atividade(s) · ${hhmm(entrada)} → ${saida ? hhmm(saida) : 'em aberto'}`
-      : ''
-
-    // linha do tempo + buracos
-    const tl = document.getElementById('j-timeline')
-    if (!segs.length) { tl.innerHTML = '<div class="j-empty">Nenhuma atividade neste dia.</div>'; return }
-    let html = ''
-    segs.forEach((s, i) => {
-      if (i > 0) {
-        const prev = segs[i - 1]
-        if (prev.fim) { const g = minBetween(prev.fim, s.inicio); if (g >= 1) html += `<div class="j-gap">⚠ Buraco de ${fmtMin(g)} entre ${hhmm(prev.fim)} e ${hhmm(s.inicio)} — classificar antes de faturar.</div>` }
-      }
-      const m = SEG_META[s.tipo] || {}
-      const tt = s.tipo === 'trabalho' ? (s.titulo || 'Trabalho') : (m.lb || s.tipo)
-      const sub = s.tipo === 'trabalho' ? (cliNomes[s.cliente_id] || '') : ''
-      html += `<div class="j-seg"><span class="s-ic">${m.ic || ''}</span>
-        <div class="s-main"><div class="s-tt">${esc(tt)}</div><div class="s-sub">${hhmm(s.inicio)}–${s.fim ? hhmm(s.fim) : 'em aberto'}${sub ? ` · ${esc(sub)}` : ''}</div></div>
-        <div class="s-dur">${fmtMin(minBetween(s.inicio, s.fim || new Date().toISOString()))}</div></div>`
-    })
-    tl.innerHTML = html
   }
 
   // ───────────────────── Conciliação de almoço: SR × Tangerino (somente leitura) ─────────────────────

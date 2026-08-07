@@ -19,12 +19,6 @@
   .j-toolbar select,.j-toolbar input{padding:8px 11px;border:1px solid var(--bd);border-radius:var(--r);font:inherit;font-size:13px;background:#fff}
   .j-card{background:var(--sur);border:1px solid var(--bd);border-radius:14px;padding:20px 22px;box-shadow:var(--sh);margin-bottom:18px}
   .j-card h3{font-size:13px;font-weight:700;color:var(--tx);margin:0 0 12px}
-  .j-seg{display:flex;align-items:center;gap:12px;border:1px solid var(--bd);border-radius:10px;padding:10px 12px;margin-bottom:8px}
-  .j-seg .s-ic{font-size:18px}.j-seg .s-main{flex:1;min-width:0}
-  .j-seg .s-tt{font-size:14px;font-weight:600;color:var(--tx)}
-  .j-seg .s-sub{font-size:12px;color:var(--tx3);margin-top:1px}
-  .j-seg .s-dur{font-size:13px;font-weight:700;font-variant-numeric:tabular-nums;white-space:nowrap}
-  .j-gap{display:flex;align-items:center;gap:8px;color:#C0241F;font-size:12px;font-weight:600;padding:4px 12px;margin-bottom:8px}
   .j-empty{text-align:center;color:var(--tx3);font-size:13px;padding:30px 0}
   .p-bar{display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-bottom:14px}
   .p-bar select,.p-bar input{padding:8px 11px;border:1px solid var(--bd);border-radius:var(--r);font:inherit;font-size:13px;background:#fff}
@@ -81,9 +75,7 @@
         <div id="sp-box"></div>
       </div>
       <div class="j-toolbar">
-        <select id="j-tec"></select>
         <input type="date" id="j-data">
-        <span class="dim" id="j-resumo" style="font-size:12px"></span>
       </div>
       <div class="j-card">
         <h3>Horas do dia por técnico — participações em RATs, Deslocamentos e Pré-orçamentos − o almoço único da pessoa <span class="dim" style="font-size:11.5px;font-weight:600">(horário de Brasília)</span></h3>
@@ -93,7 +85,6 @@
           <tbody id="hd-tbody"></tbody>
         </table></div>
       </div>
-      <div class="j-card"><h3>Linha do tempo</h3><div id="j-timeline"></div></div>
 
       <div class="j-card">
         <h3>Pernoites por técnico (período) — noites fora da base entre sair e voltar</h3>
