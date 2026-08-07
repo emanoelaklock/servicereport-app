@@ -1,8 +1,10 @@
 /* ═══════════════════════════════════════════════
    Service Report — jornada.js  (§10.1 dia contínuo · visão do admin)
    Mostra a jornada de um técnico num dia: linha do tempo de segmentos,
-   totais por tipo, horas de trabalho por cliente (faturável por hora,
-   arredondado p/ cima 30 min) e detecção de buraco entre atividades.
+   horas de trabalho por cliente (faturável por hora, arredondado p/ cima
+   30 min) e detecção de buraco entre atividades. (Os cards de totais por
+   tipo saíram em 08/26 — a fonte manual, jornada_segmentos, quase nunca
+   é preenchida e os cards zerados só confundiam.)
    Exposto como window.JornadaApp.
 ═══════════════════════════════════════════════ */
 const JornadaApp = (() => {
@@ -565,25 +567,13 @@ const JornadaApp = (() => {
   }
 
   function render(segs) {
-    const fechados = segs.filter(s => s.fim)
-    // totais por tipo
-    const porTipo = { trabalho: 0, pausa: 0, almoco: 0, deslocamento: 0 }
-    for (const s of segs) porTipo[s.tipo] = (porTipo[s.tipo] || 0) + minBetween(s.inicio, s.fim || new Date().toISOString())
     const entrada = segs.length ? segs[0].inicio : null
     const saidaSeg = segs.length ? segs[segs.length - 1] : null
     const saida = saidaSeg ? (saidaSeg.fim || null) : null
-    const jornadaMin = entrada ? minBetween(entrada, saida || new Date().toISOString()) : 0
 
     document.getElementById('j-resumo').textContent = segs.length
       ? `${segs.length} atividade(s) · ${hhmm(entrada)} → ${saida ? hhmm(saida) : 'em aberto'}`
       : ''
-
-    document.getElementById('j-kpis').innerHTML = `
-      <div class="j-kpi jk-blue"><div class="k">Jornada</div><div class="v">${fmtMin(jornadaMin)}</div></div>
-      <div class="j-kpi jk-green"><div class="k">Trabalho</div><div class="v">${fmtMin(porTipo.trabalho)}</div></div>
-      <div class="j-kpi jk-amber"><div class="k">Pausa</div><div class="v">${fmtMin(porTipo.pausa)}</div></div>
-      <div class="j-kpi jk-purple"><div class="k">Almoço</div><div class="v">${fmtMin(porTipo.almoco)}</div></div>
-      <div class="j-kpi jk-orange"><div class="k">Deslocamento</div><div class="v">${fmtMin(porTipo.deslocamento)}</div></div>`
 
     // horas de trabalho por cliente (faturável por hora)
     const porCli = {}
