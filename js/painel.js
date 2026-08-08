@@ -83,7 +83,8 @@
     ])
     const hm = (t) => String(t || '—').slice(0, 5)
     const revMap = {}; (rev.data || []).forEach(v => { revMap[v.rat_menor + '|' + v.rat_maior] = v })
-    const pend = (vw.error ? [] : (vw.data || [])).filter(r => {
+    // erro de carga ≠ "sem sobreposição" (F15): rows=null sinaliza e o card avisa em vez de sumir
+    const pend = vw.error ? null : (vw.data || []).filter(r => {
       const a = (r.rat_a || {}).rat_id || '', b = (r.rat_b || {}).rat_id || ''
       const v = revMap[a < b ? a + '|' + b : b + '|' + a]
       return !(v && hm(v.conflito_inicio) === hm(r.conflito_inicio) && hm(v.conflito_fim) === hm(r.conflito_fim))
@@ -92,6 +93,7 @@
   }
   function renderSobreposicoes(rows, sb) {
     const box = document.getElementById('sobrep-alerta'); if (!box) return
+    if (rows === null) { box.innerHTML = ERRO_CONF('Horários sobrepostos'); return }
     if (!rows.length) { box.innerHTML = ''; return }
     const dmy = (s) => s ? String(s).slice(0, 10).split('-').reverse().join('/') : '—'
     const hm = (t) => String(t || '—').slice(0, 5)
