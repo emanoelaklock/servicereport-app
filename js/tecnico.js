@@ -1057,8 +1057,7 @@
     document.getElementById('nt-cliente').value = ''; document.getElementById('nt-cliente-busca').value = ''
     document.getElementById('nt-tipo').value = ''
     const loc = document.getElementById('nt-local'); if (loc) loc.value = ''
-    const hojeISO = new Date().toISOString().slice(0, 10)
-    document.getElementById('nt-data').value = emCampo ? hojeISO : ''
+    document.getElementById('nt-data').value = emCampo ? jorHoje() : ''   // dia LOCAL (F11: UTC virava o dia à noite)
     document.getElementById('nt-status').value = emCampo ? 'em_execucao' : 'aguardando_execucao'
     document.getElementById('nt-orientacao').value = ''
     montarNtTecnicos()

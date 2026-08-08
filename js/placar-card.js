@@ -156,7 +156,9 @@ window.PlacarCard = (() => {
   }
 
   function cardHTML(rows, prevPct, status, atualizadoEm, doCache, hoje, mes) {
-    const emCarencia = status.carencia_ate && (hoje.toISOString().slice(0, 10) <= String(status.carencia_ate))
+    // dia LOCAL (não UTC): à noite o toISOString já virava o dia e encerrava a carência ~3h mais cedo
+    const hojeLocal = `${hoje.getFullYear()}-${String(hoje.getMonth() + 1).padStart(2, '0')}-${String(hoje.getDate()).padStart(2, '0')}`
+    const emCarencia = status.carencia_ate && (hojeLocal <= String(status.carencia_ate))
     const faixa = emCarencia
       ? `<div class="pl-selo">${IC.grafico}Período de adaptação — placar informativo</div>`
       : `<div class="pl-oficial">${IC.selo}Placar oficial · válido desde ${e_(String(status.inicio).slice(8, 10))}/${e_(String(status.inicio).slice(5, 7))}</div>`
