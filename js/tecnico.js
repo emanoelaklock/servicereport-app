@@ -1319,12 +1319,25 @@
     } catch (e) { sec.style.display = 'none' }
   }
 
+  // F13: a lista mescla o APARELHO com o SERVIDOR (por client_uuid). RAT que só existe no
+  // servidor (feita em outro aparelho e ainda não puxada, ou cuja cópia local foi excluída)
+  // aparece como cartão de LEITURA — antes a tela escondia a seção e "parecia sem RAT".
+  // Offline/erro: cai pro local (comportamento antigo). O RLS decide o que o servidor devolve.
   async function renderRatsDaTarefa(id) {
     const sec = document.getElementById('t-det-rats-sec')
     const box = document.getElementById('t-det-rats')
     const todas = await D().listarRats()
     const dela = (todas || []).filter(r => r.tarefa_id === id)
-    if (!dela.length) { sec.style.display = 'none'; return }
+    let soServidor = []
+    if (navigator.onLine) {
+      try {
+        const { data: srv } = await getSupabase().from('rats')
+          .select('client_uuid,rat_seq,status,criado_em').eq('tarefa_id', id).order('rat_seq')
+        const locais = new Set(dela.map(r => r.client_uuid))
+        soServidor = (srv || []).filter(r => !locais.has(r.client_uuid))
+      } catch (e) { /* offline/erro: segue só com o local */ }
+    }
+    if (!dela.length && !soServidor.length) { sec.style.display = 'none'; return }
     box.innerHTML = dela.map(r => {
       const conf = r.sync_status === 'confirmado'
         ? '<div class="conf"><i></i>Confirmado</div>'
@@ -1333,8 +1346,12 @@
         <div><div class="l">RAT</div><div class="s">${esc(ratSit(r.status))}</div></div>
         <div class="r">${conf}<div class="dt">${fdt(r.criado_em, { withTime: true })}</div></div>
       </div>`
-    }).join('')
-    box.querySelectorAll('.ratmini').forEach(el => el.onclick = () => abrirExistente(el.dataset.uuid))
+    }).join('') + soServidor.map(r => `
+      <div class="ratmini" style="opacity:.72;cursor:default" title="RAT sincronizada — o conteúdo completo está no servidor (feita neste ou em outro aparelho)">
+        <div><div class="l">RAT${r.rat_seq != null ? ' /' + String(r.rat_seq).padStart(2, '0') : ''}</div><div class="s">${esc(ratSit(r.status))}</div></div>
+        <div class="r"><div class="conf"><i></i>No servidor</div><div class="dt">${fdt(r.criado_em, { withTime: true })}</div></div>
+      </div>`).join('')
+    box.querySelectorAll('.ratmini[data-uuid]').forEach(el => el.onclick = () => abrirExistente(el.dataset.uuid))
     sec.style.display = 'block'
   }
 

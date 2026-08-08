@@ -34,9 +34,10 @@ Coberto pela `validar_rat()` do F2. Mantido aqui só como lembrete de que tempo 
 - **Verificado:** predicado provado em Node (6 cenários: sem RATs, só em_andamento e só improdutiva alertam; com registrada, status de execução e erro de carga não); varredura em produção no dia do fix: **0 tarefas órfãs** (alerta nasce preventivo).
 - **Nota:** levantado a partir da 04757, que na verdade **tinha** a `/02 registrado` no servidor — o "sem RAT" era view local (ver F13). O alerta vale pro caso de órfã real.
 
-### F13 — Lista de RATs do técnico lê só o aparelho (local-only) 🟠 (baixo)
-- **Onde:** `js/tecnico.js:787` `renderRatsDaTarefa` usa `D().listarRats()` (IndexedDB) e esconde a seção se vazia (`:789`). O técnico **não vê** RATs que estão só no servidor (de coautor, ou após excluir a cópia local) — mesmo o gate de concluir já consultar o servidor (autoritativo). Tela fica enganosa ("parece sem RAT").
-- **Correção:** `renderRatsDaTarefa` buscar também do servidor (merge com o local por `client_uuid`), como o bloco de conclusão já faz. Mudança de comportamento no app — testar offline (cair pro local quando sem rede).
+### F13 — Lista de RATs do técnico lê só o aparelho (local-only) ✅ RESOLVIDO (2026-08-08, SW v709)
+- **Era:** `renderRatsDaTarefa` usava só `D().listarRats()` (IndexedDB) e escondia a seção se vazia. RAT que só existia no servidor (outro aparelho ainda não puxado; cópia local excluída) sumia — "parece sem RAT" (raiz do falso-positivo da 04757/F12).
+- **Fix:** merge com o servidor por `client_uuid` (mesmo padrão do gate de concluir): RAT só-servidor vira **cartão de leitura** ("No servidor", com `/NN` e situação), sem clique (não há cópia local pra abrir; o pull `topUpRats90` hidrata as do próprio técnico no ciclo normal). Offline/erro de rede: cai pro local, comportamento antigo intacto. **Nota honesta:** o RLS de `rats` continua mostrando ao técnico só as PRÓPRIAS RATs — coautor real segue invisível (limitação de policy, não desta tela; registrada no F3/triple check).
+- **Verificado:** `node --check`; revisão do fluxo (seção só some quando local E servidor estão vazios; clique restrito a `[data-uuid]` = cartões locais).
 
 ### F15 — Estado de erro nas demais listas do portal (erro != vazio) ✅ RESOLVIDO (2026-08-08, SW v707)
 - **Era:** mesma "mentira silenciosa" do F14 (já corrigido p/ RATs): `lista = error ? [] : data` + render de vazio idêntico a "deu erro". Um erro transitório (rede/RLS/versão) sumia como "nada aqui" — e nos cards de ALERTA do Painel, o erro escondia o próprio alerta.
