@@ -65,6 +65,89 @@ const DesempenhoApp = (() => {
     try { const b = await sb().rpc('desempenho_binario', { p_mes: mes }); for (const x of (b.data || [])) binario[x.tecnico_id] = x } catch (e) {}
     try { const b = await sb().rpc('desempenho_binario', { p_mes: somaMes(mes, -1) }); for (const x of (b.data || [])) binarioAnt[x.tecnico_id] = x } catch (e) {}
     render()
+    carregarAssertividade()   // seção independente (item 12) — não bloqueia o ranking
+  }
+
+  // ───────────── Assertividade de preenchimento (item 12 do roadmap, 08/26) ─────────────
+  // Índice = % das RATs do mês (data declarada; data_tarefa segue a declarada — 0144) SEM
+  // correção da gestão por "esquecimento do técnico" (rat_edicoes.motivo, categorizado no
+  // editor auditado). Completação, correção de texto e mudança de processo NÃO contam contra
+  // o técnico (processo, não qualidade); sync_app/sync_app_recusado é o próprio aparelho
+  // re-sincronizando — fora. A RAT é atribuída ao TITULAR (rats.tecnico_id).
+  const CAMPO_LABEL = {
+    hora_inicio: 'Hora de Início', hora_termino: 'Hora de Término', data: 'Data',
+    almoco: 'Almoço', almoco_inicio: 'Almoço (início)', almoco_termino: 'Almoço (término)',
+    pausa: 'Pausa', pausa_inicio: 'Pausa (início)', pausa_termino: 'Pausa (término)', pausa_motivo: 'Pausa (motivo)',
+    desloc_ida: 'Desloc. de ida', desloc_retorno: 'Desloc. de retorno',
+    desloc_inicial_ida: 'Ida (saída)', desloc_final_ida: 'Ida (chegada)',
+    desloc_inicial_retorno: 'Retorno (saída)', desloc_final_retorno: 'Retorno (chegada)',
+    servico_executado: 'Serviço executado', observacoes: 'Observações',
+    tecnicos_responsaveis: 'Técnicos', uso_produtos: 'Uso de produtos', status: 'Situação',
+    volta_amanha: 'Volta amanhã', passagem_motivo: 'Passagem (motivo)',
+    passagem_falta: 'Passagem (o que falta)', passagem_levar: 'Passagem (o que levar)',
+  }
+  async function carregarAssertividade() {
+    const box = document.getElementById('dp-assert'); if (!box) return
+    box.innerHTML = ''
+    const ini = mes + '-01', fim = somaMes(mes, 1) + '-01'
+    const rs = await sb().from('rats')
+      .select('id,tecnico_id,tecnico_nome,rat_seq,tarefa:tarefas!rats_tarefa_id_fkey(numero)')
+      .gte('data_tarefa', ini).lt('data_tarefa', fim)
+    if (rs.error) { box.innerHTML = '<div class="dp-vazio">Erro ao carregar a assertividade — recarregue a página.</div>'; return }   // erro ≠ mês vazio (F15)
+    const rats = rs.data || []
+    if (!rats.length) return
+    const ed = await sb().from('rat_edicoes')
+      .select('rat_id,campo,motivo,em,ator_nome')
+      .in('rat_id', rats.map(r => r.id))
+      .not('motivo', 'in', '("sync_app","sync_app_recusado")')
+    if (ed.error) { box.innerHTML = '<div class="dp-vazio">Erro ao carregar a assertividade — recarregue a página.</div>'; return }
+    const porRat = {}
+    for (const e of (ed.data || [])) (porRat[e.rat_id] = porRat[e.rat_id] || []).push(e)
+    const T = {}
+    for (const r of rats) {
+      const t = (T[r.tecnico_id] = T[r.tecnico_id] || { nome: r.tecnico_nome || '—', rats: 0, comEsq: 0, esq: [], outras: 0, campos: {} })
+      t.rats++
+      const evs = porRat[r.id] || []
+      const esq = evs.filter(e => e.motivo === 'esquecimento_tecnico')
+      t.outras += evs.length - esq.length
+      if (esq.length) {
+        t.comEsq++
+        const ratNo = `${String((r.tarefa || {}).numero ?? '—').padStart(5, '0')}${r.rat_seq != null ? '/' + String(r.rat_seq).padStart(2, '0') : ''}`
+        for (const e of esq) {
+          t.campos[e.campo || '—'] = (t.campos[e.campo || '—'] || 0) + 1
+          t.esq.push({ ...e, ratNo })
+        }
+      }
+    }
+    const linhasA = Object.entries(T).map(([tid, t]) => ({ tid, ...t, pct: t.rats ? Math.round(100 * (t.rats - t.comEsq) / t.rats) : 100 }))
+    linhasA.sort((a, b) => b.pct - a.pct || b.rats - a.rats || a.nome.localeCompare(b.nome))
+    const lblCampo = (c) => CAMPO_LABEL[c] || c || '—'
+    const pctCls = (p) => p >= 90 ? 'ok' : p >= 70 ? 'meio' : 'bad'
+    const uDe = (tid) => usuarios.find(u => u.id === tid)
+    box.innerHTML = `<div class="as-card">
+      <div style="padding:14px 16px 4px">
+        <h2>Assertividade de preenchimento — RATs do mês sem correção por esquecimento</h2>
+        <div class="as-sub">Fonte: trilha auditada de edições da gestão (motivo categorizado no editor). Completação, correção de texto e mudança de processo <b>não</b> contam contra o técnico; re-sincronização do app fica fora. A RAT conta pro titular; clique na linha pra ver cada correção.</div>
+      </div>
+      <table>
+        <thead><tr><th>Técnico</th><th>RATs no mês</th><th>Com esquecimento</th><th>Campos esquecidos</th><th>Outras edições</th><th style="text-align:right">Assertividade</th></tr></thead>
+        <tbody>${linhasA.map((l, i) => {
+          const chips = Object.entries(l.campos).sort((a, b) => b[1] - a[1]).slice(0, 4)
+            .map(([c, n]) => `<span class="as-chip">${esc(lblCampo(c))}${n > 1 ? ' ×' + n : ''}</span>`).join('') || '—'
+          const drill = l.esq.map(e => `<div class="as-ev">${fmtDH(e.em)} · RAT ${esc(e.ratNo)} · <b>${esc(lblCampo(e.campo))}</b> · corrigido por ${esc(e.ator_nome || '—')}</div>`).join('')
+          return `<tr class="as-linha" data-as="${i}"${l.esq.length ? ' style="cursor:pointer" title="Ver as correções"' : ''}>
+            <td><span class="as-tec"><span class="av">${av(uDe(l.tid) || { nome: l.nome })}</span>${esc(l.nome)}</span></td>
+            <td>${l.rats}</td>
+            <td>${l.comEsq || '—'}</td>
+            <td>${chips}</td>
+            <td>${l.outras || '—'}</td>
+            <td style="text-align:right"><span class="as-pct ${pctCls(l.pct)}">${l.pct}%</span></td>
+          </tr>${l.esq.length ? `<tr class="as-drill" id="as-drill-${i}"><td colspan="6">${drill}</td></tr>` : ''}`
+        }).join('')}</tbody>
+      </table></div>`
+    box.querySelectorAll('.as-linha').forEach(tr => {
+      tr.onclick = () => { const d = document.getElementById('as-drill-' + tr.dataset.as); if (d) d.style.display = d.style.display === 'table-row' ? 'none' : 'table-row' }
+    })
   }
   // Narrativa única da tabela (portão 14/07): % de RATs SEM problema — o mesmo
   // número do card do técnico no app. (O KPI da equipe segue em "com problema".)

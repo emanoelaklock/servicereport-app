@@ -125,6 +125,26 @@
   .dp-mut{color:var(--tx3);font-size:11px;flex:none}
   .dp-empty{font-size:11.5px;color:var(--tx3);padding:2px 0}
   .dp-ress{margin-top:9px;font-size:10.5px;color:var(--tx3);background:var(--sur2);border-radius:7px;padding:6px 9px;line-height:1.5}
+  /* ── Assertividade de preenchimento (item 12) ── */
+  #dp-assert{margin-top:18px}
+  #dp-assert .as-card{background:var(--sur);border:1px solid var(--bd);border-radius:12px;overflow-x:auto;box-shadow:var(--sh)}
+  #dp-assert h2{font-size:13px;font-weight:700;margin:0 0 4px}
+  #dp-assert .as-sub{font-size:11.5px;color:var(--tx3);margin-bottom:10px;line-height:1.45}
+  #dp-assert table{width:100%;border-collapse:collapse;font-size:12.5px}
+  #dp-assert th{text-align:left;font-size:10.5px;font-weight:700;letter-spacing:.03em;color:var(--sr-info-fg);background:var(--sr-info-bg);padding:9px 12px;border-bottom:1px solid var(--bd)}
+  #dp-assert td{padding:10px 12px;border-bottom:1px solid var(--bd);vertical-align:middle}
+  #dp-assert tbody tr:last-child td{border-bottom:none}
+  #dp-assert .as-tec{display:flex;align-items:center;gap:10px;font-weight:700;letter-spacing:-.2px}
+  #dp-assert .as-tec .av{width:30px;height:30px;border-radius:50%;background:#D9E5F5;color:#3a5f8f;display:grid;place-items:center;font-weight:700;font-size:11px;overflow:hidden;flex:none}
+  #dp-assert .as-tec .av img{width:100%;height:100%;object-fit:cover}
+  #dp-assert .as-chip{display:inline-block;font-size:11px;font-weight:700;padding:2px 8px;border-radius:999px;background:var(--sr-warn-bg);color:var(--sr-warn-fg);margin:1px 3px 1px 0;white-space:nowrap}
+  #dp-assert .as-pct{font-size:15px;font-weight:800;font-variant-numeric:tabular-nums}
+  #dp-assert .as-pct.ok{color:#179A47}
+  #dp-assert .as-pct.meio{color:#B7791F}
+  #dp-assert .as-pct.bad{color:#C0241F}
+  #dp-assert .as-drill{display:none}
+  #dp-assert .as-drill td{background:var(--sr-bg);font-size:12px;padding:8px 12px}
+  #dp-assert .as-ev{padding:2px 0;color:var(--tx3)}
 </style>
 </head>
 <body class="tec-admin">
@@ -145,6 +165,7 @@
       <div id="dp-kpis"></div>
       <div id="dp-leg"></div>
       <div id="dp-rk"><div class="dp-vazio">Carregando…</div></div>
+      <div id="dp-assert"></div>
     </div>
   </div>
 </div>
