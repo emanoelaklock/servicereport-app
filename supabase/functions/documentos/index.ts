@@ -1,6 +1,10 @@
 // Edge Function: documentos (#4.5 + redesign do PDF do orçamento)
 //  action 'pdf'                     → gera PDF (pré-orçamento OU orçamento) e devolve base64.
 //  action 'pre_orcamento_concluido' → gera PDF do pré-orçamento + e-mail ao comercial (Resend), idempotente.
+//  action 'rat_registrada'          → e-mail à ADMINISTRAÇÃO quando a RAT do dia é encerrada (item 2 do
+//                                     roadmap). SEM PDF anexo (decisão 08/26: o PDF oficial da RAT nasce do
+//                                     motor compartilhado no cliente — duplicá-lo aqui criaria um 2º formato;
+//                                     o e-mail leva o conteúdo + link do portal). Idempotente: rats.email_adm_em (0150).
 // PDF no SERVIDOR (pdf-lib, sem headless browser). Layout reproduz docs/mockups/orcamento-pdf.html
 // (fonte Helvetica — pdf-lib não embute Inter sem bundlar a TTF). Variantes condicionais:
 // completo / só serviço / só materiais / pré-orçamento (sem valores nem pagamento).
@@ -299,14 +303,18 @@ async function buildPdf(d: DocData): Promise<Uint8Array> {
   return await pdf.save()
 }
 
-async function enviarEmail(to: string, subject: string, html: string, att: { filename: string; content: string }) {
+// Escapa conteúdo do usuário pro corpo HTML do e-mail (as RATs carregam texto livre).
+const escHtml = (s: unknown) => String(s ?? "").replace(/[&<>"']/g, (c) =>
+  ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c] as string))
+
+async function enviarEmail(to: string, subject: string, html: string, att?: { filename: string; content: string }) {
   const key = Deno.env.get("RESEND_API_KEY")
   if (!key) return { ok: false, reason: "RESEND_API_KEY ausente (e-mail não configurado)" }
   const from = Deno.env.get("EMAIL_FROM") || "Service Report <onboarding@resend.dev>"
   const res = await fetch("https://api.resend.com/emails", {
     method: "POST",
     headers: { Authorization: "Bearer " + key, "Content-Type": "application/json" },
-    body: JSON.stringify({ from, to: [to], subject, html, attachments: [att] }),
+    body: JSON.stringify({ from, to: [to], subject, html, ...(att ? { attachments: [att] } : {}) }),
   })
   const j = await res.json().catch(() => ({}))
   if (!res.ok) return { ok: false, reason: (j as { message?: string }).message || ("HTTP " + res.status) }
@@ -337,6 +345,74 @@ Deno.serve(async (req: Request) => {
     const tipo = body.tipo || (action === "pre_orcamento_concluido" ? "pre_orcamento" : null)
     const id = body.id
     if (!id) return json({ error: "id obrigatorio" }, 400)
+
+    // ── RAT encerrada → e-mail à administração (sem PDF; ver cabeçalho) ──
+    if (action === "rat_registrada") {
+      const { data: rat } = await admin.from("rats")
+        .select("id,tarefa_id,tecnico_id,tecnico_nome,cliente_nome,rat_seq,status,tempo_trabalhado,respostas,pendencias,email_adm_em")
+        .eq("id", id).single()
+      if (!rat) return json({ error: "RAT não encontrada" }, 404)
+      const ownerOk = role === "tecnico_campo" && rat.tecnico_id === uid
+      if (!isOffice && !ownerOk) return json({ error: "sem permissão" }, 403)
+      if (rat.status !== "registrado") return json({ ok: true, skipped: "RAT não está registrada" })
+      if (rat.email_adm_em) return json({ ok: true, already: true })
+
+      const { data: ta } = rat.tarefa_id
+        ? await admin.from("tarefas").select("numero,orientacao").eq("id", rat.tarefa_id).single()
+        : { data: null }
+      const { data: rts } = await admin.from("rat_tecnicos").select("tecnico_id").eq("rat_id", id)
+      let tecs = rat.tecnico_nome || "—"
+      const tids = (rts || []).map((x: { tecnico_id: string }) => x.tecnico_id)
+      if (tids.length) {
+        const { data: us } = await admin.from("usuarios").select("id,nome").in("id", tids)
+        const nomes = (us || []).map((u: { nome?: string }) => u.nome).filter(Boolean)
+        if (nomes.length) tecs = nomes.join(", ")
+      }
+      const { data: mats } = await admin.from("materiais").select("descricao,codigo_produto,quantidade").eq("rat_id", id).eq("origem", "usado")
+
+      const r = (rat.respostas || {}) as Record<string, unknown>
+      const e = escHtml
+      const ratNo = `${String(ta?.numero ?? "—").padStart(5, "0")}${rat.rat_seq != null ? "/" + String(rat.rat_seq).padStart(2, "0") : ""}`
+      const dia = String(r.data || "")
+      const diaBR = /^\d{4}-\d{2}-\d{2}/.test(dia) ? dia.slice(0, 10).split("-").reverse().join("/") : "—"
+      const linha = (k: string, v: unknown) => v
+        ? `<tr><td style="padding:3px 12px 3px 0;color:#666;white-space:nowrap;vertical-align:top">${k}</td><td style="padding:3px 0">${e(v)}</td></tr>` : ""
+      const faixa = (a: unknown, b: unknown) => [a, b].filter(Boolean).join("–")
+      const secao = (titulo: string, txt: unknown, cor = "#111") => txt
+        ? `<p style="margin:14px 0 4px;color:${cor}"><strong>${titulo}</strong></p><p style="white-space:pre-wrap;margin:0">${e(txt)}</p>` : ""
+      const matHtml = (mats || []).length
+        ? `<p style="margin:14px 0 4px"><strong>Materiais utilizados</strong></p><ul style="margin:0;padding-left:18px">` +
+          (mats || []).map((m: { descricao?: string; codigo_produto?: string; quantidade?: number }) =>
+            `<li>${e(m.descricao || m.codigo_produto || "—")} × ${e(QTD(Number(m.quantidade)))}</li>`).join("") + `</ul>`
+        : ""
+      const appUrl = env("APP_URL", "https://servicereport-app.vercel.app")
+      const link = rat.tarefa_id
+        ? `${appUrl}/tarefa.html?t=${rat.tarefa_id}&aba=rats&rat=${rat.id}`
+        : `${appUrl}/rat.html?id=${rat.id}`
+      const html = `<p><strong>RAT ${e(ratNo)} encerrada</strong> — ${e(rat.cliente_nome || "—")}</p>
+        <table style="border-collapse:collapse;font-size:14px">
+          ${linha("Data", diaBR)}
+          ${linha("Técnico(s)", tecs)}
+          ${linha("Execução", faixa(r.hora_inicio, r.hora_termino))}
+          ${linha("Almoço", faixa(r.almoco_inicio, r.almoco_termino))}
+          ${linha("Desloc. ida", faixa(r.desloc_inicial_ida, r.desloc_final_ida))}
+          ${linha("Desloc. retorno", faixa(r.desloc_inicial_retorno, r.desloc_final_retorno))}
+          ${linha("Tempo trabalhado", fmtMinPdf(rat.tempo_trabalhado as number))}
+          ${linha("Orientação (OS)", ta?.orientacao)}
+        </table>
+        ${secao("Serviço executado", r.servico_executado)}
+        ${secao("Observações", r.observacoes)}
+        ${secao("Pendência", rat.pendencias, "#a15c00")}
+        ${matHtml}
+        <p style="margin-top:16px"><a href="${link}">Abrir no portal (PDF oficial)</a></p>`
+      const to = env("RAT_EMAIL_TO", "adm@tsrv.com.br")
+      const rEnv = await enviarEmail(to, `RAT ${ratNo} — ${rat.cliente_nome || ""} (${diaBR})`.trim(), html)
+      if (rEnv.ok) {
+        await admin.from("rats").update({ email_adm_em: new Date().toISOString() }).eq("id", id)
+        return json({ ok: true, email: "enviado", id: rEnv.id })
+      }
+      return json({ ok: true, email: "falhou", reason: rEnv.reason })
+    }
 
     let docData: DocData
     let preorcRow: { numero: number; email_comercial_em?: string | null } | null = null

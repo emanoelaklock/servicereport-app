@@ -186,6 +186,12 @@
       // CAS (apenasSe): fecha a janela restante — se um save escorregar entre a leitura da guarda
       // e esta gravação, o confirmado NÃO aplica (a RAT fica pendente e sobe na próxima rodada).
       await D().definirStatus(rat.client_uuid, D().STATUS.CONFIRMADO, 'recebido pelo servidor', D().STATUS.ENVIANDO)
+      // E-mail à administração quando a RAT do dia é ENCERRADA (item 2 do roadmap) — fire-and-
+      // forget, nunca afeta o sync: a Edge é idempotente (carimbo rats.email_adm_em, 0150) e o
+      // flag local (que chega via pull) evita re-invocar à toa. Espelho do pré-orçamento.
+      if (rat.status === 'registrado' && !rat.email_adm_em) {
+        try { sb.functions.invoke('documentos', { body: { action: 'rat_registrada', id: tarefaId } }).catch(() => {}) } catch (e) { /* melhor esforço */ }
+      }
     }
 
     // 6) sync_eventos pendentes → servidor (idempotente: id = id local do evento)
