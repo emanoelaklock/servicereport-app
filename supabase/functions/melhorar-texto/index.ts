@@ -45,8 +45,11 @@ Deno.serve(async (req: Request) => {
     if (texto.length > 4000) return json({ error: "texto muito longo (máx. 4000 caracteres)" }, 400)
 
     // P1a: env-first (Function Secret) com fallback TEMPORÁRIO à tabela app_secrets (removido no 3º PR)
-    const apiKey = Deno.env.get("ANTHROPIC_API_KEY")
-      || (await admin.from("app_secrets").select("valor").eq("chave", "anthropic_api_key").maybeSingle()).data?.valor
+    let apiKey = Deno.env.get("ANTHROPIC_API_KEY")
+    if (!apiKey) {   // fallback BARULHENTO (P1a): warn nos logs prova se o env já serve tudo antes do 3º PR remover
+      console.warn("[P1a] fallback app_secrets usado: anthropic_api_key (Function Secret ANTHROPIC_API_KEY ausente)")
+      apiKey = (await admin.from("app_secrets").select("valor").eq("chave", "anthropic_api_key").maybeSingle()).data?.valor
+    }
     if (!apiKey) return json({ error: "IA não configurada (falta ANTHROPIC_API_KEY)" }, 500)
 
     const anthropic = new Anthropic({ apiKey })
