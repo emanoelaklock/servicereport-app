@@ -73,7 +73,11 @@ const DesempenhoApp = (() => {
   // correção da gestão por "esquecimento do técnico" (rat_edicoes.motivo, categorizado no
   // editor auditado). Completação, correção de texto e mudança de processo NÃO contam contra
   // o técnico (processo, não qualidade); sync_app/sync_app_recusado é o próprio aparelho
-  // re-sincronizando — fora. A RAT é atribuída ao TITULAR (rats.tecnico_id).
+  // re-sincronizando — fora. A RAT conta pra TODOS os técnicos dela (rat_tecnicos ∪ titular)
+  // — a MESMA régua do placar (0097): no modelo colaborativo um técnico loga e preenche pela
+  // dupla, então a régua "só titular" escondia quem nunca é o digitador (caso real: agosto
+  // mostrava 3 técnicos com 6 em campo; Alessandro tinha 11 RATs como participante e 0 como
+  // titular). O drill mostra "preenchida por X" quando a RAT não é do próprio técnico.
   const CAMPO_LABEL = {
     hora_inicio: 'Hora de Início', hora_termino: 'Hora de Término', data: 'Data',
     almoco: 'Almoço', almoco_inicio: 'Almoço (início)', almoco_termino: 'Almoço (término)',
@@ -96,26 +100,39 @@ const DesempenhoApp = (() => {
     if (rs.error) { box.innerHTML = '<div class="dp-vazio">Erro ao carregar a assertividade — recarregue a página.</div>'; return }   // erro ≠ mês vazio (F15)
     const rats = rs.data || []
     if (!rats.length) return
-    const ed = await sb().from('rat_edicoes')
-      .select('rat_id,campo,motivo,em,ator_nome')
-      .in('rat_id', rats.map(r => r.id))
-      .not('motivo', 'in', '("sync_app","sync_app_recusado")')
-    if (ed.error) { box.innerHTML = '<div class="dp-vazio">Erro ao carregar a assertividade — recarregue a página.</div>'; return }
+    const ids = rats.map(r => r.id)
+    const [ed, rt] = await Promise.all([
+      sb().from('rat_edicoes')
+        .select('rat_id,campo,motivo,em,ator_nome')
+        .in('rat_id', ids)
+        .not('motivo', 'in', '("sync_app","sync_app_recusado")'),
+      sb().from('rat_tecnicos').select('rat_id,tecnico_id').in('rat_id', ids),
+    ])
+    if (ed.error || rt.error) { box.innerHTML = '<div class="dp-vazio">Erro ao carregar a assertividade — recarregue a página.</div>'; return }
     const porRat = {}
     for (const e of (ed.data || [])) (porRat[e.rat_id] = porRat[e.rat_id] || []).push(e)
+    // participantes por RAT = rat_tecnicos ∪ titular (RAT sem sub-tabela cai no titular)
+    const partDe = {}
+    for (const x of (rt.data || [])) (partDe[x.rat_id] = partDe[x.rat_id] || new Set()).add(x.tecnico_id)
+    const nomeDe = (tid, fb) => { const u = usuarios.find(x => x.id === tid); return (u && u.nome) || fb || '—' }
     const T = {}
     for (const r of rats) {
-      const t = (T[r.tecnico_id] = T[r.tecnico_id] || { nome: r.tecnico_nome || '—', rats: 0, comEsq: 0, esq: [], outras: 0, campos: {} })
-      t.rats++
+      const parts = new Set(partDe[r.id] || [])
+      if (r.tecnico_id) parts.add(r.tecnico_id)
       const evs = porRat[r.id] || []
       const esq = evs.filter(e => e.motivo === 'esquecimento_tecnico')
-      t.outras += evs.length - esq.length
-      if (esq.length) {
-        t.comEsq++
-        const ratNo = `${String((r.tarefa || {}).numero ?? '—').padStart(5, '0')}${r.rat_seq != null ? '/' + String(r.rat_seq).padStart(2, '0') : ''}`
-        for (const e of esq) {
-          t.campos[e.campo || '—'] = (t.campos[e.campo || '—'] || 0) + 1
-          t.esq.push({ ...e, ratNo })
+      const ratNo = `${String((r.tarefa || {}).numero ?? '—').padStart(5, '0')}${r.rat_seq != null ? '/' + String(r.rat_seq).padStart(2, '0') : ''}`
+      for (const tid of parts) {
+        const t = (T[tid] = T[tid] || { nome: nomeDe(tid, tid === r.tecnico_id ? r.tecnico_nome : null), rats: 0, comEsq: 0, esq: [], outras: 0, campos: {} })
+        t.rats++
+        t.outras += evs.length - esq.length
+        if (esq.length) {
+          t.comEsq++
+          const preenchedor = (tid !== r.tecnico_id && r.tecnico_id) ? nomeDe(r.tecnico_id, r.tecnico_nome) : null
+          for (const e of esq) {
+            t.campos[e.campo || '—'] = (t.campos[e.campo || '—'] || 0) + 1
+            t.esq.push({ ...e, ratNo, preenchedor })
+          }
         }
       }
     }
@@ -127,14 +144,14 @@ const DesempenhoApp = (() => {
     box.innerHTML = `<div class="as-card">
       <div style="padding:14px 16px 4px">
         <h2>Assertividade de preenchimento — RATs do mês sem correção por esquecimento</h2>
-        <div class="as-sub">Fonte: trilha auditada de edições da gestão (motivo categorizado no editor). Completação, correção de texto e mudança de processo <b>não</b> contam contra o técnico; re-sincronização do app fica fora. A RAT conta pro titular; clique na linha pra ver cada correção.</div>
+        <div class="as-sub">Fonte: trilha auditada de edições da gestão (motivo categorizado no editor). Completação, correção de texto e mudança de processo <b>não</b> contam contra o técnico; re-sincronização do app fica fora. A RAT conta pra <b>todos os técnicos dela</b> (mesma régua do placar); clique na linha pra ver cada correção — o drill mostra quem preencheu quando a RAT não é do próprio técnico.</div>
       </div>
       <table>
         <thead><tr><th>Técnico</th><th>RATs no mês</th><th>Com esquecimento</th><th>Campos esquecidos</th><th>Outras edições</th><th style="text-align:right">Assertividade</th></tr></thead>
         <tbody>${linhasA.map((l, i) => {
           const chips = Object.entries(l.campos).sort((a, b) => b[1] - a[1]).slice(0, 4)
             .map(([c, n]) => `<span class="as-chip">${esc(lblCampo(c))}${n > 1 ? ' ×' + n : ''}</span>`).join('') || '—'
-          const drill = l.esq.map(e => `<div class="as-ev">${fmtDH(e.em)} · RAT ${esc(e.ratNo)} · <b>${esc(lblCampo(e.campo))}</b> · corrigido por ${esc(e.ator_nome || '—')}</div>`).join('')
+          const drill = l.esq.map(e => `<div class="as-ev">${fmtDH(e.em)} · RAT ${esc(e.ratNo)} · <b>${esc(lblCampo(e.campo))}</b> · corrigido por ${esc(e.ator_nome || '—')}${e.preenchedor ? ` · <i>preenchida por ${esc(e.preenchedor)}</i>` : ''}</div>`).join('')
           return `<tr class="as-linha" data-as="${i}"${l.esq.length ? ' style="cursor:pointer" title="Ver as correções"' : ''}>
             <td><span class="as-tec"><span class="av">${av(uDe(l.tid) || { nome: l.nome })}</span>${esc(l.nome)}</span></td>
             <td>${l.rats}</td>
