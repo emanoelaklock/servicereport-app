@@ -50,7 +50,8 @@ const DesempenhoApp = (() => {
       return { linhas: snap.data.map(s => Object.assign({}, s.dados, { nota: Number(s.nota) })), fonte: { tipo: 'snapshot', carimbo: snap.data[0].gerado_em } }
     }
     const r = await sb().rpc('desempenho_time', { p_mes: m })
-    return { linhas: (r.error ? [] : (r.data || [])), fonte: { tipo: 'parcial' } }
+    // erro de carga ≠ mês vazio (F15): a flag chega ao render pra não fingir "sem dados"
+    return { linhas: r.error ? [] : (r.data || []), fonte: { tipo: 'parcial' }, erro: !!r.error }
   }
 
   async function carregar() {
@@ -132,7 +133,7 @@ const DesempenhoApp = (() => {
     if (sel) sel.onchange = () => { ordem = sel.value; render() }
 
     const box = document.getElementById('dp-rk')
-    if (!n) { box.innerHTML = `<div class="dp-vazio">${(!status || !status.inicio) && fonte.tipo !== 'snapshot' ? 'Sem dados: painel desligado e nenhum snapshot deste mês.' : 'Nenhum técnico com RATs neste mês.'}</div>`; return }
+    if (!n) { box.innerHTML = `<div class="dp-vazio">${fonte.erro ? 'Erro ao carregar o desempenho do mês — recarregue a página.' : ((!status || !status.inicio) && fonte.tipo !== 'snapshot' ? 'Sem dados: painel desligado e nenhum snapshot deste mês.' : 'Nenhum técnico com RATs neste mês.')}</div>`; return }
     const pctL = (l) => pctDe(binario[l.tecnico_id])
     const ordenadas = linhas.slice().sort((a, b) => {
       if (ordem === 'nome') return String(a.tecnico_nome).localeCompare(String(b.tecnico_nome))
@@ -220,7 +221,8 @@ const DesempenhoApp = (() => {
       sb().rpc('desempenho_rats', { p_mes: mes, p_tecnico: tec }),
       sb().rpc('desempenho_devolucoes', { p_mes: mes, p_tecnico: tec }),
     ])
-    const rlist = rats.error ? [] : (rats.data || [])
+    if (rats.error || devs.error) { boxEl.innerHTML = '<div class="dp-vazio">Erro ao carregar o detalhe — recarregue a página.</div>'; return }   // F15: erro ≠ drill vazio
+    const rlist = rats.data || []
     // trilha 0095/0098: reedições marcadas nas RATs deste técnico
     let marcas = []
     const ids = rlist.map(r => r.rat_id)
@@ -229,7 +231,7 @@ const DesempenhoApp = (() => {
       if (!m.error) marcas = m.data || []
     }
     const linhaTec = linhas.find(l => l.tecnico_id === tec) || {}
-    boxEl.innerHTML = drillHTML(rlist, devs.error ? [] : (devs.data || []), marcas, linhaTec)
+    boxEl.innerHTML = drillHTML(rlist, devs.data || [], marcas, linhaTec)
   }
   function marcaAberta() { document.querySelectorAll('.dp-linha').forEach(tr => tr.classList.toggle('on', tr.dataset.tec === aberto)) }
 

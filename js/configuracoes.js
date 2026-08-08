@@ -97,7 +97,9 @@
     tipos = t.error ? [] : (t.data || [])
     veiculos = v.error ? [] : (v.data || [])
     statuses = st.error ? [] : (st.data || [])
-    if (f.error) toast('Erro ao carregar formulários: ' + f.error.message, 'err')
+    // erro de carga ≠ cadastro vazio (F15): cada lista que falhou avisa (o "Nenhum X" mentia)
+    const falhas = [[f, 'formulários'], [t, 'tipos de serviço'], [v, 'veículos'], [st, 'status']].filter(([r]) => r.error)
+    if (falhas.length) toast('Erro ao carregar: ' + falhas.map(([, n]) => n).join(', ') + ' — recarregue a página.', 'err')
     renderFormularios(); renderTipos(); renderVeiculos(); renderStatus()
   }
 
@@ -600,6 +602,7 @@
       .order('nome').range(from, from + CLI_PG - 1)
     if (q) { const qq = q.replace(/[%,()]/g, '').trim(); if (qq) query = query.or(`nome.ilike.%${qq}%,documento.ilike.%${qq}%`) }
     const { data, error, count } = await query
+    if (error) toast('Erro ao carregar as empresas — recarregue a página.', 'err')   // F15: erro ≠ busca vazia
     renderCadastro('cli', error ? [] : (data || []), 'cliente')
     const total = count || 0, fim = Math.min(from + CLI_PG, total)
     const info = document.getElementById('cli-pag-info'); if (info) info.textContent = total ? `${total ? from + 1 : 0}–${fim} de ${total}` : 'nenhuma empresa'
@@ -615,6 +618,7 @@
       .order('descricao').range(from, from + PROD_PG - 1)
     if (q) { const qq = q.replace(/[%,()]/g, '').trim(); if (qq) query = query.or(`descricao.ilike.%${qq}%,codigo.ilike.%${qq}%`) }
     const { data, error, count } = await query
+    if (error) toast('Erro ao carregar os produtos — recarregue a página.', 'err')   // F15: erro ≠ busca vazia
     renderCadastro('prod', error ? [] : (data || []), 'produto')
     const total = count || 0, fim = Math.min(from + PROD_PG, total)
     const info = document.getElementById('prod-pag-info'); if (info) info.textContent = total ? `${total ? from + 1 : 0}–${fim} de ${total}` : 'nenhum produto'

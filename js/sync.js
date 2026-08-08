@@ -75,6 +75,15 @@
     // 3) Upsert da tarefa (idempotente por client_uuid)
     const payload = {}
     TAREFA_COLS.forEach(c => { if (rat[c] !== undefined && rat[c] !== null) payload[c] = rat[c] })
+    // F7: o filtro acima PULA null — mas coluna "limpável" precisa LIMPAR no servidor quando o
+    // estado local a anula. Caso real: improdutiva que vira produtiva não apagava o motivo no
+    // servidor. Produtiva (atendimento_executado === true, explícito) por definição não tem
+    // motivo de improdutiva → null explícito (idempotente). `undefined` (registro antigo sem o
+    // campo) NÃO limpa — ambiguidade nunca apaga dado do servidor.
+    if (rat.atendimento_executado === true) {
+      payload.motivo_improdutiva = null
+      payload.motivo_texto = null
+    }
     payload.client_uuid = rat.client_uuid
     payload.origem_registro = 'nativo'
     payload.tecnico_id = uid
