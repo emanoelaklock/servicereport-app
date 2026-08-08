@@ -38,16 +38,13 @@ Coberto pela `validar_rat()` do F2. Mantido aqui só como lembrete de que tempo 
 - **Onde:** `js/tecnico.js:787` `renderRatsDaTarefa` usa `D().listarRats()` (IndexedDB) e esconde a seção se vazia (`:789`). O técnico **não vê** RATs que estão só no servidor (de coautor, ou após excluir a cópia local) — mesmo o gate de concluir já consultar o servidor (autoritativo). Tela fica enganosa ("parece sem RAT").
 - **Correção:** `renderRatsDaTarefa` buscar também do servidor (merge com o local por `client_uuid`), como o bloco de conclusão já faz. Mudança de comportamento no app — testar offline (cair pro local quando sem rede).
 
-### F15 — Estado de erro nas demais listas do portal (erro != vazio) 🟠 (baixo)
-- **Motivo:** mesma "mentira silenciosa" do F14 (já corrigido p/ RATs): `lista = error ? [] : data` + render de vazio idêntico a "deu erro". Um erro transitório (rede/RLS/versão) some como "nada aqui".
-- **Onde (todos mudos — sem toast/aviso):**
-  - `js/tarefa.js:572` `carregarEquip` → "Nenhum equipamento vinculado."
-  - `js/tarefa.js:603` `carregarAnexos` → "Nenhum anexo." (**também alimenta o card Situação "Anexos: Nenhum"** — mente no resumo, como o RATs mentia).
-  - `js/tarefa.js:1345` `carregarTimeline` → "Sem eventos registrados ainda."
-  - `js/painel.js:39` `renderRecentes` (dashboard) → "Nenhuma RAT ainda."
-- **Já OK (não mexer):** `js/tarefa.js:646` `carregarLinhas` (conciliação) já dá `toast('Erro ao carregar conciliação…')` (`:648`).
-- **Correção:** mesmo padrão do F14 — flag de erro por lista, render "Erro ao carregar — recarregue" em vez do vazio (e card Situação dos Anexos idem). Só frontend, sem migration.
-- **Prioridade interna:** anexos > painel/recentes > equipamentos > timeline.
+### F15 — Estado de erro nas demais listas do portal (erro != vazio) ✅ RESOLVIDO (2026-08-08, SW v707)
+- **Era:** mesma "mentira silenciosa" do F14 (já corrigido p/ RATs): `lista = error ? [] : data` + render de vazio idêntico a "deu erro". Um erro transitório (rede/RLS/versão) sumia como "nada aqui" — e nos cards de ALERTA do Painel, o erro escondia o próprio alerta.
+- **Fix (mesmo padrão do F14 — flag de erro por lista, render explícito, só frontend):**
+  - `tarefa.js` `carregarEquip`/`carregarAnexos` → `cur.equipErro`/`cur.anexosErro`; render "Erro ao carregar … — recarregue a página"; **card Situação → Anexos** vira `s-warn` "Erro ao carregar" (não mente mais "Nenhum"); `carregarTimeline` idem.
+  - `painel.js` (o `renderRecentes` do levantamento original já não existia — dashboard reformulado; o equivalente atual são as conferências): `rows=null` sinaliza erro e os cards **Envios presos**, **Tarefas paradas** e **Devolvidas sem retorno** mostram "⚠ Não foi possível carregar a conferência — recarregue" em vez de SUMIR; lista **Pendentes de execução** distingue erro de "Nenhuma".
+- **Já OK (não mexido):** `carregarLinhas` (conciliação) já tinha toast de erro.
+- **Verificado:** `node --check` nos dois JS; revisão dos 7 pontos (nenhum `error ? []` restante alimentando render de vazio em tarefa.js/painel.js).
 
 ## Cauda (cosmético / baixo — quando sobrar)
 

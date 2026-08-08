@@ -1256,11 +1256,13 @@ const TarefaApp = (() => {
   // ───────────────────── Equipamentos relacionados ─────────────────────
   async function carregarEquip() {
     const { data, error } = await sb().from('tarefa_equipamentos').select('equipamento_id').eq('tarefa_id', cur.id)
+    cur.equipErro = !!error   // erro de carga ≠ "sem equipamento" (F15 — lição do F14)
     cur.equip = error ? [] : (data || []).map(r => r.equipamento_id)
     renderEquip()
   }
   function renderEquip() {
     const box = document.getElementById('cc-eq-chips')
+    if (cur.equipErro) { box.innerHTML = '<span class="cc-empty-sm" style="color:var(--red)">Erro ao carregar os equipamentos — recarregue a página.</span>'; return }
     if (!cur.equip || !cur.equip.length) { box.innerHTML = '<span class="cc-empty-sm">Nenhum equipamento vinculado.</span>'; return }
     box.innerHTML = cur.equip.map(id => {
       const e = ref.equip.find(x => x.id === id) || {}
@@ -1287,12 +1289,14 @@ const TarefaApp = (() => {
   // ───────────────────── Anexos ─────────────────────
   async function carregarAnexos() {
     const { data, error } = await sb().from('tarefa_anexos').select('*').eq('tarefa_id', cur.id).order('criado_em')
+    cur.anexosErro = !!error   // erro de carga ≠ "sem anexo" (F15): o card Situação mentia "Nenhum"
     cur.anexos = error ? [] : (data || [])
     await renderAnexos()
     renderSituacao()
   }
   async function renderAnexos() {
     const box = document.getElementById('cc-anx-list')
+    if (cur.anexosErro) { box.innerHTML = '<span class="cc-empty-sm" style="color:var(--red)">Erro ao carregar os anexos — recarregue a página.</span>'; return }
     if (!cur.anexos || !cur.anexos.length) { box.innerHTML = '<span class="cc-empty-sm">Nenhum anexo.</span>'; return }
     const ehImg = (n) => /\.(jpe?g|png|gif|webp|bmp)$/i.test(n || '')
     const urlByPath = {}
@@ -2209,7 +2213,7 @@ const TarefaApp = (() => {
       // é informativo (segue no card/stat), mas não mantém o card em pendência.
       prodWarn: aRevisar > 0,
       matConflito: !!(cur && cur.matConflitoRats), matConflitoRats: (cur && cur.matConflitoRats) || 0,
-      fat: !!t.faturado, anx: ((cur && cur.anexos) || []).length, equipLen: ((cur && cur.equip) || []).length,
+      fat: !!t.faturado, anx: ((cur && cur.anexos) || []).length, anxErro: !!(cur && cur.anexosErro), equipLen: ((cur && cur.equip) || []).length,
       // F12: tarefa pós-conclusão SEM nenhuma RAT registrada — órfã (burla de API, conclusão
       // forçada ou churn de dados). Erro de carga NÃO conta como zero (cur.ratsErro).
       semRatRegistrada: posExec && !(cur && cur.ratsErro)
@@ -2240,7 +2244,9 @@ const TarefaApp = (() => {
       situCard(e.matConflito ? 's-pend' : (e.prodWarn ? 's-warn' : 's-ok'), SITU_ICO.prod, 'Produtos', e.matConflito ? 'Conflito de material' : (e.prodWarn ? 'Pendência' : 'OK'), e.matConflito ? (e.matConflitoRats > 1 ? e.matConflitoRats + ' RATs' : 'resolver') : (e.devItens ? `${e.devItens} a devolver` : '')),
       situCard(e.foraN ? 's-pend' : 's-ok', SITU_ICO.fora, 'Fora da proposta', e.foraN ? `${e.foraN} ${e.foraN > 1 ? 'itens' : 'item'}` : 'OK'),
       situCard(e.fat ? 's-ok' : 's-warn', SITU_ICO.fat, 'Faturamento', e.fat ? 'Faturado' : 'Pendente'),
-      situCard('s-ok', SITU_ICO.anx, 'Anexos', e.anx ? `${e.anx} ${e.anx > 1 ? 'arquivos' : 'arquivo'}` : 'Nenhum'),
+      e.anxErro
+        ? situCard('s-warn', SITU_ICO.anx, 'Anexos', 'Erro ao carregar')
+        : situCard('s-ok', SITU_ICO.anx, 'Anexos', e.anx ? `${e.anx} ${e.anx > 1 ? 'arquivos' : 'arquivo'}` : 'Nenhum'),
     ].join('')
     renderTabs()
     renderResumo()
@@ -2357,7 +2363,8 @@ const TarefaApp = (() => {
     const tl = document.getElementById('cc-timeline'); if (!tl) return
     if (!cur || !cur.id) { tl.innerHTML = ''; return }
     const { data, error } = await sb().from('auditoria').select('acao,detalhe,ator_nome,em').eq('tarefa_id', cur.id).order('em', { ascending: true })
-    const rows = error ? [] : (data || [])
+    if (error) { tl.innerHTML = '<div class="cc-empty-sm" style="grid-column:1/-1;color:var(--red)">Erro ao carregar a linha do tempo — recarregue a página.</div>'; return }
+    const rows = data || []
     if (!rows.length) { tl.innerHTML = '<div class="cc-empty-sm" style="grid-column:1/-1">Sem eventos registrados ainda.</div>'; return }
     tl.innerHTML = rows.map(r => {
       const ico = TL_ICO[r.acao] || TL_ICO.status_alterado

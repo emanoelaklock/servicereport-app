@@ -24,14 +24,18 @@
       sb.from('envio_preso_revisoes').select('rat_client_uuid,revisado_em'),
     ])
     const revMap = {}; (rev.data || []).forEach(v => { revMap[v.rat_client_uuid] = v })
-    const pend = (vw.error ? [] : (vw.data || [])).filter(r => {
+    // erro de carga ≠ "sem alerta" (F15): sumir com o card em silêncio esconderia dado de
+    // campo em risco. rows=null sinaliza o erro pro render.
+    const pend = vw.error ? null : (vw.data || []).filter(r => {
       const v = revMap[r.rat_client_uuid]
       return !(v && new Date(r.ultimo_envio).getTime() <= new Date(v.revisado_em).getTime())
     })
     renderEnviosPresos(pend, sb)
   }
+  const ERRO_CONF = (nome) => `<div style="font-size:12px;color:#B7791F;font-weight:600;padding:6px 2px">⚠ Não foi possível carregar a conferência “${nome}” — recarregue a página.</div>`
   function renderEnviosPresos(rows, sb) {
     const box = document.getElementById('presos-alerta'); if (!box) return
+    if (rows === null) { box.innerHTML = ERRO_CONF('Envios presos no aparelho'); return }
     if (!rows.length) { box.innerHTML = ''; return }
     const dmy = (iso) => iso ? String(iso).slice(0, 10).split('-').reverse().join('/') : '—'
     const idade = (iso) => { const d = Math.floor((Date.now() - new Date(iso).getTime()) / 86400000); return d < 1 ? 'hoje' : d === 1 ? 'há 1 dia' : `há ${d} dias` }
@@ -135,10 +139,11 @@
       .select('id,numero,cliente_id,status,dias_parada')
       .gte('dias_parada', 5)
       .order('dias_parada', { ascending: false })   // mais paradas primeiro
-    renderAcompanhamento(error ? [] : (data || []), cli)
+    renderAcompanhamento(error ? null : (data || []), cli)   // null = erro (F15: não sumir em silêncio)
   }
   function renderAcompanhamento(rows, cli) {
     const box = document.getElementById('acomp-alerta'); if (!box) return
+    if (rows === null) { box.innerHTML = ERRO_CONF('Tarefas paradas'); return }
     if (!rows.length) { box.innerHTML = ''; return }
     const osNo = (n) => n == null ? '—' : String(n).padStart(5, '0')
     const stLabel = (s) => s === 'em_pausa' ? 'Em pausa' : 'Em execução'
@@ -162,10 +167,11 @@
       .select('id,numero,cliente_id,devolvida_em')
       .eq('status', 'devolvida').lt('devolvida_em', corte)
       .order('devolvida_em', { ascending: true })   // mais antigas (mais atrasadas) primeiro
-    renderDevolvidas(error ? [] : (data || []), cli)
+    renderDevolvidas(error ? null : (data || []), cli)   // null = erro (F15: não sumir em silêncio)
   }
   function renderDevolvidas(rows, cli) {
     const box = document.getElementById('devol-alerta'); if (!box) return
+    if (rows === null) { box.innerHTML = ERRO_CONF('Devolvidas sem retorno'); return }
     if (!rows.length) { box.innerHTML = ''; return }
     const osNo = (n) => n == null ? '—' : String(n).padStart(5, '0')
     const idade = (iso) => { const d = Math.floor((Date.now() - new Date(iso).getTime()) / 86400000); return d <= 1 ? '1 dia' : d + ' dias' }
@@ -186,13 +192,14 @@
     const { data, error } = await sb.from('tarefas').select('id,numero,cliente_id,orientacao,data_agendada')
       .eq('status', 'aguardando_execucao')
       .order('data_agendada', { ascending: true, nullsFirst: false })
-    renderPendExec(error ? [] : (data || []), cli)
+    renderPendExec(error ? null : (data || []), cli)   // null = erro (F15: "Nenhuma" mentia)
   }
 
   function renderPendExec(rows, cli) {
     const box = document.getElementById('pend-exec'); if (!box) return
     const lab = document.getElementById('pend-exec-lab')
-    if (lab) lab.textContent = `Tarefas pendentes de execução${rows.length ? ' (' + rows.length + ')' : ''}`
+    if (lab) lab.textContent = `Tarefas pendentes de execução${rows && rows.length ? ' (' + rows.length + ')' : ''}`
+    if (rows === null) { box.innerHTML = '<div class="pe-empty" style="color:#B7791F">⚠ Erro ao carregar as tarefas pendentes — recarregue a página.</div>'; return }
     if (!rows.length) { box.innerHTML = '<div class="pe-empty">Nenhuma tarefa pendente de execução.</div>'; return }
     const osNo = (n) => n == null ? '—' : String(n).padStart(5, '0')
     box.innerHTML = rows.map((t, i) => `
